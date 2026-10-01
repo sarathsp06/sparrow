@@ -57,6 +57,7 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `SPARROW_EVENT_RETENTION_DAYS` | Purge events (and cascaded deliveries) older than N days via an hourly background job; `0` disables retention (data kept forever) | `0` |
+| `SPARROW_AUTO_REGISTER_EVENTS` | Push to an unregistered event name creates a schema-less event type instead of returning 404; development only | `false` |
 
 ## Template history
 

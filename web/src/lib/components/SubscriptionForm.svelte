@@ -34,6 +34,8 @@
   let labelFilters = $state<Record<string, string>>({ ...(subscription?.label_filters || {}) });
   let transformEnabled = $state(subscription?.transform_enabled ?? false);
   let transformTemplate = $state(subscription?.transform_template || "");
+  let onTransformError = $state<"fail" | "fallback">((subscription?.on_transform_error as "fail" | "fallback") ?? "fail");
+  let templateMissingKey = $state<"error" | "zero">((subscription?.template_missing_key as "error" | "zero") ?? "error");
   let templateMeta: TemplateSaveMeta | null = $state(null);
   let templateChanged = $state(false);
   let editorOpen = $state(false);
@@ -94,6 +96,8 @@
             transform_enabled: transformEnabled,
             transform_template: transformTemplate,
             label_filters: labelFilters,
+            on_transform_error: onTransformError,
+            template_missing_key: templateMissingKey,
           },
         }));
       } else if (subscription) {
@@ -106,6 +110,8 @@
             transform_enabled: transformEnabled,
             transform_template: transformTemplate,
             label_filters: labelFilters,
+            on_transform_error: onTransformError,
+            template_missing_key: templateMissingKey,
             template_source: templateMeta?.source ?? "manual",
             template_notes: templateMeta?.notes || undefined,
           },
@@ -226,6 +232,24 @@
           {/if}
         </div>
         <p class="text-[10px] text-faint">Nothing is saved until you save the subscription. The editor shows a live render against the event's sample payload.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          <div>
+            <label for="sub-on-error" class="field-label">If the template fails</label>
+            <select id="sub-on-error" bind:value={onTransformError} class="select w-full">
+              <option value="fail">Fail the delivery (recommended)</option>
+              <option value="fallback">Send the default envelope</option>
+            </select>
+            <p class="text-[10px] text-faint mt-1">{onTransformError === "fail" ? "Nothing is sent and the delivery is marked template_error; retry it after fixing the template." : "The default envelope is sent instead; the template error is still recorded on the delivery."}</p>
+          </div>
+          <div>
+            <label for="sub-missing-key" class="field-label">Missing fields</label>
+            <select id="sub-missing-key" bind:value={templateMissingKey} class="select w-full">
+              <option value="error">Treat as an error (recommended)</option>
+              <option value="zero">Render as &lt;no value&gt;</option>
+            </select>
+            <p class="text-[10px] text-faint mt-1">{templateMissingKey === "error" ? "A removed field fails the template. Read optional fields with index or dig." : "A missing field renders as <no value> and the delivery goes out."}</p>
+          </div>
+        </div>
       {:else}
         <p class="text-xs text-faint">The event payload is delivered as-is inside Sparrow's envelope.</p>
       {/if}

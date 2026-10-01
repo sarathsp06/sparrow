@@ -227,7 +227,7 @@ func main() {
 
 	fmt.Println("🚀 River queue started successfully")
 
-	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(cfg.AllowPrivateNetworks), webhooks.WithAllowedNetworks(cfg.AllowedNetworkList()))
+	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(cfg.AllowPrivateNetworks), webhooks.WithAllowedNetworks(cfg.AllowedNetworkList()), webhooks.WithAutoRegisterEvents(cfg.AutoRegisterEvents))
 	tracedWebhookService := webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, "")
 
 	// AI-assisted template drafting is opt-in (SPARROW_AI_*). Drafts are

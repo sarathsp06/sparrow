@@ -42,6 +42,10 @@ producers / curl / UI / SDKs
 - **Payload transforms** — per-subscription Go templates let you reshape payloads per consumer.
 - **Adapter recipes** — event → Slack/Discord/PagerDuty/ntfy/ClickHouse/Twilio/SendGrid as pure subscription config via `sparrow use`; templates render server-side per delivery.
 - **Soft schema validation** — invalid payloads produce warnings instead of being dropped.
+- **Versioned event types** — every schema change is a kept version, events record the version they were accepted under, and a schema change that could break a subscription's transform needs an explicit opt-in.
+- **Promote definitions between environments** — export event types to one JSON file and import it elsewhere, with a dry-run preview, from the UI, the CLI, or the API.
+- **Visible template errors** — a transform that cannot render fails its delivery instead of sending the wrong body, and never counts against the receiver's health.
+- **Pause a subscription** — hold its deliveries as paused rows, then resume and retry what was held.
 - **Embedded admin UI** — webhooks, events, deliveries, health, and event-instance inspection in one dashboard.
 - **Consumer self-service portal** — hand each customer a scoped, expiring link to register their own endpoints and inspect and retry their own deliveries, isolated to their consumer.
 - **OpenAPI-first API** — REST on `:8080`, interactive docs at `/docs`, committed spec at [`api/openapi.yaml`](api/openapi.yaml).
@@ -308,10 +312,12 @@ Everything is configured through environment variables.
     Stored response body cap for webhooks with `capture_response_body` (others store 1 KiB).
 14. `SPARROW_EVENT_RETENTION_DAYS` — optional. Default: `0` (keep forever).
     Hourly purge of events, and their deliveries, older than this many days.
+15. `SPARROW_AUTO_REGISTER_EVENTS` — optional. Default: `false`.
+    Pushing an unregistered event name returns `404`; set `true` (as `make run` does) to create a schema-less event type on first push instead. Development only: event types are never deleted.
 
 **Observability**
 
-15. `OTEL_EXPORTER_OTLP_ENDPOINT` — optional. OTLP endpoint for traces, metrics, and logs. Export is off when unset.
+16. `OTEL_EXPORTER_OTLP_ENDPOINT` — optional. OTLP endpoint for traces, metrics, and logs. Export is off when unset.
 
 **Template history**: every save that changes a subscription's `transform_template` records a version (`GET /v1/consumers/{c}/subscriptions/{id}/templateVersions`, last 20, with `manual`/`ai_draft` source, notes, and who saved it). The template editor lists them and can load one back; saving records it again.
 

@@ -9,17 +9,36 @@ import (
 	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
-// EventTypeRepository defines operations for event type registrations and schemas.
+// EventTypeRepository defines operations for event type registrations and
+// their version history.
+//
+// event_registrations holds the current definition of each event type;
+// event_registration_versions holds every version, including the current one.
+// Event types are never deleted.
 type EventTypeRepository interface {
 	RegisterEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) error
 	GetEventByName(ctx context.Context, tenantID uuid.UUID, eventName string) (*EventRegistration, error)
+	GetEventByNameForUpdate(ctx context.Context, tenantID uuid.UUID, eventName string) (*EventRegistration, error)
 	ListEvents(ctx context.Context, tenantID uuid.UUID, activeOnly bool) ([]*EventRegistration, error)
 	ListEventsPaginated(ctx context.Context, tenantID uuid.UUID, activeOnly bool, limit, offset int) ([]*EventRegistration, int, error)
 	UpdateEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) error
-	DeleteEvent(ctx context.Context, tenantID uuid.UUID, eventName string) error
+	AddEventTypeVersion(ctx context.Context, tenantID uuid.UUID, version *EventRegistrationVersion) error
+	FillInEventTypeVersion(ctx context.Context, tenantID uuid.UUID, version *EventRegistrationVersion) error
+	ListEventTypeVersions(ctx context.Context, tenantID uuid.UUID, eventName string) ([]*EventRegistrationVersion, error)
+	GetEventTypeVersion(ctx context.Context, tenantID uuid.UUID, eventName string, version int) (*EventRegistrationVersion, error)
 }
 
-// RegisterEvent registers a new event type within a tenant
+const eventRegistrationColumns = `tenant_id, name, description, schema, sample_payload, metadata, active, version, created_at, updated_at`
+
+const eventRegistrationVersionColumns = `tenant_id, name, version, description, schema, sample_payload, schema_defined_at, created_at`
+
+// eventRegistrationVersionSelect tolerates NULL descriptions copied in by the
+// migration backfill.
+const eventRegistrationVersionSelect = `tenant_id, name, version, COALESCE(description, '') AS description, schema, sample_payload, schema_defined_at, created_at`
+
+// RegisterEvent creates an event type at version 1 together with its first
+// history row. Both rows are written by a single statement, so the pair is
+// atomic without an enclosing transaction.
 func (r *Repository) RegisterEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) error {
 	event.TenantID = tenantID
 	now := time.Now()
@@ -27,11 +46,19 @@ func (r *Repository) RegisterEvent(ctx context.Context, tenantID uuid.UUID, even
 		event.CreatedAt = now
 	}
 	event.UpdatedAt = now
+	if event.Version <= 0 {
+		event.Version = 1
+	}
 
 	query := `
-		INSERT INTO event_registrations (
-			tenant_id, name, description, schema, sample_payload, metadata, active, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		WITH reg AS (
+			INSERT INTO event_registrations (
+				tenant_id, name, description, schema, sample_payload, metadata, active, version, created_at, updated_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			RETURNING tenant_id, name, version, description, schema, sample_payload, created_at
+		)
+		INSERT INTO event_registration_versions (tenant_id, name, version, description, schema, sample_payload, created_at)
+		SELECT tenant_id, name, version, description, schema, sample_payload, created_at FROM reg
 	`
 	_, err := r.conn.ExecContext(ctx, query,
 		event.TenantID,
@@ -41,19 +68,28 @@ func (r *Repository) RegisterEvent(ctx context.Context, tenantID uuid.UUID, even
 		event.SamplePayload,
 		event.Metadata,
 		event.Active,
+		event.Version,
 		event.CreatedAt,
 		event.UpdatedAt,
 	)
 	return storage.Error(err)
 }
 
-// GetEventByName gets an event registration by name within a tenant
+// GetEventByName gets an event registration by name within a tenant.
+// Returns nil, nil when it does not exist.
 func (r *Repository) GetEventByName(ctx context.Context, tenantID uuid.UUID, eventName string) (*EventRegistration, error) {
-	query := `
-		SELECT tenant_id, name, description, schema, sample_payload, metadata, active, created_at, updated_at
-		FROM event_registrations 
-		WHERE tenant_id = $1 AND name = $2
-	`
+	return r.getEventByName(ctx, tenantID, eventName, "")
+}
+
+// GetEventByNameForUpdate is GetEventByName with a row lock, for use inside a
+// transaction that decides the next version. Returns nil, nil when the event
+// type does not exist.
+func (r *Repository) GetEventByNameForUpdate(ctx context.Context, tenantID uuid.UUID, eventName string) (*EventRegistration, error) {
+	return r.getEventByName(ctx, tenantID, eventName, " FOR UPDATE")
+}
+
+func (r *Repository) getEventByName(ctx context.Context, tenantID uuid.UUID, eventName, lock string) (*EventRegistration, error) {
+	query := `SELECT ` + eventRegistrationColumns + ` FROM event_registrations WHERE tenant_id = $1 AND name = $2` + lock
 	var event EventRegistration
 	err := r.conn.GetContext(ctx, &event, query, tenantID, eventName)
 	if err != nil {
@@ -81,7 +117,7 @@ func (r *Repository) ListEventsPaginated(ctx context.Context, tenantID uuid.UUID
 	}
 
 	query := `
-		SELECT tenant_id, name, description, schema, sample_payload, metadata, active, created_at, updated_at
+		SELECT ` + eventRegistrationColumns + `
 		FROM event_registrations
 		WHERE tenant_id = $1 AND ($2 IS FALSE OR active = true)
 		ORDER BY name ASC
@@ -95,12 +131,17 @@ func (r *Repository) ListEventsPaginated(ctx context.Context, tenantID uuid.UUID
 	return events, totalCount, nil
 }
 
-// UpdateEvent updates an event registration within a tenant.
+// UpdateEvent overwrites the current definition of an event type, including
+// its version number. It does not touch the version history; callers that
+// create a new version pair it with AddEventTypeVersion in one transaction.
 // Returns storage.ErrNotFound when no registration matches the tenant and name.
 func (r *Repository) UpdateEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) error {
+	if event.Version <= 0 {
+		event.Version = 1
+	}
 	query := `
-		UPDATE event_registrations 
-		SET description = $3, schema = $4, sample_payload = $5, metadata = $6, active = $7, updated_at = NOW()
+		UPDATE event_registrations
+		SET description = $3, schema = $4, sample_payload = $5, metadata = $6, active = $7, version = $8, updated_at = NOW()
 		WHERE tenant_id = $1 AND name = $2
 	`
 
@@ -112,6 +153,7 @@ func (r *Repository) UpdateEvent(ctx context.Context, tenantID uuid.UUID, event 
 		event.SamplePayload,
 		event.Metadata,
 		event.Active,
+		event.Version,
 	)
 	if err != nil {
 		return storage.Error(err)
@@ -126,9 +168,96 @@ func (r *Repository) UpdateEvent(ctx context.Context, tenantID uuid.UUID, event 
 	return nil
 }
 
-// DeleteEvent deletes an event registration within a tenant
-func (r *Repository) DeleteEvent(ctx context.Context, tenantID uuid.UUID, eventName string) error {
-	query := `DELETE FROM event_registrations WHERE tenant_id = $1 AND name = $2`
-	_, err := r.conn.ExecContext(ctx, query, tenantID, eventName)
+// AddEventTypeVersion appends a version to an event type's history.
+// Returns storage.ErrAlreadyExists if that version number is taken, which is
+// the backstop against two writers claiming the same next version.
+func (r *Repository) AddEventTypeVersion(ctx context.Context, tenantID uuid.UUID, version *EventRegistrationVersion) error {
+	version.TenantID = tenantID
+	if version.CreatedAt.IsZero() {
+		version.CreatedAt = time.Now()
+	}
+	query := `
+		INSERT INTO event_registration_versions (` + eventRegistrationVersionColumns + `)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`
+	_, err := r.conn.ExecContext(ctx, query,
+		tenantID,
+		version.Name,
+		version.Version,
+		version.Description,
+		version.Schema,
+		version.SamplePayload,
+		version.SchemaDefinedAt,
+		version.CreatedAt,
+	)
 	return storage.Error(err)
+}
+
+// FillInEventTypeVersion writes a first schema into an existing version that
+// had none, and records when that happened. This is the only in-place change
+// the history table allows. Returns storage.ErrNotFound if the version does
+// not exist.
+func (r *Repository) FillInEventTypeVersion(ctx context.Context, tenantID uuid.UUID, version *EventRegistrationVersion) error {
+	if version.SchemaDefinedAt == nil {
+		now := time.Now()
+		version.SchemaDefinedAt = &now
+	}
+	query := `
+		UPDATE event_registration_versions
+		SET description = $4, schema = $5, sample_payload = $6, schema_defined_at = $7
+		WHERE tenant_id = $1 AND name = $2 AND version = $3
+	`
+	res, err := r.conn.ExecContext(ctx, query,
+		tenantID,
+		version.Name,
+		version.Version,
+		version.Description,
+		version.Schema,
+		version.SamplePayload,
+		version.SchemaDefinedAt,
+	)
+	if err != nil {
+		return storage.Error(err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return storage.Error(err)
+	}
+	if rows == 0 {
+		return storage.ErrNotFound
+	}
+	return nil
+}
+
+// ListEventTypeVersions returns every version of an event type, newest first.
+func (r *Repository) ListEventTypeVersions(ctx context.Context, tenantID uuid.UUID, eventName string) ([]*EventRegistrationVersion, error) {
+	query := `
+		SELECT ` + eventRegistrationVersionSelect + `
+		FROM event_registration_versions
+		WHERE tenant_id = $1 AND name = $2
+		ORDER BY version DESC
+	`
+	var versions []*EventRegistrationVersion
+	if err := r.conn.SelectContext(ctx, &versions, query, tenantID, eventName); err != nil {
+		return nil, storage.Error(err)
+	}
+	return versions, nil
+}
+
+// GetEventTypeVersion returns one version of an event type, or nil, nil when
+// it does not exist.
+func (r *Repository) GetEventTypeVersion(ctx context.Context, tenantID uuid.UUID, eventName string, version int) (*EventRegistrationVersion, error) {
+	query := `
+		SELECT ` + eventRegistrationVersionSelect + `
+		FROM event_registration_versions
+		WHERE tenant_id = $1 AND name = $2 AND version = $3
+	`
+	var v EventRegistrationVersion
+	if err := r.conn.GetContext(ctx, &v, query, tenantID, eventName, version); err != nil {
+		if storage.IsNotFound(storage.Error(err)) {
+			return nil, nil
+		}
+		return nil, storage.Error(err)
+	}
+	return &v, nil
 }

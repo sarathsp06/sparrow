@@ -404,6 +404,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/consumers/{consumer}/subscriptions/{subscription_id}:pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause a subscription
+         * @description Stops the subscription's deliveries from being attempted, for any reason (receiver maintenance, a template being fixed, an investigation). Events keep fanning out to it: each delivery is recorded with status paused and nothing is queued, so nothing is lost. Deliveries already queued finish. A pause never affects the webhook's health. Pausing again updates the reason and keeps the original pause time.
+         */
+        post: operations["pauseSubscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/subscriptions/{subscription_id}:resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume a paused subscription
+         * @description New deliveries are attempted again. Deliveries recorded while paused stay paused and are never sent automatically: the response says how many there are and when the pause began, so you can retry all of them or only those since a time with the delivery retry endpoints.
+         */
+        post: operations["resumeSubscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/consumers/{consumer}/webhooks": {
         parameters: {
             query?: never;
@@ -634,18 +674,54 @@ export interface paths {
         get: operations["getEventType"];
         put?: never;
         post?: never;
-        /**
-         * Delete an event type definition
-         * @description Permanently deletes an event type definition. Existing pushed occurrences of this type are not deleted.
-         */
-        delete: operations["deleteEventType"];
+        delete?: never;
         options?: never;
         head?: never;
         /**
          * Update an event type definition
-         * @description Merge-patches an event type: only fields present in the request body are changed.
+         * @description Merge-patches an event type: only fields present in the request body are changed. A schema change creates a new version and keeps the previous one; adding a first schema to a schema-less version, and any change to description, metadata or active, updates the current version in place. The response's change field says which happened. A breaking schema change (see change.compatibility) to an event type that subscriptions receive is refused with 409 unless allow_breaking=true.
          */
         patch: operations["updateEventType"];
+        trace?: never;
+    };
+    "/v1/event-types/{name}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List every version of an event type
+         * @description Returns the version history of an event type, newest first. Event types are never deleted; to retire one, set active to false.
+         */
+        get: operations["listEventTypeVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/event-types/{name}/versions/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one version of an event type
+         * @description Fetches a specific version's schema, sample payload and description.
+         */
+        get: operations["getEventTypeVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/event-types/{name}:validate": {
@@ -662,6 +738,46 @@ export interface paths {
          * @description Checks a payload against the event type's registered JSON Schema without pushing an event. Does not affect delivery — pushEvent always accepts events regardless of schema validity; this lets callers (e.g. the Push Test Event UI) enforce a hard gate before submitting.
          */
         post: operations["validateEventPayload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/event-types:export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export event type definitions as a bundle
+         * @description Returns the current definitions of the selected event types as one JSON bundle, ready to import into another environment with importEventTypes. Choose exactly one of names, prefix or all. An unknown name fails the whole export. Sparrow's own sparrow.* event types are never exported.
+         */
+        post: operations["exportEventTypes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/event-types:import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import a bundle of event type definitions
+         * @description Applies a bundle in one transaction: each item replaces the named event type using the usual version rules, or nothing is written. Event types not in the bundle are never touched; an import does not delete. The full per-item result is returned either way. Nothing is written for a dry run, when a stamp warning is not acknowledged, or when a change is breaking for subscriptions and allow_breaking is not set; blocked_by says why. The body may be an exported bundle as-is, plus the options.
+         */
+        post: operations["importEventTypes"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1052,7 +1168,7 @@ export interface components {
              * @description Failure classification for this attempt.
              * @enum {string}
              */
-            error_category?: "success" | "client_error" | "server_error" | "timeout" | "dns_error" | "tls_error" | "connection_refused" | "network_error" | "rate_limited" | "unexpected_status" | "unknown" | "";
+            error_category?: "success" | "client_error" | "server_error" | "timeout" | "dns_error" | "tls_error" | "connection_refused" | "network_error" | "rate_limited" | "unexpected_status" | "template_error" | "unknown" | "";
             /** @description Human-readable failure reason for this attempt. */
             error_message?: string;
             /**
@@ -1119,6 +1235,33 @@ export interface components {
              * @description Total items in the batch snapshot.
              */
             total: number;
+        };
+        BundleItem: {
+            /** @description Whether events of this type can be pushed. Omitted means true. */
+            active?: boolean;
+            /** @description Human-readable summary. Omitted means empty: an import replaces the definition. */
+            description?: string;
+            /** @description JSON Schema. Omitted means no schema, which removes an existing schema (a breaking change). */
+            event_schema?: {
+                [key: string]: unknown;
+            };
+            /** @description Arbitrary key/value metadata. Omitted means none. */
+            metadata?: {
+                [key: string]: string;
+            };
+            /** @description Event type name. */
+            name: string;
+        };
+        BundleStampBody: {
+            /**
+             * Format: int64
+             * @description Bundle format number.
+             */
+            format: number;
+            /** @description sha256 of the canonical encoding of items, to tell whether they changed after export. */
+            sha256: string;
+            /** @description Version of the Sparrow server that exported the bundle. */
+            sparrow_version: string;
         };
         CapabilitiesOutputBody: {
             /**
@@ -1247,6 +1390,16 @@ export interface components {
             /** @description HTTP method used for deliveries from this subscription. Defaults to POST. */
             method?: string;
             /**
+             * @description What happens when transform_template fails to render. fail (default): the delivery fails with error category template_error, is not retried automatically, and can be retried once the template is fixed; it does not affect the webhook's health. fallback: the default envelope payload is sent instead, and the error is still recorded on the delivery.
+             * @enum {string}
+             */
+            on_transform_error?: "fail" | "fallback";
+            /**
+             * @description How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into "<no value>" in the body; read optional fields with index or dig (default only fills a key that is present but empty). zero: the key renders as "<no value>".
+             * @enum {string}
+             */
+            template_missing_key?: "error" | "zero";
+            /**
              * Format: int64
              * @description Per-delivery request timeout in seconds, overriding the webhook's default.
              */
@@ -1311,10 +1464,10 @@ export interface components {
             /** @description Delivery id (UUID). */
             delivery_id: string;
             /**
-             * @description Failure classification from the most recent attempt, used to decide retryability.
+             * @description Failure classification from the most recent attempt, used to decide retryability. template_error means the subscription's transform failed to render; it is not retried automatically and does not count against the webhook's health.
              * @enum {string}
              */
-            error_category?: "success" | "client_error" | "server_error" | "timeout" | "dns_error" | "tls_error" | "connection_refused" | "network_error" | "rate_limited" | "unexpected_status" | "unknown" | "";
+            error_category?: "success" | "client_error" | "server_error" | "timeout" | "dns_error" | "tls_error" | "connection_refused" | "network_error" | "rate_limited" | "unexpected_status" | "template_error" | "unknown" | "";
             /** @description Human-readable failure reason from the most recent attempt. */
             error_message?: string;
             /** @description Pushed event occurrence this delivery originated from. */
@@ -1336,10 +1489,12 @@ export interface components {
              */
             response_code?: number;
             /**
-             * @description Current delivery status.
+             * @description Current delivery status. paused: created while its subscription was paused; not attempted until retried.
              * @enum {string}
              */
-            status: "pending" | "sending" | "success" | "failed" | "retrying" | "expired";
+            status: "pending" | "sending" | "success" | "failed" | "retrying" | "expired" | "paused";
+            /** @description The payload transform error, when the subscription's template failed to render. Set for both on_transform_error modes: with fail the delivery was not sent; with fallback the default envelope was sent instead. */
+            template_error?: string;
             /** @description Webhook this delivery was sent to. */
             webhook_id: string;
         };
@@ -1474,6 +1629,11 @@ export interface components {
             /** @description Event occurrence id (UUID). */
             event_id: string;
             /**
+             * Format: int64
+             * @description Event type version this occurrence was accepted under.
+             */
+            event_version: number;
+            /**
              * Format: int32
              * @description Deliveries that failed (exhausted retries or non-retryable error).
              */
@@ -1530,6 +1690,59 @@ export interface components {
             /** @description Unique event type name, e.g. order.created. At most 255 characters. Immutable after creation. */
             name?: string;
         };
+        EventTypeBundle: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/EventTypeBundle.json
+             */
+            readonly $schema?: string;
+            /**
+             * @description Bundle schema version.
+             * @enum {string}
+             */
+            apiVersion: "sparrow/v1";
+            /** @description Event type definitions, sorted by name. */
+            items: components["schemas"]["BundleItem"][] | null;
+            /**
+             * @description Bundle kind.
+             * @enum {string}
+             */
+            kind: "EventTypeList";
+            /** @description Which Sparrow produced this bundle. A compatibility hint, not a signature. */
+            stamp: components["schemas"]["BundleStampBody"];
+        };
+        EventTypeChange: {
+            /**
+             * @description created: new event type at version 1. new_version: the schema changed, so a new version was created and the previous one kept. updated: the current version changed in place (description, metadata, active, or a first schema added to a schema-less version). unchanged: nothing was written.
+             * @enum {string}
+             */
+            action: "created" | "new_version" | "updated" | "unchanged";
+            /**
+             * @description Set when the write flips the active flag.
+             * @enum {string}
+             */
+            active_change?: "deactivates" | "reactivates" | "";
+            /**
+             * Format: int64
+             * @description For new_version: subscriptions that receive this event type, by name or catch-all.
+             */
+            affected_subscriptions?: number;
+            /** @description Fields that changed: schema, schema_defined (a first schema was added in place), description, metadata, active. */
+            changes?: string[] | null;
+            /** @description For new_version: whether the schema change could break a subscription's payload transformation. */
+            compatibility?: components["schemas"]["SchemaCompatibilityItem"];
+            /**
+             * Format: int64
+             * @description Version before the write; absent when the event type was created.
+             */
+            previous_version?: number;
+            /**
+             * Format: int64
+             * @description Version after the write.
+             */
+            version: number;
+        };
         EventTypeItem: {
             /**
              * Format: uri
@@ -1559,6 +1772,54 @@ export interface components {
             };
             /** @description Last-modified timestamp, RFC3339. */
             updated_at: string;
+            /**
+             * Format: int64
+             * @description Current schema version. Starts at 1 and increases only when the schema changes; every version is kept (see listEventTypeVersions).
+             */
+            version: number;
+        };
+        EventTypeVersionItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/EventTypeVersionItem.json
+             */
+            readonly $schema?: string;
+            /** @description When this version was created, RFC3339. */
+            created_at: string;
+            /** @description Description as it was when this version was created. */
+            description?: string;
+            /** @description JSON Schema of this version. Absent for a schema-less version. */
+            event_schema?: {
+                [key: string]: unknown;
+            };
+            /** @description Event type name. */
+            name: string;
+            /** @description Example payload generated from this version's schema. */
+            sample_payload?: {
+                [key: string]: unknown;
+            };
+            /** @description When a first schema was added to this version in place, RFC3339. Events pushed before this time were accepted while the version had no schema. */
+            schema_defined_at?: string;
+            /**
+             * Format: int64
+             * @description Version number.
+             */
+            version: number;
+        };
+        ExportEventTypesInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ExportEventTypesInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Export every event type. */
+            all?: boolean;
+            /** @description Export these event types. Each must exist. */
+            names?: string[] | null;
+            /** @description Export every event type whose name starts with this prefix. */
+            prefix?: string;
         };
         HealthSummaryOutputBody: {
             /**
@@ -1587,6 +1848,91 @@ export interface components {
              * @description Webhooks with no recent delivery attempts, across all consumers.
              */
             unknown_count: number;
+        };
+        ImportEventTypesInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ImportEventTypesInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Stamp warnings you accept. Each unacknowledged warning blocks the write. */
+            acknowledge?: ("version_differs" | "format_unsupported" | "items_changed")[] | null;
+            /** @description Apply breaking schema changes to event types that subscriptions receive. */
+            allow_breaking?: boolean;
+            /**
+             * @description Bundle schema version, if the body is an exported bundle.
+             * @enum {string}
+             */
+            apiVersion?: "sparrow/v1";
+            /** @description Compute the full result without writing anything. */
+            dry_run?: boolean;
+            /** @description Definitions to import. Each replaces the named event type; types not listed are never touched. */
+            items: components["schemas"]["BundleItem"][] | null;
+            /**
+             * @description Bundle kind, if the body is an exported bundle.
+             * @enum {string}
+             */
+            kind?: "EventTypeList";
+            /** @description The bundle's stamp. Absent for a hand-written bundle, which imports with a notice. */
+            stamp?: components["schemas"]["BundleStampBody"];
+            /**
+             * @description keep_active (default): subscriptions keep running; a template that no longer fits fails its deliveries visibly with template_error. pause: in the same transaction, pause each subscription whose template fails the pre-check, with the import as the reason.
+             * @enum {string}
+             */
+            subscription_policy?: "keep_active" | "pause";
+        };
+        ImportEventTypesOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ImportEventTypesOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description True when the import was written. False for a dry run or when blocked_by is non-empty. */
+            applied: boolean;
+            /** @description Why nothing was written: unacknowledged stamp warnings, and breaking when a breaking change needs allow_breaking. */
+            blocked_by?: string[] | null;
+            /** @description Whether this was a dry run. */
+            dry_run: boolean;
+            /** @description When the import was written, RFC3339. Use it to find deliveries that failed after the change. */
+            imported_at?: string;
+            /** @description One result per bundle item, sorted by name. */
+            items: components["schemas"]["ImportItemResult"][] | null;
+            /** @description The bundle's stamp compared with this server. */
+            stamp: components["schemas"]["StampCheckItem"];
+        };
+        ImportItemResult: {
+            /**
+             * @description What the import does to this event type. See updateEventType's change.action.
+             * @enum {string}
+             */
+            action: "created" | "new_version" | "updated" | "unchanged";
+            /**
+             * @description Set when the import flips the active flag.
+             * @enum {string}
+             */
+            active_change?: "deactivates" | "reactivates" | "";
+            /** @description The change is breaking for subscriptions and allow_breaking was not set. */
+            blocked?: boolean;
+            /** @description Fields that change: schema, schema_defined, description, metadata, active. */
+            changes?: string[] | null;
+            /** @description For new_version: whether the change could break a subscription's payload transformation. */
+            compatibility?: components["schemas"]["SchemaCompatibilityItem"];
+            /** @description Event type name. */
+            name: string;
+            /**
+             * Format: int64
+             * @description Version before the import.
+             */
+            previous_version?: number;
+            /** @description For new_version: every affected subscription's transform rendered strictly against the new version. */
+            subscriptions?: components["schemas"]["TemplateCheckItem"];
+            /**
+             * Format: int64
+             * @description Version after the import (or that it would have, for a dry run).
+             */
+            version: number;
         };
         InviteOut: {
             /** Format: date-time */
@@ -1648,6 +1994,16 @@ export interface components {
             pagination: components["schemas"]["PaginationOutput"];
             /** @description Snapshot id for the batch re-push endpoint, present when prepare_repush was set. */
             repush_id?: string;
+        };
+        ListEventTypeVersionsOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ListEventTypeVersionsOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Every version of the event type, newest first. */
+            items: components["schemas"]["EventTypeVersionItem"][] | null;
         };
         ListEventTypesOutputBody: {
             /**
@@ -1750,6 +2106,16 @@ export interface components {
             };
             /** @description Replace the HTTP method. */
             method?: string;
+            /**
+             * @description Replace what happens when the template fails to render.
+             * @enum {string}
+             */
+            on_transform_error?: "fail" | "fallback";
+            /**
+             * @description Replace how the template reads a missing key.
+             * @enum {string}
+             */
+            template_missing_key?: "error" | "zero";
             /** @description Optional note stored with the template version, e.g. the AI drafter's summary. */
             template_notes?: string;
             /**
@@ -1799,6 +2165,16 @@ export interface components {
             timeout?: number;
             /** @description Replace the delivery endpoint URL. */
             url?: string;
+        };
+        PauseSubscriptionInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/PauseSubscriptionInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Why the subscription is paused, shown next to it, for example: receiver maintenance until Friday. */
+            reason?: string;
         };
         PushEventBody: {
             /**
@@ -1913,6 +2289,71 @@ export interface components {
             /** @description Non-fatal schema validation warnings from re-validating the stored payload. */
             warnings?: string[] | null;
         };
+        ResumeSubscriptionOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ResumeSubscriptionOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Tenant consumer this subscription belongs to. */
+            consumer: string;
+            /** @description Creation timestamp, RFC3339. */
+            created_at: string;
+            /** @description Event type name this subscription matches, or "*" for catch-all. */
+            event_name: string;
+            /** @description Extra HTTP headers sent with deliveries from this subscription. */
+            headers?: {
+                [key: string]: string;
+            };
+            /** @description Key/value pairs that must all be present in an event's labels for this subscription to receive it. */
+            label_filters?: {
+                [key: string]: string;
+            };
+            /**
+             * @description HTTP method used for deliveries from this subscription.
+             * @enum {string}
+             */
+            method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+            /**
+             * @description What happens when transform_template fails to render. fail (default): the delivery fails with error category template_error, is not retried automatically, and can be retried once the template is fixed; it does not affect the webhook's health. fallback: the default envelope payload is sent instead, and the error is still recorded on the delivery.
+             * @enum {string}
+             */
+            on_transform_error: "fail" | "fallback";
+            /** @description Whether the subscription is paused. While paused, events still fan out to it, but each delivery is recorded with status paused and not attempted until retried. A pause never affects the webhook's health. */
+            paused: boolean;
+            /** @description When the current pause began, RFC3339. */
+            paused_at?: string;
+            /**
+             * Format: int64
+             * @description Deliveries recorded while paused. They are not sent automatically; retry them to deliver.
+             */
+            paused_deliveries: number;
+            /** @description Why the subscription was paused. */
+            paused_reason?: string;
+            /** @description When the pause that just ended began, RFC3339. List or retry what was held with status=paused&subscription_id=...&created_after=<paused_since>. */
+            paused_since?: string;
+            /** @description Subscription id (UUID). */
+            subscription_id: string;
+            /**
+             * @description How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into "<no value>" in the body; read optional fields with index or dig (default only fills a key that is present but empty). zero: the key renders as "<no value>".
+             * @enum {string}
+             */
+            template_missing_key: "error" | "zero";
+            /**
+             * Format: int64
+             * @description Per-delivery request timeout in seconds, overriding the webhook's default.
+             */
+            timeout?: number;
+            /** @description Whether transform_template is rendered into the delivered payload. */
+            transform_enabled: boolean;
+            /** @description Go template rendered against the event to produce the delivered body. */
+            transform_template?: string;
+            /** @description Last-modified timestamp, RFC3339. */
+            updated_at: string;
+            /** @description Webhook this subscription delivers to. */
+            webhook_id: string;
+        };
         RetryDeliveriesByWebhookInputBody: {
             /**
              * Format: uri
@@ -1939,6 +2380,28 @@ export interface components {
             count: number;
             /** @description Ids of the deliveries that were retried. */
             delivery_ids?: string[] | null;
+        };
+        SchemaCompatibilityItem: {
+            /** @description Each breaking change with the path it affects. */
+            reasons?: string[] | null;
+            /**
+             * @description breaking when the change could break a payload transformation: a required property removed or made optional, a type widened, the schema removed, or a change under oneOf/anyOf/allOf/$ref/patternProperties that cannot be checked.
+             * @enum {string}
+             */
+            result: "compatible" | "breaking";
+        };
+        StampCheckItem: {
+            /** @description Sparrow version that exported the file. */
+            exported_by?: string;
+            /** @description This server's Sparrow version. */
+            server: string;
+            /**
+             * @description valid: stamp present and matching. unsigned: no stamp (hand-written file). warning: see warnings.
+             * @enum {string}
+             */
+            status: "valid" | "unsigned" | "warning";
+            /** @description version_differs, format_unsupported, items_changed. Each must be acknowledged for the import to write. */
+            warnings?: string[] | null;
         };
         Subscription: {
             transform_template: string;
@@ -1969,8 +2432,24 @@ export interface components {
              * @enum {string}
              */
             method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+            /**
+             * @description What happens when transform_template fails to render. fail (default): the delivery fails with error category template_error, is not retried automatically, and can be retried once the template is fixed; it does not affect the webhook's health. fallback: the default envelope payload is sent instead, and the error is still recorded on the delivery.
+             * @enum {string}
+             */
+            on_transform_error: "fail" | "fallback";
+            /** @description Whether the subscription is paused. While paused, events still fan out to it, but each delivery is recorded with status paused and not attempted until retried. A pause never affects the webhook's health. */
+            paused: boolean;
+            /** @description When the current pause began, RFC3339. */
+            paused_at?: string;
+            /** @description Why the subscription was paused. */
+            paused_reason?: string;
             /** @description Subscription id (UUID). */
             subscription_id: string;
+            /**
+             * @description How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into "<no value>" in the body; read optional fields with index or dig (default only fills a key that is present but empty). zero: the key renders as "<no value>".
+             * @enum {string}
+             */
+            template_missing_key: "error" | "zero";
             /**
              * Format: int64
              * @description Per-delivery request timeout in seconds, overriding the webhook's default.
@@ -1983,6 +2462,42 @@ export interface components {
             /** @description Last-modified timestamp, RFC3339. */
             updated_at: string;
             /** @description Webhook this subscription delivers to. */
+            webhook_id: string;
+        };
+        TemplateCheckItem: {
+            /**
+             * Format: int64
+             * @description How many of the affected subscriptions are catch-all ("*").
+             */
+            catch_all: number;
+            /** @description Subscriptions whose transform no longer renders against the new version. */
+            failures?: components["schemas"]["TemplateFailureItem"][] | null;
+            /**
+             * Format: int64
+             * @description Subscriptions whose transform renders.
+             */
+            passed: number;
+            /** @description Subscriptions this import paused (subscription_policy=pause). */
+            paused?: string[] | null;
+            /**
+             * Format: int64
+             * @description Subscriptions with no transform. Sparrow passes the payload through and cannot tell whether the receiver copes.
+             */
+            without_transform: number;
+        };
+        TemplateFailureItem: {
+            /** @description Consumer the subscription belongs to. */
+            consumer: string;
+            /** @description The render error. */
+            error: string;
+            /**
+             * @description Which generated payload failed: every field, or only required fields (a template reading an optional field without guarding for it).
+             * @enum {string}
+             */
+            payload: "sample" | "required_only";
+            /** @description Subscription whose template failed. */
+            subscription_id: string;
+            /** @description Webhook the subscription delivers to. */
             webhook_id: string;
         };
         TemplateFunctionItem: {
@@ -2031,10 +2546,13 @@ export interface components {
             readonly $schema?: string;
             /** @description Registered event type whose sample payload the template is rendered against. */
             event_name: string;
-            /** @description Fail when the template reads a payload key the sample does not have (missingkey=error), naming the key, instead of rendering <no value> as a live delivery would. Use it to catch misspelled fields; note it also applies inside {{ if .payload.optional }}, so optional fields should be read with (index .payload "optional"). */
-            strict?: boolean;
             /** @description Go template to render, in the same syntax used by transform_template. */
             template: string;
+            /**
+             * @description Render as a subscription with this template_missing_key would. Defaults to error, the subscription default.
+             * @enum {string}
+             */
+            template_missing_key?: "error" | "zero";
         };
         TestTemplateOutputBody: {
             /**
@@ -2071,6 +2589,43 @@ export interface components {
             revoked_at: string | null;
             /** @enum {string} */
             status: "active" | "revoked" | "expired";
+        };
+        UpdateEventTypeOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/UpdateEventTypeOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Whether events of this type can currently be pushed. */
+            active: boolean;
+            /** @description What this update did. */
+            change: components["schemas"]["EventTypeChange"];
+            /** @description Creation timestamp, RFC3339. */
+            created_at: string;
+            /** @description Human-readable summary of what this event represents. */
+            description?: string;
+            /** @description JSON Schema payloads are softly validated against, if one is registered. */
+            event_schema?: {
+                [key: string]: unknown;
+            };
+            /** @description Arbitrary key/value metadata. */
+            metadata?: {
+                [key: string]: string;
+            };
+            /** @description Event type name, e.g. order.created. */
+            name: string;
+            /** @description Example payload derived from the schema, used to preview subscription transform templates. */
+            sample_payload?: {
+                [key: string]: unknown;
+            };
+            /** @description Last-modified timestamp, RFC3339. */
+            updated_at: string;
+            /**
+             * Format: int64
+             * @description Current schema version. Starts at 1 and increases only when the schema changes; every version is kept (see listEventTypeVersions).
+             */
+            version: number;
         };
         ValidateEventPayloadInputBody: {
             /**
@@ -2497,13 +3052,15 @@ export interface operations {
                 webhook_id?: string;
                 /** @description Filter to deliveries for one pushed event occurrence. */
                 event_id?: string;
-                /** @description Filter by delivery status (e.g. pending, success, failed, retrying). */
+                /** @description Filter by delivery status (e.g. pending, success, failed, retrying, paused). */
                 status?: string;
                 /** @description Filter by failure classification (e.g. server_error, client_error, timeout). */
                 error_category?: string;
-                /** @description Filter to deliveries created on or after this date (YYYY-MM-DD). */
+                /** @description Filter to deliveries created by one subscription, e.g. its paused deliveries. */
+                subscription_id?: string;
+                /** @description Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at). */
                 created_after?: string;
-                /** @description Filter to deliveries created on or before this date (YYYY-MM-DD). */
+                /** @description Filter to deliveries created on or before this date (YYYY-MM-DD) or exact time (RFC3339). */
                 created_before?: string;
                 /** @description If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint. */
                 prepare_retry?: boolean;
@@ -3561,6 +4118,119 @@ export interface operations {
             };
         };
     };
+    pauseSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consumer: string;
+                subscription_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PauseSubscriptionInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionItem"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    resumeSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consumer: string;
+                subscription_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeSubscriptionOutputBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     listWebhooks: {
         parameters: {
             query?: {
@@ -3994,13 +4664,15 @@ export interface operations {
                 webhook_id?: string;
                 /** @description Filter to deliveries for one pushed event occurrence. */
                 event_id?: string;
-                /** @description Filter by delivery status (e.g. pending, success, failed, retrying). */
+                /** @description Filter by delivery status (e.g. pending, success, failed, retrying, paused). */
                 status?: string;
                 /** @description Filter by failure classification (e.g. server_error, client_error, timeout). */
                 error_category?: string;
-                /** @description Filter to deliveries created on or after this date (YYYY-MM-DD). */
+                /** @description Filter to deliveries created by one subscription, e.g. its paused deliveries. */
+                subscription_id?: string;
+                /** @description Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at). */
                 created_after?: string;
-                /** @description Filter to deliveries created on or before this date (YYYY-MM-DD). */
+                /** @description Filter to deliveries created on or before this date (YYYY-MM-DD) or exact time (RFC3339). */
                 created_before?: string;
                 /** @description If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint. */
                 prepare_retry?: boolean;
@@ -4327,7 +4999,81 @@ export interface operations {
             };
         };
     };
-    deleteEventType: {
+    updateEventType: {
+        parameters: {
+            query?: {
+                /** @description Apply a breaking schema change even though subscriptions receive this event type. Without it, a breaking change to a subscribed type is refused with 409 and the reasons. */
+                allow_breaking?: boolean;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventTypeBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateEventTypeOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listEventTypeVersions: {
         parameters: {
             query?: never;
             header?: never;
@@ -4338,12 +5084,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description No Content */
-            204: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ListEventTypeVersionsOutputBody"];
+                };
             };
             /** @description Not Found */
             404: {
@@ -4374,20 +5122,18 @@ export interface operations {
             };
         };
     };
-    updateEventType: {
+    getEventTypeVersion: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 name: string;
+                /** @description Version number. */
+                version: number;
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EventTypeBody"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -4395,16 +5141,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventTypeItem"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
+                    "application/json": components["schemas"]["EventTypeVersionItem"];
                 };
             };
             /** @description Not Found */
@@ -4462,6 +5199,117 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    exportEventTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportEventTypesInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventTypeBundle"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    importEventTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportEventTypesInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportEventTypesOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

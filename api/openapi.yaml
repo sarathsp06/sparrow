@@ -77,6 +77,7 @@ components:
             - network_error
             - rate_limited
             - unexpected_status
+            - template_error
             - unknown
             - ""
           type: string
@@ -181,6 +182,50 @@ components:
         - failed
         - created_at
         - expires_at
+      type: object
+    BundleItem:
+      additionalProperties: false
+      properties:
+        active:
+          description: Whether events of this type can be pushed. Omitted means true.
+          type: boolean
+        description:
+          description: "Human-readable summary. Omitted means empty: an import replaces the definition."
+          type: string
+        event_schema:
+          additionalProperties: {}
+          description: JSON Schema. Omitted means no schema, which removes an existing schema (a breaking change).
+          type: object
+        metadata:
+          additionalProperties:
+            type: string
+          description: Arbitrary key/value metadata. Omitted means none.
+          type: object
+        name:
+          description: Event type name.
+          maxLength: 255
+          minLength: 1
+          type: string
+      required:
+        - name
+      type: object
+    BundleStampBody:
+      additionalProperties: false
+      properties:
+        format:
+          description: Bundle format number.
+          format: int64
+          type: integer
+        sha256:
+          description: sha256 of the canonical encoding of items, to tell whether they changed after export.
+          type: string
+        sparrow_version:
+          description: Version of the Sparrow server that exported the bundle.
+          type: string
+      required:
+        - sparrow_version
+        - format
+        - sha256
       type: object
     CapabilitiesOutputBody:
       additionalProperties: false
@@ -356,6 +401,18 @@ components:
         method:
           description: HTTP method used for deliveries from this subscription. Defaults to POST.
           type: string
+        on_transform_error:
+          description: "What happens when transform_template fails to render. fail (default): the delivery fails with error category template_error, is not retried automatically, and can be retried once the template is fixed; it does not affect the webhook's health. fallback: the default envelope payload is sent instead, and the error is still recorded on the delivery."
+          enum:
+            - fail
+            - fallback
+          type: string
+        template_missing_key:
+          description: "How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into \"<no value>\" in the body; read optional fields with index or dig (default only fills a key that is present but empty). zero: the key renders as \"<no value>\"."
+          enum:
+            - error
+            - zero
+          type: string
         timeout:
           description: Per-delivery request timeout in seconds, overriding the webhook's default.
           format: int64
@@ -453,7 +510,7 @@ components:
           description: Delivery id (UUID).
           type: string
         error_category:
-          description: Failure classification from the most recent attempt, used to decide retryability.
+          description: Failure classification from the most recent attempt, used to decide retryability. template_error means the subscription's transform failed to render; it is not retried automatically and does not count against the webhook's health.
           enum:
             - success
             - client_error
@@ -465,6 +522,7 @@ components:
             - network_error
             - rate_limited
             - unexpected_status
+            - template_error
             - unknown
             - ""
           type: string
@@ -492,7 +550,7 @@ components:
           format: int64
           type: integer
         status:
-          description: Current delivery status.
+          description: "Current delivery status. paused: created while its subscription was paused; not attempted until retried."
           enum:
             - pending
             - sending
@@ -500,6 +558,10 @@ components:
             - failed
             - retrying
             - expired
+            - paused
+          type: string
+        template_error:
+          description: "The payload transform error, when the subscription's template failed to render. Set for both on_transform_error modes: with fail the delivery was not sent; with fallback the default envelope was sent instead."
           type: string
         webhook_id:
           description: Webhook this delivery was sent to.
@@ -698,6 +760,10 @@ components:
         event_id:
           description: Event occurrence id (UUID).
           type: string
+        event_version:
+          description: Event type version this occurrence was accepted under.
+          format: int64
+          type: integer
         failed_deliveries:
           description: Deliveries that failed (exhausted retries or non-retryable error).
           format: int32
@@ -737,6 +803,7 @@ components:
         - event
         - payload
         - schema_valid
+        - event_version
         - webhook_count
         - successful_deliveries
         - failed_deliveries
@@ -771,6 +838,86 @@ components:
         name:
           description: Unique event type name, e.g. order.created. At most 255 characters. Immutable after creation.
           type: string
+      type: object
+    EventTypeBundle:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/EventTypeBundle.json
+          format: uri
+          readOnly: true
+          type: string
+        apiVersion:
+          description: Bundle schema version.
+          enum:
+            - sparrow/v1
+          type: string
+        items:
+          description: Event type definitions, sorted by name.
+          items:
+            $ref: "#/components/schemas/BundleItem"
+          type:
+            - array
+            - "null"
+        kind:
+          description: Bundle kind.
+          enum:
+            - EventTypeList
+          type: string
+        stamp:
+          $ref: "#/components/schemas/BundleStampBody"
+          description: Which Sparrow produced this bundle. A compatibility hint, not a signature.
+      required:
+        - apiVersion
+        - kind
+        - stamp
+        - items
+      type: object
+    EventTypeChange:
+      additionalProperties: false
+      properties:
+        action:
+          description: "created: new event type at version 1. new_version: the schema changed, so a new version was created and the previous one kept. updated: the current version changed in place (description, metadata, active, or a first schema added to a schema-less version). unchanged: nothing was written."
+          enum:
+            - created
+            - new_version
+            - updated
+            - unchanged
+          type: string
+        active_change:
+          description: Set when the write flips the active flag.
+          enum:
+            - deactivates
+            - reactivates
+            - ""
+          type: string
+        affected_subscriptions:
+          description: "For new_version: subscriptions that receive this event type, by name or catch-all."
+          format: int64
+          type: integer
+        changes:
+          description: "Fields that changed: schema, schema_defined (a first schema was added in place), description, metadata, active."
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        compatibility:
+          $ref: "#/components/schemas/SchemaCompatibilityItem"
+          description: "For new_version: whether the schema change could break a subscription's payload transformation."
+        previous_version:
+          description: Version before the write; absent when the event type was created.
+          format: int64
+          type: integer
+        version:
+          description: Version after the write.
+          format: int64
+          type: integer
+      required:
+        - action
+        - version
       type: object
     EventTypeItem:
       additionalProperties: false
@@ -810,11 +957,79 @@ components:
         updated_at:
           description: Last-modified timestamp, RFC3339.
           type: string
+        version:
+          description: Current schema version. Starts at 1 and increases only when the schema changes; every version is kept (see listEventTypeVersions).
+          format: int64
+          type: integer
       required:
         - name
         - active
+        - version
         - created_at
         - updated_at
+      type: object
+    EventTypeVersionItem:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/EventTypeVersionItem.json
+          format: uri
+          readOnly: true
+          type: string
+        created_at:
+          description: When this version was created, RFC3339.
+          type: string
+        description:
+          description: Description as it was when this version was created.
+          type: string
+        event_schema:
+          additionalProperties: {}
+          description: JSON Schema of this version. Absent for a schema-less version.
+          type: object
+        name:
+          description: Event type name.
+          type: string
+        sample_payload:
+          additionalProperties: {}
+          description: Example payload generated from this version's schema.
+          type: object
+        schema_defined_at:
+          description: When a first schema was added to this version in place, RFC3339. Events pushed before this time were accepted while the version had no schema.
+          type: string
+        version:
+          description: Version number.
+          format: int64
+          type: integer
+      required:
+        - name
+        - version
+        - created_at
+      type: object
+    ExportEventTypesInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ExportEventTypesInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        all:
+          description: Export every event type.
+          type: boolean
+        names:
+          description: Export these event types. Each must exist.
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        prefix:
+          description: Export every event type whose name starts with this prefix.
+          type: string
       type: object
     HealthSummaryOutputBody:
       additionalProperties: false
@@ -847,6 +1062,156 @@ components:
         - degraded_count
         - unhealthy_count
         - unknown_count
+      type: object
+    ImportEventTypesInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ImportEventTypesInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        acknowledge:
+          description: Stamp warnings you accept. Each unacknowledged warning blocks the write.
+          items:
+            enum:
+              - version_differs
+              - format_unsupported
+              - items_changed
+            type: string
+          type:
+            - array
+            - "null"
+        allow_breaking:
+          description: Apply breaking schema changes to event types that subscriptions receive.
+          type: boolean
+        apiVersion:
+          description: Bundle schema version, if the body is an exported bundle.
+          enum:
+            - sparrow/v1
+          type: string
+        dry_run:
+          description: Compute the full result without writing anything.
+          type: boolean
+        items:
+          description: Definitions to import. Each replaces the named event type; types not listed are never touched.
+          items:
+            $ref: "#/components/schemas/BundleItem"
+          maxItems: 500
+          minItems: 1
+          type:
+            - array
+            - "null"
+        kind:
+          description: Bundle kind, if the body is an exported bundle.
+          enum:
+            - EventTypeList
+          type: string
+        stamp:
+          $ref: "#/components/schemas/BundleStampBody"
+          description: The bundle's stamp. Absent for a hand-written bundle, which imports with a notice.
+        subscription_policy:
+          description: "keep_active (default): subscriptions keep running; a template that no longer fits fails its deliveries visibly with template_error. pause: in the same transaction, pause each subscription whose template fails the pre-check, with the import as the reason."
+          enum:
+            - keep_active
+            - pause
+          type: string
+      required:
+        - items
+      type: object
+    ImportEventTypesOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ImportEventTypesOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        applied:
+          description: True when the import was written. False for a dry run or when blocked_by is non-empty.
+          type: boolean
+        blocked_by:
+          description: "Why nothing was written: unacknowledged stamp warnings, and breaking when a breaking change needs allow_breaking."
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        dry_run:
+          description: Whether this was a dry run.
+          type: boolean
+        imported_at:
+          description: When the import was written, RFC3339. Use it to find deliveries that failed after the change.
+          type: string
+        items:
+          description: One result per bundle item, sorted by name.
+          items:
+            $ref: "#/components/schemas/ImportItemResult"
+          type:
+            - array
+            - "null"
+        stamp:
+          $ref: "#/components/schemas/StampCheckItem"
+          description: The bundle's stamp compared with this server.
+      required:
+        - applied
+        - dry_run
+        - stamp
+        - items
+      type: object
+    ImportItemResult:
+      additionalProperties: false
+      properties:
+        action:
+          description: What the import does to this event type. See updateEventType's change.action.
+          enum:
+            - created
+            - new_version
+            - updated
+            - unchanged
+          type: string
+        active_change:
+          description: Set when the import flips the active flag.
+          enum:
+            - deactivates
+            - reactivates
+            - ""
+          type: string
+        blocked:
+          description: The change is breaking for subscriptions and allow_breaking was not set.
+          type: boolean
+        changes:
+          description: "Fields that change: schema, schema_defined, description, metadata, active."
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        compatibility:
+          $ref: "#/components/schemas/SchemaCompatibilityItem"
+          description: "For new_version: whether the change could break a subscription's payload transformation."
+        name:
+          description: Event type name.
+          type: string
+        previous_version:
+          description: Version before the import.
+          format: int64
+          type: integer
+        subscriptions:
+          $ref: "#/components/schemas/TemplateCheckItem"
+          description: "For new_version: every affected subscription's transform rendered strictly against the new version."
+        version:
+          description: Version after the import (or that it would have, for a dry run).
+          format: int64
+          type: integer
+      required:
+        - name
+        - action
+        - version
       type: object
     InviteOut:
       additionalProperties: false
@@ -979,6 +1344,26 @@ components:
       required:
         - items
         - pagination
+      type: object
+    ListEventTypeVersionsOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ListEventTypeVersionsOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          description: Every version of the event type, newest first.
+          items:
+            $ref: "#/components/schemas/EventTypeVersionItem"
+          type:
+            - array
+            - "null"
+      required:
+        - items
       type: object
     ListEventTypesOutputBody:
       additionalProperties: false
@@ -1187,6 +1572,18 @@ components:
         method:
           description: Replace the HTTP method.
           type: string
+        on_transform_error:
+          description: Replace what happens when the template fails to render.
+          enum:
+            - fail
+            - fallback
+          type: string
+        template_missing_key:
+          description: Replace how the template reads a missing key.
+          enum:
+            - error
+            - zero
+          type: string
         template_notes:
           description: Optional note stored with the template version, e.g. the AI drafter's summary.
           maxLength: 2000
@@ -1251,6 +1648,21 @@ components:
           type: integer
         url:
           description: Replace the delivery endpoint URL.
+          type: string
+      type: object
+    PauseSubscriptionInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/PauseSubscriptionInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        reason:
+          description: "Why the subscription is paused, shown next to it, for example: receiver maintenance until Friday."
+          maxLength: 500
           type: string
       type: object
     PushEventBody:
@@ -1437,6 +1849,104 @@ components:
       required:
         - event_id
       type: object
+    ResumeSubscriptionOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ResumeSubscriptionOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        consumer:
+          description: Tenant consumer this subscription belongs to.
+          type: string
+        created_at:
+          description: Creation timestamp, RFC3339.
+          type: string
+        event_name:
+          description: Event type name this subscription matches, or "*" for catch-all.
+          type: string
+        headers:
+          additionalProperties:
+            type: string
+          description: Extra HTTP headers sent with deliveries from this subscription.
+          type: object
+        label_filters:
+          additionalProperties:
+            type: string
+          description: Key/value pairs that must all be present in an event's labels for this subscription to receive it.
+          type: object
+        method:
+          description: HTTP method used for deliveries from this subscription.
+          enum:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+          type: string
+        on_transform_error:
+          description: "What happens when transform_template fails to render. fail (default): the delivery fails with error category template_error, is not retried automatically, and can be retried once the template is fixed; it does not affect the webhook's health. fallback: the default envelope payload is sent instead, and the error is still recorded on the delivery."
+          enum:
+            - fail
+            - fallback
+          type: string
+        paused:
+          description: Whether the subscription is paused. While paused, events still fan out to it, but each delivery is recorded with status paused and not attempted until retried. A pause never affects the webhook's health.
+          type: boolean
+        paused_at:
+          description: When the current pause began, RFC3339.
+          type: string
+        paused_deliveries:
+          description: Deliveries recorded while paused. They are not sent automatically; retry them to deliver.
+          format: int64
+          type: integer
+        paused_reason:
+          description: Why the subscription was paused.
+          type: string
+        paused_since:
+          description: When the pause that just ended began, RFC3339. List or retry what was held with status=paused&subscription_id=...&created_after=<paused_since>.
+          type: string
+        subscription_id:
+          description: Subscription id (UUID).
+          type: string
+        template_missing_key:
+          description: "How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into \"<no value>\" in the body; read optional fields with index or dig (default only fills a key that is present but empty). zero: the key renders as \"<no value>\"."
+          enum:
+            - error
+            - zero
+          type: string
+        timeout:
+          description: Per-delivery request timeout in seconds, overriding the webhook's default.
+          format: int64
+          type: integer
+        transform_enabled:
+          description: Whether transform_template is rendered into the delivered payload.
+          type: boolean
+        transform_template:
+          description: Go template rendered against the event to produce the delivered body.
+          type: string
+        updated_at:
+          description: Last-modified timestamp, RFC3339.
+          type: string
+        webhook_id:
+          description: Webhook this subscription delivers to.
+          type: string
+      required:
+        - paused_deliveries
+        - subscription_id
+        - consumer
+        - webhook_id
+        - event_name
+        - transform_enabled
+        - on_transform_error
+        - template_missing_key
+        - paused
+        - created_at
+        - updated_at
+      type: object
     RetryDeliveriesByWebhookInputBody:
       additionalProperties: false
       properties:
@@ -1479,6 +1989,52 @@ components:
             - "null"
       required:
         - count
+      type: object
+    SchemaCompatibilityItem:
+      additionalProperties: false
+      properties:
+        reasons:
+          description: Each breaking change with the path it affects.
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        result:
+          description: "breaking when the change could break a payload transformation: a required property removed or made optional, a type widened, the schema removed, or a change under oneOf/anyOf/allOf/$ref/patternProperties that cannot be checked."
+          enum:
+            - compatible
+            - breaking
+          type: string
+      required:
+        - result
+      type: object
+    StampCheckItem:
+      additionalProperties: false
+      properties:
+        exported_by:
+          description: Sparrow version that exported the file.
+          type: string
+        server:
+          description: This server's Sparrow version.
+          type: string
+        status:
+          description: "valid: stamp present and matching. unsigned: no stamp (hand-written file). warning: see warnings."
+          enum:
+            - valid
+            - unsigned
+            - warning
+          type: string
+        warnings:
+          description: version_differs, format_unsupported, items_changed. Each must be acknowledged for the import to write.
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+      required:
+        - status
+        - server
       type: object
     Subscription:
       additionalProperties: false
@@ -1526,8 +2082,29 @@ components:
             - PATCH
             - DELETE
           type: string
+        on_transform_error:
+          description: "What happens when transform_template fails to render. fail (default): the delivery fails with error category template_error, is not retried automatically, and can be retried once the template is fixed; it does not affect the webhook's health. fallback: the default envelope payload is sent instead, and the error is still recorded on the delivery."
+          enum:
+            - fail
+            - fallback
+          type: string
+        paused:
+          description: Whether the subscription is paused. While paused, events still fan out to it, but each delivery is recorded with status paused and not attempted until retried. A pause never affects the webhook's health.
+          type: boolean
+        paused_at:
+          description: When the current pause began, RFC3339.
+          type: string
+        paused_reason:
+          description: Why the subscription was paused.
+          type: string
         subscription_id:
           description: Subscription id (UUID).
+          type: string
+        template_missing_key:
+          description: "How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into \"<no value>\" in the body; read optional fields with index or dig (default only fills a key that is present but empty). zero: the key renders as \"<no value>\"."
+          enum:
+            - error
+            - zero
           type: string
         timeout:
           description: Per-delivery request timeout in seconds, overriding the webhook's default.
@@ -1551,8 +2128,73 @@ components:
         - webhook_id
         - event_name
         - transform_enabled
+        - on_transform_error
+        - template_missing_key
+        - paused
         - created_at
         - updated_at
+      type: object
+    TemplateCheckItem:
+      additionalProperties: false
+      properties:
+        catch_all:
+          description: How many of the affected subscriptions are catch-all ("*").
+          format: int64
+          type: integer
+        failures:
+          description: Subscriptions whose transform no longer renders against the new version.
+          items:
+            $ref: "#/components/schemas/TemplateFailureItem"
+          type:
+            - array
+            - "null"
+        passed:
+          description: Subscriptions whose transform renders.
+          format: int64
+          type: integer
+        paused:
+          description: Subscriptions this import paused (subscription_policy=pause).
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        without_transform:
+          description: Subscriptions with no transform. Sparrow passes the payload through and cannot tell whether the receiver copes.
+          format: int64
+          type: integer
+      required:
+        - passed
+        - without_transform
+        - catch_all
+      type: object
+    TemplateFailureItem:
+      additionalProperties: false
+      properties:
+        consumer:
+          description: Consumer the subscription belongs to.
+          type: string
+        error:
+          description: The render error.
+          type: string
+        payload:
+          description: "Which generated payload failed: every field, or only required fields (a template reading an optional field without guarding for it)."
+          enum:
+            - sample
+            - required_only
+          type: string
+        subscription_id:
+          description: Subscription whose template failed.
+          type: string
+        webhook_id:
+          description: Webhook the subscription delivers to.
+          type: string
+      required:
+        - subscription_id
+        - consumer
+        - webhook_id
+        - payload
+        - error
       type: object
     TemplateFunctionItem:
       additionalProperties: false
@@ -1634,11 +2276,14 @@ components:
         event_name:
           description: Registered event type whose sample payload the template is rendered against.
           type: string
-        strict:
-          description: Fail when the template reads a payload key the sample does not have (missingkey=error), naming the key, instead of rendering <no value> as a live delivery would. Use it to catch misspelled fields; note it also applies inside {{ if .payload.optional }}, so optional fields should be read with (index .payload "optional").
-          type: boolean
         template:
           description: Go template to render, in the same syntax used by transform_template.
+          type: string
+        template_missing_key:
+          description: Render as a subscription with this template_missing_key would. Defaults to error, the subscription default.
+          enum:
+            - error
+            - zero
           type: string
       required:
         - event_name
@@ -1713,6 +2358,59 @@ components:
         - expires_at
         - revoked_at
         - last_used_at
+      type: object
+    UpdateEventTypeOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/UpdateEventTypeOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        active:
+          description: Whether events of this type can currently be pushed.
+          type: boolean
+        change:
+          $ref: "#/components/schemas/EventTypeChange"
+          description: What this update did.
+        created_at:
+          description: Creation timestamp, RFC3339.
+          type: string
+        description:
+          description: Human-readable summary of what this event represents.
+          type: string
+        event_schema:
+          additionalProperties: {}
+          description: JSON Schema payloads are softly validated against, if one is registered.
+          type: object
+        metadata:
+          additionalProperties:
+            type: string
+          description: Arbitrary key/value metadata.
+          type: object
+        name:
+          description: Event type name, e.g. order.created.
+          type: string
+        sample_payload:
+          additionalProperties: {}
+          description: Example payload derived from the schema, used to preview subscription transform templates.
+          type: object
+        updated_at:
+          description: Last-modified timestamp, RFC3339.
+          type: string
+        version:
+          description: Current schema version. Starts at 1 and increases only when the schema changes; every version is kept (see listEventTypeVersions).
+          format: int64
+          type: integer
+      required:
+        - change
+        - name
+        - active
+        - version
+        - created_at
+        - updated_at
       type: object
     ValidateEventPayloadInputBody:
       additionalProperties: false
@@ -2263,12 +2961,12 @@ paths:
           schema:
             description: Filter to deliveries for one pushed event occurrence.
             type: string
-        - description: Filter by delivery status (e.g. pending, success, failed, retrying).
+        - description: Filter by delivery status (e.g. pending, success, failed, retrying, paused).
           explode: false
           in: query
           name: status
           schema:
-            description: Filter by delivery status (e.g. pending, success, failed, retrying).
+            description: Filter by delivery status (e.g. pending, success, failed, retrying, paused).
             type: string
         - description: Filter by failure classification (e.g. server_error, client_error, timeout).
           explode: false
@@ -2277,19 +2975,26 @@ paths:
           schema:
             description: Filter by failure classification (e.g. server_error, client_error, timeout).
             type: string
-        - description: Filter to deliveries created on or after this date (YYYY-MM-DD).
+        - description: Filter to deliveries created by one subscription, e.g. its paused deliveries.
+          explode: false
+          in: query
+          name: subscription_id
+          schema:
+            description: Filter to deliveries created by one subscription, e.g. its paused deliveries.
+            type: string
+        - description: Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at).
           explode: false
           in: query
           name: created_after
           schema:
-            description: Filter to deliveries created on or after this date (YYYY-MM-DD).
+            description: Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at).
             type: string
-        - description: Filter to deliveries created on or before this date (YYYY-MM-DD).
+        - description: Filter to deliveries created on or before this date (YYYY-MM-DD) or exact time (RFC3339).
           explode: false
           in: query
           name: created_before
           schema:
-            description: Filter to deliveries created on or before this date (YYYY-MM-DD).
+            description: Filter to deliveries created on or before this date (YYYY-MM-DD) or exact time (RFC3339).
             type: string
         - description: If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint.
           explode: false
@@ -3280,6 +3985,104 @@ paths:
       summary: List a subscription's saved template history
       tags:
         - Subscriptions
+  /v1/consumers/{consumer}/subscriptions/{subscription_id}:pause:
+    post:
+      description: "Stops the subscription's deliveries from being attempted, for any reason (receiver maintenance, a template being fixed, an investigation). Events keep fanning out to it: each delivery is recorded with status paused and nothing is queued, so nothing is lost. Deliveries already queued finish. A pause never affects the webhook's health. Pausing again updates the reason and keeps the original pause time."
+      operationId: pauseSubscription
+      parameters:
+        - in: path
+          name: consumer
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: subscription_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PauseSubscriptionInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionItem"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Bad Request
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+      summary: Pause a subscription
+      tags:
+        - Subscriptions
+  /v1/consumers/{consumer}/subscriptions/{subscription_id}:resume:
+    post:
+      description: "New deliveries are attempted again. Deliveries recorded while paused stay paused and are never sent automatically: the response says how many there are and when the pause began, so you can retry all of them or only those since a time with the delivery retry endpoints."
+      operationId: resumeSubscription
+      parameters:
+        - in: path
+          name: consumer
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: subscription_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeSubscriptionOutputBody"
+          description: OK
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+      summary: Resume a paused subscription
+      tags:
+        - Subscriptions
   /v1/consumers/{consumer}/webhooks:
     get:
       description: Lists webhooks in a consumer, optionally filtered by id, subscribed event, active flag, or computed health status.
@@ -3714,12 +4517,12 @@ paths:
           schema:
             description: Filter to deliveries for one pushed event occurrence.
             type: string
-        - description: Filter by delivery status (e.g. pending, success, failed, retrying).
+        - description: Filter by delivery status (e.g. pending, success, failed, retrying, paused).
           explode: false
           in: query
           name: status
           schema:
-            description: Filter by delivery status (e.g. pending, success, failed, retrying).
+            description: Filter by delivery status (e.g. pending, success, failed, retrying, paused).
             type: string
         - description: Filter by failure classification (e.g. server_error, client_error, timeout).
           explode: false
@@ -3728,19 +4531,26 @@ paths:
           schema:
             description: Filter by failure classification (e.g. server_error, client_error, timeout).
             type: string
-        - description: Filter to deliveries created on or after this date (YYYY-MM-DD).
+        - description: Filter to deliveries created by one subscription, e.g. its paused deliveries.
+          explode: false
+          in: query
+          name: subscription_id
+          schema:
+            description: Filter to deliveries created by one subscription, e.g. its paused deliveries.
+            type: string
+        - description: Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at).
           explode: false
           in: query
           name: created_after
           schema:
-            description: Filter to deliveries created on or after this date (YYYY-MM-DD).
+            description: Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at).
             type: string
-        - description: Filter to deliveries created on or before this date (YYYY-MM-DD).
+        - description: Filter to deliveries created on or before this date (YYYY-MM-DD) or exact time (RFC3339).
           explode: false
           in: query
           name: created_before
           schema:
-            description: Filter to deliveries created on or before this date (YYYY-MM-DD).
+            description: Filter to deliveries created on or before this date (YYYY-MM-DD) or exact time (RFC3339).
             type: string
         - description: If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint.
           explode: false
@@ -3993,39 +4803,6 @@ paths:
       tags:
         - Event Types
   /v1/event-types/{name}:
-    delete:
-      description: Permanently deletes an event type definition. Existing pushed occurrences of this type are not deleted.
-      operationId: deleteEventType
-      parameters:
-        - in: path
-          name: name
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: No Content
-        "404":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-          description: Not Found
-        "422":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-          description: Unprocessable Entity
-        "500":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-          description: Internal Server Error
-      summary: Delete an event type definition
-      tags:
-        - Event Types
     get:
       description: Fetches one event type's schema, sample payload, and metadata.
       operationId: getEventType
@@ -4064,7 +4841,7 @@ paths:
       tags:
         - Event Types
     patch:
-      description: "Merge-patches an event type: only fields present in the request body are changed."
+      description: "Merge-patches an event type: only fields present in the request body are changed. A schema change creates a new version and keeps the previous one; adding a first schema to a schema-less version, and any change to description, metadata or active, updates the current version in place. The response's change field says which happened. A breaking schema change (see change.compatibility) to an event type that subscriptions receive is refused with 409 unless allow_breaking=true."
       operationId: updateEventType
       parameters:
         - in: path
@@ -4072,6 +4849,14 @@ paths:
           required: true
           schema:
             type: string
+        - description: Apply a breaking schema change even though subscriptions receive this event type. Without it, a breaking change to a subscribed type is refused with 409 and the reasons.
+          explode: false
+          in: query
+          name: allow_breaking
+          schema:
+            default: false
+            description: Apply a breaking schema change even though subscriptions receive this event type. Without it, a breaking change to a subscribed type is refused with 409 and the reasons.
+            type: boolean
       requestBody:
         content:
           application/json:
@@ -4083,7 +4868,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EventTypeItem"
+                $ref: "#/components/schemas/UpdateEventTypeOutputBody"
           description: OK
         "400":
           content:
@@ -4091,6 +4876,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorModel"
           description: Bad Request
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+      summary: Update an event type definition
+      tags:
+        - Event Types
+  /v1/event-types/{name}/versions:
+    get:
+      description: Returns the version history of an event type, newest first. Event types are never deleted; to retire one, set active to false.
+      operationId: listEventTypeVersions
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEventTypeVersionsOutputBody"
+          description: OK
         "404":
           content:
             application/problem+json:
@@ -4109,7 +4938,54 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorModel"
           description: Internal Server Error
-      summary: Update an event type definition
+      summary: List every version of an event type
+      tags:
+        - Event Types
+  /v1/event-types/{name}/versions/{version}:
+    get:
+      description: Fetches a specific version's schema, sample payload and description.
+      operationId: getEventTypeVersion
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+        - description: Version number.
+          in: path
+          name: version
+          required: true
+          schema:
+            description: Version number.
+            format: int64
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventTypeVersionItem"
+          description: OK
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+      summary: Get one version of an event type
       tags:
         - Event Types
   /v1/event-types/{name}:validate:
@@ -4154,6 +5030,88 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Internal Server Error
       summary: Validate a payload against an event type's JSON Schema
+      tags:
+        - Event Types
+  /v1/event-types:export:
+    post:
+      description: Returns the current definitions of the selected event types as one JSON bundle, ready to import into another environment with importEventTypes. Choose exactly one of names, prefix or all. An unknown name fails the whole export. Sparrow's own sparrow.* event types are never exported.
+      operationId: exportEventTypes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportEventTypesInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventTypeBundle"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Bad Request
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+      summary: Export event type definitions as a bundle
+      tags:
+        - Event Types
+  /v1/event-types:import:
+    post:
+      description: "Applies a bundle in one transaction: each item replaces the named event type using the usual version rules, or nothing is written. Event types not in the bundle are never touched; an import does not delete. The full per-item result is returned either way. Nothing is written for a dry run, when a stamp warning is not acknowledged, or when a change is breaking for subscriptions and allow_breaking is not set; blocked_by says why. The body may be an exported bundle as-is, plus the options."
+      operationId: importEventTypes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportEventTypesInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportEventTypesOutputBody"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Bad Request
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+      summary: Import a bundle of event type definitions
       tags:
         - Event Types
   /v1/events:

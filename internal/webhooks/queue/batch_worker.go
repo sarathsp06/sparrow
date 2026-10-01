@@ -195,17 +195,21 @@ func (w *BatchJobWorker) processEventRepush(ctx context.Context, tenantID, batch
 		// Create a new event record (fresh ID, same payload/consumer/event).
 		// Preserve the original TTL. TTL=0 means no expiry -- StoreEvent
 		// will set ExpiresAt to the far-future sentinel automatically.
+		// A batch replay does not re-validate the payload, so it keeps the
+		// event type version and validation result the original was
+		// accepted under.
 		newID := uuid.New()
 		newEvent := &store.EventRecord{
-			ID:          newID,
-			Consumer:    original.Consumer,
-			Event:       original.Event,
-			Payload:     original.Payload,
-			TTL:         original.TTL,
-			Metadata:    original.Metadata,
-			Labels:      original.Labels,
-			SchemaValid: true, // Will be re-validated by event worker
-			CreatedAt:   time.Now(),
+			ID:           newID,
+			Consumer:     original.Consumer,
+			Event:        original.Event,
+			Payload:      original.Payload,
+			TTL:          original.TTL,
+			Metadata:     original.Metadata,
+			Labels:       original.Labels,
+			SchemaValid:  original.SchemaValid,
+			EventVersion: original.EventVersion,
+			CreatedAt:    time.Now(),
 		}
 
 		if err := w.eventRepo.StoreEvent(ctx, tenantID, newEvent); err != nil {

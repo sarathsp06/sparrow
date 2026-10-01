@@ -1,0 +1,26 @@
+flowchart TD
+    E["event accepted,<br>event_version recorded"] --> FO["fan-out to matching subscriptions"]
+    FO --> WA{"webhook active?"}
+    WA -- no --> SKIP["no delivery (webhook paused)"]
+    WA -- yes --> PS{"subscription paused?"}
+    PS -- yes --> PR["delivery row, status paused,<br>no job queued"]
+    PR -. "resume, then retry" .-> JOB
+    PS -- no --> JOB["delivery row pending,<br>job queued"]
+    JOB --> T{"transform enabled?"}
+    T -- no --> ENV["default envelope"]
+    T -- yes --> RN["render template<br>(template_missing_key)"]
+    RN --> OK{"rendered?"}
+    OK -- yes --> SEND["HTTP request"]
+    OK -- no --> OE{"on_transform_error"}
+    OE -- fail --> TE["failed, template_error:<br>not retried automatically"]
+    TE -. "fix template, retry" .-> JOB
+    OE -- fallback --> ENV2["default envelope,<br>template_error recorded"]
+    ENV --> SEND
+    ENV2 --> SEND
+    SEND --> RES{"response"}
+    RES -- "expected 2xx" --> S["success"]
+    RES -- retryable --> RT["retry with backoff"]
+    RES -- permanent --> FL["failed"]
+    S --> H[("webhook health")]
+    RT --> H
+    FL --> H

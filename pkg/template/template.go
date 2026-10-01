@@ -44,9 +44,8 @@ func (w *limitedWriter) Write(p []byte) (int, error) {
 
 // TemplateEngine handles payload transformations using Go templates
 type TemplateEngine struct {
-	funcs  template.FuncMap
-	cache  *TemplateCache
-	strict bool
+	funcs template.FuncMap
+	cache *TemplateCache
 }
 
 // NewTemplateEngine creates a new template engine with default helpers
@@ -62,34 +61,35 @@ func NewTemplateEngineWithCacheSize(maxSize int) *TemplateEngine {
 	}
 }
 
-// NewStrictTemplateEngine creates an engine that fails when a template reads
-// a map key that is not in the data (text/template's missingkey=error),
-// instead of rendering "<no value>". Deliveries use the lenient engine so a
-// payload missing an optional field still produces a body; drafting and
-// validation use this one so a misspelled or mis-cased field is an error
-// that names the key. Note that missingkey=error also applies inside
-// {{ if .payload.optional }}: templates that must tolerate absent fields
-// should read them with (index .payload "optional").
-func NewStrictTemplateEngine() *TemplateEngine {
-	e := NewTemplateEngineWithCacheSize(DefaultCacheSize)
-	e.strict = true
-	return e
+// ExecOptions controls how a template is executed.
+type ExecOptions struct {
+	// StrictMissingKeys makes reading a key the data does not have an error
+	// (text/template's missingkey=error) instead of rendering "<no value>".
+	// With it, a template that reads a field removed from the payload fails
+	// instead of silently producing a wrong body. Read optional fields with
+	// index or dig, which never error on a missing key. default does not
+	// help here: the lookup in `default "x" .payload.plan` fails before
+	// default runs; use `dig "plan" "x" .payload` instead.
+	StrictMissingKeys bool
 }
 
-// Strict reports whether missing map keys are errors for this engine.
-func (e *TemplateEngine) Strict() bool { return e.strict }
+// Execute processes a template with the given data, rendering missing keys
+// as "<no value>". See ExecuteWith for strict rendering.
+func (e *TemplateEngine) Execute(tmplStr string, data any) ([]byte, error) {
+	return e.ExecuteWith(tmplStr, data, ExecOptions{})
+}
 
-// Execute processes a template with the given data.
+// ExecuteWith processes a template with the given data and options.
 // Output is limited to MaxTemplateOutputBytes and execution time is limited
 // to TemplateExecutionTimeout to prevent denial-of-service via crafted
 // templates that consume unbounded CPU or produce unbounded output.
-func (e *TemplateEngine) Execute(tmplStr string, data any) ([]byte, error) {
+func (e *TemplateEngine) ExecuteWith(tmplStr string, data any, opts ExecOptions) ([]byte, error) {
 	if tmplStr == "" {
 		return nil, nil
 	}
 
 	// Get or create cached template
-	tmpl, err := e.getOrParseTemplate(tmplStr)
+	tmpl, err := e.getOrParseTemplate(tmplStr, opts.StrictMissingKeys)
 	if err != nil {
 		return nil, err
 	}
@@ -133,9 +133,14 @@ func (e *TemplateEngine) Execute(tmplStr string, data any) ([]byte, error) {
 	return result, nil
 }
 
-// getOrParseTemplate retrieves a cached template or parses and caches a new one
-func (e *TemplateEngine) getOrParseTemplate(tmplStr string) (*template.Template, error) {
+// getOrParseTemplate retrieves a cached template or parses and caches a new
+// one. Strict and lenient parses of the same source are cached separately,
+// since the missingkey option is set on the parsed template.
+func (e *TemplateEngine) getOrParseTemplate(tmplStr string, strict bool) (*template.Template, error) {
 	key := hashTemplate(tmplStr)
+	if strict {
+		key = hashTemplate("missingkey=error\x00" + tmplStr)
+	}
 
 	// Try to get from cache
 	if tmpl, found := e.cache.Get(key); found {
@@ -143,13 +148,12 @@ func (e *TemplateEngine) getOrParseTemplate(tmplStr string) (*template.Template,
 	}
 
 	// Parse new template
-	t := template.New("webhook").Funcs(e.funcs)
-	if e.strict {
-		t = t.Option("missingkey=error")
-	}
-	tmpl, err := t.Parse(tmplStr)
+	tmpl, err := template.New("webhook").Funcs(e.funcs).Parse(tmplStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse template: %w", err)
+	}
+	if strict {
+		tmpl = tmpl.Option("missingkey=error")
 	}
 
 	// Add to cache
@@ -193,8 +197,13 @@ func NewWebhookTemplateContext(eventID, eventName, timestamp string, attempt int
 
 // TransformPayload applies the template if enabled
 func (e *TemplateEngine) TransformPayload(tmplStr string, data WebhookTemplateContext) ([]byte, error) {
+	return e.TransformPayloadWith(tmplStr, data, ExecOptions{})
+}
+
+// TransformPayloadWith applies the template with the given options.
+func (e *TemplateEngine) TransformPayloadWith(tmplStr string, data WebhookTemplateContext, opts ExecOptions) ([]byte, error) {
 	if tmplStr == "" {
 		return nil, nil
 	}
-	return e.Execute(tmplStr, data)
+	return e.ExecuteWith(tmplStr, data, opts)
 }

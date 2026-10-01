@@ -13,6 +13,7 @@
     failed:   { tone: "bad", label: "Failed" },
     retrying: { tone: "warn", label: "Retrying", pulse: true },
     expired:  { tone: "idle", label: "Expired" },
+    paused:   { tone: "idle", label: "Paused" },
   };
 
   const fallback = { tone: "idle", label: "Unknown", pulse: false };

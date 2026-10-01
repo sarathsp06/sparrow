@@ -25,6 +25,7 @@ type DeliveryRepository interface {
 	ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]*WebhookDelivery, int, error)
 	GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, force bool) ([]*WebhookDelivery, error)
 	ResetDeliveryForRetry(ctx context.Context, deliveryID uuid.UUID) error
+	UpdateDeliveryTemplateError(ctx context.Context, deliveryID uuid.UUID, msg string) error
 	DeleteDeliveryByID(ctx context.Context, deliveryID uuid.UUID) error
 	GetDeliveryAttempts(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID) ([]*WebhookHealthEvent, error)
 }
@@ -33,7 +34,8 @@ type DeliveryRepository interface {
 // Used by all delivery query functions to avoid repeating the same 16-column list.
 const deliveryColumns = `wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts,
 		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
-		       wd.response_code, wd.response_body, wd.error_message, wd.request_body, wd.error_category`
+		       wd.response_code, wd.response_body, wd.error_message, wd.request_body, wd.error_category,
+		       COALESCE(wd.template_error, '') AS template_error`
 
 // CreateDelivery creates a new webhook delivery record for tracking delivery attempts.
 // tenantID is accepted for interface consistency; the delivery is implicitly tenant-scoped via webhook_id.
@@ -397,7 +399,7 @@ func (r *Repository) GetRetriableDeliveries(ctx context.Context, tenantID uuid.U
 		WHERE wd.webhook_id = $1
 		  AND wr.tenant_id = $2
 		  AND wr.consumer = $3
-		  AND ($4 IS TRUE OR wd.status IN ('failed', 'pending', 'retrying'))
+		  AND ($4 IS TRUE OR wd.status IN ('failed', 'pending', 'retrying', 'paused'))
 		ORDER BY wd.created_at DESC
 	`
 
@@ -410,6 +412,17 @@ func (r *Repository) GetRetriableDeliveries(ctx context.Context, tenantID uuid.U
 	return deliveries, nil
 }
 
+// UpdateDeliveryTemplateError records the payload transform error for a
+// delivery, or clears it when msg is empty.
+func (r *Repository) UpdateDeliveryTemplateError(ctx context.Context, deliveryID uuid.UUID, msg string) error {
+	var v any
+	if msg != "" {
+		v = msg
+	}
+	_, err := r.conn.ExecContext(ctx, `UPDATE webhook_deliveries SET template_error = $2 WHERE id = $1`, deliveryID, v)
+	return storage.Error(err)
+}
+
 // ResetDeliveryForRetry resets a delivery status to pending for retry
 func (r *Repository) ResetDeliveryForRetry(ctx context.Context, deliveryID uuid.UUID) error {
 	query := `
@@ -420,7 +433,8 @@ func (r *Repository) ResetDeliveryForRetry(ctx context.Context, deliveryID uuid.
 		    response_code = 0,
 		    response_body = '',
 		    error_message = '',
-		    error_category = ''
+		    error_category = '',
+		    template_error = NULL
 		WHERE id = $1
 	`
 

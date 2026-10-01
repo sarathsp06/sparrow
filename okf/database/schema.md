@@ -14,6 +14,7 @@ timestamp: 2026-06-22T00:00:00Z
 tenants
   ├── consumers (tenant_id FK)
   ├── event_registrations (tenant_id FK, composite PK)
+  │     └── event_registration_versions (FK (tenant_id, name), ON DELETE RESTRICT)
   ├── webhook_registrations (tenant_id + consumer FK to consumers)
   ├── event_subscriptions (tenant_id FK)
   └── event_records (tenant_id FK)
@@ -39,19 +40,22 @@ Basic tenant info. Default tenant auto-created on startup.
 `(tenant_id, name)` UNIQUE. Scopes webhooks and events.
 
 ### event_registrations
-Composite PK `(tenant_id, name)`. Includes optional JSON schema, active flag.
+Composite PK `(tenant_id, name)`. The current definition: optional JSON schema, metadata, active flag, `version`.
+
+### event_registration_versions
+PK `(tenant_id, name, version)`. Every version of every event type, including the current one. Append-only except the one-time fill-in of a schema-less version (`schema_defined_at`).
 
 ### webhook_registrations
 23 columns — URL, HTTP config, secrets, health, rate limit, Ed25519 key, signature type. FK to consumers via `(tenant_id, consumer)`.
 
 ### event_subscriptions
-11 columns — binds webhook to event. Includes `transform_template` (Go template) and `label_filters`.
+Binds webhook to event. Includes `transform_template` (Go template), `label_filters`, `on_transform_error`, `template_missing_key`, and `paused_at` / `paused_reason`.
 
 ### event_records
-10 columns — pushed event instance with payload, optional `idempotency_key` (partial unique index), `schema_valid` flag, TTL expiry.
+Pushed event instance with payload, optional `idempotency_key` (partial unique index), `schema_valid` flag, `event_version`, TTL expiry.
 
 ### webhook_deliveries
-16 columns — status, attempts, error category, response capture. FKs to webhook, event, subscription.
+Status (including `paused`), attempts, error category, `template_error`, response capture. FKs to webhook, event, subscription.
 
 ### webhook_health_events
 9 columns — per-delivery health measurement.

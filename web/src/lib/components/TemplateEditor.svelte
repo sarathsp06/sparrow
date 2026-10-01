@@ -155,7 +155,7 @@
     try {
       rendering = true;
       const res = unwrap(await api.POST('/v1/subscriptions:testTemplate', {
-        body: { event_name: eventName, template: draft, strict },
+        body: { event_name: eventName, template: draft, template_missing_key: strict ? "error" : "zero" },
       }));
       rendered = res.rendered;
       renderError = "";

@@ -44,8 +44,8 @@ func (r *Repository) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *
 
 	query := `
 		INSERT INTO event_records (
-			id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+			id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at, event_version
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 
 	metadataJSON, err := json.Marshal(event.Metadata)
@@ -71,14 +71,24 @@ func (r *Repository) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *
 		event.IdempotencyKey,
 		event.CreatedAt,
 		event.ExpiresAt,
+		eventVersionOrDefault(event.EventVersion),
 	)
 	return storage.Error(err)
+}
+
+// eventVersionOrDefault stores version 1 for callers that predate versioning
+// and leave EventVersion unset.
+func eventVersionOrDefault(v int) int {
+	if v <= 0 {
+		return 1
+	}
+	return v
 }
 
 // GetEventByID gets an event record by ID within a tenant
 func (r *Repository) GetEventByID(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) (*EventRecord, error) {
 	query := `
-		SELECT id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at
+		SELECT id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, COALESCE(event_version, 1) AS event_version, idempotency_key, created_at, expires_at
 		FROM event_records
 		WHERE id = $1 AND tenant_id = $2
 	`
@@ -99,7 +109,7 @@ func (r *Repository) GetEventByID(ctx context.Context, tenantID uuid.UUID, event
 // Returns nil, nil when no matching record exists.
 func (r *Repository) GetEventByIdempotencyKey(ctx context.Context, tenantID uuid.UUID, consumer, idempotencyKey string) (*EventRecord, error) {
 	query := `
-		SELECT id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at
+		SELECT id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, COALESCE(event_version, 1) AS event_version, idempotency_key, created_at, expires_at
 		FROM event_records
 		WHERE tenant_id = $1 AND consumer = $2 AND idempotency_key = $3
 	`
@@ -159,7 +169,7 @@ func (r *Repository) ListEventReports(ctx context.Context, tenantID uuid.UUID, c
 
 	baseQuery := `
 		SELECT
-			id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at
+			id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, COALESCE(event_version, 1) AS event_version, idempotency_key, created_at, expires_at
 		FROM event_records
 		WHERE tenant_id = $1
 		  AND ($2::text IS NULL OR consumer = $2)
@@ -213,7 +223,7 @@ func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uui
 	baseQuery := `
 		SELECT
 			er.id, er.tenant_id, er.consumer, er.event, er.payload, er.ttl,
-			er.metadata, er.labels, er.schema_valid, er.created_at, er.expires_at,
+			er.metadata, er.labels, er.schema_valid, COALESCE(er.event_version, 1) AS event_version, er.created_at, er.expires_at,
 			COALESCE(ds.webhook_count, 0) as webhook_count,
 			COALESCE(ds.successful_deliveries, 0) as successful_deliveries,
 			COALESCE(ds.failed_deliveries, 0) as failed_deliveries,
@@ -285,7 +295,7 @@ func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid
 	baseQuery := `
 		SELECT
 			er.id, er.tenant_id, er.consumer, er.event, er.payload, er.ttl,
-			er.metadata, er.labels, er.schema_valid, er.created_at, er.expires_at,
+			er.metadata, er.labels, er.schema_valid, COALESCE(er.event_version, 1) AS event_version, er.created_at, er.expires_at,
 			COALESCE(ds.webhook_count, 0) as webhook_count,
 			COALESCE(ds.successful_deliveries, 0) as successful_deliveries,
 			COALESCE(ds.failed_deliveries, 0) as failed_deliveries,

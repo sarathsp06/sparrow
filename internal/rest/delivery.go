@@ -27,13 +27,14 @@ type deliveryItem struct {
 	DeliveryID      string  `json:"delivery_id" doc:"Delivery id (UUID)."`
 	WebhookID       string  `json:"webhook_id" doc:"Webhook this delivery was sent to."`
 	EventID         string  `json:"event_id" doc:"Pushed event occurrence this delivery originated from."`
-	Status          string  `json:"status" enum:"pending,sending,success,failed,retrying,expired" doc:"Current delivery status."`
+	Status          string  `json:"status" enum:"pending,sending,success,failed,retrying,expired,paused" doc:"Current delivery status. paused: created while its subscription was paused; not attempted until retried."`
 	AttemptCount    int     `json:"attempt_count" doc:"Number of delivery attempts made so far."`
 	MaxAttempts     int     `json:"max_attempts" doc:"Maximum attempts allowed before the delivery is marked failed."`
 	ResponseCode    int     `json:"response_code,omitempty" doc:"HTTP status code returned by the endpoint on the most recent attempt, if any."`
 	ResponseBody    string  `json:"response_body,omitempty" doc:"Endpoint response body from the most recent attempt, if capture_response_body is enabled."`
 	ErrorMessage    string  `json:"error_message,omitempty" doc:"Human-readable failure reason from the most recent attempt."`
-	ErrorCategory   string  `json:"error_category,omitempty" enum:"success,client_error,server_error,timeout,dns_error,tls_error,connection_refused,network_error,rate_limited,unexpected_status,unknown," doc:"Failure classification from the most recent attempt, used to decide retryability."`
+	ErrorCategory   string  `json:"error_category,omitempty" enum:"success,client_error,server_error,timeout,dns_error,tls_error,connection_refused,network_error,rate_limited,unexpected_status,template_error,unknown," doc:"Failure classification from the most recent attempt, used to decide retryability. template_error means the subscription's transform failed to render; it is not retried automatically and does not count against the webhook's health."`
+	TemplateError   string  `json:"template_error,omitempty" doc:"The payload transform error, when the subscription's template failed to render. Set for both on_transform_error modes: with fail the delivery was not sent; with fallback the default envelope was sent instead."`
 	CreatedAt       string  `json:"created_at" doc:"Creation timestamp, RFC3339."`
 	LastAttemptedAt *string `json:"last_attempted_at,omitempty" doc:"Timestamp of the most recent attempt, RFC3339."`
 	NextRetryAt     *string `json:"next_retry_at,omitempty" doc:"Timestamp of the next scheduled retry, RFC3339, if one is pending."`
@@ -55,6 +56,7 @@ func toDeliveryItem(dl *store.WebhookDelivery) deliveryItem {
 		ResponseBody:  dl.ResponseBody,
 		ErrorMessage:  dl.ErrorMessage,
 		ErrorCategory: dl.ErrorCategory,
+		TemplateError: dl.TemplateError,
 		CreatedAt:     dl.CreatedAt.Format(time.RFC3339Nano),
 	}
 	if dl.LastAttemptedAt != nil {
@@ -75,15 +77,16 @@ func toDeliveryOutput(dl *store.WebhookDelivery) *deliveryOutput {
 // DeliveryListParams are the query filters shared by the consumer-scoped and
 // global delivery list routes.
 type DeliveryListParams struct {
-	WebhookID     string `query:"webhook_id,omitempty" doc:"Filter to deliveries for one webhook."`
-	EventID       string `query:"event_id,omitempty" doc:"Filter to deliveries for one pushed event occurrence."`
-	Status        string `query:"status,omitempty" doc:"Filter by delivery status (e.g. pending, success, failed, retrying)."`
-	ErrorCategory string `query:"error_category,omitempty" doc:"Filter by failure classification (e.g. server_error, client_error, timeout)."`
-	CreatedAfter  string `query:"created_after,omitempty" doc:"Filter to deliveries created on or after this date (YYYY-MM-DD)."`
-	CreatedBefore string `query:"created_before,omitempty" doc:"Filter to deliveries created on or before this date (YYYY-MM-DD)."`
-	PrepareRetry  bool   `query:"prepare_retry" default:"false" doc:"If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint."`
-	Limit         int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
-	Offset        int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
+	WebhookID      string `query:"webhook_id,omitempty" doc:"Filter to deliveries for one webhook."`
+	EventID        string `query:"event_id,omitempty" doc:"Filter to deliveries for one pushed event occurrence."`
+	Status         string `query:"status,omitempty" doc:"Filter by delivery status (e.g. pending, success, failed, retrying, paused)."`
+	ErrorCategory  string `query:"error_category,omitempty" doc:"Filter by failure classification (e.g. server_error, client_error, timeout)."`
+	SubscriptionID string `query:"subscription_id,omitempty" doc:"Filter to deliveries created by one subscription, e.g. its paused deliveries."`
+	CreatedAfter   string `query:"created_after,omitempty" doc:"Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at)."`
+	CreatedBefore  string `query:"created_before,omitempty" doc:"Filter to deliveries created on or before this date (YYYY-MM-DD) or exact time (RFC3339)."`
+	PrepareRetry   bool   `query:"prepare_retry" default:"false" doc:"If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint."`
+	Limit          int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
+	Offset         int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
 }
 
 type listDeliveriesInput struct {
@@ -129,7 +132,7 @@ type attemptItem struct {
 	ResponseTime  int    `json:"response_time" doc:"Round-trip time of this attempt, in milliseconds."`
 	ResponseCode  int    `json:"response_code" doc:"HTTP status code returned by the endpoint on this attempt."`
 	ErrorMessage  string `json:"error_message,omitempty" doc:"Human-readable failure reason for this attempt."`
-	ErrorCategory string `json:"error_category,omitempty" enum:"success,client_error,server_error,timeout,dns_error,tls_error,connection_refused,network_error,rate_limited,unexpected_status,unknown," doc:"Failure classification for this attempt."`
+	ErrorCategory string `json:"error_category,omitempty" enum:"success,client_error,server_error,timeout,dns_error,tls_error,connection_refused,network_error,rate_limited,unexpected_status,template_error,unknown," doc:"Failure classification for this attempt."`
 	Timestamp     string `json:"timestamp" doc:"When this attempt was made, RFC3339."`
 }
 
@@ -389,6 +392,13 @@ func listDeliveriesImpl(ctx context.Context, svc deliveryRouteService, consumer 
 			return nil, huma.Error400BadRequest("event_id must be a valid UUID")
 		}
 		filter.EventID = &id
+	}
+	if p.SubscriptionID != "" {
+		id, err := uuid.Parse(p.SubscriptionID)
+		if err != nil {
+			return nil, huma.Error400BadRequest("subscription_id must be a valid UUID")
+		}
+		filter.SubscriptionID = &id
 	}
 	if p.Status != "" {
 		filter.Status = &p.Status

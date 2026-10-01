@@ -37,7 +37,7 @@
 
 1. **Deterministic bulk operations** — Batch actions snapshot matching IDs into `batch_jobs` at query time. The bulk action operates on that snapshot, NOT a live re-query.
 2. **Soft validation over hard rejection** — Schema validation produces warnings, not errors. Events tagged `schema_valid=false`, never discarded.
-3. **Graceful degradation** — When a non-critical step fails (e.g., Go template transform), fall back to a safe default (envelope payload).
+3. **Fail visibly, never silently** — A step that cannot do what the subscription asked (e.g., a Go template transform that errors) fails the delivery with a permanent, non-retryable error recorded on the delivery row. Fallbacks are opt-in per subscription and still record the error. Faults on the sending side never count against a receiver's health.
 4. **Generic infrastructure over per-feature tables** — Shared concerns use generic tables with `job_type` + JSONB `data` columns.
 5. **Implicit infrastructure, explicit actions** — Batch jobs are an implementation detail. Users see "re-push ID" and "retry ID", not "batch job IDs".
 6. **Postgres-only, no Redis** — All queuing, state, and caching uses PostgreSQL. Don't introduce Redis or other external dependencies without strong justification.
@@ -74,6 +74,7 @@ The embedded UI (`SPARROW_SERVE_UI=true`) is served exactly as built -- the serv
 | `/v1/*` | Huma REST API | Yes | See `internal/rest/` — one file per resource |
 | `/docs`, `/openapi.*` | Huma-served Scalar UI + spec | No | Interactive API reference |
 | `GET /health`, `/ready` | Health check | No | JSON status |
+| `/v1/event-types:export`, `/v1/event-types:import` | Event type bundles (`internal/rest/event_bundle.go`) | Yes | Move definitions between environments; import is all-or-nothing with dry run. There is no event type delete |
 | `/v1/consumers/{c}/subscriptions/{id}/templateVersions` | Saved template history (`internal/rest/subscription.go`) | Yes | Newest = current; last 20 kept; written when a save changes `transform_template` |
 | `/v1/tokens`, `/v1/invites`, `/v1/whoami` | Access token/invite endpoints (`internal/rest/access.go`) | Yes | Under `/v1` — require master key or tenant-wide token |
 | `/portal/api/*` | Portal gateway (`internal/middleware/portal_gateway.go`) | Portal bearer or consumer token | Re-dispatches to `/v1` scoped to the token's consumer |
@@ -89,6 +90,7 @@ Route-group middleware (API key auth) wraps only the `/v1/*` group (`r.Group` in
 - **No direct SQL in handlers** — all DB access through RepositoryInterface methods.
 - **REST errors**: use `mapError(ctx, err, msg)` from `internal/rest/errors.go`.
 - **Tenant scoping**: always filter by `tenant.DefaultTenantID` in queries.
+- **Event type writes**: go through `saveEventType` (`internal/webhooks/event_type_save.go`). The only other writer is `store.RegisterEvent` for creation (auto-register, system events), which inserts the version-history row in the same statement. Never update `event_registrations` directly, or the history drifts. Event types are never deleted.
 - **Naming**: files `snake_case.go`, packages lowercase single word, REST OperationIDs `camelCase` verb-first (e.g. `registerWebhook`, `listDeliveries`).
 - **Template history**: `subscription_template_versions` (migration 000030). `UpdateSubscription` records a version in the same transaction when the template changes, with `TemplateSaveMeta{Source: manual|ai_draft, Notes, SavedBy}`; `CreateSubscription` records the first. No restore endpoint by design: the UI loads a version into the editor and saves normally.
 - **Subscription UI**: create/edit are pages (`/webhooks/{id}/subscriptions/new`, `/{sub}/edit`, `SubscriptionForm.svelte`); the template is edited in `TemplateEditor.svelte` (full-viewport modal: live strict render, AI drawer or copy-prompt mode, history, helper reference). `SubscriptionManager.svelte` is the list only.

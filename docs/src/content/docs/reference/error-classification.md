@@ -19,6 +19,7 @@ Sparrow classifies every delivery error into categories. The classification dete
 | `tls_error` | No | TLS/SSL handshake failure (certificate errors) |
 | `rate_limited` | **Yes** | HTTP 429 response. Retried after `Retry-After` delay (doesn't count as attempt) |
 | `unexpected_status` | No | HTTP 2xx/3xx response that did not match `expected_status_codes` |
+| `template_error` | No | The subscription's transform failed to render, so nothing was sent (`on_transform_error: fail`). Retryable by hand after fixing the template. Never counts toward webhook health. See [When a template fails](/sparrow/guides/payload-transformation/#when-a-template-fails). |
 | `unknown` | No | Unclassified error |
 
 ## Retry Behavior
@@ -35,6 +36,10 @@ Retries continue until:
 - The event's `ttl_seconds` expires (terminal `EXPIRED` status)
 
 **Non-retryable** errors immediately mark the delivery as `FAILED` regardless of remaining retry budget.
+
+A delivery with status `paused` was created while its subscription was paused.
+It has no error category, is never attempted until retried, and does not
+affect health. See [Pausing a Subscription](/sparrow/guides/subscription-pause/).
 
 ## Classification Logic
 

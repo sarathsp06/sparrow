@@ -100,6 +100,7 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps Access
 
 	registerWebhookRoutes(api, svc)
 	registerEventRoutes(api, svc)
+	registerEventBundleRoutes(api, svc)
 	registerSubscriptionRoutes(api, svc)
 	registerDeliveryRoutes(api, svc)
 	registerHealthRoutes(api, svc)

@@ -26,6 +26,9 @@ type WebhookService struct {
 	tracer        trace.Tracer
 	metrics       *observability.SparrowMetrics
 	networkPolicy client.NetworkPolicy
+	// autoRegisterEvents lets a push to an unknown event name create a
+	// schema-less event type instead of failing with NotFound.
+	autoRegisterEvents bool
 }
 
 // WebhookManager manages webhook registrations and their lifecycle.
@@ -44,9 +47,12 @@ type WebhookManager interface {
 type EventManager interface {
 	RegisterEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (string, time.Time, error)
 	ListEvents(ctx context.Context, activeOnly bool, limit, offset int32) ([]*store.EventRegistration, int32, error)
-	UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) error
-	DeleteEvent(ctx context.Context, name string) error
+	UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool, allowBreaking bool) (*EventTypeSaveResult, error)
 	GetEvent(ctx context.Context, name string) (*store.EventRegistration, error)
+	ListEventTypeVersions(ctx context.Context, name string) ([]*store.EventRegistrationVersion, error)
+	GetEventTypeVersion(ctx context.Context, name string, version int) (*store.EventRegistrationVersion, error)
+	ExportEventTypes(ctx context.Context, sel EventTypeExportSelection) ([]EventTypeDefinition, BundleStamp, error)
+	ImportEventTypes(ctx context.Context, items []EventTypeDefinition, stamp *BundleStamp, opts EventTypeImportOptions) (*EventTypeImportResult, error)
 	// PushEvent returns (eventID, isDuplicate, schemaValid, warnings, err).
 	// isDuplicate is true when idempotencyKey matched an existing event; the
 	// other fields then describe that existing event, not a new one.
@@ -58,18 +64,17 @@ type EventManager interface {
 
 // SubscriptionManager manages event subscriptions and payload-transform templates.
 type SubscriptionManager interface {
-	CreateSubscription(ctx context.Context, webhookID, eventName, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) (string, time.Time, error)
+	CreateSubscription(ctx context.Context, webhookID, eventName, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string, settings SubscriptionTemplateSettings) (string, time.Time, error)
 	GetSubscription(ctx context.Context, subscriptionID string, consumer string) (*store.EventSubscription, error)
 	ListSubscriptions(ctx context.Context, consumer string, webhookID string, eventName string, limit, offset int32) ([]*store.EventSubscription, int32, error)
-	UpdateSubscription(ctx context.Context, subscriptionID string, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string, meta TemplateSaveMeta) error
+	UpdateSubscription(ctx context.Context, subscriptionID string, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string, settings SubscriptionTemplateSettings, meta TemplateSaveMeta) error
 	// ListSubscriptionTemplateVersions returns the saved template history of a
 	// subscription, newest (current) first.
 	ListSubscriptionTemplateVersions(ctx context.Context, subscriptionID string, consumer string, limit int) ([]*store.SubscriptionTemplateVersion, error)
 	DeleteSubscription(ctx context.Context, subscriptionID string, consumer string) error
-	TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, consumer string) (string, error)
-	// TestSubscriptionTemplateStrict is TestSubscriptionTemplate with
-	// missingkey=error: a reference to a key the sample lacks fails naming it.
-	TestSubscriptionTemplateStrict(ctx context.Context, eventName, transformTemplate string) (string, error)
+	PauseSubscription(ctx context.Context, subscriptionID, consumer, reason string) (*store.EventSubscription, error)
+	ResumeSubscription(ctx context.Context, subscriptionID, consumer string) (*ResumeResult, error)
+	TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, consumer string, strict bool) (string, error)
 	ListSubscriptionsByWebhookIDs(ctx context.Context, webhookIDs []uuid.UUID) ([]*store.EventSubscription, error)
 	GetTemplateFunctions() []TemplateFunctionInfo
 }
@@ -157,6 +162,16 @@ func WithAllowPrivateNetworks(allow bool) WebhookServiceOption {
 func WithAllowedNetworks(nets []*net.IPNet) WebhookServiceOption {
 	return func(s *WebhookService) {
 		s.networkPolicy.AllowedNetworks = nets
+	}
+}
+
+// WithAutoRegisterEvents makes a push to an unregistered event name create a
+// schema-less event type instead of returning NotFound. Off by default: it is
+// a development convenience, and in production it turns typos into permanent
+// event type names, since event types are never deleted.
+func WithAutoRegisterEvents(enabled bool) WebhookServiceOption {
+	return func(s *WebhookService) {
+		s.autoRegisterEvents = enabled
 	}
 }
 

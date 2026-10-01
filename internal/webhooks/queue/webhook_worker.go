@@ -15,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	otelcodes "go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
@@ -44,6 +45,9 @@ type WebhookWorker struct {
 	client           *client.WebhookClient
 	// captureLimit is the storage limit for capture_response_body webhooks.
 	captureLimit int64
+	// templateErrors counts payload transform failures, labelled by the
+	// subscription's on_transform_error. Nil if the meter is unavailable.
+	templateErrors metric.Int64Counter
 }
 
 // NewWebhookWorker creates a new webhook worker
@@ -65,7 +69,19 @@ func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo systemEvent
 		tracer:           observability.GetTracer("sparrow.workers.webhook"),
 		client:           webhookClient,
 		captureLimit:     clientConfig.CapturedResponseLimit(),
+		templateErrors:   newTemplateErrorCounter(),
 	}
+}
+
+func newTemplateErrorCounter() metric.Int64Counter {
+	c, err := observability.GetMeter("sparrow").Int64Counter(
+		"sparrow_template_errors_total",
+		metric.WithDescription("Payload transform templates that failed to render, by on_transform_error"),
+	)
+	if err != nil {
+		return nil
+	}
+	return c
 }
 
 // maxRetryDelay caps the exponential backoff regardless of configuration.
@@ -218,6 +234,17 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 
 	log.InfoContext(ctx, "Processing webhook delivery", "event_id", args.EventID, "url", client.RedactURL(webhook.URL))
 
+	// Render the payload before taking a rate-limit slot, so a template that
+	// cannot render never consumes one.
+	payloadBytes, templateFailed, err := w.renderPayload(ctx, log, job, subscription, eventRecord, deliveryID)
+	if err != nil {
+		return err
+	}
+	if templateFailed {
+		// The delivery was failed with template_error; do not retry.
+		return nil
+	}
+
 	// Rate limiting: check leaky bucket before sending.
 	// AcquireDeliverySlot atomically advances the bucket and returns the slot
 	// assigned to this delivery. If the slot is in the future, snooze the job.
@@ -243,54 +270,6 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 				span.SetAttributes(attribute.String("rate_limit_action", "snoozed"))
 				return river.JobSnooze(delay)
 			}
-		}
-	}
-
-	defaultPayload := eventRecord.Payload
-
-	var payloadBytes []byte
-
-	// Check for transformation
-	if subscription != nil && subscription.TransformEnabled && subscription.TransformTemplate != "" {
-		payloadBytes, err = w.client.TransformPayload(subscription.TransformTemplate, template.NewWebhookTemplateContext(
-			args.EventID,
-			eventRecord.Event,
-			time.Now().UTC().Format(time.RFC3339),
-			job.Attempt,
-			eventRecord.Payload,
-		))
-		if err != nil {
-			// Graceful degradation: template transform failed, fall back to
-			// envelope payload instead of failing the delivery. Template errors
-			// are not transient (retrying won't fix a bad template), so we log
-			// the warning and continue with the default payload format.
-			log.WarnContext(ctx, "Template transformation failed, falling back to envelope payload",
-				"error", err,
-				"subscription_id", args.SubscriptionID,
-				"delivery_id", args.DeliveryID,
-			)
-			payloadBytes, err = client.BuildEnvelopePayload(
-				args.EventID,
-				eventRecord.Event,
-				job.Attempt,
-				defaultPayload,
-			)
-			if err != nil {
-				log.ErrorContext(ctx, "Failed to marshal fallback envelope payload", "error", err)
-				return err
-			}
-		}
-	} else {
-		// Use default JSON envelope
-		payloadBytes, err = client.BuildEnvelopePayload(
-			args.EventID,
-			eventRecord.Event,
-			job.Attempt,
-			defaultPayload,
-		)
-		if err != nil {
-			log.ErrorContext(ctx, "Failed to marshal webhook payload", "error", err)
-			return err
 		}
 	}
 
@@ -480,6 +459,71 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	}
 
 	return fmt.Errorf("webhook delivery failed: %s", errorMessage)
+}
+
+// renderPayload builds the body to send. Without a transform it is the
+// default envelope. With one, a render error is recorded on the delivery and
+// then handled per the subscription's on_transform_error:
+//   - fail (default): the delivery is marked failed with error category
+//     template_error and terminal is true, so River does not retry it. It is
+//     retryable by hand once the template is fixed.
+//   - fallback: the default envelope is sent instead.
+//
+// A template error is a fault in the sender's configuration, not in the
+// receiver, so it is never recorded as a health event: it does not affect the
+// webhook's health or raise health or delivery-failed alerts.
+func (w *WebhookWorker) renderPayload(ctx context.Context, log *slog.Logger, job *river.Job[WebhookArgs], subscription *store.EventSubscription, eventRecord *store.EventRecord, deliveryID uuid.UUID) (payload []byte, terminal bool, err error) {
+	args := job.Args
+	envelope := func() ([]byte, bool, error) {
+		body, err := client.BuildEnvelopePayload(args.EventID, eventRecord.Event, job.Attempt, eventRecord.Payload)
+		if err != nil {
+			log.ErrorContext(ctx, "Failed to marshal webhook payload", "error", err)
+			return nil, false, err
+		}
+		return body, false, nil
+	}
+
+	if subscription == nil || !subscription.TransformEnabled || subscription.TransformTemplate == "" {
+		return envelope()
+	}
+
+	body, renderErr := w.client.TransformPayloadWith(subscription.TransformTemplate, template.NewWebhookTemplateContext(
+		args.EventID,
+		eventRecord.Event,
+		time.Now().UTC().Format(time.RFC3339),
+		job.Attempt,
+		eventRecord.Payload,
+	), template.ExecOptions{StrictMissingKeys: subscription.StrictTemplate()})
+	if renderErr == nil {
+		return body, false, nil
+	}
+
+	msg := renderErr.Error()
+	if err := w.deliveryRepo.UpdateDeliveryTemplateError(ctx, deliveryID, msg); err != nil {
+		log.ErrorContext(ctx, "Failed to record template error", "error", err)
+	}
+	mode := store.OnTransformErrorFail
+	if subscription.FallbackOnTransformError() {
+		mode = store.OnTransformErrorFallback
+	}
+	if w.templateErrors != nil {
+		w.templateErrors.Add(ctx, 1, metric.WithAttributes(attribute.String("on_transform_error", mode)))
+	}
+
+	if mode == store.OnTransformErrorFallback {
+		log.WarnContext(ctx, "Template transformation failed, sending envelope payload (on_transform_error=fallback)",
+			"error", renderErr, "subscription_id", args.SubscriptionID)
+		return envelope()
+	}
+
+	log.WarnContext(ctx, "Template transformation failed, failing delivery (on_transform_error=fail)",
+		"error", renderErr, "subscription_id", args.SubscriptionID)
+	if err := w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, store.StatusFailed, 0, "",
+		"Template transformation failed: "+msg, string(sparrowerrors.CategoryTemplateError)); err != nil {
+		log.ErrorContext(ctx, "Failed to mark delivery failed after template error", "error", err)
+		return nil, false, fmt.Errorf("mark delivery failed: %w", err)
+	}
+	return nil, true, nil
 }
 
 // recordHealthOutcome records a webhook health event and updates the health state.

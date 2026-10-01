@@ -124,7 +124,7 @@ func TestRecipes(t *testing.T) {
 			// After substitution, the transform template must parse and
 			// render with the standard delivery context.
 			tmpl := substituteParams(r.Subscription.TransformTemplate, r.Params)
-			out, err := engine.Execute(tmpl, sampleContext())
+			out, err := engine.ExecuteWith(tmpl, sampleContext(), strictRender)
 			if err != nil {
 				t.Fatalf("render transform_template: %v", err)
 			}
@@ -185,7 +185,7 @@ func TestPagerdutyRecipe_Severity(t *testing.T) {
 		}
 		ctx := template.NewWebhookTemplateContext("evt_pd1", "incident.opened",
 			time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC).Format(time.RFC3339), 1, payload)
-		out, err := engine.Execute(tmpl, ctx)
+		out, err := engine.ExecuteWith(tmpl, ctx, strictRender)
 		if err != nil {
 			t.Fatalf("render: %v", err)
 		}
@@ -200,3 +200,8 @@ func TestPagerdutyRecipe_Severity(t *testing.T) {
 		}
 	}
 }
+
+// strictRender renders recipe templates the way a subscription created from
+// them renders at delivery time: template_missing_key=error is the default,
+// so a template must read optional payload fields with index or dig.
+var strictRender = template.ExecOptions{StrictMissingKeys: true}

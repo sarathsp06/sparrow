@@ -45,9 +45,32 @@ func (s *WebhookService) ListSubscriptionsByWebhookIDs(ctx context.Context, webh
 	return s.webhookRepo.ListSubscriptionsByWebhookIDs(ctx, tenant.DefaultTenantID, webhookIDs)
 }
 
+// SubscriptionTemplateSettings controls how a subscription's transform
+// template is rendered and what happens when it fails. Empty fields take the
+// defaults: on_transform_error=fail, template_missing_key=error.
+type SubscriptionTemplateSettings struct {
+	OnTransformError   string
+	TemplateMissingKey string
+}
+
+// validate rejects unknown values; empty means "use the default".
+func (t SubscriptionTemplateSettings) validate() error {
+	switch t.OnTransformError {
+	case "", store.OnTransformErrorFail, store.OnTransformErrorFallback:
+	default:
+		return svcerrors.Errorf(svcerrors.InvalidArgument, "on_transform_error must be %q or %q", store.OnTransformErrorFail, store.OnTransformErrorFallback)
+	}
+	switch t.TemplateMissingKey {
+	case "", store.TemplateMissingKeyError, store.TemplateMissingKeyZero:
+	default:
+		return svcerrors.Errorf(svcerrors.InvalidArgument, "template_missing_key must be %q or %q", store.TemplateMissingKeyError, store.TemplateMissingKeyZero)
+	}
+	return nil
+}
+
 // Subscription Management Implementation
 
-func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, eventName, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) (string, time.Time, error) {
+func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, eventName, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string, settings SubscriptionTemplateSettings) (string, time.Time, error) {
 	s.logger.InfoContext(ctx, "Creating subscription", "webhook_id", webhookID, "event_name", eventName, "consumer", consumer)
 
 	if consumer == "" {
@@ -67,17 +90,22 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, even
 	if err := validateLabels(labelFilters, "label_filters"); err != nil {
 		return "", time.Time{}, err
 	}
+	if err := settings.validate(); err != nil {
+		return "", time.Time{}, err
+	}
 
 	sub := &store.EventSubscription{
-		WebhookID:         id,
-		EventName:         eventName,
-		Consumer:          consumer,
-		Headers:           headers,
-		Method:            method,
-		Timeout:           timeout,
-		TransformEnabled:  transformEnabled,
-		TransformTemplate: transformTemplate,
-		LabelFilters:      labelFilters,
+		OnTransformError:   settings.OnTransformError,
+		TemplateMissingKey: settings.TemplateMissingKey,
+		WebhookID:          id,
+		EventName:          eventName,
+		Consumer:           consumer,
+		Headers:            headers,
+		Method:             method,
+		Timeout:            timeout,
+		TransformEnabled:   transformEnabled,
+		TransformTemplate:  transformTemplate,
+		LabelFilters:       labelFilters,
 	}
 
 	if strings.TrimSpace(transformTemplate) != "" {
@@ -173,8 +201,11 @@ type TemplateSaveMeta struct {
 	SavedBy string // credential name when auth is on
 }
 
-func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID string, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string, meta TemplateSaveMeta) error {
+func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID string, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string, settings SubscriptionTemplateSettings, meta TemplateSaveMeta) error {
 	if err := validateLabels(labelFilters, "label_filters"); err != nil {
+		return err
+	}
+	if err := settings.validate(); err != nil {
 		return err
 	}
 	if err := validateHeaders("headers", headers); err != nil {
@@ -194,6 +225,8 @@ func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID 
 	sub.TransformEnabled = transformEnabled
 	sub.TransformTemplate = transformTemplate
 	sub.LabelFilters = labelFilters
+	sub.OnTransformError = settings.OnTransformError
+	sub.TemplateMissingKey = settings.TemplateMissingKey
 
 	if !templateChanged {
 		return s.webhookRepo.UpdateSubscription(ctx, tenant.DefaultTenantID, sub)
@@ -223,6 +256,90 @@ func (s *WebhookService) ListSubscriptionTemplateVersions(ctx context.Context, s
 	return s.webhookRepo.ListTemplateVersions(ctx, tenant.DefaultTenantID, sub.ID, limit)
 }
 
+// RenderTemplatePreview renders a transform template against payload as a
+// dry-run delivery of eventName (attempt 1, a placeholder event id, now as
+// the timestamp). strict makes a reference to a key the payload lacks an
+// error naming that key instead of rendering "<no value>". AI draft
+// verification uses it with strict=true.
+func RenderTemplatePreview(eventName, transformTemplate string, payload map[string]any, strict bool) (string, error) {
+	engine := template.NewTemplateEngine()
+	data := template.NewWebhookTemplateContext(
+		"dry-run-event-id",
+		eventName,
+		time.Now().UTC().Format(time.RFC3339),
+		1,
+		payload,
+	)
+	result, err := engine.TransformPayloadWith(transformTemplate, data, template.ExecOptions{StrictMissingKeys: strict})
+	if err != nil {
+		return "", svcerrors.Wrapf(err, svcerrors.InvalidArgument, "template transformation failed: %v", err)
+	}
+	return string(result), nil
+}
+
+// maxPauseReasonLength bounds the free-text reason stored with a pause.
+const maxPauseReasonLength = 500
+
+// PauseSubscription stops a subscription's deliveries from being attempted.
+// Events keep fanning out to it, but each delivery is recorded with status
+// paused and nothing is queued, so nothing is lost and nothing counts
+// against the webhook's health. Pausing an already paused subscription
+// updates the reason and keeps the original pause time.
+func (s *WebhookService) PauseSubscription(ctx context.Context, subscriptionID, consumer, reason string) (*store.EventSubscription, error) {
+	if len([]rune(reason)) > maxPauseReasonLength {
+		return nil, svcerrors.Errorf(svcerrors.InvalidArgument, "reason must be at most %d characters", maxPauseReasonLength)
+	}
+	sub, err := s.getSubscriptionInConsumer(ctx, subscriptionID, consumer)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.webhookRepo.SetSubscriptionPaused(ctx, tenant.DefaultTenantID, sub.ID, true, reason); err != nil {
+		return nil, fmt.Errorf("failed to pause subscription: %w", err)
+	}
+	s.logger.InfoContext(ctx, "Subscription paused", "subscription_id", sub.ID, "reason", reason)
+	return s.webhookRepo.GetSubscription(ctx, tenant.DefaultTenantID, sub.ID)
+}
+
+// ResumeResult describes a resumed subscription.
+type ResumeResult struct {
+	Subscription *store.EventSubscription
+	// PausedSince is when the pause began; nil if it was not paused.
+	PausedSince *time.Time
+	// PausedDeliveries counts the deliveries recorded while paused. They stay
+	// paused until retried, so the caller can decide what to replay.
+	PausedDeliveries int
+}
+
+// ResumeSubscription lets a subscription's new deliveries be attempted again.
+// Deliveries recorded while it was paused are not sent automatically; retry
+// them (all, or since a time) to deliver them.
+func (s *WebhookService) ResumeSubscription(ctx context.Context, subscriptionID, consumer string) (*ResumeResult, error) {
+	sub, err := s.getSubscriptionInConsumer(ctx, subscriptionID, consumer)
+	if err != nil {
+		return nil, err
+	}
+	pausedSince, err := s.webhookRepo.SetSubscriptionPaused(ctx, tenant.DefaultTenantID, sub.ID, false, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to resume subscription: %w", err)
+	}
+	status := string(store.StatusPaused)
+	_, count, err := s.webhookRepo.ListDeliveriesFiltered(ctx, tenant.DefaultTenantID, store.DeliveryFilter{
+		Consumer:       consumer,
+		SubscriptionID: &sub.ID,
+		Status:         &status,
+		Limit:          1,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to count paused deliveries: %w", err)
+	}
+	updated, err := s.webhookRepo.GetSubscription(ctx, tenant.DefaultTenantID, sub.ID)
+	if err != nil {
+		return nil, err
+	}
+	s.logger.InfoContext(ctx, "Subscription resumed", "subscription_id", sub.ID, "paused_deliveries", count)
+	return &ResumeResult{Subscription: updated, PausedSince: pausedSince, PausedDeliveries: count}, nil
+}
+
 func (s *WebhookService) DeleteSubscription(ctx context.Context, subscriptionID string, consumer string) error {
 	sub, err := s.getSubscriptionInConsumer(ctx, subscriptionID, consumer)
 	if err != nil {
@@ -231,7 +348,10 @@ func (s *WebhookService) DeleteSubscription(ctx context.Context, subscriptionID 
 	return s.webhookRepo.DeleteSubscription(ctx, tenant.DefaultTenantID, sub.ID)
 }
 
-func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, consumer string) (string, error) {
+// TestSubscriptionTemplate renders transformTemplate against the event type's
+// sample payload. strict renders missing keys as errors, as a subscription
+// with template_missing_key=error does at delivery time.
+func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, consumer string, strict bool) (string, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.TestSubscriptionTemplate")
 	defer span.End()
 
@@ -251,49 +371,22 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 		return "", svcerrors.Error(svcerrors.NotFound, "event not found")
 	}
 
-	return RenderTemplatePreview(eventName, transformTemplate, event.SamplePayload, false)
-}
-
-// TestSubscriptionTemplateStrict renders like TestSubscriptionTemplate but
-// fails on a missing payload key (see template.NewStrictTemplateEngine).
-func (s *WebhookService) TestSubscriptionTemplateStrict(ctx context.Context, eventName, transformTemplate string) (string, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.TestSubscriptionTemplateStrict")
-	defer span.End()
-	if eventName == "" {
-		return "", svcerrors.Error(svcerrors.InvalidArgument, "event name is required")
-	}
-	event, err := s.webhookRepo.GetEventByName(ctx, tenant.DefaultTenantID, eventName)
-	if err != nil {
-		return "", fmt.Errorf("failed to get event: %w", err)
-	}
-	if event == nil {
-		return "", svcerrors.Error(svcerrors.NotFound, "event not found")
-	}
-	return RenderTemplatePreview(eventName, transformTemplate, event.SamplePayload, true)
-}
-
-// RenderTemplatePreview renders a transform template against payload as a
-// dry-run delivery of eventName (attempt 1, a placeholder event id, now as
-// the timestamp). It is the single rendering path for the preview endpoint
-// and for AI draft verification. strict makes a reference to a key the
-// payload lacks an error naming that key (see template.NewStrictTemplateEngine)
-// instead of rendering "<no value>" the way a live delivery would.
-func RenderTemplatePreview(eventName, transformTemplate string, payload map[string]any, strict bool) (string, error) {
 	engine := template.NewTemplateEngine()
-	if strict {
-		engine = template.NewStrictTemplateEngine()
-	}
+
+	// Create context for template
 	data := template.NewWebhookTemplateContext(
 		"dry-run-event-id",
 		eventName,
 		time.Now().UTC().Format(time.RFC3339),
 		1,
-		payload,
+		event.SamplePayload,
 	)
-	result, err := engine.TransformPayload(transformTemplate, data)
+
+	result, err := engine.TransformPayloadWith(transformTemplate, data, template.ExecOptions{StrictMissingKeys: strict})
 	if err != nil {
 		return "", svcerrors.Wrapf(err, svcerrors.InvalidArgument, "template transformation failed: %v", err)
 	}
+
 	return string(result), nil
 }
 

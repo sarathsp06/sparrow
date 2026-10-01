@@ -5,37 +5,102 @@ import (
 	"testing"
 )
 
-func TestStrictEngine_MissingKeyIsAnError(t *testing.T) {
-	data := NewWebhookTemplateContext("id", "order.created", "2026-01-01T00:00:00Z", 1, map[string]any{"id": "ord_1"})
-	const tmpl = `{"text": {{ printf "Order %s" .Payload.id | json }}}`
+func TestTransformPayloadWith_StrictMissingKeys(t *testing.T) {
+	engine := NewTemplateEngine()
+	data := NewWebhookTemplateContext("evt_1", "order.created", "2026-09-30T00:00:00Z", 1, map[string]any{
+		"order_id": "o-1",
+		"customer": map[string]any{"name": "Ada"},
+	})
+	strict := ExecOptions{StrictMissingKeys: true}
 
-	lenient, err := NewTemplateEngine().Execute(tmpl, data)
-	if err != nil {
-		t.Fatalf("lenient engine should render: %v", err)
+	tests := []struct {
+		name       string
+		tmpl       string
+		lenient    string
+		strictOut  string
+		strictFail bool
+	}{
+		{
+			name:      "present field renders the same either way",
+			tmpl:      `{{.payload.order_id}}`,
+			lenient:   "o-1",
+			strictOut: "o-1",
+		},
+		{
+			name:       "missing field renders <no value> leniently and fails strictly",
+			tmpl:       `{{.payload.total}}`,
+			lenient:    "<no value>",
+			strictFail: true,
+		},
+		{
+			name:       "missing nested field fails strictly",
+			tmpl:       `{{.payload.shipping.city}}`,
+			lenient:    "<no value>",
+			strictFail: true,
+		},
+		{
+			name:      "index is safe for optional fields",
+			tmpl:      `[{{index .payload "total"}}]`,
+			lenient:   "[<no value>]",
+			strictOut: "[<no value>]",
+		},
+		{
+			name:      "dig is safe for optional nested fields",
+			tmpl:      `{{dig "shipping" "city" "unknown" .payload}}`,
+			lenient:   "unknown",
+			strictOut: "unknown",
+		},
+		{
+			name:      "dig reads present nested fields",
+			tmpl:      `{{dig "customer" "name" "?" .payload}}`,
+			lenient:   "Ada",
+			strictOut: "Ada",
+		},
 	}
-	if !strings.Contains(string(lenient), "nil") && !strings.Contains(string(lenient), "no value") {
-		t.Fatalf("lenient output should carry a missing-value marker: %s", lenient)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := engine.TransformPayload(tt.tmpl, data)
+			if err != nil {
+				t.Fatalf("lenient: unexpected error: %v", err)
+			}
+			if string(got) != tt.lenient {
+				t.Errorf("lenient: got %q, want %q", got, tt.lenient)
+			}
 
-	strict := NewStrictTemplateEngine()
-	if !strict.Strict() {
-		t.Fatal("Strict() should be true")
+			got, err = engine.TransformPayloadWith(tt.tmpl, data, strict)
+			if tt.strictFail {
+				if err == nil {
+					t.Fatalf("strict: expected an error, got %q", got)
+				}
+				if !strings.Contains(err.Error(), "map has no entry for key") {
+					t.Errorf("strict: error should name the missing key, got %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("strict: unexpected error: %v", err)
+			}
+			if string(got) != tt.strictOut {
+				t.Errorf("strict: got %q, want %q", got, tt.strictOut)
+			}
+		})
 	}
-	_, err = strict.Execute(tmpl, data)
-	if err == nil || !strings.Contains(err.Error(), `"Payload"`) {
-		t.Fatalf("strict engine should fail naming the key, got: %v", err)
-	}
+}
 
-	// A present key still renders, and index on a missing key is tolerated,
-	// which is the documented way to read optional fields under strict mode.
-	out, err := strict.Execute(`{{ .payload.id }}|{{ with index .payload "coupon" }}{{ . }}{{ else }}none{{ end }}`, data)
-	if err != nil || string(out) != "ord_1|none" {
-		t.Fatalf("strict engine on valid template: %q %v", out, err)
-	}
+func TestTransformPayloadWith_CachesStrictAndLenientSeparately(t *testing.T) {
+	engine := NewTemplateEngine()
+	data := NewWebhookTemplateContext("e", "n", "t", 1, map[string]any{})
+	tmpl := `{{.payload.missing}}`
 
-	// Engines keep separate caches, so the same template string parsed by
-	// the lenient engine does not leak its options into the strict one.
-	if _, err := strict.Execute(tmpl, data); err == nil {
-		t.Fatal("strict engine must stay strict for a template the lenient engine already parsed")
+	// Warm the cache with the lenient parse first; strict must still fail.
+	if _, err := engine.TransformPayload(tmpl, data); err != nil {
+		t.Fatalf("lenient: %v", err)
+	}
+	if _, err := engine.TransformPayloadWith(tmpl, data, ExecOptions{StrictMissingKeys: true}); err == nil {
+		t.Fatal("strict render reused the lenient cached template")
+	}
+	// And the lenient parse must not have been turned strict.
+	if _, err := engine.TransformPayload(tmpl, data); err != nil {
+		t.Fatalf("lenient after strict: %v", err)
 	}
 }

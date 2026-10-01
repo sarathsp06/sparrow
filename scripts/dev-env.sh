@@ -25,4 +25,9 @@ if [ -z "${SPARROW_ENCRYPTION_KEYS:-}" ] && [ -z "$(dotenv SPARROW_ENCRYPTION_KE
   export SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main
 fi
 
+# Local development pushes events without registering them first.
+: "${SPARROW_AUTO_REGISTER_EVENTS:=$(dotenv SPARROW_AUTO_REGISTER_EVENTS)}"
+: "${SPARROW_AUTO_REGISTER_EVENTS:=true}"
+export SPARROW_AUTO_REGISTER_EVENTS
+
 exec "$@"

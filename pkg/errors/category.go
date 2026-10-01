@@ -61,6 +61,12 @@ const (
 	// the mismatch is a configuration or contract issue.
 	CategoryUnexpectedStatus ErrorCategory = "unexpected_status"
 
+	// CategoryTemplateError indicates the subscription's payload transform
+	// failed to render. Not retryable: rendering again gives the same result
+	// until the template (or the payload) changes. It is a configuration fault
+	// on the sending side, so it never counts against the receiver's health.
+	CategoryTemplateError ErrorCategory = "template_error"
+
 	// CategoryUnknown is used when the error cannot be classified.
 	CategoryUnknown ErrorCategory = "unknown"
 )
@@ -74,7 +80,7 @@ func IsRetryableCategory(cat ErrorCategory) bool {
 	switch cat {
 	case CategoryServerError, CategoryTimeout, CategoryConnectionRefused, CategoryNetworkError, CategoryRateLimited:
 		return true
-	case CategoryClientError, CategoryDNSError, CategoryTLSError, CategoryUnexpectedStatus:
+	case CategoryClientError, CategoryDNSError, CategoryTLSError, CategoryUnexpectedStatus, CategoryTemplateError:
 		return false
 	default:
 		return false

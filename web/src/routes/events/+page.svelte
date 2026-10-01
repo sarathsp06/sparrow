@@ -7,6 +7,7 @@
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import FloatingAction from '$lib/components/FloatingAction.svelte';
+	import EventTypeImport from '$lib/components/EventTypeImport.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import { formatAPIError } from '$lib/utils';
 
@@ -25,8 +26,9 @@
 	let totalCount = $state(0);
 	let totalPages = $derived(Math.max(1, Math.ceil(totalCount / pageSize)));
 
-	let confirmDelete = $state(false);
-	let eventToDelete = $state<EventTypeItem | null>(null);
+	// Event types are never deleted; retiring one sets active=false.
+	let confirmToggle = $state(false);
+	let eventToToggle = $state<EventTypeItem | null>(null);
 
 	let filteredEvents = $derived.by(() => {
 		if (!searchQuery.trim()) return events;
@@ -62,22 +64,68 @@
 		fetchEvents();
 	}
 
-	function promptDelete(event: EventTypeItem, e: Event) {
+	function promptToggle(event: EventTypeItem, e: Event) {
 		e.stopPropagation();
-		eventToDelete = event;
-		confirmDelete = true;
+		eventToToggle = event;
+		confirmToggle = true;
 	}
 
-	async function executeDelete() {
-		if (!eventToDelete) return;
+	async function executeToggle() {
+		if (!eventToToggle) return;
+		const ev = eventToToggle;
 		try {
-			unwrap(await api.DELETE('/v1/event-types/{name}', { params: { path: { name: eventToDelete.name } } }));
-			confirmDelete = false;
-			eventToDelete = null;
+			unwrap(await api.PATCH('/v1/event-types/{name}', {
+				params: { path: { name: ev.name } },
+				body: { active: !ev.active },
+			}));
+			confirmToggle = false;
+			eventToToggle = null;
 			await fetchEvents();
 		} catch (e: any) {
-			error = formatAPIError(e, 'Failed to delete event');
-			confirmDelete = false;
+			error = formatAPIError(e, ev.active ? 'Failed to deactivate event' : 'Failed to reactivate event');
+			confirmToggle = false;
+		}
+	}
+
+	const isSystemEvent = (name: string) => name.toLowerCase().startsWith('sparrow.');
+
+	// Export and import. System event types are never exported or imported.
+	let selected = $state<Set<string>>(new Set());
+	let importOpen = $state(false);
+	let exporting = $state(false);
+	let exportable = $derived(filteredEvents.filter((e) => !isSystemEvent(e.name)));
+	let allVisibleSelected = $derived(exportable.length > 0 && exportable.every((e) => selected.has(e.name)));
+
+	function toggleSelected(name: string) {
+		const next = new Set(selected);
+		if (next.has(name)) next.delete(name);
+		else next.add(name);
+		selected = next;
+	}
+
+	function toggleAllVisible() {
+		selected = allVisibleSelected ? new Set() : new Set(exportable.map((e) => e.name));
+	}
+
+	async function exportTypes(all: boolean) {
+		exporting = true;
+		error = '';
+		try {
+			const bundle = unwrap(await api.POST('/v1/event-types:export', {
+				body: all ? { all: true } : { names: [...selected].sort() },
+			}));
+			const { $schema: _, ...clean } = bundle as typeof bundle & { $schema?: string };
+			const blob = new Blob([JSON.stringify(clean, null, 2) + '\n'], { type: 'application/json' });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = 'event-types.json';
+			a.click();
+			URL.revokeObjectURL(url);
+		} catch (e: any) {
+			error = formatAPIError(e, 'Failed to export event types');
+		} finally {
+			exporting = false;
 		}
 	}
 
@@ -112,7 +160,9 @@
 			<h1 class="text-2xl">Events</h1>
 			<p class="text-sm text-muted mt-1">Manage registered event types</p>
 		</div>
-		<div class="flex items-center gap-2">
+		<div class="flex flex-wrap items-center gap-2">
+			<button class="btn btn-ghost" onclick={() => (importOpen = true)}>Import</button>
+			<button class="btn btn-ghost" disabled={exporting || events.length === 0} onclick={() => exportTypes(true)}>Export all</button>
 			<a href="/events/push" class="btn btn-ghost">Push Test Event</a>
 			<a id="header-register-btn" href="/events/register" class="btn btn-beacon">
 				<span class="text-lg leading-none">+</span>
@@ -122,7 +172,7 @@
 	</div>
 
 	{#if !loading && !error && events.length > 0}
-		<div class="flex flex-col sm:flex-row gap-3 mb-4">
+		<div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
 			<input
 				type="text"
 				placeholder="Search by name or description…"
@@ -130,6 +180,11 @@
 				bind:value={searchQuery}
 				class="input flex-1"
 			/>
+			{#if selected.size > 0}
+				<button class="btn btn-beacon whitespace-nowrap" disabled={exporting} onclick={() => exportTypes(false)}>
+					Export {selected.size} selected
+				</button>
+			{/if}
 		</div>
 	{/if}
 
@@ -159,8 +214,12 @@
 				<table class="w-full text-left">
 					<thead>
 						<tr class="border-b border-line">
+							<th class="th w-10">
+								<input type="checkbox" aria-label="Select all event types for export" checked={allVisibleSelected} onchange={toggleAllVisible} class="accent-[color:var(--color-beacon)]" />
+							</th>
 							<th class="th">Name</th>
 							<th class="th hidden sm:table-cell">Description</th>
+							<th class="th">Version</th>
 							<th class="th">Status</th>
 							<th class="th"></th>
 						</tr>
@@ -168,8 +227,20 @@
 					<tbody>
 						{#each filteredEvents as ev}
 							<tr class="row-line row-hover transition cursor-pointer" onclick={() => goto(`/events/${encodeURIComponent(ev.name)}/reports`)}>
+								<td class="td" onclick={(e) => e.stopPropagation()}>
+									{#if !isSystemEvent(ev.name)}
+										<input type="checkbox" aria-label="Select {ev.name} for export" checked={selected.has(ev.name)} onchange={() => toggleSelected(ev.name)} class="accent-[color:var(--color-beacon)]" />
+									{/if}
+								</td>
 								<td class="td font-medium text-text">{ev.name}</td>
 								<td class="td text-muted hidden sm:table-cell">{ev.description || '—'}</td>
+								<td class="td mono text-xs">
+									{#if isSystemEvent(ev.name)}
+										<span class="text-muted">v{ev.version}</span>
+									{:else}
+										<a class="link" href="/events/{encodeURIComponent(ev.name)}/update#history" onclick={(e) => e.stopPropagation()} title="Version history">v{ev.version}</a>
+									{/if}
+								</td>
 								<td class="td">
 									<span
 										class="chip"
@@ -185,8 +256,10 @@
 									{#if ev.event_schema && Object.keys(ev.event_schema).length > 0}
 										<button onclick={(e) => viewSchema(ev.event_schema, e)} class="link text-xs mono mr-4">Schema</button>
 									{/if}
-									<a href="/events/{encodeURIComponent(ev.name)}/update" onclick={(e) => e.stopPropagation()} class="link text-xs mono mr-4">Edit</a>
-									<button onclick={(e) => promptDelete(ev, e)} class="btn btn-danger !px-3 !py-1.5 text-xs" aria-label="Delete event {ev.name}">Delete</button>
+									{#if !isSystemEvent(ev.name)}
+										<a href="/events/{encodeURIComponent(ev.name)}/update" onclick={(e) => e.stopPropagation()} class="link text-xs mono mr-4">Edit</a>
+										<button onclick={(e) => promptToggle(ev, e)} class="btn {ev.active ? 'btn-danger' : 'btn-ghost'} !px-3 !py-1.5 text-xs" aria-label="{ev.active ? 'Deactivate' : 'Reactivate'} event {ev.name}">{ev.active ? 'Deactivate' : 'Reactivate'}</button>
+									{/if}
 								</td>
 							</tr>
 						{/each}
@@ -234,13 +307,17 @@
 {/if}
 
 <ConfirmDialog
-	open={confirmDelete}
-	title="Delete Event"
-	message={`This will permanently remove the event type "${eventToDelete?.name}". Existing event instances will not be affected, but no new events of this type can be pushed.`}
-	confirmLabel="Delete"
-	variant="danger"
-	onconfirm={executeDelete}
-	oncancel={() => { confirmDelete = false; eventToDelete = null; }}
+	open={confirmToggle}
+	title={eventToToggle?.active ? 'Deactivate event type' : 'Reactivate event type'}
+	message={eventToToggle?.active
+		? `Pushes of "${eventToToggle?.name}" will be rejected until it is reactivated. Its definition, versions and past events are kept.`
+		: `Pushes of "${eventToToggle?.name}" will be accepted again.`}
+	confirmLabel={eventToToggle?.active ? 'Deactivate' : 'Reactivate'}
+	variant={eventToToggle?.active ? 'warning' : 'info'}
+	onconfirm={executeToggle}
+	oncancel={() => { confirmToggle = false; eventToToggle = null; }}
 />
+
+<EventTypeImport open={importOpen} onclose={() => (importOpen = false)} onimported={fetchEvents} />
 
 <FloatingAction href="/events/register" label="Register Event" targetSelector="#header-register-btn" />

@@ -134,6 +134,7 @@ const ERROR_CATEGORIES = [
   { value: "connection_refused", label: "Conn Refused" },
   { value: "network_error", label: "Network" },
   { value: "unexpected_status", label: "Unexpected Status" },
+  { value: "template_error", label: "Template Error" },
 ] as const;
 
 /**
@@ -158,6 +159,8 @@ function getCategoryBadge(category: string): { label: string; classes: string } 
       return { label: "Network", classes: "text-idle border-idle/40 bg-idle/10" };
     case "unexpected_status":
       return { label: "Unexpected Status", classes: "text-warn border-warn/40 bg-warn/10" };
+    case "template_error":
+      return { label: "Template", classes: "text-bad border-bad/40 bg-bad/10" };
     case "success":
       return { label: "Success", classes: "text-ok border-ok/40 bg-ok/10" };
     default:
@@ -192,6 +195,8 @@ function getCategoryDisplay(category: string): {
       return { label: "Network Error", color: "text-idle", bgColor: "bg-idle/10", borderColor: "border-idle/40" };
     case "unexpected_status":
       return { label: "Unexpected Status Code", color: "text-warn", bgColor: "bg-warn/10", borderColor: "border-warn/40" };
+    case "template_error":
+      return { label: "Template Error", color: "text-bad", bgColor: "bg-bad/10", borderColor: "border-bad/40" };
     case "success":
       return { label: "Success", color: "text-ok", bgColor: "bg-ok/10", borderColor: "border-ok/40" };
     default:

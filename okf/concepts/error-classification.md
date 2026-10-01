@@ -24,6 +24,7 @@ All webhook delivery outcomes are classified into categories for retry decisions
 | `network_error` | **Yes** | Generic network failure |
 | `unexpected_status` | No | 2xx/3xx not in expected_status_codes |
 | `rate_limited` | **Yes** | HTTP 429 with Retry-After |
+| `template_error` | No | Subscription transform failed to render; not a health event |
 | `unknown` | No | Unclassifiable |
 
 ## Citations

@@ -259,7 +259,7 @@ func TestCreateSubscription_WithLabelFilters(t *testing.T) {
 			sub.LabelFilters["tier"] == "premium"
 	})).Return(nil)
 
-	id, createdAt, err := service.CreateSubscription(ctx, webhookID, eventName, consumer, nil, "POST", 30, false, "", labelFilters)
+	id, createdAt, err := service.CreateSubscription(ctx, webhookID, eventName, consumer, nil, "POST", 30, false, "", labelFilters, SubscriptionTemplateSettings{})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, id)
 	assert.False(t, createdAt.IsZero())
@@ -278,7 +278,7 @@ func TestCreateSubscription_WithEmptyLabelFilters(t *testing.T) {
 		return len(sub.LabelFilters) == 0
 	})).Return(nil)
 
-	id, createdAt, err := service.CreateSubscription(ctx, webhookID, "test.event", "default", nil, "POST", 30, false, "", nil)
+	id, createdAt, err := service.CreateSubscription(ctx, webhookID, "test.event", "default", nil, "POST", 30, false, "", nil, SubscriptionTemplateSettings{})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, id)
 	assert.False(t, createdAt.IsZero())
@@ -322,7 +322,7 @@ func TestCreateSubscription_WithInvalidLabelFilters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := service.CreateSubscription(ctx, webhookID, "test.event", "default", nil, "POST", 30, false, "", tt.labelFilters)
+			_, _, err := service.CreateSubscription(ctx, webhookID, "test.event", "default", nil, "POST", 30, false, "", tt.labelFilters, SubscriptionTemplateSettings{})
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.errMsg)
 			repo.AssertNotCalled(t, "CreateSubscription", mock.Anything, mock.Anything, mock.Anything)
@@ -344,7 +344,7 @@ func TestCreateSubscription_CatchAllWithLabelFilters(t *testing.T) {
 		return sub.EventName == store.CatchAllEventName && sub.LabelFilters["env"] == "prod"
 	})).Return(nil)
 
-	id, _, err := service.CreateSubscription(ctx, webhookID, store.CatchAllEventName, "default", nil, "POST", 30, false, "", labelFilters)
+	id, _, err := service.CreateSubscription(ctx, webhookID, store.CatchAllEventName, "default", nil, "POST", 30, false, "", labelFilters, SubscriptionTemplateSettings{})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, id)
 	repo.AssertExpectations(t)

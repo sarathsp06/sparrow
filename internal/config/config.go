@@ -109,6 +109,11 @@ type Config struct {
 	// Env: SPARROW_EVENT_RETENTION_DAYS
 	EventRetentionDays int `envconfig:"SPARROW_EVENT_RETENTION_DAYS" default:"0"`
 
+	// AutoRegisterEvents lets a push to an unregistered event name create a
+	// schema-less event type instead of returning 404. Off by default: event
+	// types are never deleted, so in production a producer typo would become
+	// a permanent name. Turn it on for local development.
+	AutoRegisterEvents bool `envconfig:"SPARROW_AUTO_REGISTER_EVENTS" default:"false"`
 	// AIProvider selects the chat API behind AI-assisted template drafting:
 	// "anthropic" (default; needs SPARROW_AI_API_KEY) or "openai" for any
 	// OpenAI-compatible /v1/chat/completions server such as Ollama, vLLM,

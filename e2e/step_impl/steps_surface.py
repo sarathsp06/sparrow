@@ -166,10 +166,17 @@ def patch_event_type(name, description):
     assert body["description"] == description, f"Description not applied: {body}"
 
 
-@step("DELETE event type <name>")
-def delete_event_type(name):
+@step("DELETE event type <name> is not supported")
+def delete_event_type_not_supported(name):
     resp = requests.delete(f"{_base()}/v1/event-types/{name}")
-    assert resp.status_code == 204, f"Expected 204, got {resp.status_code}: {resp.text}"
+    assert resp.status_code in (404, 405), f"Expected 404 or 405, got {resp.status_code}: {resp.text}"
+
+
+@step("Deactivate event type <name>")
+def deactivate_event_type(name):
+    resp = requests.patch(f"{_base()}/v1/event-types/{name}", json={"active": False})
+    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
+    assert resp.json()["active"] is False, f"Not deactivated: {resp.text}"
 
 
 # ---------------------------------------------------------------------------

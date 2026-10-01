@@ -53,6 +53,9 @@ export default defineConfig({
           items: [
             { slug: 'guides/verify-signatures' },
             { slug: 'guides/payload-transformation' },
+            { slug: 'guides/event-type-versioning' },
+            { slug: 'guides/event-type-export-import' },
+            { slug: 'guides/subscription-pause' },
             { slug: 'guides/webhook-health-alerts' },
             { slug: 'guides/portal-embedding' },
           ],

@@ -779,6 +779,7 @@
                 <option value="failed">Failed</option>
                 <option value="retrying">Retrying</option>
                 <option value="expired">Expired</option>
+                <option value="paused">Paused</option>
               </select>
             </div>
             <div class="w-full sm:w-36">

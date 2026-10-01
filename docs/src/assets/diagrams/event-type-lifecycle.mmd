@@ -1,0 +1,10 @@
+stateDiagram-v2
+    [*] --> Unregistered
+    Unregistered --> v1_blank : push, with SPARROW_AUTO_REGISTER_EVENTS on
+    Unregistered --> v1 : register or import with a schema
+    v1_blank --> v1 : first schema added (fill-in, stays v1)
+    v1 --> v2 : compatible schema change
+    v2 --> v3 : breaking change, applied with allow_breaking
+    v3 --> v3_inactive : deactivate (active=false, same version)
+    v3_inactive --> v3 : reactivate
+    note right of v3 : Every version is kept. Each event records the version it was accepted under. Event types are never deleted.

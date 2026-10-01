@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { page } from '$app/state';
     import { api, unwrap } from '$lib/services';
     import { getCategoryBadge, ERROR_CATEGORIES, formatAPIError, timeAgo } from '$lib/utils';
     import { consumerStore } from '$lib/consumer.svelte';
@@ -22,13 +23,15 @@
     let pageSize = $state(25);
     let totalPages = $derived(Math.max(1, Math.ceil(totalCount / pageSize)));
 
-    // Filters
-    let webhookIdFilter = $state('');
-    let eventIdFilter = $state('');
-    let statusFilter = $state('');
-    let errorCategoryFilter = $state('');
-    let createdAfterFilter = $state('');
-    let createdBeforeFilter = $state('');
+    // Filters. Initial values may come from the URL, e.g. the event type
+    // import links here with ?status=failed&error_category=template_error.
+    const initial = page.url.searchParams;
+    let webhookIdFilter = $state(initial.get('webhook_id') ?? '');
+    let eventIdFilter = $state(initial.get('event_id') ?? '');
+    let statusFilter = $state(initial.get('status') ?? '');
+    let errorCategoryFilter = $state(initial.get('error_category') ?? '');
+    let createdAfterFilter = $state(initial.get('created_after') ?? '');
+    let createdBeforeFilter = $state(initial.get('created_before') ?? '');
 
     // Batch retry state
     let retryId = $state('');
@@ -277,6 +280,7 @@
                     <option value="failed">Failed</option>
                     <option value="retrying">Retrying</option>
                     <option value="expired">Expired</option>
+                    <option value="paused">Paused</option>
                 </select>
                 <select bind:value={errorCategoryFilter} aria-label="Filter by error category" class="select sm:w-52">
                     <option value="">All error categories</option>
