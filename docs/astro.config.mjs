@@ -94,6 +94,10 @@ export default defineConfig({
           ],
         },
         {
+          label: 'Blog',
+          link: '/blog/',
+        },
+        {
           label: 'Deployment',
           items: [
             { slug: 'deployment/production' },

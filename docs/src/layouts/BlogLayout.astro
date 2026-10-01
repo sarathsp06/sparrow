@@ -1,0 +1,41 @@
+---
+import faviconSrc from '../assets/favicon.svg';
+import '../styles/blog.css';
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const { title, description = 'Notes from the Sparrow project.' } = Astro.props;
+const favicon = faviconSrc.src;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} · Sparrow</title>
+    <meta name="description" content={description} />
+    <link rel="icon" href={favicon} type="image/svg+xml" />
+  </head>
+  <body>
+    <header class="blog-header">
+      <a class="blog-brand" href={base}>
+        <img src={favicon} alt="" width="28" height="28" />
+        <span>Sparrow</span>
+      </a>
+      <nav aria-label="Primary navigation">
+        <a href={`${base}getting-started/installation/`}>Docs</a>
+        <a href={`${base}blog/`}>Blog</a>
+        <a href="https://github.com/sarathsp06/sparrow">GitHub</a>
+      </nav>
+    </header>
+
+    <main class="blog-shell">
+      <slot />
+    </main>
+
+    <footer class="blog-footer">
+      <a href={base}>Sparrow</a>
+      <span>Self-hosted webhook delivery.</span>
+    </footer>
+  </body>
+</html>

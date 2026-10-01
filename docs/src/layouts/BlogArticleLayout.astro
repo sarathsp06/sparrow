@@ -1,0 +1,22 @@
+---
+import BlogLayout from './BlogLayout.astro';
+
+const { frontmatter } = Astro.props;
+const date = frontmatter.pubDate ? new Date(frontmatter.pubDate).toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+}) : '';
+---
+
+<BlogLayout title={frontmatter.title} description={frontmatter.description}>
+  <article>
+    <a class="eyebrow" href={`${import.meta.env.BASE_URL.replace(/\/?$/, '/') }blog/`}>← Back to blog</a>
+    <h1>{frontmatter.title}</h1>
+    <div class="post-card-meta">
+      {date && <time datetime={new Date(frontmatter.pubDate).toISOString()}>{date}</time>}
+      {frontmatter.author && <span>By {frontmatter.author}</span>}
+    </div>
+    <div class="post-content"><slot /></div>
+  </article>
+</BlogLayout>

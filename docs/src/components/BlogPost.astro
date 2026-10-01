@@ -1,0 +1,18 @@
+---
+const { title, url, description, pubDate, tags = [] } = Astro.props;
+const date = pubDate ? new Date(pubDate).toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+}) : '';
+---
+
+<article class="post-card">
+  <div class="post-card-meta">
+    {date && <time datetime={new Date(pubDate).toISOString()}>{date}</time>}
+    {tags.length > 0 && <span>{tags.join(' · ')}</span>}
+  </div>
+  <h2><a href={url}>{title}</a></h2>
+  {description && <p>{description}</p>}
+  <a class="read-more" href={url}>Read post →</a>
+</article>

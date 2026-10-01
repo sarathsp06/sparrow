@@ -1,0 +1,43 @@
+:root {
+  color-scheme: light;
+  --blog-bg: #faf9f6;
+  --blog-ink: #1d211f;
+  --blog-muted: #6e716d;
+  --blog-line: #deddd7;
+  --blog-accent: #b06a10;
+  --blog-panel: #f1efe9;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--blog-bg); color: var(--blog-ink); }
+a { color: inherit; }
+.blog-header, .blog-footer, .blog-shell { width: min(100% - 2rem, 72rem); margin-inline: auto; }
+.blog-header { align-items: center; border-bottom: 1px solid var(--blog-line); display: flex; justify-content: space-between; padding: 1.25rem 0; }
+.blog-brand { align-items: center; display: inline-flex; font-family: 'Space Grotesk', sans-serif; font-size: 1.15rem; font-weight: 700; gap: .55rem; text-decoration: none; }
+.blog-header nav { display: flex; gap: 1.25rem; }
+.blog-header nav a { color: var(--blog-muted); font-size: .9rem; text-decoration: none; }
+.blog-header nav a:hover, .read-more:hover { color: var(--blog-accent); }
+.blog-shell { padding: 5rem 0 6rem; }
+.blog-hero { max-width: 42rem; margin-bottom: 3rem; }
+.eyebrow { color: var(--blog-accent); font: 600 .75rem/1.2 'Fira Code', monospace; letter-spacing: .1em; text-transform: uppercase; }
+h1, h2 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -.035em; }
+h1 { font-size: clamp(2.5rem, 6vw, 4.75rem); line-height: .98; margin: .75rem 0 1rem; }
+h2 { font-size: 1.55rem; line-height: 1.1; margin: .6rem 0; }
+.blog-hero p, .post-card p, .post-content { color: var(--blog-muted); line-height: 1.7; }
+.post-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); }
+.post-card { background: var(--blog-panel); border: 1px solid var(--blog-line); display: flex; flex-direction: column; padding: 1.5rem; }
+.post-card h2 a { text-decoration: none; }
+.post-card h2 a:hover { color: var(--blog-accent); }
+.post-card p { margin: .25rem 0 1.25rem; }
+.post-card-meta { color: var(--blog-muted); display: flex; font: .72rem/1.3 'Fira Code', monospace; gap: .75rem; text-transform: uppercase; }
+.read-more { color: var(--blog-accent); font-weight: 600; margin-top: auto; text-decoration: none; }
+.post-content { max-width: 46rem; }
+.post-content h2, .post-content h3 { color: var(--blog-ink); margin-top: 2.5rem; }
+.post-content a { color: var(--blog-accent); }
+.post-content code { background: var(--blog-panel); padding: .15rem .3rem; }
+.post-content pre { background: #202522; color: #f7f5ef; overflow-x: auto; padding: 1rem; }
+.post-content blockquote { border-left: 3px solid var(--blog-accent); margin-left: 0; padding-left: 1rem; }
+.blog-footer { border-top: 1px solid var(--blog-line); color: var(--blog-muted); display: flex; gap: .75rem; padding: 1.25rem 0 2rem; }
+.blog-footer a { color: var(--blog-ink); font-weight: 600; text-decoration: none; }
+@media (max-width: 38rem) { .blog-header nav { gap: .75rem; } .blog-shell { padding-top: 3rem; } }
