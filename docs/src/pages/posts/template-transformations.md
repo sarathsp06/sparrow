@@ -1,139 +1,113 @@
 ---
 layout: ../../layouts/BlogArticleLayout.astro
-title: Why Sparrow Uses Go Templates for Subscription Transformations
+title: Speak the receiver's language
+kicker: On Go templates
 author: Sparrow team
-description: Subscription-local payload transforms without embedding a JavaScript runtime in the delivery path.
+description: Why Sparrow uses Go templates for subscription transformations instead of embedding JavaScript, and what a small, restrained language buys you on the delivery path.
 pubDate: 2026-10-01
-tags: [Webhooks, Go, performance, security]
+tags: [webhooks, go, performance, security]
 ---
 
-A webhook event rarely fits every receiver.
+A good interpreter is almost invisible. They listen to one person and speak to another, and the best ones add nothing of their own. No opinions, no flourishes, no clever improvements to what was said. Just the same meaning, in words the listener understands.
 
-Slack wants a small `{ "text": "..." }` object. A billing system may want cents instead of dollars. A partner may need three fields from a record that contains thirty. Sending the original event to every subscriber makes receivers do work they should not have to do.
+It turns out webhooks need an interpreter too.
 
-Sparrow solves that with a `transform_template` on each subscription. The template runs immediately before delivery and prints the body that receiver gets. The same event can therefore become a Slack message for one subscription and a flat integration payload for another.
+## One event, three listeners
 
-The obvious implementation is JavaScript. Most teams already have Node somewhere, and JavaScript template engines are familiar. Sparrow deliberately chose Go's `text/template` instead.
+It started with one `payment.succeeded` event and three receivers that each wanted to hear about it differently.
 
-## The decision was about the delivery path
+The Slack channel wanted a single friendly line: `{ "text": "Acme paid USD" }`. The billing system wanted the amount in cents, not dollars. A partner wanted three fields out of a record with thirty, and nothing else.
 
-A template engine in a webhook product is not a page renderer. It runs inside a queue worker, for every subscription that receives an event. That changes the constraints:
+Sending the raw event to everyone meant each receiver had to write its own little adapter, which is a lot like shouting in your own language and expecting the room to cope. Running a separate proxy to reshape payloads meant one more service to deploy and one more pager. What we wanted was simpler: let each subscription say how its receiver likes to be spoken to.
 
-- the process already is Go;
-- the input is structured event data, not an arbitrary application object;
-- the output is usually JSON or plain text;
-- transformations must not make outbound delivery unreliable;
-- many deliveries should share one small, predictable runtime.
+That became `transform_template`. It lives on the subscription, runs just before delivery, and prints the body that receiver gets. One event, three subscriptions, three ways of saying the same thing.
 
-The best engine is not the one with the most language features. It is the one that does the required transformation while adding the fewest moving parts to the hottest path.
+The harder question was what language the interpreter should think in.
 
-## What “Go templates” means here
+## The obvious answer
 
-Sparrow does not expose Go source code to subscribers. It exposes a constrained template language with a deliberately selected function map:
+JavaScript came up first, and it was a fair suggestion. Most teams have Node somewhere. Handlebars, Nunjucks, and EJS are familiar. Plenty of people would happily write a small function instead of a template.
+
+But "use JavaScript" can mean two quite different things:
+
+1. use a JavaScript-flavoured template language such as Handlebars; or
+2. run user-provided JavaScript inside the server.
+
+The second is much heavier than it sounds. The server has to embed or call a JavaScript runtime, decide which globals exist, block filesystem and network access, limit CPU and memory, and keep that runtime's security model in step with its own. A language-level sandbox is not automatically a security boundary.
+
+The first is lighter, but it still adds a second runtime and a new tree of dependencies. And it does not make output limits, timeouts, or error handling go away. Those belong to the host, whatever the syntax looks like.
+
+## Where the words are spoken
+
+What settled it was looking at where this code would actually run. A template in a webhook server is not rendering a web page. It runs inside a queue worker, once for every subscription that receives an event. That is the busiest path in the whole system, and it comes with a few plain facts:
+
+- the process is already Go;
+- the input is structured event data, not arbitrary application objects;
+- the output is almost always JSON or plain text;
+- a transform must never make delivery unreliable;
+- thousands of deliveries should share one small, predictable runtime.
+
+On a path like that, the best tool is the one that does the job while adding the fewest moving parts. Go's standard `text/template` was already in the binary.
+
+## A deliberately small vocabulary
+
+Sparrow does not expose Go code. It exposes a small template language with a chosen set of helpers:
 
 ```go
 {{ dict "text" (printf "%s paid %s" .payload.customer.name .payload.currency) | json }}
 ```
 
-The data context contains the event ID, event name, timestamp, attempt number, and payload. Helpers cover the useful operations: building maps and lists, reading optional fields, formatting values, and serializing the result as JSON.
+The template can see the event ID, event name, timestamp, attempt number, and payload. The helpers cover building maps and lists, reading optional fields, formatting, arithmetic, and turning the result into JSON. That is the whole vocabulary.
 
-A template is parsed once, then the parsed representation is reused. Sparrow keeps a bounded LRU cache of parsed templates, so repeated deliveries do not repeatedly pay the parsing cost. The cache is keyed by the template source, with strict and lenient missing-key modes kept separate.
+There is a kind of freedom in a small vocabulary. Poets who write sonnets know it: the form's limits push you toward clarity. A transform written in a narrow language is easy to read, easy to review, and hard to make dangerous.
 
-That is a small implementation with a useful property: the runtime is already in the server binary. There is no second interpreter, module loader, package tree, or language bridge in the worker.
+## Learn once, speak many times
 
-## Why not run JavaScript?
+Parsing a template is the expensive part, so Sparrow does it once. Parsed templates live in a bounded LRU cache keyed by a hash of the template source, with strict and lenient missing-key modes cached separately. After warm-up, a delivery parses nothing. It runs the parsed template into a pooled buffer and gets bytes back.
 
-JavaScript is not a bad choice. It is often the right choice when templates need a rich ecosystem, browser compatibility, or genuinely programmable application logic. Handlebars, for example, compiles templates and provides helpers, blocks, partials, and HTML escaping. Nunjucks and EJS offer different points on the expressiveness-versus-simplicity spectrum.
+The cache holds parsed templates, never rendered output. Output depends on the event, the attempt number, and the timestamp, so caching it would be wrong. Parsing is reusable; what you say each time is not.
 
-But “use JavaScript” can mean two very different designs:
+Because the cache is bounded, a stream of unique templates cannot grow memory forever. A JavaScript engine could also precompile and cache; that is a valid design. It would still bring its own runtime, and someone would still need to decide bounds, invalidation, and concurrency.
 
-1. use a JavaScript-shaped template language such as Handlebars; or
-2. execute user-provided JavaScript in the server.
+## Room on a small machine
 
-The second design is much heavier. A server must embed or call a JavaScript runtime, define what globals exist, restrict access to the filesystem and network, control CPU and memory, and keep the runtime's security model aligned with the host application. A language-level sandbox is not automatically a security boundary.
+Plenty of Sparrow installations run on a small VM next to the database, or in a container with a tight memory limit. Adding a JavaScript runtime just to reshape JSON would raise the floor before a single template ran.
 
-A JavaScript-shaped template engine reduces some of that risk, but it still introduces another runtime and another dependency surface. It also does not make output limits, timeout policy, data minimization, or error handling disappear. Those are properties of the host application, not magic properties of the template syntax.
+We are not claiming every Go template beats every JavaScript template. Real numbers depend on the engine and the workload. The narrower claim is the one that matters: for a server that is already Go, the standard-library engine avoids a second runtime and keeps the cache and output limits visible in one place.
 
-## Memory footprint: fewer runtimes, fewer surprises
+## Taking power away first
 
-Sparrow is a self-hosted webhook server. Some installations run it beside a database on a small VM, inside a container with a fixed memory limit, or as one of several internal services. Adding a JavaScript runtime solely to reshape JSON would make the baseline process larger before the first template runs.
+There is a habit in security of adding a guard after you have handed out the keys. It is usually better not to hand out the keys.
 
-Go templates let the existing process do the work it is already equipped to do. Parsed templates live in a bounded cache. Execution uses a pooled buffer, and output is capped at 1 MiB. A bad or unexpectedly large transform cannot grow a response without bound.
+Go templates can only call the functions and read the values the host gives them. Sparrow passes a plain map of event data and a curated set of functions. A template gets no database handle, no request object, no filesystem, no environment variables, and no arbitrary application objects. It can reshape data. It cannot turn a subscription into a program.
 
-This is not a claim that every Go template is smaller than every JavaScript template. Real memory usage depends on the runtime, engine, workload, and data. The narrower claim is the useful one: for Sparrow's existing Go process, a native standard-library template engine avoids a second general-purpose runtime and keeps the cache and output budget explicit.
+Other engines can be run safely too. Jinja has a sandbox, though its own documentation says a sandbox is not perfect security and recommends resource limits and passing only the data you need. Handlebars escapes HTML by default but warns that JavaScript strings and unsafe helpers need separate care. Safety comes from limiting what code can reach and how long it can run, whichever language you choose.
 
-## Speed: parse once, execute many times
+So Sparrow adds the limits the standard engine does not provide on its own:
 
-The useful optimization is not a language benchmark. It is avoiding repeated work in the delivery loop.
+- output is capped at 1 MiB;
+- execution is capped at five seconds;
+- strict missing-key mode can fail instead of printing `<no value>`;
+- a failed transform is recorded as `template_error` and never counts against the receiver's health;
+- a failed transform is not quietly replaced with the raw event unless the subscription opts into fallback.
 
-Sparrow parses a template on a cache miss and executes the parsed template for later deliveries. The execution path writes directly into a bounded buffer and returns the transformed bytes. A JavaScript implementation could also precompile and cache templates; that is a valid design. It would still need the runtime boundary and its operational costs.
+A fast engine with no limits is still an invitation to a denial-of-service. The limits matter more than the language.
 
-For a small JSON reshaping operation, the native path gives us predictable overhead and fewer transitions between languages. It also keeps the worker's scheduling model simple: the same Go workers that fetch delivery data and make HTTP requests perform the transform.
+## Boring on purpose
 
-The important performance property is therefore repeatability, not a universal “Go is faster” slogan:
+An interpreter who starts making business decisions has stopped being an interpreter. The same goes for transforms. If a mapping needs database lookups, external calls, or state, it belongs in a real service. Sparrow's template language is meant to do five things: read the event, pick and reshape fields, apply small deterministic helpers, print text or JSON, and stop.
 
-- bounded cache size;
-- no parse on every delivery after warm-up;
-- bounded output;
-- no network or filesystem work from a template;
-- one execution model across all subscriptions.
+That restraint pays off in daily work. A template can be checked when the subscription changes, tested against a sample payload, cached by the worker, and fixed and retried without deploying any code.
 
-## Caching is part of the design
+## What we gave up
 
-Template caching is easy to describe and easy to get subtly wrong. Sparrow hashes the template source for its cache key and uses an LRU with a fixed default size. That gives us two practical guarantees:
+Go templates are not the most expressive option, and they feel less familiar to teams who live in JavaScript. `text/template` also does not auto-escape HTML. That is fine for webhook bodies, which are not web pages. For JSON, use the `json` helper rather than building strings by hand.
 
-- frequently used subscriptions reuse parsed templates;
-- a stream of unique templates cannot grow memory forever.
+If a future need calls for a richer language, the right way is to add it on purpose: decide the data model, the helpers, the resource limits, the cache, and the failure behaviour first. Switching languages alone would solve none of those.
 
-The cache stores parsed syntax, not rendered output. Rendered output depends on the event, attempt number, and timestamp, so caching final bytes would be incorrect. Parsing is reusable; delivery bodies are not.
+## Back to the three listeners
 
-This distinction matters for any template engine. “It supports compilation” is not the same as “the application has a safe cache policy.” The host still owns invalidation, bounds, concurrency, and the data passed to execution.
-
-## Security: reduce capability before adding a sandbox
-
-Go's `text/template` evaluates template actions against the values and functions the host provides. Sparrow passes an explicit map context and a curated function map. It does not pass a database handle, request object, filesystem object, process environment, or arbitrary callable application objects.
-
-That is a strong default: templates can transform data, but they cannot turn a subscription into a general-purpose program merely because the host process is powerful.
-
-Other engines can be operated safely too. Jinja provides a sandbox that can intercept attribute access, method calls, operators, and mutations. Its own documentation still warns that a sandbox is not perfect security and recommends resource limits, exception handling, and passing only relevant data. Handlebars escapes HTML expressions by default, but its documentation warns that JavaScript strings and unsafe helpers need separate care.
-
-The lesson is not “Go is secure and JavaScript is insecure.” The lesson is that security comes from capability control and resource limits. Go gives Sparrow a narrow starting point without requiring a general-purpose runtime sandbox for a data-mapping problem.
-
-Sparrow adds the limits the standard engine does not provide by itself:
-
-- output is limited to 1 MiB;
-- execution is limited to five seconds;
-- strict missing-key mode can fail instead of silently emitting `<no value>`;
-- template failures are recorded as `template_error` and do not count against receiver health;
-- a failed transform is not silently replaced unless the subscription explicitly opts into fallback behavior.
-
-These controls are more important than the branding of the language. A fast template engine with no resource limits is still a denial-of-service risk.
-
-## Go templates are intentionally not JavaScript
-
-A subscription transform should not become a place to write business software. If a mapping needs database lookups, external API calls, complex branching, or state, it belongs in an application or integration service.
-
-Sparrow's template language is intentionally boring:
-
-- read the event context;
-- select and reshape fields;
-- apply small deterministic helpers;
-- print text or JSON;
-- stop.
-
-That boundary is useful operationally. A transform can be validated when a subscription is changed, tested against a sample payload, parsed and cached by the worker, and retried after a correction without deploying code.
-
-## The trade-off
-
-Go templates are not the most expressive option. They are less familiar to teams that live in JavaScript, and `text/template` is not an HTML auto-escaping engine. That is acceptable because Sparrow transforms webhook bodies, not untrusted HTML pages. For JSON, the `json` helper is the right boundary; hand-built JSON strings are not.
-
-If a future requirement needs a richer language, the safe path is to add that capability deliberately: define the data model, helper surface, resource budgets, cache behavior, and failure semantics first. Switching languages alone would not solve those problems.
-
-For the current job, Go is the smaller and more honest tool. It keeps the transformation close to the queue worker, makes the memory and cache policy visible, limits what a subscription can do, and avoids paying for a second runtime on every Sparrow installation.
-
-## Try a transform
-
-A subscription can reshape an event without a proxy service:
+Here is what the billing system hears, amount in cents:
 
 ```go
 {{ dict
@@ -144,7 +118,9 @@ A subscription can reshape an event without a proxy service:
   | json }}
 ```
 
-Use `dig` or `index` for optional fields, and test the result against a sample event before enabling it. The [payload transformation guide](/sparrow/guides/payload-transformation/) covers the available helpers, error modes, retries, and examples.
+Slack gets its one friendly line, the partner gets its three fields, and nobody runs a proxy. One event, said three ways, with nothing added that wasn't there.
+
+Use `dig` or `index` for optional fields, and test the template against a sample event before you switch it on. The [payload transformation guide](/sparrow/guides/payload-transformation/) covers the helpers, error modes, and retries.
 
 ### Sources and further reading
 

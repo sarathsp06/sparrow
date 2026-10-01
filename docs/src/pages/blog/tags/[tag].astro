@@ -1,0 +1,22 @@
+---
+import BlogLayout from '../../../layouts/BlogLayout.astro';
+import BlogIndex from '../../../components/BlogIndex.astro';
+import { allTags, base, getPosts, tagSlug } from '../../../lib/blog/posts';
+
+export async function getStaticPaths() {
+  return allTags(await getPosts()).map(({ tag }) => ({ params: { tag: tagSlug(tag) }, props: { tag } }));
+}
+
+const { tag } = Astro.props as { tag: string };
+const posts = await getPosts();
+const tagged = posts.filter((p) => p.tags.includes(tag));
+---
+
+<BlogLayout title={`Notes on ${tag}`} description={`Sparrow field notes tagged “${tag}”.`}>
+  <section class="blog-hero blog-hero--compact">
+    <a class="eyebrow" href={`${base}blog/`}>← All field notes</a>
+    <h1>{tag}</h1>
+    <p>{tagged.length} {tagged.length === 1 ? 'note' : 'notes'} on this topic.</p>
+  </section>
+  <BlogIndex posts={tagged} activeTag={tag} />
+</BlogLayout>

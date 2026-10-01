@@ -1,36 +1,29 @@
 ---
 import BlogLayout from '../layouts/BlogLayout.astro';
-import BlogPost from '../components/BlogPost.astro';
+import BlogIndex from '../components/BlogIndex.astro';
+import { getPosts, base } from '../lib/blog/posts';
 
-const allPosts = Object.values(import.meta.glob('./posts/*.md', { eager: true })) as Array<{
-  url: string;
-  frontmatter: {
-    title: string;
-    description?: string;
-    pubDate?: string | Date;
-    tags?: string[];
-  };
-}>;
-
-allPosts.sort((a, b) => new Date(b.frontmatter.pubDate ?? 0).valueOf() - new Date(a.frontmatter.pubDate ?? 0).valueOf());
+const posts = await getPosts();
+const site = Astro.site!;
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Blog',
+  name: 'Sparrow field notes',
+  url: new URL(`${base}blog/`, site).href,
+  blogPost: posts.map((p) => ({
+    '@type': 'BlogPosting',
+    headline: p.frontmatter.title,
+    datePublished: p.date.toISOString(),
+    url: new URL(p.url, site).href,
+  })),
+};
 ---
 
-<BlogLayout title="Blog" description="Notes from the Sparrow project.">
+<BlogLayout title="Field notes" description="Stories and engineering notes from the people building Sparrow, a self-hosted webhook delivery server." jsonLd={jsonLd}>
   <section class="blog-hero">
-    <span class="eyebrow">Dispatches</span>
-    <h1>Building Sparrow in the open.</h1>
-    <p>Engineering notes on reliable webhook delivery, self-hosting, and the systems behind Sparrow.</p>
+    <span class="eyebrow">Field notes</span>
+    <h1>Small promises, kept carefully.</h1>
+    <p>A webhook is a promise: when this happens, I will tell you. These are notes on what it takes to keep that promise, and on the people at either end of it.</p>
   </section>
-
-  <section class="post-grid" aria-label="Blog posts">
-    {allPosts.map((post) => (
-      <BlogPost
-        url={post.url}
-        title={post.frontmatter.title}
-        description={post.frontmatter.description}
-        pubDate={post.frontmatter.pubDate}
-        tags={post.frontmatter.tags}
-      />
-    ))}
-  </section>
+  <BlogIndex posts={posts} featureFirst />
 </BlogLayout>
