@@ -2,25 +2,21 @@
 import BlogPost from './BlogPost.astro';
 import type { Post } from '../lib/blog/posts';
 import { allTags, base, getPosts, tagUrl } from '../lib/blog/posts';
+import '../styles/blog.css';
 
-interface Props { posts: Post[]; activeTag?: string; featureFirst?: boolean }
-const { posts, activeTag, featureFirst = false } = Astro.props;
-const [first, ...rest] = posts;
+interface Props { posts: Post[]; activeTag?: string }
+const { posts, activeTag } = Astro.props;
 const tags = allTags(await getPosts());
 ---
 
-<nav class="tag-filter" aria-label="Browse by topic">
-  <a href={`${base}blog/`} aria-current={!activeTag ? 'page' : undefined}>All notes</a>
-  {tags.map(({ tag, count }) => (
-    <a href={tagUrl(tag)} aria-current={activeTag === tag ? 'page' : undefined}>{tag} <span>{count}</span></a>
-  ))}
-</nav>
-
-{featureFirst && first ? (
-  <>
-    <section class="post-featured" aria-label="Latest note"><BlogPost post={first} featured /></section>
-    <section class="post-list" aria-label="More notes">{rest.map((post) => <BlogPost post={post} />)}</section>
-  </>
-) : (
-  <section class="post-list" aria-label="Notes">{posts.map((post) => <BlogPost post={post} />)}</section>
-)}
+<div class="not-content">
+  <nav class="blog-filter" aria-label="Browse by topic">
+    <a href={`${base}blog/`} aria-current={!activeTag ? 'page' : undefined}>All notes</a>
+    {tags.map(({ tag, count }) => (
+      <a href={tagUrl(tag)} aria-current={activeTag === tag ? 'page' : undefined}>{tag} <span>{count}</span></a>
+    ))}
+  </nav>
+  <section class="blog-list" aria-label="Notes">
+    {posts.map((post) => <BlogPost post={post} />)}
+  </section>
+</div>

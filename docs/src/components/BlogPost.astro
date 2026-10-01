@@ -2,21 +2,20 @@
 import type { Post } from '../lib/blog/posts';
 import { formatDate, tagUrl } from '../lib/blog/posts';
 
-interface Props { post: Post; featured?: boolean }
-const { post, featured = false } = Astro.props;
+interface Props { post: Post }
+const { post } = Astro.props;
 const { title, kicker, description } = post.frontmatter;
-const Heading = featured ? 'h2' : 'h3';
 ---
 
-<article class:list={['post-card', { 'post-card--featured': featured }]}>
-  <div class="post-card-meta">
-    {kicker && <span class="post-card-kicker">{kicker}</span>}
+<article class="blog-card">
+  <div class="blog-card-meta">
+    {kicker && <span class="blog-kicker">{kicker}</span>}
     <time datetime={post.date.toISOString()}>{formatDate(post.date, 'short')}</time>
     <span>{post.minutes} min read</span>
   </div>
-  <Heading class="post-card-title"><a href={post.url}>{title}</a></Heading>
+  <h2 class="blog-card-title"><a href={post.url}>{title}</a></h2>
   {description && <p>{description}</p>}
-  <ul class="tag-list" aria-label="Tags">
+  <ul class="blog-tags" aria-label="Tags">
     {post.tags.map((t) => <li><a href={tagUrl(t)}>{t}</a></li>)}
   </ul>
 </article>

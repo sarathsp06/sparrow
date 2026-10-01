@@ -1,6 +1,8 @@
-// Shared blog index: every post under src/pages/posts, sorted newest first,
+// Shared blog index: every post under src/blog (served at /posts/<slug>/), sorted newest first,
 // with reading time and tag slugs so the index, tag pages, RSS feed and
 // article layout all agree on the same list.
+
+import type { MarkdownHeading, MarkdownInstance } from 'astro';
 
 export interface PostFrontmatter {
   title: string;
@@ -18,14 +20,11 @@ export interface Post {
   date: Date;
   minutes: number;
   tags: string[];
+  Content: MarkdownInstance<PostFrontmatter>['Content'];
+  headings: MarkdownHeading[];
 }
 
-interface PostModule {
-  url: string;
-  file: string;
-  frontmatter: PostFrontmatter;
-  rawContent: () => string;
-}
+type PostModule = MarkdownInstance<PostFrontmatter>;
 
 const WORDS_PER_MINUTE = 220;
 
@@ -40,9 +39,7 @@ const readingMinutes = (markdown: string) => {
   return Math.max(1, Math.round(words / WORDS_PER_MINUTE));
 };
 
-// Lazy glob: the post pages import BlogArticleLayout, which imports this
-// module, so an eager glob would be a circular import.
-const loaders = import.meta.glob<PostModule>('../../pages/posts/*.md');
+const loaders = import.meta.glob<PostModule>('../../blog/*.md');
 
 let cache: Promise<Post[]> | undefined;
 
@@ -51,14 +48,19 @@ let cache: Promise<Post[]> | undefined;
 export const getPosts = (): Promise<Post[]> =>
   (cache ??= Promise.all(Object.values(loaders).map((load) => load())).then((modules) =>
     modules
-      .map((m) => ({
-        url: m.url.replace(/\/?$/, '/'),
-        slug: m.file.split('/').pop()!.replace(/\.md$/, ''),
-        frontmatter: m.frontmatter,
-        date: new Date(m.frontmatter.pubDate),
-        minutes: readingMinutes(m.rawContent()),
-        tags: (m.frontmatter.tags ?? []).map((t) => t.toLowerCase()),
-      }))
+      .map((m) => {
+        const slug = m.file.split('/').pop()!.replace(/\.md$/, '');
+        return {
+          url: `${base}posts/${slug}/`,
+          slug,
+          frontmatter: m.frontmatter,
+          date: new Date(m.frontmatter.pubDate),
+          minutes: readingMinutes(m.rawContent()),
+          tags: (m.frontmatter.tags ?? []).map((t) => t.toLowerCase()),
+          Content: m.Content,
+          headings: m.getHeadings(),
+        };
+      })
       .sort((a, b) => b.date.valueOf() - a.date.valueOf() || a.frontmatter.title.localeCompare(b.frontmatter.title)),
   ));
 
@@ -70,8 +72,3 @@ export const allTags = (posts: Post[]): { tag: string; count: number }[] => {
 
 export const formatDate = (d: Date, month: 'long' | 'short' = 'long') =>
   d.toLocaleDateString('en-US', { year: 'numeric', month, day: 'numeric', timeZone: 'UTC' });
-
-export const findPost = (posts: Post[], url: string | undefined) => {
-  const clean = (u: string) => u.replace(/\/$/, '');
-  return posts.findIndex((p) => url && clean(p.url) === clean(url));
-};
