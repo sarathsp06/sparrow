@@ -1,0 +1,56 @@
+---
+import BlogLayout from '../../layouts/BlogLayout.astro';
+import { base, formatDate, getPosts, tagUrl } from '../../lib/blog/posts';
+
+export async function getStaticPaths() {
+  return (await getPosts()).map((post) => ({ params: { slug: post.slug } }));
+}
+
+const posts = await getPosts();
+const index = posts.findIndex((p) => p.slug === Astro.params.slug);
+const post = posts[index];
+const { frontmatter, Content } = post;
+const newer = index > 0 ? posts[index - 1] : undefined;
+const older = index < posts.length - 1 ? posts[index + 1] : undefined;
+const iso = post.date.toISOString();
+const description = frontmatter.description ?? '';
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BlogPosting',
+  headline: frontmatter.title,
+  description,
+  datePublished: iso,
+  author: { '@type': 'Organization', name: frontmatter.author ?? 'Sparrow team' },
+  publisher: { '@type': 'Organization', name: 'Sparrow' },
+  keywords: post.tags.join(', '),
+  mainEntityOfPage: new URL(Astro.url.pathname, Astro.site).href,
+};
+---
+
+<BlogLayout title={frontmatter.title} description={description} type="article" publishedTime={iso} tags={post.tags} jsonLd={jsonLd}>
+  <article class="fn-article">
+    <header class="fn-article-head">
+      <a class="fn-eyebrow" href={`${base}blog/`}>← Field notes</a>
+      {frontmatter.kicker && <p class="fn-kicker">{frontmatter.kicker}</p>}
+      <h1>{frontmatter.title}</h1>
+      {description && <p class="fn-standfirst">{description}</p>}
+      <div class="fn-meta">
+        <time datetime={iso}>{formatDate(post.date)}</time>
+        <span>{post.minutes} min read</span>
+        {frontmatter.author && <span>{frontmatter.author}</span>}
+      </div>
+    </header>
+    <div class="fn-prose"><Content /></div>
+    <footer class="fn-article-foot">
+      <ul class="fn-tags" aria-label="Tags">
+        {post.tags.map((t) => <li><a href={tagUrl(t)}>{t}</a></li>)}
+      </ul>
+      {(older || newer) && (
+        <nav class="fn-pager" aria-label="More field notes">
+          {older ? <a href={older.url} rel="prev"><span>Earlier</span>{older.frontmatter.title}</a> : <span />}
+          {newer && <a href={newer.url} rel="next" class="fn-pager-next"><span>Later</span>{newer.frontmatter.title}</a>}
+        </nav>
+      )}
+    </footer>
+  </article>
+</BlogLayout>

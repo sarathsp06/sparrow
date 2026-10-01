@@ -1,4 +1,4 @@
-// Shared blog index: every post under src/blog (served at /posts/<slug>/), sorted newest first,
+// Shared blog index: every post under src/blog (served at /blog/<slug>/), sorted newest first,
 // with reading time and tag slugs so the index, tag pages, RSS feed and
 // article layout all agree on the same list.
 
@@ -51,7 +51,7 @@ export const getPosts = (): Promise<Post[]> =>
       .map((m) => {
         const slug = m.file.split('/').pop()!.replace(/\.md$/, '');
         return {
-          url: `${base}posts/${slug}/`,
+          url: `${base}blog/${slug}/`,
           slug,
           frontmatter: m.frontmatter,
           date: new Date(m.frontmatter.pubDate),

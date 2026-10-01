@@ -1,5 +1,5 @@
 ---
-import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import BlogLayout from '../../../layouts/BlogLayout.astro';
 import BlogIndex from '../../../components/BlogIndex.astro';
 import { allTags, base, getPosts, tagSlug } from '../../../lib/blog/posts';
 
@@ -12,17 +12,11 @@ const posts = await getPosts();
 const tagged = posts.filter((p) => p.tags.includes(tag));
 ---
 
-<StarlightPage
-  frontmatter={{
-    // Field notes stay out of the docs search so stories don't crowd reference pages.
-    pagefind: false,
-    title: `Field notes on ${tag}`,
-    description: `Sparrow field notes tagged “${tag}”.`,
-    tableOfContents: false,
-    prev: { link: `${base}blog/`, label: 'All field notes' },
-    next: false,
-  }}
->
-  <p class="blog-standfirst">{tagged.length} {tagged.length === 1 ? 'note' : 'notes'} on this topic.</p>
+<BlogLayout title={`Notes on ${tag}`} description={`Sparrow field notes tagged “${tag}”.`}>
+  <section class="fn-hero">
+    <a class="fn-eyebrow" href={`${base}blog/`}>← All field notes</a>
+    <h1>{tag}</h1>
+    <p class="fn-standfirst">{tagged.length} {tagged.length === 1 ? 'note' : 'notes'} on this topic.</p>
+  </section>
   <BlogIndex posts={tagged} activeTag={tag} />
-</StarlightPage>
+</BlogLayout>

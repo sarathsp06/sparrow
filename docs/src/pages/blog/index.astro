@@ -1,0 +1,33 @@
+---
+import BlogLayout from '../../layouts/BlogLayout.astro';
+import BlogIndex from '../../components/BlogIndex.astro';
+import { getPosts, base } from '../../lib/blog/posts';
+
+const posts = await getPosts();
+const site = Astro.site!;
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Blog',
+  name: 'Sparrow field notes',
+  url: new URL(`${base}blog/`, site).href,
+  blogPost: posts.map((p) => ({
+    '@type': 'BlogPosting',
+    headline: p.frontmatter.title,
+    datePublished: p.date.toISOString(),
+    url: new URL(p.url, site).href,
+  })),
+};
+---
+
+<BlogLayout
+  title="Field notes"
+  description="Stories and engineering notes from the people building Sparrow, a self-hosted webhook delivery server."
+  jsonLd={jsonLd}
+>
+  <section class="fn-hero">
+    <p class="fn-eyebrow">Field notes</p>
+    <h1>Small promises, kept carefully.</h1>
+    <p class="fn-standfirst">A webhook is a promise: when this happens, I will tell you. These are notes on what it takes to keep that promise, and on the people at either end of it.</p>
+  </section>
+  <BlogIndex posts={posts} />
+</BlogLayout>

@@ -7,15 +7,15 @@ const { post } = Astro.props;
 const { title, kicker, description } = post.frontmatter;
 ---
 
-<article class="blog-card">
-  <div class="blog-card-meta">
-    {kicker && <span class="blog-kicker">{kicker}</span>}
+<article class="fn-card">
+  <div class="fn-meta fn-meta--plain">
+    {kicker && <span class="fn-kicker-sm">{kicker}</span>}
     <time datetime={post.date.toISOString()}>{formatDate(post.date, 'short')}</time>
     <span>{post.minutes} min read</span>
   </div>
-  <h2 class="blog-card-title"><a href={post.url}>{title}</a></h2>
+  <h2 class="fn-card-title"><a href={post.url}>{title}</a></h2>
   {description && <p>{description}</p>}
-  <ul class="blog-tags" aria-label="Tags">
+  <ul class="fn-tags" aria-label="Tags">
     {post.tags.map((t) => <li><a href={tagUrl(t)}>{t}</a></li>)}
   </ul>
 </article>

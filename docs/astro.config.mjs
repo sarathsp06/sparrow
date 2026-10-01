@@ -11,6 +11,12 @@ export default defineConfig({
   redirects: {
     '/tools': '/sparrow/tools/recipe-workbench/',
     '/tools/email-studio': '/sparrow/tools/recipe-workbench/',
+    // Field notes moved from /posts/<slug>/ to their own site at /blog/<slug>/.
+    '/posts/why-sparrow': '/sparrow/blog/why-sparrow/',
+    '/posts/delivery-failures': '/sparrow/blog/delivery-failures/',
+    '/posts/envelope-encryption': '/sparrow/blog/envelope-encryption/',
+    '/posts/template-transformations': '/sparrow/blog/template-transformations/',
+    '/posts/recipes-as-config': '/sparrow/blog/recipes-as-config/',
   },
   vite: {
     // The workbench imports the recipe catalog straight from satellites/recipes/*.yaml.
@@ -92,10 +98,6 @@ export default defineConfig({
             { slug: 'reference/security' },
             { slug: 'reference/layered-architecture' },
           ],
-        },
-        {
-          label: 'Blog',
-          link: '/blog/',
         },
         {
           label: 'Deployment',

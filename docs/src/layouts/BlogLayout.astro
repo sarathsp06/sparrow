@@ -1,0 +1,109 @@
+---
+// Standalone shell for the field notes at /blog. It shares the docs' design
+// tokens, fonts and light/dark preference, but has no docs sidebar or search,
+// and its pages are left out of the docs search index and llms.txt.
+import faviconSrc from '../assets/favicon.svg';
+import '../styles/sparrow-tokens.css';
+import '../styles/blog.css';
+import { base } from '../lib/blog/posts';
+
+interface Props {
+  title: string;
+  description: string;
+  type?: 'website' | 'article';
+  publishedTime?: string;
+  tags?: string[];
+  jsonLd?: Record<string, unknown>;
+}
+
+const { title, description, type = 'website', publishedTime, tags = [], jsonLd } = Astro.props;
+const favicon = faviconSrc.src;
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
+const rss = new URL(`${base}blog/rss.xml`, Astro.site).href;
+const docsHome = `${base}getting-started/installation/`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script is:inline>
+      // Same storage key as the docs theme picker, so a reader's choice carries over.
+      (() => {
+        let stored = null;
+        try { stored = localStorage.getItem('starlight-theme'); } catch {}
+        const dark = stored === 'dark' || (stored !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      })();
+    </script>
+    <title>{title} | Sparrow field notes</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href={favicon} type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title="Sparrow field notes" href={rss} />
+    <meta property="og:site_name" content="Sparrow field notes" />
+    <meta property="og:type" content={type} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    {publishedTime && <meta property="article:published_time" content={publishedTime} />}
+    {tags.map((t) => <meta property="article:tag" content={t} />)}
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+    {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
+  </head>
+  <body class="fn">
+    <a class="fn-skip" href="#main">Skip to content</a>
+    <header class="fn-header">
+      <div class="fn-header-inner">
+        <a class="fn-brand" href={`${base}blog/`}>
+          <img src={favicon} alt="" width="28" height="28" />
+          <span>Sparrow</span>
+          <span class="fn-brand-sub">field notes</span>
+        </a>
+        <nav class="fn-nav" aria-label="Site">
+          <a href={docsHome}>Docs</a>
+          <a href="https://github.com/sarathsp06/sparrow">GitHub</a>
+          <a href={`${base}blog/rss.xml`}>RSS</a>
+          <button class="fn-theme" type="button" aria-label="Switch to dark theme" title="Toggle light and dark theme">
+            <svg class="fn-theme-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <svg class="fn-theme-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main" class="fn-main">
+      <slot />
+    </main>
+
+    <footer class="fn-footer">
+      <div class="fn-footer-inner">
+        <span>Field notes from the people building <a href={base}>Sparrow</a>, a self-hosted webhook delivery server.</span>
+        <a href={docsHome}>Read the docs</a>
+      </div>
+    </footer>
+
+    <script is:inline>
+      (() => {
+        const button = document.querySelector('.fn-theme');
+        const label = () => {
+          const dark = document.documentElement.dataset.theme === 'dark';
+          button.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
+        };
+        label();
+        button.addEventListener('click', () => {
+          const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+          document.documentElement.dataset.theme = next;
+          try { localStorage.setItem('starlight-theme', next); } catch {}
+          label();
+        });
+      })();
+    </script>
+  </body>
+</html>
