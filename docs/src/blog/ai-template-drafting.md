@@ -1,5 +1,4 @@
 ---
-layout: ../../layouts/BlogArticleLayout.astro
 title: Describe the payload, get the template
 kicker: On AI-assisted transforms
 author: Sparrow team
