@@ -61,7 +61,7 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 
 ## Template history
 
-No configuration. `subscription_template_versions` keeps the last 20 saved templates per subscription (migration 000030); listed at `GET /v1/consumers/{c}/subscriptions/{id}/templateVersions`.
+No configuration. `subscription_template_versions` keeps the last 20 saved templates per subscription (migration 000034); listed at `GET /v1/consumers/{c}/subscriptions/{id}/templateVersions`.
 
 ## AI-assisted template drafting
 
