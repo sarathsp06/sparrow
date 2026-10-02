@@ -8,6 +8,7 @@
   const webhookId = $derived(page.params.webhookId ?? "");
   let consumer = $state("");
   let webhookUrl = $state("");
+  let requiresTransform = $state(false);
   let error = $state("");
   let loading = $state(true);
 
@@ -18,6 +19,7 @@
       if (!wh) { error = "Webhook not found"; return; }
       consumer = wh.consumer;
       webhookUrl = wh.url;
+      requiresTransform = wh.requires_transform;
     } catch (e: any) {
       error = formatAPIError(e, "Failed to load webhook");
     } finally {
@@ -36,6 +38,6 @@
   {:else if error}
     <p class="text-sm" style="color:var(--color-bad)">{error}</p>
   {:else}
-    <SubscriptionForm {webhookId} {consumer} mode="create" />
+    <SubscriptionForm {webhookId} {consumer} mode="create" {requiresTransform} />
   {/if}
 </main>

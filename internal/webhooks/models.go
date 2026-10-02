@@ -32,6 +32,9 @@ type WebhookRegistration struct {
 	// SignatureType controls which signing scheme is used: "hmac" (default) or "ed25519".
 	SignatureType string `json:"signature_type"`
 
+	// RequiresTransform: every subscription must carry an enabled transform.
+	RequiresTransform bool `json:"requires_transform"`
+
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
@@ -325,6 +328,16 @@ type WebhookRegistrationRequest struct {
 	HTTPConfig    *WebhookHTTPConfig `json:"http_config,omitempty"`
 	RateLimitRPS  *float64           `json:"rate_limit_rps,omitempty"`
 	SignatureType string             `json:"signature_type,omitempty"` // "hmac" (default) or "ed25519"
+	// RequiresTransform marks a receiver that only accepts transformed
+	// payloads; TransformTemplate is then required when Events is non-empty.
+	RequiresTransform bool `json:"requires_transform,omitempty"`
+	// TransformTemplate and TemplateSettings apply to every subscription
+	// created from Events. An empty template leaves them untransformed.
+	TransformTemplate string                       `json:"transform_template,omitempty"`
+	TemplateSettings  SubscriptionTemplateSettings `json:"-"`
+	// TemplateMeta labels the template's first saved version on each
+	// created subscription (manual or ai_draft, notes, who saved it).
+	TemplateMeta TemplateSaveMeta `json:"-"`
 }
 
 // ToWebhookRegistration converts the request to a WebhookRegistration

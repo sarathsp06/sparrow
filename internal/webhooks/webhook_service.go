@@ -37,7 +37,7 @@ type WebhookManager interface {
 	CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*WebhookRegistration, error)
 	UnregisterWebhook(ctx context.Context, webhookID string, consumer string) error
 	ListWebhooks(ctx context.Context, consumer string, webhookID string, event string, activeOnly bool, health string, limit, offset int32) ([]*store.WebhookRegistration, int32, error)
-	UpdateWebhookConfig(ctx context.Context, webhookID string, consumer string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, updateMask []string) error
+	UpdateWebhookConfig(ctx context.Context, webhookID string, consumer string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, requiresTransform bool, updateMask []string) error
 	PauseWebhook(ctx context.Context, webhookID string, consumer string, reason string) error
 	ResumeWebhook(ctx context.Context, webhookID string, consumer string) error
 	GetConsumerStats(ctx context.Context, consumer string) (*ConsumerStatsData, error)

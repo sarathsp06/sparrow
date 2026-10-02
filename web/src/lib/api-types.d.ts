@@ -2152,6 +2152,8 @@ export interface components {
             };
             /** @description Update HTTP delivery settings. Only the fields you send change; the rest keep their current values. The merged result must satisfy the same limits as on create, or the request is rejected with 400. */
             http_config?: components["schemas"]["WebhookHTTPConfig"];
+            /** @description Require (or stop requiring) a payload transform on every subscription. Turning it on fails with 409 while any subscription has no enabled transform_template. While on, events cannot be replaced in bulk (409): add or delete subscriptions individually. */
+            requires_transform?: boolean;
             /** @description Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it. */
             secret_headers?: {
                 [key: string]: string;
@@ -2248,10 +2250,17 @@ export interface components {
             /** @description Per-webhook HTTP delivery tuning (retries, timeouts, rate limit). Falls back to server defaults for any field left unset. */
             http_config?: components["schemas"]["WebhookHTTPConfig"];
             /**
+             * @description What happens when transform_template fails to render for one of the created subscriptions. fail (default) or fallback; see the subscription's on_transform_error.
+             * @enum {string}
+             */
+            on_transform_error?: "fail" | "fallback" | "";
+            /**
              * Format: double
              * @description Maximum sustained delivery rate to this webhook, in requests per second. Excess deliveries queue and are sent once the leaky bucket has capacity.
              */
             rate_limit_rps?: number;
+            /** @description Set when the receiver only accepts a transformed payload (Slack, SendGrid, ...). Every subscription must then have transform_enabled and a transform_template: transform_template is required here when events is non-empty, and later subscription writes without one are rejected. Recipes set this. Defaults to false. */
+            requires_transform?: boolean;
             /** @description HTTP headers whose values are envelope-encrypted at rest and masked in every API response (e.g. an upstream auth token). */
             secret_headers?: {
                 [key: string]: string;
@@ -2261,6 +2270,20 @@ export interface components {
              * @enum {string}
              */
             signature_type?: "hmac" | "ed25519" | "";
+            /**
+             * @description How transform_template reads a key the payload does not have, for the created subscriptions. error (default) or zero; see the subscription's template_missing_key.
+             * @enum {string}
+             */
+            template_missing_key?: "error" | "zero" | "";
+            /** @description Optional note stored with that first template version, e.g. the AI drafter's summary. */
+            template_notes?: string;
+            /**
+             * @description How transform_template was produced, recorded as the first version in each created subscription's template history. Defaults to manual.
+             * @enum {string}
+             */
+            template_source?: "manual" | "ai_draft" | "";
+            /** @description Transform template given to every subscription created from events, with transform_enabled set. Omit to create them untransformed (not allowed with requires_transform). */
+            transform_template?: string;
             /**
              * Format: uri
              * @description HTTPS/HTTP endpoint to POST deliveries to. Private, loopback, and cloud metadata addresses are rejected (SSRF protection).
@@ -2655,6 +2678,7 @@ export interface components {
             headers?: {
                 [key: string]: string;
             };
+            requires_transform?: boolean;
             secret_headers?: {
                 [key: string]: string;
             };
@@ -2828,6 +2852,8 @@ export interface components {
             health: "healthy" | "degraded" | "unhealthy" | "unknown";
             /** @description Per-webhook HTTP delivery configuration. */
             http_config: components["schemas"]["WebhookHTTPConfigOut"];
+            /** @description Whether every subscription must carry an enabled transform_template because the receiver only accepts transformed payloads. */
+            requires_transform: boolean;
             /** @description Encrypted secret header names, with values always masked. Update them via PATCH secret_headers; send an empty string to remove one. */
             secret_headers?: {
                 [key: string]: string;
@@ -4476,6 +4502,15 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

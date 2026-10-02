@@ -100,6 +100,10 @@ type webhookRequest struct {
 	Description   string            `json:"description,omitempty"`
 	Headers       map[string]string `json:"headers,omitempty"`
 	SecretHeaders map[string]string `json:"secret_headers,omitempty"`
+	// RequiresTransform and TransformTemplate make the server create every
+	// subscription already transformed (needs a server with requires_transform).
+	RequiresTransform bool   `json:"requires_transform,omitempty"`
+	TransformTemplate string `json:"transform_template,omitempty"`
 }
 
 type webhookOut struct {

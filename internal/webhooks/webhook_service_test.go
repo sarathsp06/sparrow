@@ -70,6 +70,15 @@ func (m *mockRepo) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, webho
 	return res.(*store.WebhookRegistration), args.Error(1)
 }
 
+func (m *mockRepo) LockWebhook(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, exclusive bool) (*store.WebhookRegistration, error) {
+	args := m.Called(ctx, tenantID, webhookID, consumer, exclusive)
+	res := args.Get(0)
+	if res == nil {
+		return nil, args.Error(1)
+	}
+	return res.(*store.WebhookRegistration), args.Error(1)
+}
+
 func (m *mockRepo) UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webhook *store.WebhookRegistration) error {
 	args := m.Called(ctx, tenantID, webhook)
 	return args.Error(0)
@@ -273,6 +282,7 @@ func TestWebhookService_CreateSubscription(t *testing.T) {
 	consumer := "default"
 	eventName := "user.created"
 
+	repo.On("LockWebhook", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false).Return(&store.WebhookRegistration{}, nil)
 	repo.On("CreateSubscription", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	id, createdAt, err := service.CreateSubscription(ctx, webhookID, eventName, consumer, nil, "POST", 30, false, "", nil, SubscriptionTemplateSettings{})
@@ -406,6 +416,7 @@ func TestWebhookService_CreateSubscription_CatchAll(t *testing.T) {
 	webhookID := uuid.New().String()
 	consumer := "default"
 
+	repo.On("LockWebhook", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false).Return(&store.WebhookRegistration{}, nil)
 	repo.On("CreateSubscription", mock.Anything, mock.Anything, mock.MatchedBy(func(sub *store.EventSubscription) bool {
 		return sub.EventName == store.CatchAllEventName
 	})).Return(nil)
@@ -456,7 +467,7 @@ func TestWebhookService_UpdateWebhookConfig_MergesSecretHeaderChanges(t *testing
 	err = service.UpdateWebhookConfig(ctx, webhookID.String(), consumer, nil, "", nil, true, "", nil, map[string]string{
 		"Authorization": "Bearer new",
 		"X-Remove":      "",
-	}, "", []string{"secret_headers"})
+	}, "", false, []string{"secret_headers"})
 
 	require.NoError(t, err)
 	repo.AssertExpectations(t)
@@ -486,11 +497,71 @@ func TestWebhookService_UpdateWebhookConfig_RejectsOutOfBoundsValues(t *testing.
 	// rejected on update too; UpdateWebhook must never be called.
 	err := service.UpdateWebhookConfig(ctx, webhookID.String(), consumer, nil, "", nil, true, "", &HTTPConfigUpdate{
 		RequestTimeoutSeconds: 86400,
-	}, nil, "", []string{"http_config"})
+	}, nil, "", false, []string{"http_config"})
 
 	require.Error(t, err)
 	var svcErr *svcerrors.ServiceError
 	require.ErrorAs(t, err, &svcErr)
 	assert.Equal(t, svcerrors.InvalidArgument, svcErr.Status)
 	repo.AssertNotCalled(t, "UpdateWebhook", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestWebhookService_RequiresTransform(t *testing.T) {
+	ctx := testContext()
+	const consumer = "default"
+	webhookID := uuid.New()
+	requiring := &store.WebhookRegistration{ID: webhookID, Consumer: consumer, RequiresTransform: true}
+
+	t.Run("create webhook with events needs a template", func(t *testing.T) {
+		service := NewWebhookService(nil, new(mockRepo), nil)
+		_, err := service.CreateWebhook(ctx, WebhookRegistrationRequest{
+			Consumer: consumer, URL: "https://example.com/hook", Events: []string{"order.created"}, RequiresTransform: true,
+		})
+		var svcErr *svcerrors.ServiceError
+		require.ErrorAs(t, err, &svcErr)
+		assert.Equal(t, svcerrors.InvalidArgument, svcErr.Status)
+	})
+
+	t.Run("subscription without a transform is refused", func(t *testing.T) {
+		repo := new(mockRepo)
+		service := NewWebhookService(nil, repo, nil)
+		repo.On("LockWebhook", mock.Anything, mock.Anything, webhookID, consumer, false).Return(requiring, nil)
+
+		_, _, err := service.CreateSubscription(ctx, webhookID.String(), "order.created", consumer, nil, "POST", 30, false, "", nil, SubscriptionTemplateSettings{})
+		var svcErr *svcerrors.ServiceError
+		require.ErrorAs(t, err, &svcErr)
+		assert.Equal(t, svcerrors.InvalidArgument, svcErr.Status)
+		_, _, err = service.CreateSubscription(ctx, webhookID.String(), "order.created", consumer, nil, "POST", 30, true, "   ", nil, SubscriptionTemplateSettings{})
+		require.ErrorAs(t, err, &svcErr)
+		repo.AssertNotCalled(t, "CreateSubscription", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("turning it on needs every subscription transformed", func(t *testing.T) {
+		repo := new(mockRepo)
+		service := NewWebhookService(nil, repo, nil)
+		repo.On("GetWebhookByID", mock.Anything, mock.Anything, webhookID, consumer).Return(&store.WebhookRegistration{ID: webhookID, Consumer: consumer}, nil)
+		repo.On("LockWebhook", mock.Anything, mock.Anything, webhookID, consumer, true).Return(&store.WebhookRegistration{ID: webhookID, Consumer: consumer}, nil)
+		repo.On("ListSubscriptions", mock.Anything, mock.Anything, webhookID).Return([]*store.EventSubscription{
+			{EventName: "order.created", TransformEnabled: true, TransformTemplate: "{}"},
+			{EventName: "order.refunded"},
+		}, nil)
+
+		err := service.UpdateWebhookConfig(ctx, webhookID.String(), consumer, nil, "", nil, false, "", nil, nil, "", true, []string{"requires_transform"})
+		var svcErr *svcerrors.ServiceError
+		require.ErrorAs(t, err, &svcErr)
+		assert.Equal(t, svcerrors.FailedPrecondition, svcErr.Status)
+		assert.Contains(t, svcErr.Error(), "order.refunded")
+		repo.AssertNotCalled(t, "UpdateWebhook", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("events cannot be replaced in bulk", func(t *testing.T) {
+		repo := new(mockRepo)
+		service := NewWebhookService(nil, repo, nil)
+		repo.On("GetWebhookByID", mock.Anything, mock.Anything, webhookID, consumer).Return(requiring, nil)
+
+		err := service.UpdateWebhookConfig(ctx, webhookID.String(), consumer, []string{"order.created"}, "", nil, false, "", nil, nil, "", false, []string{"events"})
+		var svcErr *svcerrors.ServiceError
+		require.ErrorAs(t, err, &svcErr)
+		assert.Equal(t, svcerrors.FailedPrecondition, svcErr.Status)
+	})
 }

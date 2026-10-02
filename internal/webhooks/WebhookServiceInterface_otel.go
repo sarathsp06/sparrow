@@ -1185,23 +1185,24 @@ func (_d WebhookServiceInterfaceWithTracing) UpdateSubscription(ctx context.Cont
 }
 
 // UpdateWebhookConfig implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) UpdateWebhookConfig(ctx context.Context, webhookID string, consumer string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, updateMask []string) (err error) {
+func (_d WebhookServiceInterfaceWithTracing) UpdateWebhookConfig(ctx context.Context, webhookID string, consumer string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, requiresTransform bool, updateMask []string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.UpdateWebhookConfig")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":           ctx,
-				"webhookID":     webhookID,
-				"consumer":      consumer,
-				"events":        events,
-				"url":           url,
-				"headers":       headers,
-				"active":        active,
-				"description":   description,
-				"httpConfig":    httpConfig,
-				"secretHeaders": secretHeaders,
-				"signatureType": signatureType,
-				"updateMask":    updateMask}, map[string]interface{}{
+				"ctx":               ctx,
+				"webhookID":         webhookID,
+				"consumer":          consumer,
+				"events":            events,
+				"url":               url,
+				"headers":           headers,
+				"active":            active,
+				"description":       description,
+				"httpConfig":        httpConfig,
+				"secretHeaders":     secretHeaders,
+				"signatureType":     signatureType,
+				"requiresTransform": requiresTransform,
+				"updateMask":        updateMask}, map[string]interface{}{
 				"err": err})
 		} else if err != nil {
 			_span.RecordError(err)
@@ -1214,5 +1215,5 @@ func (_d WebhookServiceInterfaceWithTracing) UpdateWebhookConfig(ctx context.Con
 
 		_span.End()
 	}()
-	return _d.WebhookServiceInterface.UpdateWebhookConfig(ctx, webhookID, consumer, events, url, headers, active, description, httpConfig, secretHeaders, signatureType, updateMask)
+	return _d.WebhookServiceInterface.UpdateWebhookConfig(ctx, webhookID, consumer, events, url, headers, active, description, httpConfig, secretHeaders, signatureType, requiresTransform, updateMask)
 }

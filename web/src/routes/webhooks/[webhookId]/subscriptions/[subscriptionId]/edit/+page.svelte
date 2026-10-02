@@ -12,6 +12,7 @@
   const subscriptionId = $derived(page.params.subscriptionId ?? "");
   let consumer = $state("");
   let webhookUrl = $state("");
+  let requiresTransform = $state(false);
   let subscription: SubscriptionItem | null = $state(null);
   let error = $state("");
   let loading = $state(true);
@@ -23,6 +24,7 @@
       if (!wh) { error = "Webhook not found"; return; }
       consumer = wh.consumer;
       webhookUrl = wh.url;
+      requiresTransform = wh.requires_transform;
       subscription = unwrap(await api.GET('/v1/consumers/{consumer}/subscriptions/{subscription_id}', {
         params: { path: { consumer: wh.consumer, subscription_id: subscriptionId } },
       }));
@@ -44,6 +46,6 @@
   {:else if error}
     <p class="text-sm" style="color:var(--color-bad)">{error}</p>
   {:else if subscription}
-    <SubscriptionForm {webhookId} {consumer} mode="edit" {subscription} />
+    <SubscriptionForm {webhookId} {consumer} mode="edit" {requiresTransform} {subscription} />
   {/if}
 </main>

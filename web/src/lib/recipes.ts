@@ -18,6 +18,7 @@ export interface Recipe {
     url: string;
     headers?: Record<string, string>;
     secret_headers?: Record<string, string>;
+    requires_transform?: boolean;
   };
   subscription?: {
     transform_template?: string;

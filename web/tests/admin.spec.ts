@@ -29,10 +29,12 @@ test('core pages render without uncaught errors', async ({ page }) => {
 
 test('register webhook hides recipe choices until opened', async ({ page }) => {
   await page.goto('/webhooks/register');
-  await expect(page.getByLabel(/Health alert email/)).toBeVisible();
+  await expect(page.getByLabel('Alert email')).toBeHidden();
+  await page.getByText('Health alerts').click();
+  await expect(page.getByLabel('Alert email')).toBeVisible();
   await expect(page.getByRole('button', { name: /Clickhouse/i })).toHaveCount(0);
 
-  await page.getByRole('button', { name: /Recipes/ }).click();
+  await page.getByRole('button', { name: /Start from a recipe/ }).click();
   await expect(page.getByRole('button', { name: /Clickhouse/i })).toBeVisible();
 
   await page.getByRole('button', { name: /Clickhouse/i }).click();

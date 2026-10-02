@@ -6,6 +6,8 @@ params:
     prompt: "Discord webhook URL (https://discord.com/api/webhooks/...)"
     required: true
 webhook:
+  # The receiver only accepts the transformed payload below.
+  requires_transform: true
   url: '{{param "webhook_url"}}'
   headers:
     Content-Type: application/json

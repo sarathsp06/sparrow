@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -65,8 +66,11 @@ type WebhookRegistration struct {
 	RateLimitRPS          *float64      `json:"rate_limit_rps,omitempty" db:"rate_limit_rps"` // Optional requests-per-second limit (leaky bucket)
 	Ed25519PrivateKey     []byte        `json:"-" db:"ed25519_private_key"`                   // Envelope-encrypted Ed25519 private key for asymmetric signing
 	SignatureType         SignatureType `json:"signature_type" db:"signature_type"`           // Signing scheme: "hmac" (default) or "ed25519"
-	CreatedAt             time.Time     `json:"created_at" db:"created_at"`
-	UpdatedAt             time.Time     `json:"updated_at" db:"updated_at"`
+	// RequiresTransform means the receiver only accepts a transformed payload:
+	// every subscription must have an enabled transform_template.
+	RequiresTransform bool      `json:"requires_transform" db:"requires_transform"`
+	CreatedAt         time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at" db:"updated_at"`
 }
 
 // MaxDeliveryAttempts returns the total delivery attempts for this webhook:
@@ -314,6 +318,12 @@ const (
 // missing keys as errors.
 func (s *EventSubscription) StrictTemplate() bool {
 	return s.TemplateMissingKey != TemplateMissingKeyZero
+}
+
+// HasTransform reports whether deliveries are rendered through an enabled,
+// non-empty transform template.
+func (s *EventSubscription) HasTransform() bool {
+	return s.TransformEnabled && strings.TrimSpace(s.TransformTemplate) != ""
 }
 
 // Paused reports whether the subscription is paused.

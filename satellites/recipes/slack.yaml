@@ -6,6 +6,8 @@ params:
     prompt: "Slack incoming webhook URL (https://hooks.slack.com/services/...)"
     required: true
 webhook:
+  # The receiver only accepts the transformed payload below.
+  requires_transform: true
   url: '{{param "webhook_url"}}'
   headers:
     Content-Type: application/json

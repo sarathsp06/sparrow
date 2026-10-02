@@ -54,6 +54,7 @@
     userAgent: 'Sparrow-Webhook/1.0',
     contentType: 'application/json',
     headers: {} as Record<string, string>,
+    requiresTransform: false,
   });
   let configHeaderKey = $state('');
   let configHeaderValue = $state('');
@@ -256,6 +257,7 @@
       userAgent: webhook.http_config?.user_agent || 'Sparrow-Webhook/1.0',
       contentType: webhook.http_config?.content_type || 'application/json',
       headers: { ...(webhook.headers || {}) },
+      requiresTransform: webhook.requires_transform,
     };
     existingSecretHeaderKeys = new Set(Object.keys(webhook.secret_headers || {}));
     removedSecretHeaderKeys = new Set();
@@ -368,6 +370,18 @@
           },
         },
       }));
+      // Saved on its own so a refusal (a subscription without a template)
+      // does not undo the rest of the form.
+      if (configForm.requiresTransform !== webhook.requires_transform) {
+        try {
+          unwrap(await api.PATCH('/v1/consumers/{consumer}/webhooks/{webhook_id}', {
+            params: { path: { consumer: webhook.consumer, webhook_id: webhookId } },
+            body: { requires_transform: configForm.requiresTransform },
+          }));
+        } catch (e: any) {
+          error = `Configuration saved, but "Requires a transform" was not changed: ${formatAPIError(e, 'request failed')}`;
+        }
+      }
       editingConfig = false;
       await fetchData();
     } catch (e: any) {
@@ -580,6 +594,9 @@
                 {webhook.description || 'Webhook'}
               </h1>
               <HealthBadge health={webhook.health} size="md" />
+              {#if webhook.requires_transform}
+                <span class="chip" style="color:var(--color-beacon)" title="Every subscription must have a transform template; the receiver never gets Sparrow's default envelope." data-testid="requires-transform-badge">Transform required</span>
+              {/if}
               {#if webhook.active}
                 <span class="chip" style="color:var(--color-ok);border-color:color-mix(in srgb,var(--color-ok) 35%,transparent);background:color-mix(in srgb,var(--color-ok) 12%,var(--color-panel-2))">
                   <span class="w-1.5 h-1.5 rounded-full" style="background:var(--color-ok)"></span>
@@ -1022,6 +1039,7 @@
                       { key: 'followRedirects', label: 'Follow Redirects', desc: 'Follow HTTP 3xx redirects' },
                       { key: 'verifySsl', label: 'Verify SSL', desc: 'Validate SSL/TLS certificates' },
                       { key: 'captureResponseBody', label: 'Capture Response Body', desc: 'Off: stores up to 1 KB of response per delivery. On: stores up to 1 MB.' },
+                      { key: 'requiresTransform', label: 'Requires a transform', desc: 'The receiver only accepts its own format: every subscription must have a transform template, and the default envelope is never sent. Can only be turned on once every subscription has one.' },
                     ] as toggle}
                       <div class="flex items-center gap-3">
                         <button

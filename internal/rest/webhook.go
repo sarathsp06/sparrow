@@ -7,20 +7,27 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/sarathsp06/sparrow/internal/webhooks"
+	"github.com/sarathsp06/sparrow/pkg/access/httpauth"
 )
 
 // --- Register ---
 
 type registerWebhookBody struct {
-	Events        []string           `json:"events,omitempty" doc:"Event type names this webhook should receive; auto-creates one subscription per entry. Use \"*\" as the sole entry to subscribe to every event in the consumer. Omit or leave empty to register the webhook with no subscriptions, then attach them individually via POST .../subscriptions (e.g. to set a per-subscription transform_template)."`
-	URL           string             `json:"url" required:"true" format:"uri" doc:"HTTPS/HTTP endpoint to POST deliveries to. Private, loopback, and cloud metadata addresses are rejected (SSRF protection)."`
-	Headers       map[string]any     `json:"headers,omitempty" doc:"Static HTTP headers sent with every delivery to this webhook."`
-	SecretHeaders map[string]string  `json:"secret_headers,omitempty" doc:"HTTP headers whose values are envelope-encrypted at rest and masked in every API response (e.g. an upstream auth token)."`
-	Active        *bool              `json:"active,omitempty" doc:"Whether the webhook receives deliveries. Defaults to true. Inactive webhooks accept no new deliveries but keep their history."`
-	Description   string             `json:"description,omitempty" doc:"Free-text note for humans, e.g. which system or team owns this endpoint."`
-	HTTPConfig    *webhookHTTPConfig `json:"http_config,omitempty" doc:"Per-webhook HTTP delivery tuning (retries, timeouts, rate limit). Falls back to server defaults for any field left unset."`
-	RateLimitRPS  *float64           `json:"rate_limit_rps,omitempty" doc:"Maximum sustained delivery rate to this webhook, in requests per second. Excess deliveries queue and are sent once the leaky bucket has capacity."`
-	SignatureType string             `json:"signature_type,omitempty" enum:"hmac,ed25519," doc:"Which signature algorithm to require verification against. Deliveries are HMAC-SHA256 signed (v1,) by default; once signature_type is set to ed25519 (which generates a signing keypair), later deliveries are dual-signed (v1, and v1a,, Standard Webhooks format). Defaults to hmac."`
+	Events             []string           `json:"events,omitempty" doc:"Event type names this webhook should receive; auto-creates one subscription per entry. Use \"*\" as the sole entry to subscribe to every event in the consumer. Omit or leave empty to register the webhook with no subscriptions, then attach them individually via POST .../subscriptions (e.g. to set a per-subscription transform_template)."`
+	URL                string             `json:"url" required:"true" format:"uri" doc:"HTTPS/HTTP endpoint to POST deliveries to. Private, loopback, and cloud metadata addresses are rejected (SSRF protection)."`
+	Headers            map[string]any     `json:"headers,omitempty" doc:"Static HTTP headers sent with every delivery to this webhook."`
+	SecretHeaders      map[string]string  `json:"secret_headers,omitempty" doc:"HTTP headers whose values are envelope-encrypted at rest and masked in every API response (e.g. an upstream auth token)."`
+	Active             *bool              `json:"active,omitempty" doc:"Whether the webhook receives deliveries. Defaults to true. Inactive webhooks accept no new deliveries but keep their history."`
+	Description        string             `json:"description,omitempty" doc:"Free-text note for humans, e.g. which system or team owns this endpoint."`
+	HTTPConfig         *webhookHTTPConfig `json:"http_config,omitempty" doc:"Per-webhook HTTP delivery tuning (retries, timeouts, rate limit). Falls back to server defaults for any field left unset."`
+	RateLimitRPS       *float64           `json:"rate_limit_rps,omitempty" doc:"Maximum sustained delivery rate to this webhook, in requests per second. Excess deliveries queue and are sent once the leaky bucket has capacity."`
+	SignatureType      string             `json:"signature_type,omitempty" enum:"hmac,ed25519," doc:"Which signature algorithm to require verification against. Deliveries are HMAC-SHA256 signed (v1,) by default; once signature_type is set to ed25519 (which generates a signing keypair), later deliveries are dual-signed (v1, and v1a,, Standard Webhooks format). Defaults to hmac."`
+	RequiresTransform  bool               `json:"requires_transform,omitempty" doc:"Set when the receiver only accepts a transformed payload (Slack, SendGrid, ...). Every subscription must then have transform_enabled and a transform_template: transform_template is required here when events is non-empty, and later subscription writes without one are rejected. Recipes set this. Defaults to false."`
+	TransformTemplate  string             `json:"transform_template,omitempty" doc:"Transform template given to every subscription created from events, with transform_enabled set. Omit to create them untransformed (not allowed with requires_transform)."`
+	OnTransformError   string             `json:"on_transform_error,omitempty" enum:"fail,fallback," doc:"What happens when transform_template fails to render for one of the created subscriptions. fail (default) or fallback; see the subscription's on_transform_error."`
+	TemplateSource     string             `json:"template_source,omitempty" enum:"manual,ai_draft," doc:"How transform_template was produced, recorded as the first version in each created subscription's template history. Defaults to manual."`
+	TemplateNotes      string             `json:"template_notes,omitempty" maxLength:"2000" doc:"Optional note stored with that first template version, e.g. the AI drafter's summary."`
+	TemplateMissingKey string             `json:"template_missing_key,omitempty" enum:"error,zero," doc:"How transform_template reads a key the payload does not have, for the created subscriptions. error (default) or zero; see the subscription's template_missing_key."`
 }
 
 // webhookHTTPConfig tunes how deliveries to a single webhook are made and
@@ -98,15 +105,16 @@ type listWebhooksOutput struct {
 // patchWebhookBody applies a partial update: only fields present in the
 // request JSON are changed, everything else is left untouched.
 type patchWebhookBody struct {
-	Events        *[]string          `json:"events,omitempty" doc:"Replace the full set of subscribed event type names."`
-	URL           *string            `json:"url,omitempty" doc:"Replace the delivery endpoint URL."`
-	Headers       *map[string]string `json:"headers,omitempty" doc:"Replace the static headers sent with every delivery."`
-	Timeout       *int               `json:"timeout,omitempty" doc:"Replace the request timeout in seconds (equivalent to http_config.request_timeout_seconds)."`
-	Active        *bool              `json:"active,omitempty" doc:"Enable or disable the webhook."`
-	Description   *string            `json:"description,omitempty" doc:"Replace the human-readable description."`
-	SecretHeaders *map[string]string `json:"secret_headers,omitempty" doc:"Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it."`
-	SignatureType *string            `json:"signature_type,omitempty" doc:"Replace the authoritative signature algorithm (hmac or ed25519)."`
-	HTTPConfig    *webhookHTTPConfig `json:"http_config,omitempty" doc:"Update HTTP delivery settings. Only the fields you send change; the rest keep their current values. The merged result must satisfy the same limits as on create, or the request is rejected with 400."`
+	Events            *[]string          `json:"events,omitempty" doc:"Replace the full set of subscribed event type names."`
+	URL               *string            `json:"url,omitempty" doc:"Replace the delivery endpoint URL."`
+	Headers           *map[string]string `json:"headers,omitempty" doc:"Replace the static headers sent with every delivery."`
+	Timeout           *int               `json:"timeout,omitempty" doc:"Replace the request timeout in seconds (equivalent to http_config.request_timeout_seconds)."`
+	Active            *bool              `json:"active,omitempty" doc:"Enable or disable the webhook."`
+	Description       *string            `json:"description,omitempty" doc:"Replace the human-readable description."`
+	SecretHeaders     *map[string]string `json:"secret_headers,omitempty" doc:"Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it."`
+	SignatureType     *string            `json:"signature_type,omitempty" doc:"Replace the authoritative signature algorithm (hmac or ed25519)."`
+	HTTPConfig        *webhookHTTPConfig `json:"http_config,omitempty" doc:"Update HTTP delivery settings. Only the fields you send change; the rest keep their current values. The merged result must satisfy the same limits as on create, or the request is rejected with 400."`
+	RequiresTransform *bool              `json:"requires_transform,omitempty" doc:"Require (or stop requiring) a payload transform on every subscription. Turning it on fails with 409 while any subscription has no enabled transform_template. While on, events cannot be replaced in bulk (409): add or delete subscriptions individually."`
 }
 
 type patchWebhookInput struct {
@@ -180,6 +188,19 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 			HTTPConfig:    in.Body.HTTPConfig.toDomain(),
 			RateLimitRPS:  in.Body.RateLimitRPS,
 			SignatureType: in.Body.SignatureType,
+
+			RequiresTransform: in.Body.RequiresTransform,
+			TransformTemplate: in.Body.TransformTemplate,
+			TemplateSettings: webhooks.SubscriptionTemplateSettings{
+				OnTransformError:   in.Body.OnTransformError,
+				TemplateMissingKey: in.Body.TemplateMissingKey,
+			},
+			TemplateMeta: webhooks.TemplateSaveMeta{Source: in.Body.TemplateSource, Notes: in.Body.TemplateNotes},
+		}
+		// Record who saved the template only for a real credential, as the
+		// subscription endpoints do.
+		if p, ok := httpauth.FromContext(ctx); ok && (p.Root || p.TokenID != "") {
+			req.TemplateMeta.SavedBy = p.Name
 		}
 		reg, err := svc.CreateWebhook(ctx, req)
 		if err != nil {
@@ -238,7 +259,7 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 		Path:        "/v1/consumers/{consumer}/webhooks/{webhook_id}",
 		Summary:     "Partially update a webhook",
 		Description: "Merge-patches a webhook: only fields present in the request body are changed. Omit a field to leave it untouched.",
-		Errors:      []int{400, 404},
+		Errors:      []int{400, 404, 409},
 		Tags:        []string{"Webhooks"},
 	}, func(ctx context.Context, in *patchWebhookInput) (*webhookOutput, error) {
 		b := in.Body
@@ -250,6 +271,7 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 		var description string
 		var secretHeaders map[string]string
 		var signatureType string
+		var requiresTransform bool
 		var httpCfg *webhooks.HTTPConfigUpdate
 
 		if b.Events != nil {
@@ -279,6 +301,10 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 		if b.SignatureType != nil {
 			mask = append(mask, "signature_type")
 			signatureType = *b.SignatureType
+		}
+		if b.RequiresTransform != nil {
+			mask = append(mask, "requires_transform")
+			requiresTransform = *b.RequiresTransform
 		}
 		if b.HTTPConfig != nil {
 			mask = append(mask, "http_config")
@@ -310,7 +336,7 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 			}
 		}
 
-		err := svc.UpdateWebhookConfig(ctx, in.WebhookID, in.Consumer, events, url, headers, active, description, httpCfg, secretHeaders, signatureType, mask)
+		err := svc.UpdateWebhookConfig(ctx, in.WebhookID, in.Consumer, events, url, headers, active, description, httpCfg, secretHeaders, signatureType, requiresTransform, mask)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to update webhook")
 		}

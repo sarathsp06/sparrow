@@ -9,6 +9,8 @@ params:
     prompt: "ntfy topic name (e.g. sparrow_alerts)"
     required: true
 webhook:
+  # The receiver only accepts the transformed payload below.
+  requires_transform: true
   # JSON publishing endpoint: POST to the server root with the topic in the
   # body. Unlike header-based publishing (X-Title etc.), this lets the title
   # be rendered per delivery instead of being fixed at apply time.

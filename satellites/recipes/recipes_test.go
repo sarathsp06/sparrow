@@ -100,6 +100,11 @@ func TestRecipes(t *testing.T) {
 			if r.Subscription.TransformTemplate == "" {
 				t.Error("subscription.transform_template is empty")
 			}
+			// Every shipped destination speaks its own format, never the
+			// default envelope.
+			if !r.Webhook.RequiresTransform {
+				t.Error("webhook.requires_transform must be true")
+			}
 
 			// Every {{param "x"}} token must reference a declared param.
 			declared := make(map[string]bool, len(r.Params))
@@ -205,3 +210,14 @@ func TestPagerdutyRecipe_Severity(t *testing.T) {
 // them renders at delivery time: template_missing_key=error is the default,
 // so a template must read optional payload fields with index or dig.
 var strictRender = template.ExecOptions{StrictMissingKeys: true}
+
+func TestValidate_RequiresTransformNeedsTemplate(t *testing.T) {
+	r := recipes.Recipe{Name: "x", Webhook: recipes.Webhook{URL: "https://example.com", RequiresTransform: true}}
+	if err := r.Validate(); err == nil {
+		t.Fatal("requires_transform without a transform_template must not validate")
+	}
+	r.Subscription.TransformTemplate = "{}"
+	if err := r.Validate(); err != nil {
+		t.Fatal(err)
+	}
+}

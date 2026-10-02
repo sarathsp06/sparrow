@@ -5,7 +5,9 @@
   import { api, unwrap } from "$lib/services";
   import { formatAPIError } from "$lib/utils";
   import { onMount } from "svelte";
-  import TemplateEditor, { type TemplateSaveMeta } from "./TemplateEditor.svelte";
+  import Disclosure from "./Disclosure.svelte";
+  import TransformSettings from "./TransformSettings.svelte";
+  import type { TemplateSaveMeta } from "./TemplateEditor.svelte";
   import type { components } from "$lib/api-types";
 
   type SubscriptionItem = components["schemas"]["SubscriptionItem"];
@@ -16,11 +18,13 @@
     consumer,
     mode,
     subscription = null,
+    requiresTransform = false,
   }: {
     webhookId: string;
     consumer: string;
     mode: "create" | "edit";
     subscription?: SubscriptionItem | null;
+    requiresTransform?: boolean;
   } = $props();
 
   const CATCH_ALL = "*";
@@ -37,8 +41,6 @@
   let onTransformError = $state<"fail" | "fallback">((subscription?.on_transform_error as "fail" | "fallback") ?? "fail");
   let templateMissingKey = $state<"error" | "zero">((subscription?.template_missing_key as "error" | "zero") ?? "error");
   let templateMeta: TemplateSaveMeta | null = $state(null);
-  let templateChanged = $state(false);
-  let editorOpen = $state(false);
 
   let availableEvents: EventTypeItem[] = $state([]);
   let error = $state("");
@@ -46,8 +48,13 @@
   let newHeaderKey = $state(""), newHeaderValue = $state("");
   let newFilterKey = $state(""), newFilterValue = $state("");
 
-  let templatePreviewLines = $derived(transformTemplate.split("\n").slice(0, 4));
-  let templateLineCount = $derived(transformTemplate ? transformTemplate.split("\n").length : 0);
+  let filterCount = $derived(Object.keys(labelFilters).length);
+  let headerCount = $derived(Object.keys(headers).length);
+  // Collapsed sections start open only when they hold non-default values.
+  const filtersOpen = Object.keys(subscription?.label_filters || {}).length > 0;
+  const deliveryOpen = Object.keys(subscription?.headers || {}).length > 0
+    || (subscription?.method || "POST") !== "POST" || (subscription?.timeout || 30) !== 30;
+
 
   onMount(async () => {
     try {
@@ -71,17 +78,11 @@
   }
   function removeFilter(k: string) { const { [k]: _, ...rest } = labelFilters; labelFilters = rest; }
 
-  function onTemplateSaved(t: string, meta: TemplateSaveMeta) {
-    templateChanged = templateChanged || t !== transformTemplate;
-    transformTemplate = t;
-    templateMeta = meta;
-    if (t.trim()) transformEnabled = true;
-  }
-
   async function save() {
     error = "";
     const name = catchAll ? CATCH_ALL : eventName.trim();
     if (!name) { error = "Pick an event type or enable catch-all."; return; }
+    if (requiresTransform && !transformTemplate.trim()) { error = "This webhook requires a payload transform: write a template before saving."; return; }
     try {
       submitting = true;
       if (mode === "create") {
@@ -158,102 +159,68 @@
         {/if}
       </div>
 
-      <div>
-        <span class="field-label">Label filters</span>
-        <p class="text-xs text-faint mb-2">Only events carrying every listed label are delivered. None means every event.</p>
-        <div class="flex flex-wrap gap-1 mb-2">
-          {#each Object.entries(labelFilters) as [k, v]}
-            <span class="chip" style="color:var(--color-warn)">{k}={v} <button type="button" onclick={() => removeFilter(k)} class="ml-1 text-faint hover:text-bad" aria-label="Remove filter {k}">×</button></span>
-          {/each}
-        </div>
-        <div class="flex gap-2">
-          <input type="text" placeholder="key" bind:value={newFilterKey} class="input flex-1" />
-          <input type="text" placeholder="value" bind:value={newFilterValue} class="input flex-1" />
-          <button type="button" onclick={addFilter} class="btn btn-ghost !px-3">+</button>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-2 gap-3">
+      <Disclosure label="Label filters" summary={filterCount ? `${filterCount} filter${filterCount === 1 ? "" : "s"}` : "Every event"} open={filtersOpen}>
         <div>
-          <label for="sub-method" class="field-label">Method</label>
-          <select id="sub-method" bind:value={method} class="select w-full">
-            {#each ["POST", "PUT", "PATCH"] as m}<option value={m}>{m}</option>{/each}
-          </select>
-        </div>
-        <div>
-          <label for="sub-timeout" class="field-label">Timeout (seconds)</label>
-          <input id="sub-timeout" type="number" min="1" max="300" bind:value={timeout} class="input w-full" />
-        </div>
-      </div>
-
-      <div>
-        <span class="field-label">Extra headers</span>
-        <div class="flex flex-wrap gap-1 mb-2">
-          {#each Object.entries(headers) as [k, v]}
-            <span class="chip">{k}: {v} <button type="button" onclick={() => removeHeader(k)} class="ml-1 text-faint hover:text-bad" aria-label="Remove header {k}">×</button></span>
-          {/each}
-        </div>
-        <div class="flex gap-2">
-          <input type="text" placeholder="Header" bind:value={newHeaderKey} class="input flex-1" />
-          <input type="text" placeholder="value" bind:value={newHeaderValue} class="input flex-1" />
-          <button type="button" onclick={addHeader} class="btn btn-ghost !px-3">+</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel p-5 space-y-3">
-      <h3 class="eyebrow">Payload transform</h3>
-      <div class="flex items-center gap-3">
-        <button type="button" onclick={() => (transformEnabled = !transformEnabled)} aria-label="Toggle payload transformation"
-          class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors {transformEnabled ? 'bg-ok' : 'bg-line-strong'}">
-          <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition {transformEnabled ? 'translate-x-4' : 'translate-x-0'}"></span>
-        </button>
-        <span class="text-sm text-text">Transform the payload before delivery</span>
-      </div>
-      {#if transformEnabled}
-        <div class="panel-2 p-3" data-testid="template-card">
-          <div class="flex items-center justify-between gap-3 mb-2">
-            <div class="text-[10px] text-muted flex flex-wrap gap-x-3">
-              {#if transformTemplate.trim()}
-                <span>{templateLineCount} line{templateLineCount === 1 ? "" : "s"}</span>
-                {#if templateMeta}<span style={templateMeta.rendersOk ? 'color:var(--color-ok)' : 'color:var(--color-warn)'}>{templateMeta.rendersOk ? "✓ renders against sample" : "⚠ did not render in the editor"}</span>{/if}
-                {#if templateMeta?.source === "ai_draft"}<span>AI draft</span>{/if}
-                {#if templateChanged}<span>unsaved</span>{/if}
-              {:else}
-                <span>No template yet</span>
-              {/if}
+          <p class="text-xs text-faint mb-2">Deliver only events carrying every label listed here.</p>
+          {#if filterCount}
+            <div class="flex flex-wrap gap-1 mb-2">
+              {#each Object.entries(labelFilters) as [k, v]}
+                <span class="chip" style="color:var(--color-warn)">{k}={v} <button type="button" onclick={() => removeFilter(k)} class="ml-1 text-faint hover:text-bad" aria-label="Remove filter {k}">×</button></span>
+              {/each}
             </div>
-            <button type="button" onclick={() => (editorOpen = true)} class="btn btn-beacon !px-3 !py-1" data-testid="edit-template">{transformTemplate.trim() ? "Edit template" : "Write template"}</button>
-          </div>
-          {#if transformTemplate.trim()}
-            <pre class="text-xs mono text-text overflow-x-auto">{templatePreviewLines.join("\n")}{templateLineCount > 4 ? "\n…" : ""}</pre>
-          {:else}
-            <p class="text-xs text-faint">Open the editor to write one by hand, draft it with AI, or copy a prompt for any chat assistant.</p>
           {/if}
-        </div>
-        <p class="text-[10px] text-faint">Nothing is saved until you save the subscription. The editor shows a live render against the event's sample payload.</p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-          <div>
-            <label for="sub-on-error" class="field-label">If the template fails</label>
-            <select id="sub-on-error" bind:value={onTransformError} class="select w-full">
-              <option value="fail">Fail the delivery (recommended)</option>
-              <option value="fallback">Send the default envelope</option>
-            </select>
-            <p class="text-[10px] text-faint mt-1">{onTransformError === "fail" ? "Nothing is sent and the delivery is marked template_error; retry it after fixing the template." : "The default envelope is sent instead; the template error is still recorded on the delivery."}</p>
-          </div>
-          <div>
-            <label for="sub-missing-key" class="field-label">Missing fields</label>
-            <select id="sub-missing-key" bind:value={templateMissingKey} class="select w-full">
-              <option value="error">Treat as an error (recommended)</option>
-              <option value="zero">Render as &lt;no value&gt;</option>
-            </select>
-            <p class="text-[10px] text-faint mt-1">{templateMissingKey === "error" ? "A removed field fails the template. Read optional fields with index or dig." : "A missing field renders as <no value> and the delivery goes out."}</p>
+          <div class="flex gap-2">
+            <input type="text" placeholder="key" bind:value={newFilterKey} class="input flex-1 min-w-0" />
+            <input type="text" placeholder="value" bind:value={newFilterValue} class="input flex-1 min-w-0" />
+            <button type="button" onclick={addFilter} class="btn btn-ghost !px-3" aria-label="Add label filter">+</button>
           </div>
         </div>
-      {:else}
-        <p class="text-xs text-faint">The event payload is delivered as-is inside Sparrow's envelope.</p>
-      {/if}
+      </Disclosure>
+
+      <Disclosure label="Delivery options" summary="{method} · {timeout}s timeout{headerCount ? ` · ${headerCount} header${headerCount === 1 ? '' : 's'}` : ''}" open={deliveryOpen}>
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="sub-method" class="field-label">Method</label>
+              <select id="sub-method" bind:value={method} class="select w-full">
+                {#each ["POST", "PUT", "PATCH"] as m}<option value={m}>{m}</option>{/each}
+              </select>
+            </div>
+            <div>
+              <label for="sub-timeout" class="field-label">Timeout (seconds)</label>
+              <input id="sub-timeout" type="number" min="1" max="300" bind:value={timeout} class="input w-full" />
+            </div>
+          </div>
+          <div>
+            <span class="field-label">Extra headers</span>
+            {#if headerCount}
+              <div class="flex flex-wrap gap-1 mb-2">
+                {#each Object.entries(headers) as [k, v]}
+                  <span class="chip">{k}: {v} <button type="button" onclick={() => removeHeader(k)} class="ml-1 text-faint hover:text-bad" aria-label="Remove header {k}">×</button></span>
+                {/each}
+              </div>
+            {/if}
+            <div class="flex gap-2">
+              <input type="text" placeholder="Header" bind:value={newHeaderKey} class="input flex-1 min-w-0" />
+              <input type="text" placeholder="value" bind:value={newHeaderValue} class="input flex-1 min-w-0" />
+              <button type="button" onclick={addHeader} class="btn btn-ghost !px-3" aria-label="Add header">+</button>
+            </div>
+          </div>
+        </div>
+      </Disclosure>
     </section>
+
+    <TransformSettings
+      bind:enabled={transformEnabled}
+      bind:template={transformTemplate}
+      bind:onError={onTransformError}
+      bind:missingKey={templateMissingKey}
+      bind:meta={templateMeta}
+      eventName={catchAll ? CATCH_ALL : eventName}
+      {consumer}
+      subscriptionId={subscription?.subscription_id ?? ""}
+      required={requiresTransform}
+    />
   </div>
 
   <div class="flex items-center justify-end gap-2">
@@ -262,11 +229,3 @@
   </div>
 </div>
 
-<TemplateEditor
-  bind:open={editorOpen}
-  template={transformTemplate}
-  eventName={catchAll ? CATCH_ALL : eventName}
-  {consumer}
-  subscriptionId={subscription?.subscription_id ?? ""}
-  onSave={onTemplateSaved}
-/>

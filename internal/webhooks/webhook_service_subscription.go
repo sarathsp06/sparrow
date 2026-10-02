@@ -68,6 +68,16 @@ func (t SubscriptionTemplateSettings) validate() error {
 	return nil
 }
 
+// checkRequiredTransform enforces a webhook's requires_transform on the
+// transform settings a subscription is about to be saved with.
+func checkRequiredTransform(webhook *store.WebhookRegistration, eventName string, transformEnabled bool, transformTemplate string) error {
+	if !webhook.RequiresTransform || (transformEnabled && strings.TrimSpace(transformTemplate) != "") {
+		return nil
+	}
+	return svcerrors.Errorf(svcerrors.InvalidArgument,
+		"this webhook requires a payload transform: the %q subscription needs transform_enabled=true and a transform_template", eventName)
+}
+
 // Subscription Management Implementation
 
 func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, eventName, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string, settings SubscriptionTemplateSettings) (string, time.Time, error) {
@@ -108,23 +118,31 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, even
 		LabelFilters:       labelFilters,
 	}
 
-	if strings.TrimSpace(transformTemplate) != "" {
-		// First version of a template created with the subscription.
-		err := s.webhookRepo.RunInTransaction(func(repo store.RepositoryInterface) error {
-			if err := repo.CreateSubscription(ctx, tenantID, sub); err != nil {
-				return err
-			}
-			return repo.InsertTemplateVersion(ctx, tenantID, &store.SubscriptionTemplateVersion{SubscriptionID: sub.ID, Template: transformTemplate, Source: "manual"})
-		})
+	// The shared lock on the webhook keeps requires_transform from changing
+	// between the check and the insert.
+	err = s.webhookRepo.RunInTransaction(func(repo store.RepositoryInterface) error {
+		webhook, err := repo.LockWebhook(ctx, tenantID, id, consumer, false)
 		if err != nil {
-			return "", time.Time{}, fmt.Errorf("failed to create subscription: %w", err)
+			if storage.IsNotFound(err) {
+				return svcerrors.Error(svcerrors.NotFound, "webhook not found in consumer")
+			}
+			return fmt.Errorf("failed to get webhook: %w", err)
 		}
-		return sub.ID.String(), sub.CreatedAt, nil
-	}
-	if err := s.webhookRepo.CreateSubscription(ctx, tenantID, sub); err != nil {
+		if err := checkRequiredTransform(webhook, eventName, transformEnabled, transformTemplate); err != nil {
+			return err
+		}
+		if err := repo.CreateSubscription(ctx, tenantID, sub); err != nil {
+			return err
+		}
+		if strings.TrimSpace(transformTemplate) == "" {
+			return nil
+		}
+		// First version of a template created with the subscription.
+		return repo.InsertTemplateVersion(ctx, tenantID, &store.SubscriptionTemplateVersion{SubscriptionID: sub.ID, Template: transformTemplate, Source: "manual"})
+	})
+	if err != nil {
 		return "", time.Time{}, err
 	}
-
 	return sub.ID.String(), sub.CreatedAt, nil
 }
 
@@ -216,7 +234,6 @@ func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID 
 	if err != nil {
 		return err
 	}
-
 	templateChanged := strings.TrimSpace(transformTemplate) != "" && sub.TransformTemplate != transformTemplate
 
 	sub.Headers = headers
@@ -228,14 +245,23 @@ func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID 
 	sub.OnTransformError = settings.OnTransformError
 	sub.TemplateMissingKey = settings.TemplateMissingKey
 
-	if !templateChanged {
-		return s.webhookRepo.UpdateSubscription(ctx, tenant.DefaultTenantID, sub)
-	}
-	// A changed template is saved together with its history row.
+	// The shared lock on the webhook keeps requires_transform from changing
+	// between the check and the update.
 	return s.webhookRepo.RunInTransaction(func(repo store.RepositoryInterface) error {
+		webhook, err := repo.LockWebhook(ctx, tenant.DefaultTenantID, sub.WebhookID, consumer, false)
+		if err != nil {
+			return fmt.Errorf("failed to get webhook: %w", err)
+		}
+		if err := checkRequiredTransform(webhook, sub.EventName, transformEnabled, transformTemplate); err != nil {
+			return err
+		}
 		if err := repo.UpdateSubscription(ctx, tenant.DefaultTenantID, sub); err != nil {
 			return err
 		}
+		if !templateChanged {
+			return nil
+		}
+		// A changed template is saved together with its history row.
 		return repo.InsertTemplateVersion(ctx, tenant.DefaultTenantID, &store.SubscriptionTemplateVersion{
 			SubscriptionID: sub.ID,
 			Template:       transformTemplate,

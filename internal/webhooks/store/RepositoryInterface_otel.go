@@ -1496,6 +1496,33 @@ func (_d RepositoryInterfaceWithTracing) ListWebhooksPaginated(ctx context.Conte
 	return _d.RepositoryInterface.ListWebhooksPaginated(ctx, tenantID, consumer, event, activeOnly, health, limit, offset)
 }
 
+// LockWebhook implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) LockWebhook(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, exclusive bool) (wp1 *WebhookRegistration, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.LockWebhook")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":       ctx,
+				"tenantID":  tenantID,
+				"webhookID": webhookID,
+				"consumer":  consumer,
+				"exclusive": exclusive}, map[string]interface{}{
+				"wp1": wp1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.LockWebhook(ctx, tenantID, webhookID, consumer, exclusive)
+}
+
 // RecordWebhookHealthEvent implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) RecordWebhookHealthEvent(ctx context.Context, webhookID uuid.UUID, deliveryID uuid.UUID, success bool, responseTime int, responseCode int, errorMessage string, errorCategory string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.RecordWebhookHealthEvent")
@@ -1574,7 +1601,7 @@ func (_d RepositoryInterfaceWithTracing) RegisterWebhook(ctx context.Context, te
 }
 
 // RegisterWebhookWithSubscriptions implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) RegisterWebhookWithSubscriptions(ctx context.Context, tenantID uuid.UUID, registration *WebhookRegistration, subscriptions []*EventSubscription) (err error) {
+func (_d RepositoryInterfaceWithTracing) RegisterWebhookWithSubscriptions(ctx context.Context, tenantID uuid.UUID, registration *WebhookRegistration, subscriptions []*EventSubscription, firstVersion SubscriptionTemplateVersion) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.RegisterWebhookWithSubscriptions")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -1582,7 +1609,8 @@ func (_d RepositoryInterfaceWithTracing) RegisterWebhookWithSubscriptions(ctx co
 				"ctx":           ctx,
 				"tenantID":      tenantID,
 				"registration":  registration,
-				"subscriptions": subscriptions}, map[string]interface{}{
+				"subscriptions": subscriptions,
+				"firstVersion":  firstVersion}, map[string]interface{}{
 				"err": err})
 		} else if err != nil {
 			_span.RecordError(err)
@@ -1595,7 +1623,7 @@ func (_d RepositoryInterfaceWithTracing) RegisterWebhookWithSubscriptions(ctx co
 
 		_span.End()
 	}()
-	return _d.RepositoryInterface.RegisterWebhookWithSubscriptions(ctx, tenantID, registration, subscriptions)
+	return _d.RepositoryInterface.RegisterWebhookWithSubscriptions(ctx, tenantID, registration, subscriptions, firstVersion)
 }
 
 // ReplaceWebhookSubscriptions implements RepositoryInterface

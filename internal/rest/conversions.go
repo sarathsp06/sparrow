@@ -104,20 +104,21 @@ type WebhookHTTPConfigOut struct {
 // Secrets are always masked; use the value returned at creation time to
 // retrieve the real secret once.
 type WebhookOut struct {
-	WebhookID        string               `json:"webhook_id" doc:"Webhook id (UUID)."`
-	Consumer         string               `json:"consumer" doc:"Tenant consumer this webhook belongs to."`
-	Events           []string             `json:"events" doc:"Event type names this webhook is currently subscribed to, derived from its subscriptions."`
-	URL              string               `json:"url" doc:"HTTP endpoint deliveries are POSTed to."`
-	Headers          map[string]string    `json:"headers,omitempty" doc:"Static HTTP headers sent with every delivery."`
-	Active           bool                 `json:"active" doc:"Whether the webhook currently receives deliveries."`
-	Description      string               `json:"description,omitempty" doc:"Human-readable note about this webhook."`
-	Health           string               `json:"health" enum:"healthy,degraded,unhealthy,unknown" doc:"Computed rolling health status."`
-	SecretHeaders    map[string]string    `json:"secret_headers,omitempty" doc:"Encrypted secret header names, with values always masked. Update them via PATCH secret_headers; send an empty string to remove one."`
-	SigningPublicKey string               `json:"signing_public_key,omitempty" doc:"Hex-encoded Ed25519 public key for verifying the v1a, delivery signature. Safe to expose; there is no private-key equivalent to mask."`
-	SignatureType    string               `json:"signature_type" enum:"hmac,ed25519" doc:"Signing scheme. \"hmac\" (default) signs every delivery with HMAC-SHA256 (v1,); \"ed25519\" adds an Ed25519 signature (v1a,) alongside the HMAC one."`
-	HTTPConfig       WebhookHTTPConfigOut `json:"http_config" doc:"Per-webhook HTTP delivery configuration."`
-	CreatedAt        string               `json:"created_at" doc:"Creation timestamp, RFC3339."`
-	UpdatedAt        string               `json:"updated_at" doc:"Last-modified timestamp, RFC3339."`
+	WebhookID         string               `json:"webhook_id" doc:"Webhook id (UUID)."`
+	Consumer          string               `json:"consumer" doc:"Tenant consumer this webhook belongs to."`
+	Events            []string             `json:"events" doc:"Event type names this webhook is currently subscribed to, derived from its subscriptions."`
+	URL               string               `json:"url" doc:"HTTP endpoint deliveries are POSTed to."`
+	Headers           map[string]string    `json:"headers,omitempty" doc:"Static HTTP headers sent with every delivery."`
+	Active            bool                 `json:"active" doc:"Whether the webhook currently receives deliveries."`
+	Description       string               `json:"description,omitempty" doc:"Human-readable note about this webhook."`
+	Health            string               `json:"health" enum:"healthy,degraded,unhealthy,unknown" doc:"Computed rolling health status."`
+	SecretHeaders     map[string]string    `json:"secret_headers,omitempty" doc:"Encrypted secret header names, with values always masked. Update them via PATCH secret_headers; send an empty string to remove one."`
+	SigningPublicKey  string               `json:"signing_public_key,omitempty" doc:"Hex-encoded Ed25519 public key for verifying the v1a, delivery signature. Safe to expose; there is no private-key equivalent to mask."`
+	SignatureType     string               `json:"signature_type" enum:"hmac,ed25519" doc:"Signing scheme. \"hmac\" (default) signs every delivery with HMAC-SHA256 (v1,); \"ed25519\" adds an Ed25519 signature (v1a,) alongside the HMAC one."`
+	HTTPConfig        WebhookHTTPConfigOut `json:"http_config" doc:"Per-webhook HTTP delivery configuration."`
+	RequiresTransform bool                 `json:"requires_transform" doc:"Whether every subscription must carry an enabled transform_template because the receiver only accepts transformed payloads."`
+	CreatedAt         string               `json:"created_at" doc:"Creation timestamp, RFC3339."`
+	UpdatedAt         string               `json:"updated_at" doc:"Last-modified timestamp, RFC3339."`
 }
 
 func toWebhookOut(reg *store.WebhookRegistration, events []string, svc webhooks.SecretRevealer) WebhookOut {
@@ -126,17 +127,18 @@ func toWebhookOut(reg *store.WebhookRegistration, events []string, svc webhooks.
 		codes[i] = int32(c)
 	}
 	return WebhookOut{
-		WebhookID:        reg.ID.String(),
-		Consumer:         reg.Consumer,
-		Events:           events,
-		URL:              reg.URL,
-		Headers:          reg.Headers,
-		Active:           reg.Active,
-		Description:      reg.Description,
-		Health:           string(reg.Health),
-		SecretHeaders:    maskSecretHeaders(reg.SecretHeaders, svc),
-		SigningPublicKey: svc.WebhookSigningPublicKeyHex(reg.Ed25519PrivateKey),
-		SignatureType:    string(reg.SignatureType),
+		WebhookID:         reg.ID.String(),
+		Consumer:          reg.Consumer,
+		Events:            events,
+		URL:               reg.URL,
+		Headers:           reg.Headers,
+		Active:            reg.Active,
+		Description:       reg.Description,
+		Health:            string(reg.Health),
+		SecretHeaders:     maskSecretHeaders(reg.SecretHeaders, svc),
+		SigningPublicKey:  svc.WebhookSigningPublicKeyHex(reg.Ed25519PrivateKey),
+		SignatureType:     string(reg.SignatureType),
+		RequiresTransform: reg.RequiresTransform,
 		HTTPConfig: WebhookHTTPConfigOut{
 			MaxRetries:            reg.MaxRetries,
 			RetryBackoffSeconds:   reg.RetryBackoffSeconds,
@@ -163,15 +165,16 @@ func toWebhookOutFromDomain(reg *webhooks.WebhookRegistration, svc webhooks.Secr
 		codes[i] = int32(c)
 	}
 	return WebhookOut{
-		WebhookID:        reg.ID,
-		Consumer:         reg.Consumer,
-		Events:           []string(reg.Events),
-		URL:              reg.URL,
-		Active:           reg.Active,
-		Description:      reg.Description,
-		Health:           reg.Health,
-		SignatureType:    reg.SignatureType,
-		SigningPublicKey: svc.WebhookSigningPublicKeyHex(reg.Ed25519EncryptedPrivateKey),
+		WebhookID:         reg.ID,
+		Consumer:          reg.Consumer,
+		Events:            []string(reg.Events),
+		URL:               reg.URL,
+		Active:            reg.Active,
+		Description:       reg.Description,
+		Health:            reg.Health,
+		SignatureType:     reg.SignatureType,
+		SigningPublicKey:  svc.WebhookSigningPublicKeyHex(reg.Ed25519EncryptedPrivateKey),
+		RequiresTransform: reg.RequiresTransform,
 		HTTPConfig: WebhookHTTPConfigOut{
 			MaxRetries:            webhooks.DerefIntOr(reg.HTTPConfig.MaxRetries, 3),
 			RetryBackoffSeconds:   reg.HTTPConfig.RetryBackoffSeconds,

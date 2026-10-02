@@ -8,6 +8,7 @@ package recipes
 import (
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 // Recipe is one adapter recipe, schema version 1.
@@ -46,6 +47,11 @@ type Webhook struct {
 	// and passwords (e.g. Twilio Basic auth, ClickHouse key). Values support
 	// {{param "name"}} substitution like URL and Headers.
 	SecretHeaders map[string]string `yaml:"secret_headers" json:"secret_headers,omitempty"`
+	// RequiresTransform marks a destination that only accepts the recipe's
+	// transformed payload. Applying the recipe registers the webhook with
+	// requires_transform, so Sparrow refuses any of its subscriptions without
+	// an enabled transform and never sends it the default envelope.
+	RequiresTransform bool `yaml:"requires_transform,omitempty" json:"requires_transform,omitempty"`
 }
 
 // Subscription holds the per-subscription transform applied to deliveries.
@@ -67,6 +73,9 @@ func (r *Recipe) Validate() error {
 			return fmt.Errorf("recipe %s: param with empty name", r.Name)
 		}
 		declared[p.Name] = true
+	}
+	if r.Webhook.RequiresTransform && strings.TrimSpace(r.Subscription.TransformTemplate) == "" {
+		return fmt.Errorf("recipe %s: webhook.requires_transform needs a subscription.transform_template", r.Name)
 	}
 	fields := []string{r.Webhook.URL, r.Subscription.TransformTemplate}
 	for _, v := range r.Webhook.Headers {
