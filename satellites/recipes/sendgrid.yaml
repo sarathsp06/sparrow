@@ -20,6 +20,8 @@ params:
     prompt: "Recipient for events without payload.alert_recipients (e.g. team@acme.com)"
     required: true
 webhook:
+  # The receiver only accepts the transformed payload below.
+  requires_transform: true
   url: 'https://api.sendgrid.com/v3/mail/send'
   headers:
     Content-Type: application/json

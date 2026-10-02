@@ -16,6 +16,8 @@ params:
     prompt: "Recipient number in E.164 without '+', digits only (e.g. 15559876543)"
     required: true
 webhook:
+  # The receiver only accepts the transformed payload below.
+  requires_transform: true
   url: 'https://api.twilio.com/2010-04-01/Accounts/{{param "account_sid"}}/Messages.json'
   headers:
     Content-Type: application/x-www-form-urlencoded

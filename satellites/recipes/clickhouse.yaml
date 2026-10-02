@@ -15,6 +15,8 @@ params:
     prompt: "ClickHouse password"
     required: true
 webhook:
+  # The receiver only accepts the transformed payload below.
+  requires_transform: true
   url: '{{param "base_url"}}/?query=INSERT%20INTO%20{{param "table"}}%20FORMAT%20JSONEachRow'
   headers:
     X-ClickHouse-User: '{{param "user"}}'

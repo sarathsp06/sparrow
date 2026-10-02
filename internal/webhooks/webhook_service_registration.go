@@ -151,7 +151,7 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, consumer string, e
 	}
 
 	// Atomically create webhook + all subscriptions in a single transaction
-	if err := s.webhookRepo.RegisterWebhookWithSubscriptions(ctx, tenantID, registration, subscriptions); err != nil {
+	if err := s.webhookRepo.RegisterWebhookWithSubscriptions(ctx, tenantID, registration, subscriptions, store.SubscriptionTemplateVersion{}); err != nil {
 		s.logger.ErrorContext(ctx, "Failed to register webhook",
 			"consumer", consumer,
 			"events", events,
@@ -226,6 +226,13 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		return nil, err
 	}
 
+	if err := req.TemplateSettings.validate(); err != nil {
+		return nil, err
+	}
+	if req.RequiresTransform && len(req.Events) > 0 && strings.TrimSpace(req.TransformTemplate) == "" {
+		return nil, svcerrors.Error(svcerrors.InvalidArgument, "requires_transform is set, so transform_template is required for the subscriptions created from events (or register without events and add each subscription with its own template)")
+	}
+
 	// Convert request to internal webhook registration
 	webhookReg, err := req.ToWebhookRegistration()
 	if err != nil {
@@ -278,6 +285,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		UserAgent:             webhookReg.HTTPConfig.UserAgent,
 		ContentType:           webhookReg.HTTPConfig.ContentType,
 		RateLimitRPS:          webhookReg.HTTPConfig.RateLimitRPS,
+		RequiresTransform:     req.RequiresTransform,
 		CreatedAt:             time.Now(),
 		UpdatedAt:             time.Now(),
 	}
@@ -349,13 +357,18 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	var subscriptions []*store.EventSubscription
 	for _, event := range req.Events {
 		subscriptions = append(subscriptions, &store.EventSubscription{
-			EventName: event,
-			Consumer:  req.Consumer,
+			EventName:          event,
+			Consumer:           req.Consumer,
+			TransformEnabled:   strings.TrimSpace(req.TransformTemplate) != "",
+			TransformTemplate:  req.TransformTemplate,
+			OnTransformError:   req.TemplateSettings.OnTransformError,
+			TemplateMissingKey: req.TemplateSettings.TemplateMissingKey,
 		})
 	}
 
 	// Atomically register the webhook and all subscriptions in a single transaction
-	if err := s.webhookRepo.RegisterWebhookWithSubscriptions(ctx, tenantID, storeWebhook, subscriptions); err != nil {
+	firstVersion := store.SubscriptionTemplateVersion{Source: req.TemplateMeta.Source, Notes: req.TemplateMeta.Notes, SavedBy: req.TemplateMeta.SavedBy}
+	if err := s.webhookRepo.RegisterWebhookWithSubscriptions(ctx, tenantID, storeWebhook, subscriptions, firstVersion); err != nil {
 		s.logger.ErrorContext(ctx, "Failed to register webhook",
 			"consumer", req.Consumer,
 			"events", req.Events,
@@ -398,6 +411,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	// handler returns what was stored, not zero-value placeholders (F-009).
 	webhookReg.Ed25519EncryptedPrivateKey = storeWebhook.Ed25519PrivateKey
 	webhookReg.SignatureType = string(storeWebhook.SignatureType)
+	webhookReg.RequiresTransform = storeWebhook.RequiresTransform
 	webhookReg.CreatedAt = storeWebhook.CreatedAt
 	webhookReg.UpdatedAt = storeWebhook.UpdatedAt
 
@@ -526,8 +540,13 @@ func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, co
 //
 //	"url", "active", "description", "events", "headers", "secret_headers",
 //	"signature_type", "http_config", "http_config.webhook_secret",
-//	"http_config.rate_limit_rps"
-func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID string, consumer string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, updateMask []string) error {
+//	"http_config.rate_limit_rps", "requires_transform"
+//
+// requires_transform is only changed when named in the mask. Turning it on
+// fails while any subscription lacks a transform, and a webhook that requires
+// one cannot have its events replaced in bulk (that recreates subscriptions
+// without templates).
+func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID string, consumer string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, requiresTransform bool, updateMask []string) error {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.UpdateWebhookConfig")
 	defer span.End()
 
@@ -735,8 +754,38 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		}
 	}
 
+	// Turning requires_transform on is checked inside the transaction, under
+	// an exclusive lock that subscription writes (shared lock) wait on.
+	turningOnTransform := mask["requires_transform"] && requiresTransform && !webhook.RequiresTransform
+	if mask["requires_transform"] {
+		webhook.RequiresTransform = requiresTransform
+	}
+	if replaceEvents && webhook.RequiresTransform {
+		return svcerrors.Error(svcerrors.FailedPrecondition,
+			"this webhook requires a payload transform, so its events cannot be replaced in bulk (that recreates subscriptions without templates); add or delete subscriptions one by one instead")
+	}
+
 	// Persist subscription replacement + webhook update atomically.
 	err = s.webhookRepo.RunInTransaction(func(txRepo store.RepositoryInterface) error {
+		if turningOnTransform {
+			if _, err := txRepo.LockWebhook(ctx, tenantID, webhookUUID, consumer, true); err != nil {
+				return fmt.Errorf("failed to lock webhook: %w", err)
+			}
+			subs, err := txRepo.ListSubscriptions(ctx, tenantID, webhookUUID)
+			if err != nil {
+				return fmt.Errorf("failed to list subscriptions: %w", err)
+			}
+			var missing []string
+			for _, sub := range subs {
+				if !sub.HasTransform() {
+					missing = append(missing, sub.EventName)
+				}
+			}
+			if len(missing) > 0 {
+				return svcerrors.Errorf(svcerrors.FailedPrecondition,
+					"cannot require a payload transform: the subscriptions for %s have none; add a transform_template to each first", strings.Join(missing, ", "))
+			}
+		}
 		if replaceEvents {
 			if err := txRepo.ReplaceWebhookSubscriptions(ctx, tenantID, webhookUUID, consumer, newSubs); err != nil {
 				return fmt.Errorf("failed to update webhook subscriptions: %w", err)

@@ -45,6 +45,7 @@ params:                        # values the user supplies at apply time
     activation_required: false # missing value blocks enabling an auto-provisioned recipe
     must_override_default: false # placeholder defaults must be replaced before activation
 webhook:
+  requires_transform: true     # receiver only accepts the transformed payload (see below)
   url: '{{param "webhook_url"}}'
   headers: {Content-Type: application/json}
   secret_headers:              # envelope-encrypted at rest, masked in API responses
@@ -56,6 +57,15 @@ subscription:
 
 The Go struct for this schema lives in [`schema.go`](schema.go)
 (`recipes.Recipe`) — dependency-free, importable by the CLI.
+
+## Requiring the transform
+
+`webhook.requires_transform: true` registers the webhook with
+`requires_transform`, for destinations that cannot read Sparrow's default
+envelope (every shipped recipe). Sparrow then refuses any of its subscriptions
+without an enabled transform template, including ones added later, and a
+delivery that somehow has none fails with `template_error` instead of sending
+the envelope. A recipe that sets it must have a `subscription.transform_template`.
 
 ## How params work
 

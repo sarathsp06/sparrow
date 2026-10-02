@@ -192,6 +192,9 @@ func runUse(ctx context.Context, out io.Writer, client *apiClient, consumer, rec
 		Description:   fmt.Sprintf("recipe %s: %s", r.Name, r.Description),
 		Headers:       headers,
 		SecretHeaders: secretHeaders,
+
+		RequiresTransform: r.Webhook.RequiresTransform,
+		TransformTemplate: tmpl,
 	})
 	if err != nil {
 		return fmt.Errorf("register webhook: %w", err)

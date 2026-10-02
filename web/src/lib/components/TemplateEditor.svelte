@@ -18,6 +18,7 @@
     eventName = "",
     consumer = "default",
     subscriptionId = "",
+    missingKey = "error",
     onSave,
   }: {
     open?: boolean;
@@ -25,6 +26,7 @@
     eventName?: string;
     consumer?: string;
     subscriptionId?: string;
+    missingKey?: "error" | "zero";
     onSave: (template: string, meta: TemplateSaveMeta) => void;
   } = $props();
 
@@ -38,7 +40,8 @@
   let rendered = $state("");
   let renderError = $state("");
   let rendering = $state(false);
-  let strict = $state(true);
+  // The preview follows the subscription's own missing-field setting.
+  let strict = $derived(missingKey === "error");
   let viewAs: "raw" | "json" = $state("json");
   let renderTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -58,6 +61,7 @@
   let aiRecipe = $state("");
   let aiTargetExample = $state("");
   let aiShowTarget = $state(false);
+  let aiShowSample = $state(false);
   let aiDocsUrl = $state("");
   let aiSamplePayload = $state("");
   let aiRefine = $state(false);
@@ -315,9 +319,6 @@
       {/if}
       <a href={workbenchUrl} target="_blank" rel="noopener" class="font-medium text-muted hover:text-text transition">Open in Workbench ↗</a>
       <div class="ml-auto flex items-center gap-3">
-        <label class="flex items-center gap-1.5 text-muted cursor-pointer" title="Fail when the template reads a payload field the sample does not have">
-          <input type="checkbox" bind:checked={strict} /> Strict missing keys
-        </label>
         <span class="text-faint">View as</span>
         <div class="flex rounded border border-line overflow-hidden">
           <button type="button" onclick={() => (viewAs = "raw")} class="px-2 py-0.5 {viewAs === 'raw' ? 'bg-line text-text' : 'text-muted hover:text-text'}">raw</button>
@@ -330,52 +331,52 @@
       <div class="px-4 py-3 border-b border-line shrink-0 space-y-2 max-h-[45vh] overflow-y-auto" data-testid="ai-draft-panel" style="background:color-mix(in srgb,var(--color-beacon) 6%,var(--color-panel))">
         <div class="flex items-center justify-between">
           <span class="eyebrow">{aiCapability.enabled ? "Draft with AI" : "Prompt for AI"}</span>
-          <span class="text-[10px] text-faint">{aiCapability.enabled ? aiCapability.model : "No AI provider on this server — copy the prompt into any chat assistant"}</span>
+          <span class="text-[10px] text-faint">{aiCapability.enabled ? aiCapability.model : "No AI provider configured"}</span>
         </div>
-        <div class="grid gap-3 lg:grid-cols-2">
-          <div>
-            <div class="flex items-center justify-between">
-              <label for="ai-sample" class="text-[10px] text-muted font-medium">Sample <code class="mono">{eventName}</code> payload the draft is written and checked against</label>
-              {#if aiSampleEdited}
-                <button type="button" onclick={() => (aiSamplePayload = registeredSampleText)} class="text-[10px] font-medium text-muted hover:text-text transition">Reset to registered sample</button>
+        <div class="max-w-4xl space-y-2">
+            <textarea bind:value={aiInstructions} rows="3" placeholder="What should the receiver get? e.g. “a short Slack message with the order id and total, prefixed with ⚠️ when status is refunded”" class="input !text-xs w-full" style="resize:vertical" data-testid="ai-instructions"></textarea>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+              <label class="flex items-center gap-2 text-muted">
+                <span>Format</span>
+                <select id="ai-recipe" bind:value={aiRecipe} class="select !text-xs !py-1 max-w-[16rem]">
+                  <option value="">Custom JSON</option>
+                  {#each recipeOptions as r}<option value={r.name} title={r.description}>{r.name}</option>{/each}
+                </select>
+              </label>
+              <button type="button" onclick={() => (aiShowTarget = !aiShowTarget)} class="font-medium text-muted hover:text-text transition">{aiShowTarget ? "−" : "+"} Receiver example or docs</button>
+              <button type="button" onclick={() => (aiShowSample = !aiShowSample)} class="font-medium text-muted hover:text-text transition">{aiShowSample ? "−" : "+"} Sample payload{aiSampleEdited ? " (edited)" : ""}</button>
+              {#if draft.trim()}
+                <label class="flex items-center gap-1.5 text-muted cursor-pointer"><input type="checkbox" bind:checked={aiRefine} /> Refine current template</label>
               {/if}
             </div>
-            <textarea id="ai-sample" bind:value={aiSamplePayload} rows="6" class="input mono !text-xs w-full" style="resize:vertical"></textarea>
-            <p class="text-[10px] text-faint mt-0.5">Edit values so they show what they really are: a field the schema only calls a string might be an email, a currency code, or an ISO date. Used for this draft only.</p>
-          </div>
-          <div class="space-y-2">
-            <textarea bind:value={aiInstructions} rows="3" placeholder="Describe what the receiver should get, e.g. “a short Slack message with the order id and total, prefixed with ⚠️ when status is refunded”" class="input !text-xs w-full" style="resize:vertical" data-testid="ai-instructions"></textarea>
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label for="ai-recipe" class="text-[10px] text-muted font-medium">Destination format</label>
-                <select id="ai-recipe" bind:value={aiRecipe} class="select w-full !text-xs">
-                  <option value="">Custom receiver (JSON)</option>
-                  {#each recipeOptions as r}<option value={r.name}>{r.name} — {r.description}</option>{/each}
-                </select>
-              </div>
-              <div class="flex flex-col justify-end gap-1 text-[10px] text-muted">
-                <button type="button" onclick={() => (aiShowTarget = !aiShowTarget)} class="text-left font-medium hover:text-text transition">{aiShowTarget ? "− Hide" : "+ Describe"} what the receiver expects (example, description, or docs link)</button>
-                {#if draft.trim()}
-                  <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" bind:checked={aiRefine} /> Refine the current template instead of starting over</label>
-                {/if}
-              </div>
-            </div>
             {#if aiShowTarget}
-              <textarea bind:value={aiTargetExample} rows="4" placeholder={'Paste an example body the receiver accepts, or describe its shape in words'} class="input mono !text-xs w-full" style="resize:vertical"></textarea>
+              <div class="grid gap-2 lg:grid-cols-2">
+                <textarea bind:value={aiTargetExample} rows="4" placeholder="Paste an example body the receiver accepts, or describe its shape" class="input mono !text-xs w-full" style="resize:vertical"></textarea>
+                <div>
+                  <input id="ai-docs-url" type="url" bind:value={aiDocsUrl} placeholder="Receiver docs URL (optional)" aria-label="Receiver documentation URL" class="input !text-xs w-full" />
+                  <p class="text-[10px] text-faint mt-1">Sparrow reads the page and passes an excerpt along.</p>
+                </div>
+              </div>
+            {/if}
+            {#if aiShowSample}
               <div>
-                <label for="ai-docs-url" class="text-[10px] text-muted font-medium">Receiver documentation URL (optional)</label>
-                <input id="ai-docs-url" type="url" bind:value={aiDocsUrl} placeholder="https://docs.receiver.example/webhooks#payload" class="input !text-xs w-full" />
-                <p class="text-[10px] text-faint mt-0.5">Sparrow reads the page and gives the model an excerpt. Same network rules as deliveries apply.</p>
+                <textarea id="ai-sample" aria-label="Sample payload" bind:value={aiSamplePayload} rows="6" class="input mono !text-xs w-full" style="resize:vertical"></textarea>
+                <div class="flex items-center justify-between gap-3 mt-0.5">
+                  <p class="text-[10px] text-faint">Make values realistic (an email, a currency code, an ISO date). Used for this draft only.</p>
+                  {#if aiSampleEdited}
+                    <button type="button" onclick={() => (aiSamplePayload = registeredSampleText)} class="text-[10px] font-medium text-muted hover:text-text transition shrink-0">Reset</button>
+                  {/if}
+                </div>
               </div>
             {/if}
             <div class="flex items-center justify-between gap-3">
               {#if aiCapability.enabled}
-                <p class="text-[10px] text-faint">Only the schema, the sample, and what you type here go to the model. Never stored events, headers, or secrets.</p>
+                <p class="text-[10px] text-faint">Only the schema, the sample and your text go to the model.</p>
                 <button type="button" onclick={() => draftWithAI()} disabled={aiLoading || !aiInstructions.trim()} class="btn btn-beacon !px-3 !py-1 shrink-0" data-testid="ai-draft">
                   {aiLoading ? "Drafting…" : aiRefine && draft.trim() ? "Refine template" : "Draft template"}
                 </button>
               {:else}
-                <p class="text-[10px] text-faint">Sparrow sends nothing anywhere. Paste the prompt into any chat assistant, then paste the template it returns into the editor.</p>
+                <p class="text-[10px] text-faint">Paste the prompt into any chat assistant, then paste its template into the editor.</p>
                 <button type="button" onclick={copyPrompt} disabled={promptLoading || !aiInstructions.trim()} class="btn btn-beacon !px-3 !py-1 shrink-0" data-testid="copy-prompt">
                   {promptLoading ? "Building…" : promptCopied ? "Copied ✓" : "Copy prompt"}
                 </button>
@@ -383,7 +384,7 @@
             </div>
             {#if aiConfirmReplace}
               <div class="flex items-center justify-between gap-3 panel p-2 rounded" data-testid="ai-confirm-replace">
-                <p class="text-xs text-text">Replace the current template with a fresh draft? Tick "Refine" instead to build on it. You can undo the draft until you save.</p>
+                <p class="text-xs text-text">Replace the current template with a fresh draft? You can undo it until you save.</p>
                 <div class="flex gap-2 shrink-0">
                   <button type="button" onclick={() => (aiConfirmReplace = false)} class="btn btn-ghost !px-3 !py-1">Keep</button>
                   <button type="button" onclick={() => draftWithAI(true)} class="btn btn-beacon !px-3 !py-1">Replace</button>
@@ -393,9 +394,6 @@
             {#if aiNotes}
               <p class="text-xs text-muted" data-testid="ai-draft-notes">{aiNotes}{#if aiAttempts > 1}{" "}<span class="text-faint">(repaired after {aiAttempts - 1} failed render{aiAttempts > 2 ? "s" : ""})</span>{/if}{#if aiSampleSource === "provided"}{" "}<span class="text-faint">(rendered against your edited sample)</span>{/if}</p>
             {/if}
-            {#if aiNotes}
-              <p class="text-[10px] text-faint">Edit the template directly, or describe a change and refine.</p>
-            {/if}
             {#if aiError}<p class="text-xs" style="color:var(--color-bad)">{aiError}</p>{/if}
             {#if !aiCapability.enabled && promptText}
               <details open={!promptCopied}>
@@ -403,7 +401,6 @@
                 <textarea readonly rows="6" class="input mono !text-[10px] w-full mt-1" style="resize:vertical" onclick={(e) => (e.currentTarget as HTMLTextAreaElement).select()}>{promptText}</textarea>
               </details>
             {/if}
-          </div>
         </div>
       </div>
     {/if}
@@ -430,7 +427,7 @@
       </div>
     {/if}
 
-    <div class="flex-1 min-h-0 grid lg:grid-cols-2 {showFunctions ? 'lg:grid-cols-[1fr_1fr_18rem]' : ''}">
+    <div class="flex-1 min-h-0 grid lg:grid-cols-2 {showFunctions ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_18rem]' : ''}">
       <div class="flex flex-col min-h-0 border-r border-line">
         <div class="px-4 py-1.5 text-[10px] uppercase tracking-wider text-muted border-b border-line flex items-center justify-between">
           <span>Template</span>
@@ -447,9 +444,9 @@
           {#if !canRender}
             <p class="text-xs text-muted">A catch-all subscription has no single event type to render against. Pick a specific event to see output, or save and rely on the delivery log.</p>
           {:else if renderError}
-            <pre class="text-xs mono whitespace-pre-wrap" style="color:var(--color-bad)" data-testid="render-error">{renderError}</pre>
+            <pre class="text-xs mono whitespace-pre-wrap [overflow-wrap:anywhere]" style="color:var(--color-bad)" data-testid="render-error">{renderError}</pre>
           {:else if rendered}
-            <pre class="text-xs mono whitespace-pre-wrap text-text" data-testid="rendered">{prettyRendered}</pre>
+            <pre class="text-xs mono whitespace-pre-wrap [overflow-wrap:anywhere] text-text" data-testid="rendered">{prettyRendered}</pre>
           {:else}
             <p class="text-xs text-faint italic">Output appears here as you type.</p>
           {/if}

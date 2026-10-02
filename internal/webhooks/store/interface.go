@@ -25,7 +25,11 @@ type RepositoryInterface interface {
 	RateLimitRepository
 
 	// Composite operations that span multiple domains.
-	RegisterWebhookWithSubscriptions(ctx context.Context, tenantID uuid.UUID, registration *WebhookRegistration, subscriptions []*EventSubscription) error
+	RegisterWebhookWithSubscriptions(ctx context.Context, tenantID uuid.UUID, registration *WebhookRegistration, subscriptions []*EventSubscription, firstVersion SubscriptionTemplateVersion) error
+	// LockWebhook reads a webhook and row-locks it until the surrounding
+	// transaction ends: exclusive (FOR UPDATE) or shared (FOR SHARE). Call it
+	// on a repository from RunInTransaction.
+	LockWebhook(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, exclusive bool) (*WebhookRegistration, error)
 	ReplaceWebhookSubscriptions(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, newSubscriptions []*EventSubscription) error
 }
 

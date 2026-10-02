@@ -6,7 +6,9 @@
   import { onMount } from 'svelte';
   import type { components } from '$lib/api-types';
   import { substituteParams, type Recipe, type RecipeParam } from '$lib/recipes';
-  import TemplateEditor from '$lib/components/TemplateEditor.svelte';
+  import Disclosure from '$lib/components/Disclosure.svelte';
+  import TransformSettings from '$lib/components/TransformSettings.svelte';
+  import type { TemplateSaveMeta } from '$lib/components/TemplateEditor.svelte';
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
   const ALERT_EVENT_TYPES = ["sparrow.webhook.health_changed", "sparrow.webhook.delivery_failed"];
@@ -49,8 +51,13 @@
   let recipeParams: Record<string, string> = $state({});
   let appliedRecipe = $state('');
   let recipeError = $state('');
+  let transformEnabled = $state(false);
+  // The receiver only accepts a transformed payload; recipes turn this on.
+  let requiresTransform = $state(false);
   let transformTemplate = $state('');
-  let templateEditorOpen = $state(false);
+  let onTransformError = $state<'fail' | 'fallback'>('fail');
+  let templateMissingKey = $state<'error' | 'zero'>('error');
+  let templateMeta: TemplateSaveMeta | null = $state(null);
   let recipes: Recipe[] = $state([]);
 
   // Validation
@@ -63,6 +70,20 @@
       ? allEvents.filter(e => e.name.toLowerCase().includes(eventSearch.toLowerCase()))
       : allEvents
   );
+
+  // One template cannot fit several event schemas, so a hand-picked transform
+  // only applies to a single event. A webhook that requires a transform gets
+  // the template on every subscription instead, checked per event on submit.
+  let transformLocked = $derived(events.length > 1 && !requiresTransform
+    ? `Transforms apply to a single event: these events have different payloads. Register first, then add a transform to each subscription from the webhook's page${transformTemplate.trim() ? ' (the template is kept if you go back to one event)' : ''}.`
+    : '');
+
+  let headerSummary = $derived.by(() => {
+    const n = headers.filter((h) => h.key.trim()).length;
+    const m = secretHeaders.filter((h) => h.key.trim()).length;
+    if (!n && !m) return 'None';
+    return [n && `${n} header${n === 1 ? '' : 's'}`, m && `${m} secret`].filter(Boolean).join(' · ');
+  });
 
   onMount(async () => {
     try {
@@ -128,6 +149,9 @@
     headers = Object.entries(r.webhook.headers ?? {}).map(([key, value]) => ({ key, value: substituteParams(value, params) }));
     secretHeaders = Object.entries(r.webhook.secret_headers ?? {}).map(([key, value]) => ({ key, value: substituteParams(value, params) }));
     transformTemplate = substituteParams(r.subscription?.transform_template ?? '', params);
+    transformEnabled = !!transformTemplate.trim();
+    requiresTransform = !!r.webhook.requires_transform;
+    templateMeta = null;
     description = `recipe ${r.name}: ${r.description}`;
     appliedRecipe = r.name;
     recipesOpen = false;
@@ -137,6 +161,9 @@
   function clearRecipe() {
     appliedRecipe = '';
     transformTemplate = '';
+    transformEnabled = false;
+    requiresTransform = false;
+    templateMeta = null;
   }
 
   function validateUrl(val: string): boolean {
@@ -159,9 +186,33 @@
     const nsValid = validateConsumer(consumer);
     eventsError = events.length === 0 ? 'Select at least one event' : '';
     if (!urlValid || !nsValid || eventsError) return;
+    const applyTransform = !transformLocked && (transformEnabled || requiresTransform) && !!transformTemplate.trim();
+    if (requiresTransform && !applyTransform) {
+      error = 'This receiver only accepts a transformed payload: write a template, or turn off "Requires a transform".';
+      return;
+    }
 
     submitting = true;
     try {
+      // The same template goes to every event: check it renders against each
+      // one's sample payload before anything is created.
+      if (applyTransform && events.length > 1) {
+        const results = await Promise.allSettled(events.map(async (name) => {
+          try {
+            unwrap(await api.POST('/v1/subscriptions:testTemplate', {
+              body: { event_name: name, template: transformTemplate, template_missing_key: templateMissingKey },
+            }));
+          } catch (e: any) {
+            throw new Error(`${name}: ${formatAPIError(e, 'did not render')}`);
+          }
+        }));
+        const failures = results.flatMap((r) => (r.status === 'rejected' ? [(r.reason as Error).message] : []));
+        if (failures.length) {
+          error = `The template does not render for every selected event. Fix it, or pick fewer events.\n${failures.join('\n')}`;
+          return;
+        }
+      }
+
       const headersMap: Record<string, string> = {};
       headers.forEach(h => {
         if (h.key.trim() && h.value.trim()) {
@@ -190,6 +241,12 @@
           active,
           headers: headersMap,
           secret_headers: Object.keys(secretHeadersMap).length > 0 ? secretHeadersMap : undefined,
+          requires_transform: requiresTransform || undefined,
+          transform_template: applyTransform ? transformTemplate : undefined,
+          on_transform_error: applyTransform ? onTransformError : undefined,
+          template_missing_key: applyTransform ? templateMissingKey : undefined,
+          template_source: applyTransform ? templateMeta?.source ?? 'manual' : undefined,
+          template_notes: applyTransform ? templateMeta?.notes || undefined : undefined,
           http_config: showAdvanced ? {
             max_retries: maxRetries,
             retry_backoff_seconds: retryBackoffSeconds,
@@ -215,18 +272,6 @@
         }));
       }
 
-      // Recipe transform applies per subscription — patch the auto-created ones.
-      if (transformTemplate.trim()) {
-        const subs = unwrap(await api.GET('/v1/consumers/{consumer}/subscriptions', {
-          params: { path: { consumer }, query: { webhook_id: created.webhook_id } },
-        }));
-        for (const sub of subs.items || []) {
-          unwrap(await api.PATCH('/v1/consumers/{consumer}/subscriptions/{subscription_id}', {
-            params: { path: { consumer, subscription_id: sub.subscription_id } },
-            body: { transform_enabled: true, transform_template: transformTemplate },
-          }));
-        }
-      }
       goto('/webhooks');
     } catch (e: any) {
       error = formatAPIError(e, 'Failed to register webhook');
@@ -240,230 +285,224 @@
   <title>Register Webhook | Sparrow</title>
 </svelte:head>
 
-<main class="mx-auto max-w-5xl px-4 sm:px-6 py-8">
-  <nav class="flex items-center gap-2 text-sm text-muted mb-6">
-    <a class="link" href="/webhooks">Webhooks</a>
-    <span class="text-faint">/</span>
-    <span class="text-text">Register</span>
-  </nav>
-  <div class="mb-6">
-    <p class="eyebrow mb-1.5">Fleet / Webhooks</p>
-    <h1 class="text-2xl">Register New Webhook</h1>
-    <p class="text-sm text-muted mt-1">Configure a new webhook endpoint to receive event notifications.</p>
-  </div>
+<main class="max-w-6xl mx-auto px-4 py-6">
+  <nav class="text-xs text-muted mb-3"><a href="/webhooks" class="hover:text-text">Webhooks</a> / Register</nav>
+  <h1 class="text-xl font-semibold text-text mb-4">Register webhook</h1>
 
-    <form onsubmit={registerWebhook} class="space-y-6">
-      <section class="panel p-5">
-        <span class="field-label">Start from a recipe</span>
-        {#if appliedRecipe}
-          <div class="panel-2 p-3 flex items-center justify-between gap-3">
-            <p class="text-sm text-text">Using recipe <span class="mono">{appliedRecipe}</span> — destination, headers, and transform template pre-filled below.</p>
-            <button type="button" onclick={clearRecipe} class="btn btn-ghost !px-3 !py-1.5 shrink-0">Clear</button>
-          </div>
-        {:else}
-          <button
-            type="button"
-            class="panel-2 w-full p-4 text-left flex items-center justify-between gap-4"
-            aria-expanded={recipesOpen}
-            onclick={() => (recipesOpen = !recipesOpen)}
-          >
-            <span>
-              <span class="text-sm font-medium text-text">Recipes</span>
-              <span class="block text-xs text-muted mt-0.5">Start with a preset destination and transform template.</span>
-            </span>
-            <span class="text-xs text-muted">{recipesOpen ? 'Hide' : 'Choose'}</span>
-          </button>
+  <form onsubmit={registerWebhook} class="space-y-4">
+    <section class="panel p-5">
+      {#if appliedRecipe}
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-sm text-text">Using the <span class="mono">{appliedRecipe}</span> recipe: URL, headers and transform are filled in below.</p>
+          <button type="button" onclick={clearRecipe} class="btn btn-ghost !px-3 !py-1 shrink-0">Clear</button>
+        </div>
+      {:else}
+        <button type="button" class="w-full flex items-center justify-between gap-4 text-left" aria-expanded={recipesOpen} onclick={() => (recipesOpen = !recipesOpen)}>
+          <span>
+            <span class="eyebrow">Start from a recipe</span>
+            <span class="block text-xs text-muted mt-1">Preset destinations (Slack, SendGrid, …) with their transform template.</span>
+          </span>
+          <span class="text-xs text-muted shrink-0">{recipesOpen ? 'Hide' : 'Browse'} <span class="inline-block transition {recipesOpen ? 'rotate-90' : ''}">›</span></span>
+        </button>
 
-          {#if recipesOpen}
-            {#if selectedRecipe}
-              <div class="mt-4 space-y-3">
-                <div class="panel-2 p-3">
-                  <p class="text-sm font-medium text-text capitalize">{selectedRecipe.name}</p>
-                  <p class="text-xs text-muted mt-0.5">{selectedRecipe.description}</p>
-                </div>
-                {#each selectedRecipe.params ?? [] as p}
-                  <div>
-                    <label for={`recipe-param-${p.name}`} class="field-label">{p.prompt || p.name}{p.required || p.activation_required ? '' : ' (optional)'}</label>
-                    <input id={`recipe-param-${p.name}`} type={p.secret ? 'password' : 'text'} bind:value={recipeParams[p.name]} placeholder={p.default ?? ''} class="input" />
-                    {#if p.activation_required}<p class="text-xs text-muted mt-1">Required before this recipe can be enabled.</p>{/if}
-                  </div>
-                {/each}
-                {#if recipeError}<p class="text-xs" style="color:var(--color-bad)">{recipeError}</p>{/if}
-                <div class="flex gap-2">
-                  <button type="button" onclick={applyRecipe} class="btn btn-beacon !px-3 !py-1.5">Use recipe</button>
-                  <button type="button" onclick={() => (selectedRecipe = null)} class="btn btn-ghost !px-3 !py-1.5">Choose another</button>
-                </div>
+        {#if recipesOpen}
+          {#if selectedRecipe}
+            <div class="mt-4 pt-4 border-t border-line space-y-3 max-w-xl">
+              <div>
+                <p class="text-sm font-medium text-text capitalize">{selectedRecipe.name}</p>
+                <p class="text-xs text-muted mt-0.5">{selectedRecipe.description}</p>
               </div>
-            {:else}
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
-                {#each recipes as r}
-                  <button type="button" onclick={() => pickRecipe(r)} class="panel-2 p-3 text-left">
-                    <p class="text-sm font-medium text-text capitalize">{r.name}</p>
-                    <p class="text-xs text-muted mt-0.5">{r.description}</p>
-                  </button>
-                {/each}
+              {#each selectedRecipe.params ?? [] as p}
+                <div>
+                  <label for={`recipe-param-${p.name}`} class="field-label">{p.prompt || p.name}{p.required || p.activation_required ? '' : ' (optional)'}</label>
+                  <input id={`recipe-param-${p.name}`} type={p.secret ? 'password' : 'text'} bind:value={recipeParams[p.name]} placeholder={p.default ?? ''} class="input w-full" />
+                  {#if p.activation_required}<p class="text-xs text-faint mt-1">Required before this recipe can be enabled.</p>{/if}
+                </div>
+              {/each}
+              {#if recipeError}<p class="text-xs" style="color:var(--color-bad)">{recipeError}</p>{/if}
+              <div class="flex gap-2">
+                <button type="button" onclick={applyRecipe} class="btn btn-beacon !px-3 !py-1">Use recipe</button>
+                <button type="button" onclick={() => (selectedRecipe = null)} class="btn btn-ghost !px-3 !py-1">Back</button>
               </div>
-            {/if}
+            </div>
+          {:else}
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-4">
+              {#each recipes as r}
+                <button type="button" onclick={() => pickRecipe(r)} class="panel-2 p-3 text-left hover:border-line-strong transition">
+                  <p class="text-sm font-medium text-text capitalize">{r.name}</p>
+                  <p class="text-xs text-muted mt-0.5 line-clamp-2">{r.description}</p>
+                </button>
+              {/each}
+            </div>
           {/if}
         {/if}
-      </section>
+      {/if}
+    </section>
 
-      <section class="panel p-5 space-y-4">
-        <div>
-          <label for="consumer" class="field-label">Consumer</label>
-          <input id="consumer" type="text" bind:value={consumer} class="input" style={consumerError ? 'border-color:color-mix(in srgb,var(--color-bad) 55%,transparent)' : ''} />
-          {#if consumerError}<p class="text-xs mt-1" style="color:var(--color-bad)">{consumerError}</p>{/if}
-        </div>
-        <div>
-          <label for="url" class="field-label">Target URL</label>
-          <input id="url" type="text" bind:value={url} placeholder="https://example.com/webhook" class="input" style={urlError ? 'border-color:color-mix(in srgb,var(--color-bad) 55%,transparent)' : ''} />
-          {#if urlError}<p class="text-xs mt-1" style="color:var(--color-bad)">{urlError}</p>{/if}
-        </div>
-        <div>
-          <label for="description" class="field-label">Description</label>
-          <input id="description" type="text" bind:value={description} class="input" />
-        </div>
-        <label for="active" class="flex items-center gap-2 hover:bg-black/5 rounded px-2 py-1.5 -mx-2 cursor-pointer">
-          <input id="active" type="checkbox" bind:checked={active} class="accent-[color:var(--color-beacon)]" />
-          <span class="text-sm text-text">Active</span>
-        </label>
-      </section>
-
-      <section class="panel p-5">
-        <label for="event-search" class="field-label">Subscribe to Events</label>
-        {#if eventsError}<p class="text-xs mb-2" style="color:var(--color-bad)">{eventsError}</p>{/if}
-        <input id="event-search" type="text" placeholder="Search events…" bind:value={eventSearch} class="input mb-3" />
-        <div class="space-y-1 max-h-56 overflow-y-auto">
-          {#each filteredEvents as ev}
-            <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-black/5 rounded cursor-pointer">
-              <input
-                type="checkbox"
-                checked={events.includes(ev.name)}
-                onchange={() => {
-                  events = events.includes(ev.name) ? events.filter(e => e !== ev.name) : [...events, ev.name];
-                }}
-                class="accent-[color:var(--color-beacon)]"
-              />
-              <span class="text-sm text-text">{ev.name}</span>
-            </label>
-          {/each}
-        </div>
-      </section>
-
-      <section class="panel p-5">
-        <label for="alert-email" class="field-label">Health alert email (optional)</label>
-        <input id="alert-email" type="email" bind:value={alertEmail} placeholder="ops@example.com" class="input" />
-        <p class="text-xs text-faint mt-2">Sends health-change and permanent-failure alerts for this webhook.</p>
-      </section>
-
-
-      <section class="panel p-5">
-        <span class="field-label">HTTP Headers</span>
-        {#each headers as h, i}
-          <div class="flex gap-2 mb-2">
-            <input type="text" placeholder="key" bind:value={h.key} class="input flex-1" />
-            <input type="text" placeholder="value" bind:value={h.value} class="input flex-1" />
-            <button type="button" onclick={() => removeHeader(i)} class="px-2 text-faint hover:text-bad transition-colors" aria-label="Remove header">&times;</button>
-          </div>
-        {/each}
-        <button type="button" onclick={addHeader} class="btn btn-ghost !px-3 !py-1.5">+ Add Header</button>
-      </section>
-
-      <section class="panel p-5">
-        <span class="field-label">Secret Headers (encrypted at rest)</span>
-        {#each secretHeaders as h, i}
-          <div class="flex gap-2 mb-2">
-            <input type="text" placeholder="key" bind:value={h.key} class="input flex-1" />
-            <input type="text" placeholder="value" bind:value={h.value} class="input flex-1" />
-            <button type="button" onclick={() => removeSecretHeader(i)} class="px-2 text-faint hover:text-bad transition-colors" aria-label="Remove secret header">&times;</button>
-          </div>
-        {/each}
-        <button type="button" onclick={addSecretHeader} class="btn btn-ghost !px-3 !py-1.5">+ Add Secret Header</button>
-      </section>
-
-      <section class="panel p-5">
-        <div class="flex items-center justify-between gap-3">
+    <div class="grid gap-4 lg:grid-cols-2 items-start">
+      <div class="space-y-4 min-w-0">
+        <section class="panel p-5 space-y-4">
+          <h3 class="eyebrow">Endpoint</h3>
           <div>
-            <span class="field-label !mb-0">Transform template</span>
-            <p class="text-muted text-xs">Applied to each created subscription. {transformTemplate.trim() ? `${transformTemplate.split('\n').length} lines${appliedRecipe ? ` from the ${appliedRecipe} recipe` : ''}.` : 'Optional: deliver the raw event, or write, draft, or paste one.'}</p>
+            <label for="url" class="field-label">Target URL</label>
+            <input id="url" type="text" bind:value={url} placeholder="https://example.com/webhook" class="input w-full" style={urlError ? 'border-color:color-mix(in srgb,var(--color-bad) 55%,transparent)' : ''} />
+            {#if urlError}<p class="text-xs mt-1" style="color:var(--color-bad)">{urlError}</p>{/if}
           </div>
-          <button type="button" onclick={() => (templateEditorOpen = true)} class="btn btn-ghost !px-3 !py-1.5" disabled={events.length === 0 && !transformTemplate.trim()} title={events.length === 0 ? 'Pick at least one event first' : ''}>{transformTemplate.trim() ? 'Edit template' : 'Write template'}</button>
-        </div>
-        {#if transformTemplate.trim()}
-          <pre class="mt-3 panel-2 p-3 text-xs mono overflow-x-auto max-h-32">{transformTemplate}</pre>
-        {/if}
-      </section>
-
-      <section class="panel">
-        <button type="button" onclick={() => (showAdvanced = !showAdvanced)} class="w-full flex items-center justify-between p-5 text-left">
-          <span class="text-sm font-medium text-text">Advanced HTTP Configuration</span>
-          <span class="text-muted mono text-lg leading-none">{showAdvanced ? '−' : '+'}</span>
-        </button>
-        {#if showAdvanced}
-          <div class="p-5 pt-0 space-y-4 border-t border-line">
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label for="maxRetries" class="field-label">Max Retries</label>
-                <input id="maxRetries" type="number" bind:value={maxRetries} class="input" />
-              </div>
-              <div>
-                <label for="retryBackoff" class="field-label">Retry Backoff (s)</label>
-                <input id="retryBackoff" type="number" bind:value={retryBackoffSeconds} class="input" />
-              </div>
-              <div>
-                <label for="timeout" class="field-label">Request Timeout (s)</label>
-                <input id="timeout" type="number" bind:value={requestTimeoutSeconds} class="input" />
-              </div>
-              <div>
-                <label for="statusCodes" class="field-label">Expected Status Codes</label>
-                <input id="statusCodes" type="text" bind:value={expectedStatusCodes} class="input" />
-              </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="consumer" class="field-label">Consumer</label>
+              <input id="consumer" type="text" bind:value={consumer} class="input w-full" style={consumerError ? 'border-color:color-mix(in srgb,var(--color-bad) 55%,transparent)' : ''} />
+              {#if consumerError}<p class="text-xs mt-1" style="color:var(--color-bad)">{consumerError}</p>{/if}
             </div>
             <div>
-              <label for="secret" class="field-label">Webhook Secret (HMAC signing key)</label>
-              <input id="secret" type="password" bind:value={webhookSecret} placeholder="Leave blank to auto-generate…" class="input" />
+              <label for="description" class="field-label">Description</label>
+              <input id="description" type="text" bind:value={description} placeholder="Optional" class="input w-full" />
             </div>
-            <div class="grid grid-cols-2 gap-4">
+          </div>
+          <div class="flex items-center gap-3">
+            <button type="button" onclick={() => (active = !active)} aria-label="Toggle active" aria-pressed={active}
+              class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors {active ? 'bg-ok' : 'bg-line-strong'}">
+              <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition {active ? 'translate-x-4' : 'translate-x-0'}"></span>
+            </button>
+            <span class="text-sm text-text">{active ? 'Active: deliveries start right away' : 'Paused: no deliveries until activated'}</span>
+          </div>
+          <label class="flex items-start gap-2 cursor-pointer" title="Every subscription must then carry a transform template, and Sparrow never sends this receiver its default envelope.">
+            <input type="checkbox" bind:checked={requiresTransform} class="mt-0.5 accent-[color:var(--color-beacon)]" data-testid="requires-transform" />
+            <span>
+              <span class="text-sm text-text">Requires a transform</span>
+              <span class="block text-xs text-faint">The receiver only accepts its own format (Slack, SendGrid, …). Recipes turn this on.</span>
+            </span>
+          </label>
+        </section>
+
+        <section class="panel p-5">
+          <div class="flex items-center justify-between gap-3 mb-2">
+            <label for="event-search" class="eyebrow">Events</label>
+            <span class="text-xs text-muted">{events.length ? `${events.length} selected` : 'Pick at least one'}</span>
+          </div>
+          {#if eventsError}<p class="text-xs mb-2" style="color:var(--color-bad)">{eventsError}</p>{/if}
+          <input id="event-search" type="text" placeholder="Search events…" bind:value={eventSearch} class="input w-full mb-2" />
+          <div class="space-y-0.5 max-h-56 overflow-y-auto -mx-2">
+            {#each filteredEvents as ev}
+              <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-black/5 rounded cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={events.includes(ev.name)}
+                  onchange={() => {
+                    events = events.includes(ev.name) ? events.filter(e => e !== ev.name) : [...events, ev.name];
+                  }}
+                  class="accent-[color:var(--color-beacon)]"
+                />
+                <span class="text-sm text-text truncate">{ev.name}</span>
+              </label>
+            {/each}
+          </div>
+          <p class="text-xs text-faint mt-2">One subscription is created per event; refine each one later from the webhook's page.</p>
+        </section>
+      </div>
+
+      <div class="space-y-4 min-w-0">
+        <TransformSettings
+          bind:enabled={transformEnabled}
+          bind:template={transformTemplate}
+          bind:onError={onTransformError}
+          bind:missingKey={templateMissingKey}
+          bind:meta={templateMeta}
+          eventName={events[0] ?? ''}
+          {consumer}
+          lockedReason={transformLocked}
+          required={requiresTransform}
+          disabledReason={events.length === 0 ? 'Pick an event first: the editor previews the template against its sample payload.' : ''}
+        />
+        {#if requiresTransform && events.length > 1}
+          <p class="text-xs text-muted -mt-2 px-1" data-testid="multi-event-transform-note">This template is used for all {events.length} events. It is checked against each event's sample payload when you register.</p>
+        {/if}
+
+        <section class="panel p-5 space-y-3">
+          <h3 class="eyebrow">Delivery</h3>
+          <Disclosure label="Headers" summary={headerSummary} open={headers.length + secretHeaders.length > 0}>
+            <div>
+              {#each headers as h, i}
+                <div class="flex gap-2 mb-2">
+                  <input type="text" placeholder="Header" bind:value={h.key} class="input flex-1 min-w-0" />
+                  <input type="text" placeholder="value" bind:value={h.value} class="input flex-1 min-w-0" />
+                  <button type="button" onclick={() => removeHeader(i)} class="px-2 text-faint hover:text-bad transition-colors" aria-label="Remove header">&times;</button>
+                </div>
+              {/each}
+              <button type="button" onclick={addHeader} class="btn btn-ghost !px-3 !py-1 text-xs">+ Add header</button>
+            </div>
+            <div>
+              <span class="field-label">Secret headers</span>
+              <p class="text-xs text-faint mb-2">Encrypted at rest and never shown again, e.g. an Authorization token.</p>
+              {#each secretHeaders as h, i}
+                <div class="flex gap-2 mb-2">
+                  <input type="text" placeholder="Header" bind:value={h.key} class="input flex-1 min-w-0" />
+                  <input type="password" placeholder="value" bind:value={h.value} class="input flex-1 min-w-0" />
+                  <button type="button" onclick={() => removeSecretHeader(i)} class="px-2 text-faint hover:text-bad transition-colors" aria-label="Remove secret header">&times;</button>
+                </div>
+              {/each}
+              <button type="button" onclick={addSecretHeader} class="btn btn-ghost !px-3 !py-1 text-xs">+ Add secret header</button>
+            </div>
+          </Disclosure>
+
+          <Disclosure label="Health alerts" summary={alertEmail.trim() || 'Off'}>
+            <div>
+              <label for="alert-email" class="field-label">Alert email</label>
+              <input id="alert-email" type="email" bind:value={alertEmail} placeholder="ops@example.com" class="input w-full" />
+              <p class="text-xs text-faint mt-1">Emails when this webhook's health changes or a delivery fails permanently.</p>
+            </div>
+          </Disclosure>
+
+          <Disclosure label="HTTP settings" summary={showAdvanced ? `${maxRetries} retries · ${requestTimeoutSeconds}s timeout` : 'Defaults'} bind:open={showAdvanced}>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label for="maxRetries" class="field-label">Max retries</label>
+                <input id="maxRetries" type="number" bind:value={maxRetries} class="input w-full" />
+              </div>
+              <div>
+                <label for="retryBackoff" class="field-label">Retry backoff (s)</label>
+                <input id="retryBackoff" type="number" bind:value={retryBackoffSeconds} class="input w-full" />
+              </div>
+              <div>
+                <label for="timeout" class="field-label">Request timeout (s)</label>
+                <input id="timeout" type="number" bind:value={requestTimeoutSeconds} class="input w-full" />
+              </div>
+              <div>
+                <label for="statusCodes" class="field-label">Success status codes</label>
+                <input id="statusCodes" type="text" bind:value={expectedStatusCodes} class="input w-full" />
+              </div>
               <div>
                 <label for="userAgent" class="field-label">User-Agent</label>
-                <input id="userAgent" type="text" bind:value={userAgent} class="input" />
+                <input id="userAgent" type="text" bind:value={userAgent} class="input w-full" />
               </div>
               <div>
                 <label for="contentType" class="field-label">Content-Type</label>
-                <input id="contentType" type="text" bind:value={contentType} class="input" />
+                <input id="contentType" type="text" bind:value={contentType} class="input w-full" />
               </div>
             </div>
-            <div class="flex flex-wrap items-center gap-4">
-              <label class="flex items-center gap-2 text-sm text-text hover:bg-black/5 rounded px-2 py-1.5 cursor-pointer"><input type="checkbox" bind:checked={captureResponseBody} class="accent-[color:var(--color-beacon)]" /> Capture response body</label>
-              <label class="flex items-center gap-2 text-sm text-text hover:bg-black/5 rounded px-2 py-1.5 cursor-pointer"><input type="checkbox" bind:checked={followRedirects} class="accent-[color:var(--color-beacon)]" /> Follow redirects</label>
-              <label class="flex items-center gap-2 text-sm text-text hover:bg-black/5 rounded px-2 py-1.5 cursor-pointer"><input type="checkbox" bind:checked={verifySSL} class="accent-[color:var(--color-beacon)]" /> Verify SSL</label>
+            <div>
+              <label for="secret" class="field-label">Signing secret (HMAC)</label>
+              <input id="secret" type="password" bind:value={webhookSecret} placeholder="Leave blank to generate one" class="input w-full" />
             </div>
-          </div>
-        {/if}
-      </section>
-
-      {#if error}
-        <div class="panel p-4" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
-          <p class="text-sm" style="color:var(--color-bad)">{error}</p>
-        </div>
-      {/if}
-
-      <div class="panel-2 p-4">
-        <p class="text-muted text-xs">A signing secret is generated automatically unless you provide one above. It's returned once on creation — copy it before leaving this page.</p>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <label class="flex items-center gap-2 text-sm text-text cursor-pointer"><input type="checkbox" bind:checked={captureResponseBody} class="accent-[color:var(--color-beacon)]" /> Capture response body</label>
+              <label class="flex items-center gap-2 text-sm text-text cursor-pointer"><input type="checkbox" bind:checked={followRedirects} class="accent-[color:var(--color-beacon)]" /> Follow redirects</label>
+              <label class="flex items-center gap-2 text-sm text-text cursor-pointer"><input type="checkbox" bind:checked={verifySSL} class="accent-[color:var(--color-beacon)]" /> Verify SSL</label>
+            </div>
+          </Disclosure>
+        </section>
       </div>
+    </div>
 
-      <div class="flex items-center justify-end gap-3 pt-2">
-        <a href="/webhooks" class="btn btn-ghost">Cancel</a>
-        <button type="submit" disabled={submitting} class="btn btn-beacon">
-          {submitting ? 'Registering…' : 'Register Webhook'}
-        </button>
+    {#if error}
+      <div class="panel p-3" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
+        <p class="text-sm whitespace-pre-line" style="color:var(--color-bad)">{error}</p>
       </div>
-    </form>
-<TemplateEditor
-  bind:open={templateEditorOpen}
-  template={transformTemplate}
-  eventName={events[0] ?? ''}
-  {consumer}
-  onSave={(t) => { transformTemplate = t; }}
-/>
+    {/if}
+
+    <div class="flex items-center justify-end gap-2">
+      <a href="/webhooks" class="btn btn-ghost">Cancel</a>
+      <button type="submit" disabled={submitting} class="btn btn-beacon">{submitting ? 'Registering…' : 'Register webhook'}</button>
+    </div>
+  </form>
 </main>

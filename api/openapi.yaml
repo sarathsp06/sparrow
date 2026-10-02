@@ -1634,6 +1634,9 @@ components:
         http_config:
           $ref: "#/components/schemas/WebhookHTTPConfig"
           description: Update HTTP delivery settings. Only the fields you send change; the rest keep their current values. The merged result must satisfy the same limits as on create, or the request is rejected with 400.
+        requires_transform:
+          description: "Require (or stop requiring) a payload transform on every subscription. Turning it on fails with 409 while any subscription has no enabled transform_template. While on, events cannot be replaced in bulk (409): add or delete subscriptions individually."
+          type: boolean
         secret_headers:
           additionalProperties:
             type: string
@@ -1787,10 +1790,20 @@ components:
         http_config:
           $ref: "#/components/schemas/WebhookHTTPConfig"
           description: Per-webhook HTTP delivery tuning (retries, timeouts, rate limit). Falls back to server defaults for any field left unset.
+        on_transform_error:
+          description: What happens when transform_template fails to render for one of the created subscriptions. fail (default) or fallback; see the subscription's on_transform_error.
+          enum:
+            - fail
+            - fallback
+            - ""
+          type: string
         rate_limit_rps:
           description: Maximum sustained delivery rate to this webhook, in requests per second. Excess deliveries queue and are sent once the leaky bucket has capacity.
           format: double
           type: number
+        requires_transform:
+          description: "Set when the receiver only accepts a transformed payload (Slack, SendGrid, ...). Every subscription must then have transform_enabled and a transform_template: transform_template is required here when events is non-empty, and later subscription writes without one are rejected. Recipes set this. Defaults to false."
+          type: boolean
         secret_headers:
           additionalProperties:
             type: string
@@ -1802,6 +1815,27 @@ components:
             - hmac
             - ed25519
             - ""
+          type: string
+        template_missing_key:
+          description: How transform_template reads a key the payload does not have, for the created subscriptions. error (default) or zero; see the subscription's template_missing_key.
+          enum:
+            - error
+            - zero
+            - ""
+          type: string
+        template_notes:
+          description: Optional note stored with that first template version, e.g. the AI drafter's summary.
+          maxLength: 2000
+          type: string
+        template_source:
+          description: How transform_template was produced, recorded as the first version in each created subscription's template history. Defaults to manual.
+          enum:
+            - manual
+            - ai_draft
+            - ""
+          type: string
+        transform_template:
+          description: Transform template given to every subscription created from events, with transform_enabled set. Omit to create them untransformed (not allowed with requires_transform).
           type: string
         url:
           description: HTTPS/HTTP endpoint to POST deliveries to. Private, loopback, and cloud metadata addresses are rejected (SSRF protection).
@@ -2459,6 +2493,8 @@ components:
           additionalProperties:
             type: string
           type: object
+        requires_transform:
+          type: boolean
         secret_headers:
           additionalProperties:
             type: string
@@ -2689,6 +2725,9 @@ components:
         http_config:
           $ref: "#/components/schemas/WebhookHTTPConfigOut"
           description: Per-webhook HTTP delivery configuration.
+        requires_transform:
+          description: Whether every subscription must carry an enabled transform_template because the receiver only accepts transformed payloads.
+          type: boolean
         secret_headers:
           additionalProperties:
             type: string
@@ -2721,6 +2760,7 @@ components:
         - health
         - signature_type
         - http_config
+        - requires_transform
         - created_at
         - updated_at
       type: object
@@ -4343,6 +4383,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorModel"
           description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Conflict
         "422":
           content:
             application/problem+json:

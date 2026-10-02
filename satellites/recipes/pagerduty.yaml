@@ -9,6 +9,8 @@ params:
     prompt: "Default severity when the payload has none (critical|error|warning|info)"
     default: error
 webhook:
+  # The receiver only accepts the transformed payload below.
+  requires_transform: true
   url: https://events.pagerduty.com/v2/enqueue
   headers:
     Content-Type: application/json

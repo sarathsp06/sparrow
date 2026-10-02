@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -89,8 +90,8 @@ func insertWebhookRegistration(ctx context.Context, conn storage.DBTX, tenantID 
 			id, tenant_id, consumer, url, headers, timeout, active, description, health,
 			max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-			user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, signature_type, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+			user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, signature_type, requires_transform, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
 	`
 
 	_, err = conn.ExecContext(ctx, query,
@@ -117,6 +118,7 @@ func insertWebhookRegistration(ctx context.Context, conn storage.DBTX, tenantID 
 		registration.RateLimitRPS,
 		registration.Ed25519PrivateKey,
 		registration.SignatureType,
+		registration.RequiresTransform,
 		registration.CreatedAt,
 		registration.UpdatedAt,
 	)
@@ -161,7 +163,7 @@ func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UU
 		SELECT DISTINCT wr.id, wr.tenant_id, wr.consumer, wr.url, wr.headers, wr.timeout, wr.active, wr.description, wr.health,
 		       wr.max_retries, wr.retry_backoff_seconds, wr.capture_response_body, wr.follow_redirects,
 		       wr.verify_ssl, wr.request_timeout_seconds, wr.expected_status_codes, wr.webhook_secret,
-		       wr.user_agent, wr.content_type, wr.secret_headers, wr.rate_limit_rps, wr.ed25519_private_key, wr.signature_type, wr.created_at, wr.updated_at
+		       wr.user_agent, wr.content_type, wr.secret_headers, wr.rate_limit_rps, wr.ed25519_private_key, wr.signature_type, wr.requires_transform, wr.created_at, wr.updated_at
 		FROM webhook_registrations wr
 		LEFT JOIN event_subscriptions es ON wr.id = es.webhook_id
 		WHERE wr.tenant_id = $1
@@ -236,10 +238,36 @@ func (r *Repository) GetConsumerStats(ctx context.Context, tenantID uuid.UUID, c
 	return &stats, nil
 }
 
+// LockWebhook reads a webhook and row-locks it until the surrounding
+// transaction ends. Writers that depend on requires_transform serialize on
+// it: changing the flag takes an exclusive lock, subscription writes a shared
+// one, so a subscription can never be saved against a stale flag.
+func (r *Repository) LockWebhook(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, exclusive bool) (*WebhookRegistration, error) {
+	lock := "FOR SHARE"
+	if exclusive {
+		lock = "FOR UPDATE"
+	}
+	query := `
+		SELECT id, tenant_id, consumer, url, headers, timeout, active, description, health,
+		       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
+		       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
+		       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, signature_type, requires_transform, created_at, updated_at
+		FROM webhook_registrations
+		WHERE id = $1 AND tenant_id = $2 AND consumer = $3
+		` + lock
+	var result WebhookRegistration
+	if err := r.conn.GetContext(ctx, &result, query, webhookID, tenantID, consumer); err != nil {
+		return nil, storage.Error(err)
+	}
+	return &result, nil
+}
+
 // RegisterWebhookWithSubscriptions creates a webhook and its subscriptions atomically.
 // Both the webhook registration and all subscriptions are created within a single
 // database transaction. If any subscription fails, the entire operation is rolled back.
-func (r *Repository) RegisterWebhookWithSubscriptions(ctx context.Context, tenantID uuid.UUID, registration *WebhookRegistration, subscriptions []*EventSubscription) error {
+// A subscription created with a template gets it as its first saved version,
+// labelled with firstVersion's Source, Notes and SavedBy.
+func (r *Repository) RegisterWebhookWithSubscriptions(ctx context.Context, tenantID uuid.UUID, registration *WebhookRegistration, subscriptions []*EventSubscription, firstVersion SubscriptionTemplateVersion) error {
 	return storage.WithTransaction(r.db, func(tx storage.DBTX) error {
 		if err := checkWebhookDuplicate(ctx, tx, tenantID, registration); err != nil {
 			return err
@@ -248,11 +276,18 @@ func (r *Repository) RegisterWebhookWithSubscriptions(ctx context.Context, tenan
 			return err
 		}
 
-		// Create all subscriptions within the same transaction
+		// Create all subscriptions within the same transaction.
 		for _, sub := range subscriptions {
 			sub.WebhookID = registration.ID
 			if err := insertSubscription(ctx, tx, tenantID, sub); err != nil {
 				return fmt.Errorf("failed to create subscription for event %s: %w", sub.EventName, err)
+			}
+			if strings.TrimSpace(sub.TransformTemplate) != "" {
+				v := firstVersion
+				v.ID, v.SubscriptionID, v.Template = uuid.Nil, sub.ID, sub.TransformTemplate
+				if err := r.WithConn(tx).InsertTemplateVersion(ctx, tenantID, &v); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -305,7 +340,7 @@ func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, web
 			SELECT id, tenant_id, consumer, url, headers, timeout, active, description, health,
 			       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-			       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, signature_type, created_at, updated_at
+			       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, signature_type, requires_transform, created_at, updated_at
 			FROM webhook_registrations
 			WHERE id = $1 AND tenant_id = $2 AND consumer = $3
 		`
@@ -315,7 +350,7 @@ func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, web
 			SELECT id, tenant_id, consumer, url, headers, timeout, active, description, health,
 			       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-			       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, signature_type, created_at, updated_at
+			       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, signature_type, requires_transform, created_at, updated_at
 			FROM webhook_registrations
 			WHERE id = $1 AND tenant_id = $2
 		`
@@ -351,7 +386,7 @@ func (r *Repository) UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webh
 		    expected_status_codes = $15, webhook_secret = $16,
 		    user_agent = $17, content_type = $18,
 		    secret_headers = $19, rate_limit_rps = $20,
-		    ed25519_private_key = $21, signature_type = $22, updated_at = NOW()
+		    ed25519_private_key = $21, signature_type = $22, requires_transform = $23, updated_at = NOW()
 		WHERE id = $1 AND tenant_id = $2 AND consumer = $3
 	`
 
@@ -364,7 +399,7 @@ func (r *Repository) UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webh
 		pq.Array(webhook.ExpectedStatusCodes), webhook.WebhookSecret,
 		webhook.UserAgent, webhook.ContentType,
 		webhook.SecretHeaders, webhook.RateLimitRPS,
-		webhook.Ed25519PrivateKey, webhook.SignatureType,
+		webhook.Ed25519PrivateKey, webhook.SignatureType, webhook.RequiresTransform,
 	)
 	return storage.Error(err)
 }

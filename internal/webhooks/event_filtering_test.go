@@ -252,6 +252,7 @@ func TestCreateSubscription_WithLabelFilters(t *testing.T) {
 	eventName := "order.created"
 	labelFilters := map[string]string{"region": "us", "tier": "premium"}
 
+	repo.On("LockWebhook", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false).Return(&store.WebhookRegistration{}, nil)
 	repo.On("CreateSubscription", mock.Anything, mock.Anything, mock.MatchedBy(func(sub *store.EventSubscription) bool {
 		return sub.EventName == eventName &&
 			sub.Consumer == consumer &&
@@ -274,6 +275,7 @@ func TestCreateSubscription_WithEmptyLabelFilters(t *testing.T) {
 	ctx := testContext()
 	webhookID := uuid.New().String()
 
+	repo.On("LockWebhook", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false).Return(&store.WebhookRegistration{}, nil)
 	repo.On("CreateSubscription", mock.Anything, mock.Anything, mock.MatchedBy(func(sub *store.EventSubscription) bool {
 		return len(sub.LabelFilters) == 0
 	})).Return(nil)
@@ -340,6 +342,7 @@ func TestCreateSubscription_CatchAllWithLabelFilters(t *testing.T) {
 	webhookID := uuid.New().String()
 	labelFilters := map[string]string{"env": "prod"}
 
+	repo.On("LockWebhook", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false).Return(&store.WebhookRegistration{}, nil)
 	repo.On("CreateSubscription", mock.Anything, mock.Anything, mock.MatchedBy(func(sub *store.EventSubscription) bool {
 		return sub.EventName == store.CatchAllEventName && sub.LabelFilters["env"] == "prod"
 	})).Return(nil)
