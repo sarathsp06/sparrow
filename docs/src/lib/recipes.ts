@@ -248,9 +248,30 @@ export const RECIPE_META: Record<
       },
     ],
   },
+  cloudevents: {
+    title: 'CloudEvents',
+    demoParams: { target_url: 'http://broker-ingress.knative-eventing.svc/default/default', source: '/sparrow' },
+    setup: {
+      docsUrl: 'https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/bindings/http-protocol-binding.md',
+      docsLabel: 'CloudEvents HTTP binding',
+      steps: [
+        'Point target_url at any CloudEvents receiver: a Knative broker, Argo Events, Dapr, or your own service.',
+        'Optionally set source to identify this producer (defaults to /sparrow).',
+        'Receivers deduplicate retries by id + source; id is the Sparrow event id.',
+      ],
+    },
+    presets: [
+      {
+        id: 'order',
+        label: 'Order created',
+        event_name: 'order.created',
+        payload: { order_id: 'ord_42', amount: 1999, currency: 'usd' },
+      },
+    ],
+  },
 };
 
-const ORDER = ['sendgrid', 'slack', 'twilio', 'discord', 'ntfy', 'pagerduty', 'clickhouse'];
+const ORDER = ['sendgrid', 'slack', 'twilio', 'discord', 'ntfy', 'pagerduty', 'clickhouse', 'cloudevents'];
 
 export const RECIPES: RecipeDef[] = ORDER.map((n) => parsed.find((r) => r.name === n)).filter(
   (r): r is RecipeDef => !!r,

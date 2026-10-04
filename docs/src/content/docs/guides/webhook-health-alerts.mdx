@@ -17,7 +17,7 @@ existing consumers are unaffected.
 
 ## How it works
 
-Sparrow emits two events into a Sparrow-owned internal consumer, `_sparrow`,
+Sparrow emits three events into a Sparrow-owned internal consumer, `_sparrow`,
 using its own event/subscription/delivery pipeline — the same one your events
 flow through:
 
@@ -25,6 +25,7 @@ flow through:
 |-------|------------|
 | `sparrow.webhook.health_changed` | A webhook's health transitions (e.g. `healthy` → `degraded`). The very first `unknown` → `healthy` transition is skipped — every webhook starts `unknown` and this would otherwise fire on every registration. |
 | `sparrow.webhook.delivery_failed` | A delivery exhausts all of its retries and is marked permanently failed. |
+| `sparrow.webhook.disabled` | Sparrow paused a webhook automatically because its receiver kept failing (see [Automatic disabling](#automatic-disabling)). The payload carries the `reason`, `consecutive_failures` and `failing_since`. |
 
 <Aside type="note" title="`_sparrow` is a reserved namespace">
 `_sparrow` is a Sparrow-owned consumer (namespace) reserved by convention for
@@ -51,7 +52,7 @@ email via SendGrid.
      -H 'Content-Type: application/json' \
      -d '{
        "email": "ops@acme.example.com",
-       "event_types": ["sparrow.webhook.health_changed", "sparrow.webhook.delivery_failed"]
+       "event_types": ["sparrow.webhook.health_changed", "sparrow.webhook.delivery_failed", "sparrow.webhook.disabled"]
      }'
    ```
 
@@ -91,10 +92,11 @@ sparrow --consumer _sparrow use sendgrid \
   --param from_email=alerts@yourdomain.com \
   --param from_name="Sparrow Alerts" \
   --event sparrow.webhook.health_changed \
-  --event sparrow.webhook.delivery_failed
+  --event sparrow.webhook.delivery_failed \
+  --event sparrow.webhook.disabled
 ```
 
-That registers the SendGrid webhook, subscribes it to both system events, and
+That registers the SendGrid webhook, subscribes it to the system events, and
 installs the transform in one step. The transform ranges
 `payload.alert_recipients` into SendGrid's `v3` `personalizations` array — one
 SendGrid API call delivers to every opted-in recipient, each in their own
@@ -106,6 +108,34 @@ what the SendGrid webhook, subscription, and rendered request body look like
 before you apply it. See [Recipes](/sparrow/satellites/recipes/) for how
 recipes are applied and parameterized.
 </Aside>
+
+## Automatic disabling
+
+A receiver that has been down for days only collects retries that will never
+succeed. Sparrow pauses such a webhook itself once its receiver has failed
+**every attempt for `SPARROW_AUTO_DISABLE_AFTER`** (default `120h`, 5 days)
+**and at least `SPARROW_AUTO_DISABLE_MIN_FAILURES` attempts in a row**
+(default `10`). Any successful attempt resets the clock. Set
+`SPARROW_AUTO_DISABLE_AFTER=0` to turn this off.
+
+When it happens:
+
+- The webhook is paused like a manual pause: deliveries for new events, and
+  any not yet sent, are held with status **paused** instead of being dropped.
+- The webhook shows **Auto-disabled** in the UI with the reason, and the API
+  returns `auto_disabled_at` and `auto_disabled_reason` on it.
+- Sparrow emits `sparrow.webhook.disabled`, which alert configs can opt into
+  like the other two events.
+- `sparrow_webhooks_auto_disabled_total` increases on `/metrics`.
+
+Fix the receiver, then **Resume** the webhook. The response says how many
+deliveries were held (`paused_deliveries`); they are not sent automatically, so
+retry them from the UI (**Retry paused deliveries**) or with
+`status=paused&webhook_id={webhook_id}` and the
+[batch retry](/sparrow/guides/subscription-pause/#resuming). Resuming also
+clears the marker and restarts the failure window, so the webhook gets the full
+period again before it can be disabled a second time. Webhooks under `_sparrow` are never
+auto-disabled, because they carry the alerts that would report it.
 
 ## Good to know
 

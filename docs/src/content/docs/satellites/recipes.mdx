@@ -1,11 +1,11 @@
 ---
 title: Recipes
-description: Adapters as config — turn Sparrow deliveries into Slack, Discord, PagerDuty, ntfy, or ClickHouse payloads with one command.
+description: Adapters as config — turn Sparrow deliveries into Slack, Discord, PagerDuty, ntfy, ClickHouse, or CloudEvents payloads with one command.
 ---
 
 :::tip[Interactive Studio Apps Available]
 Try the interactive workbench embedded directly in our documentation:
-- **[Satellite Recipe Workbench](/sparrow/tools/recipe-workbench/)**: Compose emails (plain text or rich HTML), SMS, and Slack messages with variable chips — the workbench generates the transform template — and preview all 7 satellite recipes (Slack, Discord, SendGrid, ntfy, PagerDuty, ClickHouse, Twilio) in real time.
+- **[Satellite Recipe Workbench](/sparrow/tools/recipe-workbench/)**: Compose emails (plain text or rich HTML), SMS, and Slack messages with variable chips — the workbench generates the transform template — and preview all 8 satellite recipes (Slack, Discord, SendGrid, ntfy, PagerDuty, ClickHouse, Twilio, CloudEvents) in real time.
 :::
 
 Recipes are adapters as config. Each recipe is a small YAML file pairing a
@@ -175,6 +175,19 @@ columns:
 
 ```json
 {"event_id": "evt_0195c2a1", "event_name": "order.created", "timestamp": "2026-01-02T03:04:05Z", "payload": "{\"amount\":1999,\"order_id\":\"ord_42\"}"}
+```
+
+### cloudevents
+
+Delivers each event as a [CloudEvents 1.0](https://cloudevents.io) event in
+HTTP structured mode (`Content-Type: application/cloudevents+json`), so any
+CloudEvents receiver (a Knative broker, Argo Events, Dapr, or your own service)
+can consume Sparrow events without glue. Params: `target_url`, `source`
+(default `/sparrow`). `id` is the Sparrow event id, so retries of one event
+share an id and receivers can deduplicate them; `time` is the delivery time.
+
+```json
+{"specversion": "1.0", "id": "evt_0195c2a1", "source": "/sparrow", "type": "order.created", "time": "2026-01-02T03:04:05Z", "datacontenttype": "application/json", "data": {"amount": 1999, "order_id": "ord_42"}}
 ```
 
 ### twilio

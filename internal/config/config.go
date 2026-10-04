@@ -117,6 +117,28 @@ type Config struct {
 	// Env: SPARROW_EVENT_RETENTION_DAYS
 	EventRetentionDays int `envconfig:"SPARROW_EVENT_RETENTION_DAYS" default:"0"`
 
+	// AutoDisableAfter pauses a webhook automatically once its receiver has
+	// failed every attempt for this long (and at least
+	// AutoDisableMinFailures attempts in a row). The webhook is paused, not
+	// deleted: it is marked with the reason, a sparrow.webhook.disabled
+	// system event is emitted, and resuming it re-enables delivery. 0
+	// turns automatic disabling off.
+	// Env: SPARROW_AUTO_DISABLE_AFTER (Go duration, default "120h" = 5 days)
+	AutoDisableAfter time.Duration `envconfig:"SPARROW_AUTO_DISABLE_AFTER" default:"120h"`
+
+	// AutoDisableMinFailures is the minimum run of consecutive failed
+	// attempts before a webhook can be auto-disabled, so a receiver that saw
+	// a single failure long ago is never paused by the next one. 0 means
+	// the default.
+	// Env: SPARROW_AUTO_DISABLE_MIN_FAILURES (default 10)
+	AutoDisableMinFailures int `envconfig:"SPARROW_AUTO_DISABLE_MIN_FAILURES" default:"10"`
+
+	// MetricsEnabled serves the OpenTelemetry metrics in Prometheus text
+	// format at GET /metrics (unauthenticated, like /health), independent of
+	// OTLP export.
+	// Env: SPARROW_METRICS_ENABLED (default true)
+	MetricsEnabled bool `envconfig:"SPARROW_METRICS_ENABLED" default:"true"`
+
 	// AutoRegisterEvents lets a push to an unregistered event name create a
 	// schema-less event type instead of returning 404. Off by default: event
 	// types are never deleted, so in production a producer typo would become
@@ -198,6 +220,12 @@ func (c *Config) Validate() error {
 	if c.MaxBodyBytes < 1<<20 {
 		return fmt.Errorf("SPARROW_MAX_BODY_BYTES: %d is below the 1 MiB minimum", c.MaxBodyBytes)
 	}
+	if c.AutoDisableAfter < 0 {
+		return fmt.Errorf("SPARROW_AUTO_DISABLE_AFTER: must be >= 0, got %s", c.AutoDisableAfter)
+	}
+	if c.AutoDisableMinFailures < 0 {
+		return fmt.Errorf("SPARROW_AUTO_DISABLE_MIN_FAILURES: must be >= 0, got %d", c.AutoDisableMinFailures)
+	}
 	if c.EventRetentionDays < 0 {
 		return fmt.Errorf("SPARROW_EVENT_RETENTION_DAYS: must be >= 0, got %d", c.EventRetentionDays)
 	}
@@ -263,6 +291,19 @@ func (c *Config) AIModelOrDefault() string {
 		return DefaultAnthropicModel
 	}
 	return ""
+}
+
+// DefaultAutoDisableMinFailures is the failure-run minimum when
+// SPARROW_AUTO_DISABLE_MIN_FAILURES is unset or 0.
+const DefaultAutoDisableMinFailures = 10
+
+// AutoDisableMinFailuresOrDefault returns the configured minimum run of
+// consecutive failures, or DefaultAutoDisableMinFailures.
+func (c *Config) AutoDisableMinFailuresOrDefault() int {
+	if c.AutoDisableMinFailures > 0 {
+		return c.AutoDisableMinFailures
+	}
+	return DefaultAutoDisableMinFailures
 }
 
 // AllowedNetworkList returns the parsed SPARROW_ALLOWED_NETWORKS entries.

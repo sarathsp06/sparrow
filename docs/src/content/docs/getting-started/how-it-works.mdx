@@ -109,7 +109,8 @@ A **delivery** is a single attempt (or series of retry attempts) to send an even
 
 - **Async by default** — the push-event endpoint (`POST /v1/consumers/{consumer}/events`) returns immediately. Processing and delivery happen in background workers via a persistent job queue (River).
 - **At-least-once delivery** — retryable failures (server errors, timeouts, connection issues, rate limiting) are automatically retried. Non-retryable failures (DNS errors, TLS errors, 4xx responses) are recorded and not retried.
-- **Per-webhook health tracking** — Sparrow monitors consecutive failures, success rates, and response times for each webhook independently, with a state machine (healthy → degraded → unhealthy).
+- **Per-webhook health tracking** — Sparrow monitors consecutive failures, success rates, and response times for each webhook independently, with a state machine (healthy → degraded → unhealthy). A receiver that keeps failing for days (default 5) is [auto-disabled](/sparrow/guides/webhook-health-alerts/#automatic-disabling).
+- **Pauses hold, never drop** — while a webhook or subscription is paused (or auto-disabled), its deliveries are recorded as `paused`; after resuming you retry exactly what was held.
 - **Cryptographic signing** — every delivery is signed in the [Standard Webhooks](https://www.standardwebhooks.com/) format: HMAC-SHA256 by default, or Ed25519 per webhook (Ed25519 webhooks carry both signatures, so consumers verify with a shared secret or a public key).
 - **10-category error classification** — failures are classified into specific categories (DNS, TLS, timeout, connection refused, rate limited, client error, server error, etc.) with retryability flags, so you know *why* a delivery failed.
 - **PostgreSQL only** — no Redis, no message broker. The River job queue runs inside PostgreSQL, keeping the operational footprint to a single database.
@@ -133,7 +134,7 @@ Instead of building heavy Kafka or RabbitMQ integrations just to notify internal
 - Subscriptions use label filters (`env=prod`) and payload transforms to ensure services only receive relevant, cleanly shaped data.
 
 ### 3. Automated Third-Party Integration Gateway
-With Sparrow's [recipes](/sparrow/satellites/recipes/) and [satellites](/sparrow/satellites/), you can integrate core business events with Slack, PagerDuty, Discord, ClickHouse, or S3 with zero custom code:
+With Sparrow's [recipes](/sparrow/satellites/recipes/) and [satellites](/sparrow/satellites/), you can integrate core business events with Slack, PagerDuty, Discord, ClickHouse, any CloudEvents receiver, or S3 with zero custom code:
 - Firing an event automatically creates PagerDuty incidents on critical errors.
 - Posts rich Block Kit cards into Slack channels on sales conversions.
 - Streams full transaction streams into S3/MinIO for audit compliance.

@@ -132,7 +132,8 @@
             {#if delivery.status === 'paused'}
                 <div class="px-6 py-4 border-t border-line">
                     <p class="eyebrow mb-1.5">Paused</p>
-                    <p class="text-sm text-muted">Created while its subscription was paused. It has not been sent and will not be sent until it is retried.</p>
+                    <p class="text-sm text-muted">Held because its webhook or subscription was paused{delivery.error_message ? '' : ' when it was due'}. It has not been sent and will not be sent until it is retried after resuming.</p>
+                    {#if delivery.error_message}<p class="text-xs mono text-muted mt-1.5">{delivery.error_message}</p>{/if}
                 </div>
             {/if}
             <div class="px-6 py-4 border-t border-line">

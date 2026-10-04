@@ -127,10 +127,12 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 		}
 		deliveries = append(deliveries, delivery)
 
-		// A paused subscription still gets its delivery row, so what was
-		// not delivered stays visible and retryable, but nothing is queued.
-		if sub.Paused() {
+		// A paused subscription or webhook (manual or auto-disabled) still
+		// gets its delivery row, so what was not delivered stays visible and
+		// retryable, but nothing is queued.
+		if reason := holdReason(webhook, sub); reason != "" {
 			delivery.Status = store.StatusPaused
+			delivery.ErrorMessage = reason
 			paused++
 			continue
 		}
@@ -159,7 +161,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 	// separate transactions with delete-based compensation. Upgrade path:
 	// run both on a single pgx connection and use river.InsertManyTx.
 	if len(jobArgs) == 0 {
-		w.logger.InfoContext(ctx, "All matching subscriptions are paused; deliveries recorded as paused",
+		w.logger.InfoContext(ctx, "All matching subscriptions or webhooks are paused; deliveries recorded as paused",
 			"event_id", args.EventID, "paused", paused)
 		return nil
 	}

@@ -68,9 +68,14 @@ type WebhookRegistration struct {
 	SignatureType         SignatureType `json:"signature_type" db:"signature_type"`           // Signing scheme: "hmac" (default) or "ed25519"
 	// RequiresTransform means the receiver only accepts a transformed payload:
 	// every subscription must have an enabled transform_template.
-	RequiresTransform bool      `json:"requires_transform" db:"requires_transform"`
-	CreatedAt         time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at" db:"updated_at"`
+	RequiresTransform bool `json:"requires_transform" db:"requires_transform"`
+	// AutoDisabledAt and AutoDisabledReason are set when Sparrow paused the
+	// webhook itself because its receiver kept failing (see
+	// HealthRepository.AutoDisableWebhook); resuming clears them.
+	AutoDisabledAt     *time.Time `json:"auto_disabled_at,omitempty" db:"auto_disabled_at"`
+	AutoDisabledReason *string    `json:"auto_disabled_reason,omitempty" db:"auto_disabled_reason"`
+	CreatedAt          time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 // MaxDeliveryAttempts returns the total delivery attempts for this webhook:

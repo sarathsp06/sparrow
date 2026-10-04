@@ -7,6 +7,7 @@
   import EmptyState from "./EmptyState.svelte";
   import CopyableId from "./CopyableId.svelte";
   import ConfirmDialog from "./ConfirmDialog.svelte";
+  import HeldDeliveriesNotice from "./HeldDeliveriesNotice.svelte";
   import type { components } from "$lib/api-types";
 
   type SubscriptionItem = components["schemas"]["SubscriptionItem"];
@@ -87,32 +88,6 @@
       await fetchSubscriptions();
     } catch (e: any) {
       error = formatAPIError(e, 'Failed to resume subscription');
-    }
-  }
-
-  let retryingPaused = $state(false);
-  async function retryPaused() {
-    if (!resumeNotice) return;
-    retryingPaused = true;
-    try {
-      const ns = consumer || "default";
-      const list = unwrap(await api.GET('/v1/consumers/{consumer}/deliveries', {
-        params: {
-          path: { consumer: ns },
-          query: { status: "paused", subscription_id: resumeNotice.subscriptionId, created_after: resumeNotice.since || undefined, prepare_retry: true, limit: 1 },
-        },
-      }));
-      if (list.retry_id) {
-        unwrap(await api.POST('/v1/consumers/{consumer}/deliveries:retryBatch', {
-          params: { path: { consumer: ns } },
-          body: { repush_id: list.retry_id },
-        }));
-      }
-      resumeNotice = null;
-    } catch (e: any) {
-      error = formatAPIError(e, 'Failed to retry paused deliveries');
-    } finally {
-      retryingPaused = false;
     }
   }
 
@@ -202,17 +177,12 @@
     </div>
   {:else}
     {#if resumeNotice}
-      <div class="panel-2 p-3 mb-3 flex flex-wrap items-center justify-between gap-3">
-        <p class="text-sm text-text">
-          {resumeNotice.count === 1
-            ? "1 delivery was held while paused. It is not sent automatically."
-            : `${resumeNotice.count} deliveries were held while paused. They are not sent automatically.`}
-        </p>
-        <div class="flex gap-2">
-          <button class="btn btn-ghost !px-3 !py-1.5" onclick={() => (resumeNotice = null)}>Leave them</button>
-          <button class="btn btn-beacon !px-3 !py-1.5" disabled={retryingPaused} onclick={retryPaused}>Retry paused deliveries</button>
-        </div>
-      </div>
+      <HeldDeliveriesNotice
+        consumer={consumer || "default"}
+        count={resumeNotice.count}
+        filter={{ subscription_id: resumeNotice.subscriptionId, created_after: resumeNotice.since || undefined }}
+        onclose={() => (resumeNotice = null)}
+      />
     {/if}
     {#if pauseTarget}
       <div class="panel-2 p-4 mb-3 space-y-3">

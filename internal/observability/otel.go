@@ -4,9 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
@@ -14,6 +18,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	otelprom "go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
@@ -48,6 +53,9 @@ type Config struct {
 	OTLPEndpoint string
 	// OTLPProtocol is ProtocolHTTPProtobuf (default when empty) or ProtocolGRPC.
 	OTLPProtocol string
+	// Prometheus also exposes every OTel metric for scraping through
+	// MetricsHandler, with or without OTLP export.
+	Prometheus bool
 }
 
 // DefaultConfig returns a default OpenTelemetry configuration.
@@ -63,30 +71,34 @@ func DefaultConfig() *Config {
 }
 
 // Setup initializes OpenTelemetry with the provided configuration.
-// When config.OTLPEndpoint is empty, no exporters are created and a no-op
-// shutdown function is returned. This avoids noisy connection errors when
-// no collector is available.
+// When config.OTLPEndpoint is empty, no OTLP exporters are created (this
+// avoids noisy connection errors when no collector is available); metrics are
+// still collected when config.Prometheus is set, for MetricsHandler. With
+// neither, Setup returns a no-op shutdown function.
 func Setup(ctx context.Context, config *Config) (func(context.Context) error, error) {
 	noop := func(context.Context) error { return nil }
 
-	// No endpoint configured -- skip all OTLP export.
-	if config.OTLPEndpoint == "" {
-		// Still install the propagator so trace context propagation works
-		// even without an exporter (e.g. inbound headers are parsed).
-		otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
-			propagation.TraceContext{},
-			propagation.Baggage{},
-		))
+	// Install the propagator unconditionally so trace context propagation
+	// works even without an exporter (e.g. inbound headers are parsed).
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
+
+	otlp := config.OTLPEndpoint != ""
+	if !otlp && !config.Prometheus {
 		return noop, nil
 	}
 
-	switch config.OTLPProtocol {
-	case "":
-		config.OTLPProtocol = ProtocolHTTPProtobuf
-	case ProtocolHTTPProtobuf, ProtocolGRPC:
-	default:
-		return nil, fmt.Errorf("unsupported OTLP protocol %q (use %q or %q)",
-			config.OTLPProtocol, ProtocolGRPC, ProtocolHTTPProtobuf)
+	if otlp {
+		switch config.OTLPProtocol {
+		case "":
+			config.OTLPProtocol = ProtocolHTTPProtobuf
+		case ProtocolHTTPProtobuf, ProtocolGRPC:
+		default:
+			return nil, fmt.Errorf("unsupported OTLP protocol %q (use %q or %q)",
+				config.OTLPProtocol, ProtocolGRPC, ProtocolHTTPProtobuf)
+		}
 	}
 
 	// Create resource with service information
@@ -110,36 +122,41 @@ func Setup(ctx context.Context, config *Config) (func(context.Context) error, er
 		}
 	}
 
-	tracerProvider, err := setupTracing(ctx, res, config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to setup tracing: %w", err)
+	var tracerProvider *sdktrace.TracerProvider
+	var loggerProvider *log.LoggerProvider
+	if otlp {
+		tracerProvider, err = setupTracing(ctx, res, config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to setup tracing: %w", err)
+		}
+		shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
 	}
-	shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
 
-	meterProvider, err := setupMetrics(ctx, res, config)
+	meterProvider, promHandler, err := setupMetrics(ctx, res, config)
 	if err != nil {
 		cleanup()
 		return nil, fmt.Errorf("failed to setup metrics: %w", err)
 	}
 	shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
 
-	loggerProvider, err := newLoggerProvider(ctx, config)
-	if err != nil {
-		cleanup()
-		return nil, fmt.Errorf("failed to setup logger: %w", err)
+	if otlp {
+		loggerProvider, err = newLoggerProvider(ctx, config)
+		if err != nil {
+			cleanup()
+			return nil, fmt.Errorf("failed to setup logger: %w", err)
+		}
+		shutdownFuncs = append(shutdownFuncs, loggerProvider.Shutdown)
 	}
-	shutdownFuncs = append(shutdownFuncs, loggerProvider.Shutdown)
 
 	// Install globals only after every provider was built successfully.
-	otel.SetTracerProvider(tracerProvider)
+	if tracerProvider != nil {
+		otel.SetTracerProvider(tracerProvider)
+	}
 	otel.SetMeterProvider(meterProvider)
-	global.SetLoggerProvider(loggerProvider)
-
-	// Set global propagator for distributed tracing
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
-		propagation.TraceContext{},
-		propagation.Baggage{},
-	))
+	if loggerProvider != nil {
+		global.SetLoggerProvider(loggerProvider)
+	}
+	metricsHandler = promHandler
 
 	// Return shutdown function
 	return func(ctx context.Context) error {
@@ -154,6 +171,16 @@ func Setup(ctx context.Context, config *Config) (func(context.Context) error, er
 		}
 		return nil
 	}, nil
+}
+
+// metricsHandler serves the Prometheus scrape endpoint; nil until Setup ran
+// with Config.Prometheus.
+var metricsHandler http.Handler
+
+// MetricsHandler returns the handler serving every OTel metric in Prometheus
+// text format, or nil when Setup did not enable Prometheus.
+func MetricsHandler() http.Handler {
+	return metricsHandler
 }
 
 // legacyEndpoint reports whether endpoint is a bare host:port (the form
@@ -221,35 +248,54 @@ func newLoggerProvider(ctx context.Context, config *Config) (*log.LoggerProvider
 	return loggerProvider, nil
 }
 
-// setupMetrics configures OpenTelemetry metrics
-func setupMetrics(ctx context.Context, res *resource.Resource, config *Config) (*sdkmetric.MeterProvider, error) {
-	var exporter sdkmetric.Exporter
-	var err error
-	if config.OTLPProtocol == ProtocolGRPC {
-		var opts []otlpmetricgrpc.Option
-		if legacyEndpoint(config.OTLPEndpoint) {
-			opts = append(opts, otlpmetricgrpc.WithEndpoint(config.OTLPEndpoint), otlpmetricgrpc.WithInsecure())
+// setupMetrics configures OpenTelemetry metrics: a periodic OTLP reader when
+// an endpoint is configured, and a Prometheus pull reader (returned as its
+// scrape handler) when config.Prometheus is set. Both read the same
+// instruments, so every metric is available through either path.
+func setupMetrics(ctx context.Context, res *resource.Resource, config *Config) (*sdkmetric.MeterProvider, http.Handler, error) {
+	opts := []sdkmetric.Option{sdkmetric.WithResource(res)}
+
+	if config.OTLPEndpoint != "" {
+		var exporter sdkmetric.Exporter
+		var err error
+		if config.OTLPProtocol == ProtocolGRPC {
+			var opts []otlpmetricgrpc.Option
+			if legacyEndpoint(config.OTLPEndpoint) {
+				opts = append(opts, otlpmetricgrpc.WithEndpoint(config.OTLPEndpoint), otlpmetricgrpc.WithInsecure())
+			}
+			exporter, err = otlpmetricgrpc.New(ctx, opts...)
+		} else {
+			var opts []otlpmetrichttp.Option
+			if legacyEndpoint(config.OTLPEndpoint) {
+				opts = append(opts, otlpmetrichttp.WithEndpoint(config.OTLPEndpoint), otlpmetrichttp.WithInsecure())
+			}
+			exporter, err = otlpmetrichttp.New(ctx, opts...)
 		}
-		exporter, err = otlpmetricgrpc.New(ctx, opts...)
-	} else {
-		var opts []otlpmetrichttp.Option
-		if legacyEndpoint(config.OTLPEndpoint) {
-			opts = append(opts, otlpmetrichttp.WithEndpoint(config.OTLPEndpoint), otlpmetrichttp.WithInsecure())
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create OTLP metric exporter: %w", err)
 		}
-		exporter, err = otlpmetrichttp.New(ctx, opts...)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to create OTLP metric exporter: %w", err)
+		opts = append(opts, sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter,
+			sdkmetric.WithInterval(metricExportInterval))))
 	}
 
-	// Create meter provider
-	meterProvider := sdkmetric.NewMeterProvider(
-		sdkmetric.WithResource(res),
-		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter,
-			sdkmetric.WithInterval(metricExportInterval))),
-	)
+	var handler http.Handler
+	if config.Prometheus {
+		// A private registry keeps the scrape output to Sparrow's own
+		// metrics plus the standard Go runtime and process collectors.
+		registry := prometheus.NewRegistry()
+		registry.MustRegister(
+			collectors.NewGoCollector(),
+			collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+		)
+		exporter, err := otelprom.New(otelprom.WithRegisterer(registry))
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create Prometheus exporter: %w", err)
+		}
+		opts = append(opts, sdkmetric.WithReader(exporter))
+		handler = promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
+	}
 
-	return meterProvider, nil
+	return sdkmetric.NewMeterProvider(opts...), handler, nil
 }
 
 // GetTracer returns a tracer for the given name

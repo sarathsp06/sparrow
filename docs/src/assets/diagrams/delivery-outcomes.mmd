@@ -1,12 +1,12 @@
 flowchart TD
     E["event accepted,<br>event_version recorded"] --> FO["fan-out to matching subscriptions"]
-    FO --> WA{"webhook active?"}
-    WA -- no --> SKIP["no delivery (webhook paused)"]
-    WA -- yes --> PS{"subscription paused?"}
+    FO --> PS{"webhook or subscription paused?<br>(incl. auto-disabled)"}
     PS -- yes --> PR["delivery row, status paused,<br>no job queued"]
     PR -. "resume, then retry" .-> JOB
     PS -- no --> JOB["delivery row pending,<br>job queued"]
-    JOB --> T{"transform enabled?"}
+    JOB --> HP{"paused since queued?"}
+    HP -- yes --> PR
+    HP -- no --> T{"transform enabled?"}
     T -- no --> ENV["default envelope"]
     T -- yes --> RN["render template<br>(template_missing_key)"]
     RN --> OK{"rendered?"}
@@ -24,3 +24,4 @@ flowchart TD
     S --> H[("webhook health")]
     RT --> H
     FL --> H
+    H -. "failing for SPARROW_AUTO_DISABLE_AFTER" .-> AD["webhook auto-disabled<br>(sparrow.webhook.disabled)"]

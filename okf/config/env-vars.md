@@ -43,6 +43,7 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 |----------|---------|---------|
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector URL (scheme sets TLS); empty disables export | — |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` or `grpc` | `http/protobuf` |
+| `SPARROW_METRICS_ENABLED` | Serve all OTel metrics in Prometheus format at unauthenticated `GET /metrics` (`observability.MetricsHandler`), independent of OTLP | `true` |
 | `ENVIRONMENT` | `development` or `production`; `production` enforces `SPARROW_API_KEY` | — |
 
 `Warnings()` also logs a non-fatal advisory if `DATABASE_URL` uses `sslmode=disable` against a non-local host.
@@ -58,6 +59,8 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `SPARROW_EVENT_RETENTION_DAYS` | Purge events (and cascaded deliveries) older than N days via an hourly background job; `0` disables retention (data kept forever) | `0` |
+| `SPARROW_AUTO_DISABLE_AFTER` | Pause a webhook whose receiver failed every attempt for this long (`queue.AutoDisablePolicy`); `0` disables | `120h` |
+| `SPARROW_AUTO_DISABLE_MIN_FAILURES` | Minimum consecutive failed attempts before auto-disable; `0` means the default | `10` |
 | `SPARROW_AUTO_REGISTER_EVENTS` | Push to an unregistered event name creates a schema-less event type instead of returning 404; development only | `false` |
 
 ## Template history

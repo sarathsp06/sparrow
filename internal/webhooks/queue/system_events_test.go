@@ -240,7 +240,7 @@ func TestEmitDeliveryFailedEvent_EmitsOnRecipientLookupError(t *testing.T) {
 }
 
 func TestPushSystemEvent_AutoRegistersWithSchema(t *testing.T) {
-	for _, event := range []string{systemEventHealthChanged, systemEventDeliveryFailed} {
+	for _, event := range []string{systemEventHealthChanged, systemEventDeliveryFailed, systemEventWebhookDisabled} {
 		eventRepo := &fakeSystemEventRepo{notRegistered: true}
 		pushSystemEvent(context.Background(), slog.Default(), eventRepo, noopJobInserter{}, uuid.New(), event, map[string]any{})
 

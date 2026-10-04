@@ -22,7 +22,7 @@ Set these environment variables on the Sparrow container. Keep them in a secret 
 | `DATABASE_URL` | — | PostgreSQL connection string. Use `sslmode=require` or `sslmode=verify-full` when the database is not on localhost. |
 | `SPARROW_SERVE_UI` | `true` or `false` | Serve the embedded web dashboard. |
 
-Other variables (`SPARROW_ALLOWED_NETWORKS`, `CORS_ALLOWED_ORIGINS`, `SPARROW_EVENT_RETENTION_DAYS`, `SPARROW_AI_API_KEY`, `OTEL_EXPORTER_OTLP_ENDPOINT`, etc.) are documented in [Configuration](/sparrow/getting-started/configuration/).
+Other variables (`SPARROW_ALLOWED_NETWORKS`, `CORS_ALLOWED_ORIGINS`, `SPARROW_EVENT_RETENTION_DAYS`, `SPARROW_AUTO_DISABLE_AFTER`, `SPARROW_METRICS_ENABLED`, `SPARROW_AI_API_KEY`, `OTEL_EXPORTER_OTLP_ENDPOINT`, etc.) are documented in [Configuration](/sparrow/getting-started/configuration/).
 
 ## Kubernetes manifests
 
@@ -236,6 +236,8 @@ Give each person and CI job their own access token instead of sharing `SPARROW_A
 - [ ] Image tag pinned to a release (not `latest`).
 - [ ] Container runs as non-root (UID 65532), read-only filesystem, no privilege escalation, all capabilities dropped.
 - [ ] Liveness (`/health`) and readiness (`/ready`) probes configured.
+- [ ] Prometheus scraping `/metrics` (or OTLP export configured), with alerts on delivery success rate, `sparrow_queue_jobs` backlog, and `sparrow_webhooks_auto_disabled_total`. `/metrics` needs no API key: keep it off public networks, or set `SPARROW_METRICS_ENABLED=false`.
+- [ ] `SPARROW_AUTO_DISABLE_AFTER` reviewed (default 5 days of failures pauses a webhook; deliveries are held, not dropped) and an alert config opted into `sparrow.webhook.disabled`.
 - [ ] Exposed only through an internal ingress or VPN -- never a public LoadBalancer.
 - [ ] TLS terminated at the ingress controller or reverse proxy.
 - [ ] `CORS_ALLOWED_ORIGINS` set if the UI is hosted on a different origin.

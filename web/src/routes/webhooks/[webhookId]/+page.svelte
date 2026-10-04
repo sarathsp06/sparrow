@@ -12,6 +12,7 @@
   import Pagination from '$lib/components/Pagination.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+  import HeldDeliveriesNotice from '$lib/components/HeldDeliveriesNotice.svelte';
   import SubscriptionManager from '$lib/components/SubscriptionManager.svelte';
   import BatchProgress from '$lib/components/BatchProgress.svelte';
 
@@ -163,6 +164,9 @@
 
   onMount(fetchData);
 
+  // Deliveries held while the webhook was paused, reported by the last resume.
+  let heldCount = $state(0);
+
   async function toggleWebhookStatus() {
     if (!webhook) return;
     try {
@@ -171,9 +175,10 @@
           params: { path: { consumer: webhook.consumer, webhook_id: webhookId } },
         }));
       } else {
-        unwrap(await api.POST('/v1/consumers/{consumer}/webhooks/{webhook_id}:resume', {
+        const res = unwrap(await api.POST('/v1/consumers/{consumer}/webhooks/{webhook_id}:resume', {
           params: { path: { consumer: webhook.consumer, webhook_id: webhookId } },
         }));
+        heldCount = res.paused_deliveries;
       }
       await fetchData();
     } catch (e: any) {
@@ -605,10 +610,27 @@
               {:else}
                 <span class="chip">
                   <span class="w-1.5 h-1.5 rounded-full" style="background:var(--color-idle)"></span>
-                  Paused
+                  {webhook.auto_disabled_at ? 'Auto-disabled' : 'Paused'}
                 </span>
               {/if}
             </div>
+
+            {#if heldCount > 0}
+              <HeldDeliveriesNotice
+                consumer={webhook.consumer}
+                count={heldCount}
+                filter={{ webhook_id: webhookId }}
+                onclose={() => { heldCount = 0; fetchData(); }}
+              />
+            {/if}
+
+            {#if !webhook.active && webhook.auto_disabled_at}
+              <div class="panel-2 p-3 mb-3 text-sm" style="border-color:color-mix(in srgb,var(--color-warn) 35%,transparent)">
+                <p style="color:var(--color-warn)">Sparrow paused this webhook on {formatTimestamp(webhook.auto_disabled_at)} because its receiver kept failing.</p>
+                {#if webhook.auto_disabled_reason}<p class="mono text-xs text-muted mt-1">{webhook.auto_disabled_reason}</p>{/if}
+                <p class="text-xs text-muted mt-1">New events are held as paused deliveries, not sent. Fix the receiver, then Resume and retry them.</p>
+              </div>
+            {/if}
 
             {#if editingUrl}
               <div class="flex items-center gap-2 mb-3">

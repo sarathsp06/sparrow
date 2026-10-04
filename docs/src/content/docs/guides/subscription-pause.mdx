@@ -16,10 +16,15 @@ schema change, or you are investigating something. Nothing is lost.
 
 - Events keep fanning out to the subscription. Each delivery is recorded with
   status **paused**, and nothing is queued or attempted.
-- Deliveries that were already queued when you paused still go out.
-- Other subscriptions on the same webhook are unaffected. (Pausing the whole
-  webhook stops all of them, and records nothing for events that arrive while
-  it is paused.)
+- Deliveries that were already queued or retrying when you paused are held
+  too: their next attempt becomes **paused** instead of being sent.
+- Other subscriptions on the same webhook are unaffected. Pausing the whole
+  webhook, by hand or when Sparrow
+  [auto-disables it](/sparrow/guides/webhook-health-alerts/#automatic-disabling),
+  works the same way for all of its subscriptions: deliveries are held as
+  paused, and resuming the webhook reports how many
+  (`paused_deliveries`) so you can retry them with
+  `status=paused&webhook_id={webhook_id}`.
 - A pause is not a failure of the receiving system, so it **never affects the
   webhook's health** or raises health alerts.
 
@@ -32,6 +37,21 @@ curl -X POST http://localhost:8080/v1/consumers/acme/subscriptions/{subscription
 The subscription then shows `paused: true`, `paused_at` and `paused_reason`.
 Pausing again updates the reason and keeps the original time. In the UI, use
 **Pause** on the subscription; its card shows the reason while it is paused.
+
+## Seeing what was held
+
+Held deliveries are ordinary deliveries with status **paused**:
+
+- The delivery lists (all deliveries, or one webhook's) show them with a
+  **Paused** badge, and the status filter has a **Paused** option
+  (`GET /v1/consumers/{consumer}/deliveries?status=paused`).
+- Each one records why it was held in `error_message`, shown on the delivery
+  page: `Held: subscription is paused (<your reason>)`,
+  `Held: webhook is paused`, or `Held: webhook was auto-disabled`.
+- A delivery that was already retrying when the pause began keeps the error
+  of its last failed attempt alongside the hold.
+- The event itself appears in the event history as usual, with its paused
+  deliveries listed under it.
 
 ## Resuming
 

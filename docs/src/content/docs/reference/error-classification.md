@@ -37,9 +37,13 @@ Retries continue until:
 
 **Non-retryable** errors immediately mark the delivery as `FAILED` regardless of remaining retry budget.
 
-A delivery with status `paused` was created while its subscription was paused.
-It has no error category, is never attempted until retried, and does not
-affect health. See [Pausing a Subscription](/sparrow/guides/subscription-pause/).
+A delivery with status `paused` was held because its subscription or webhook
+was paused (by hand, or because Sparrow
+[auto-disabled](/sparrow/guides/webhook-health-alerts/#automatic-disabling) the
+webhook): either it was created during the pause, or it was queued or retrying
+when the pause began. It has no error category, is never attempted until
+retried, and does not affect health. See
+[Pausing a Subscription](/sparrow/guides/subscription-pause/).
 
 ## Classification Logic
 

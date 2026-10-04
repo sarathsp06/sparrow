@@ -998,7 +998,7 @@ func (_d WebhookServiceInterfaceWithTracing) ResumeSubscription(ctx context.Cont
 }
 
 // ResumeWebhook implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) ResumeWebhook(ctx context.Context, webhookID string, consumer string) (err error) {
+func (_d WebhookServiceInterfaceWithTracing) ResumeWebhook(ctx context.Context, webhookID string, consumer string) (wp1 *WebhookResumeResult, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.ResumeWebhook")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -1006,6 +1006,7 @@ func (_d WebhookServiceInterfaceWithTracing) ResumeWebhook(ctx context.Context, 
 				"ctx":       ctx,
 				"webhookID": webhookID,
 				"consumer":  consumer}, map[string]interface{}{
+				"wp1": wp1,
 				"err": err})
 		} else if err != nil {
 			_span.RecordError(err)

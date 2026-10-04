@@ -308,7 +308,6 @@ func (r *Repository) GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.
 		JOIN webhook_registrations wr ON es.webhook_id = wr.id
 		WHERE es.tenant_id = $1 AND es.consumer = $2
 		  AND (es.event_name = $3 OR es.event_name = '*')
-		  AND wr.active = true
 		  AND (es.label_filters = '{}' OR es.label_filters <@ $4::jsonb)
 	`
 
@@ -326,15 +325,16 @@ func (r *Repository) GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.
 	return subscriptions, nil
 }
 
-// GetSubscriptionsWithWebhooksByEvent finds all active subscriptions for a specific event in a consumer within a tenant,
-// including the webhook configuration for each subscription.
+// GetSubscriptionsWithWebhooksByEvent finds every subscription for a specific event in a consumer within a tenant,
+// including the webhook configuration for each subscription. Paused webhooks are included (with Active false) so
+// fan-out records their deliveries as paused instead of dropping them.
 func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string, labels map[string]string) ([]*SubscriptionWithWebhook, error) {
 	query := `
 		SELECT
 			es.id, es.webhook_id, es.event_name, es.consumer, es.headers as es_headers, es.method,
 			es.transform_enabled, es.transform_template, es.timeout, es.label_filters, es.on_transform_error, es.template_missing_key, es.paused_at, COALESCE(es.paused_reason, '') AS paused_reason, es.created_at, es.updated_at,
 			wr.id as wr_id, wr.consumer as wr_consumer, wr.url, wr.headers as wr_headers,
-			wr.timeout as wr_timeout, wr.active, wr.description, wr.health,
+			wr.timeout as wr_timeout, wr.active, wr.auto_disabled_at, wr.description, wr.health,
 			wr.max_retries, wr.retry_backoff_seconds, wr.capture_response_body, wr.follow_redirects,
 			wr.verify_ssl, wr.request_timeout_seconds, wr.expected_status_codes, wr.webhook_secret,
 			wr.user_agent, wr.content_type, wr.secret_headers, wr.created_at as wr_created_at, wr.updated_at as wr_updated_at
@@ -342,7 +342,6 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, te
 		JOIN webhook_registrations wr ON es.webhook_id = wr.id
 		WHERE es.tenant_id = $1 AND es.consumer = $2
 		  AND (es.event_name = $3 OR es.event_name = '*')
-		  AND wr.active = true
 		  AND (es.label_filters = '{}' OR es.label_filters <@ $4::jsonb)
 	`
 
@@ -377,6 +376,7 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, te
 		WRHeadersJSON           []byte        `db:"wr_headers"`
 		WRTimeout               int           `db:"wr_timeout"`
 		Active                  bool          `db:"active"`
+		AutoDisabledAt          *time.Time    `db:"auto_disabled_at"`
 		Description             string        `db:"description"`
 		Health                  string        `db:"health"`
 		MaxRetries              int           `db:"max_retries"`
@@ -427,6 +427,7 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, te
 			URL:                   row.URL,
 			Timeout:               row.WRTimeout,
 			Active:                row.Active,
+			AutoDisabledAt:        row.AutoDisabledAt,
 			Description:           row.Description,
 			Health:                WebhookHealth(row.Health),
 			MaxRetries:            row.MaxRetries,

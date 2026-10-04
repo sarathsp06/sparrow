@@ -17,6 +17,7 @@ type DeliveryRepository interface {
 	CreateDelivery(ctx context.Context, tenantID uuid.UUID, delivery *WebhookDelivery) error
 	BatchCreateDeliveries(ctx context.Context, tenantID uuid.UUID, deliveries []*WebhookDelivery) error
 	UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage, errorCategory string) error
+	HoldDelivery(ctx context.Context, deliveryID uuid.UUID, reason string) error
 	UpdateDeliveryRequestBody(ctx context.Context, deliveryID uuid.UUID, requestBody string) error
 	GetDeliveryByID(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, consumer string) (*WebhookDelivery, error)
 	GetDeliveriesByWebhookID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, limit, offset int) ([]*WebhookDelivery, int, error)
@@ -141,6 +142,16 @@ func (r *Repository) UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.U
 	`
 
 	_, err := r.conn.ExecContext(ctx, query, deliveryID, status, now, responseCode, responseBody, errorMessage, attemptIncrement, errorCategory)
+	return storage.Error(err)
+}
+
+// HoldDelivery marks a delivery paused without recording an attempt: its
+// webhook or subscription was paused before it could be sent. Like a delivery
+// fanned out while paused, it waits to be retried.
+func (r *Repository) HoldDelivery(ctx context.Context, deliveryID uuid.UUID, reason string) error {
+	_, err := r.conn.ExecContext(ctx,
+		`UPDATE webhook_deliveries SET status = $2, error_message = $3 WHERE id = $1`,
+		deliveryID, StatusPaused, reason)
 	return storage.Error(err)
 }
 

@@ -1,0 +1,31 @@
+version: 1
+name: cloudevents
+description: Deliver events as CloudEvents 1.0 (HTTP structured mode) to any CloudEvents receiver
+params:
+  - name: target_url
+    prompt: "CloudEvents receiver URL (e.g. a Knative broker, Argo Events or Dapr endpoint)"
+    required: true
+  - name: source
+    prompt: "CloudEvents source attribute identifying this producer (a URI-reference)"
+    default: /sparrow
+webhook:
+  # The receiver only accepts the transformed payload below.
+  requires_transform: true
+  url: '{{param "target_url"}}'
+  headers:
+    # Structured content mode: every attribute travels in the JSON body.
+    Content-Type: application/cloudevents+json; charset=utf-8
+subscription:
+  # The event id is the CloudEvents id, so a receiver deduplicates retries of
+  # the same event (id + source is unique per the spec). time is the delivery
+  # time Sparrow renders the template at.
+  transform_template: |
+    {
+      "specversion": "1.0",
+      "id": {{.event_id | json}},
+      "source": "{{param "source"}}",
+      "type": {{.event_name | json}},
+      "time": {{.timestamp | json}},
+      "datacontenttype": "application/json",
+      "data": {{.payload | json}}
+    }

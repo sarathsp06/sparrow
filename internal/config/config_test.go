@@ -63,6 +63,9 @@ func TestValidate(t *testing.T) {
 			}
 			c.EncryptionPrimaryKeyID = "missing"
 		}, "SPARROW_ENCRYPTION_PRIMARY_KEY_ID"},
+		{"negative auto-disable window", func(c *Config) { c.AutoDisableAfter = -time.Hour }, "SPARROW_AUTO_DISABLE_AFTER"},
+		{"auto-disable off", func(c *Config) { c.AutoDisableAfter = 0 }, ""},
+		{"negative auto-disable failure minimum", func(c *Config) { c.AutoDisableMinFailures = -1 }, "SPARROW_AUTO_DISABLE_MIN_FAILURES"},
 		{"body limit below minimum", func(c *Config) { c.MaxBodyBytes = 1024 }, "SPARROW_MAX_BODY_BYTES"},
 	}
 

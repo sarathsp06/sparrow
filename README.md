@@ -40,7 +40,7 @@ producers / curl / UI / SDKs
 - **Cryptographic signing** — HMAC-SHA256 on every delivery, plus Ed25519 when a webhook uses `signature_type: ed25519`, both in [Standard Webhooks](https://www.standardwebhooks.com/) format.
 - **Encryption at rest** — webhook secrets and sensitive headers are envelope-encrypted with AES-256-GCM.
 - **Payload transforms** — per-subscription Go templates let you reshape payloads per consumer.
-- **Adapter recipes** — event → Slack/Discord/PagerDuty/ntfy/ClickHouse/Twilio/SendGrid as pure subscription config via `sparrow use`; templates render server-side per delivery.
+- **Adapter recipes** — event → Slack/Discord/PagerDuty/ntfy/ClickHouse/Twilio/SendGrid/CloudEvents as pure subscription config via `sparrow use`; templates render server-side per delivery.
 - **Soft schema validation** — invalid payloads produce warnings instead of being dropped.
 - **Versioned event types** — every schema change is a kept version, events record the version they were accepted under, and a schema change that could break a subscription's transform needs an explicit opt-in.
 - **Promote definitions between environments** — export event types to one JSON file and import it elsewhere, with a dry-run preview, from the UI, the CLI, or the API.
@@ -319,6 +319,15 @@ Everything is configured through environment variables.
 
 16. `OTEL_EXPORTER_OTLP_ENDPOINT` — optional. OTLP collector URL for traces, metrics, and logs (`https://` for TLS). Export is off when unset.
 17. `OTEL_EXPORTER_OTLP_PROTOCOL` — optional. `http/protobuf` (default) or `grpc`.
+18. `SPARROW_METRICS_ENABLED` — optional. Default: `true`.
+    Serves every OTel metric in Prometheus format at `GET /metrics` (no API key, like `/health`): delivery attempts and latency, queue backlog, webhooks by health and status.
+
+**Failing receivers**
+
+19. `SPARROW_AUTO_DISABLE_AFTER` — optional. Default: `120h` (5 days); `0` turns it off.
+    Pauses a webhook whose receiver has failed every attempt for this long, records why on the webhook, and emits `sparrow.webhook.disabled`. Like a manual pause, deliveries are held as `paused` (not dropped); resume it, then retry what was held.
+20. `SPARROW_AUTO_DISABLE_MIN_FAILURES` — optional. Default: `10`.
+    Minimum run of consecutive failed attempts before a webhook can be auto-disabled.
 
 **Template history**: every save that changes a subscription's `transform_template` records a version (`GET /v1/consumers/{c}/subscriptions/{id}/templateVersions`, last 20, with `manual`/`ai_draft` source, notes, and who saved it). The template editor lists them and can load one back; saving records it again.
 
@@ -359,6 +368,8 @@ Adapters as config: a recipe is a YAML file pairing a destination URL with a tra
    Params: `account_sid`, `basic_auth`, `from_number`, `to_number`.
 7. [`sendgrid`](satellites/recipes/sendgrid.yaml) — SendGrid Mail Send API (transactional email).
    Params: `api_key`, `from_email`, `from_name`.
+8. [`cloudevents`](satellites/recipes/cloudevents.yaml) — CloudEvents 1.0 structured mode (Knative, Argo Events, Dapr, …).
+   Params: `target_url`, `source`.
 
 Recipe credentials that map to HTTP headers (Twilio `basic_auth`, ClickHouse `password`, SendGrid `api_key`) are stored as **envelope-encrypted secret headers** and masked in every API response. PagerDuty's `routing_key` is part of the request body the API requires, so it lives in the transform template.
 

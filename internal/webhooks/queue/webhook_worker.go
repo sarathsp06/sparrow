@@ -48,10 +48,27 @@ type WebhookWorker struct {
 	// templateErrors counts payload transform failures, labelled by the
 	// subscription's on_transform_error. Nil if the meter is unavailable.
 	templateErrors metric.Int64Counter
+	// autoDisable decides when a webhook whose receiver keeps failing is
+	// paused automatically.
+	autoDisable AutoDisablePolicy
+	// metrics are the delivery-outcome instruments; nil fields are skipped.
+	metrics workerMetrics
+}
+
+// AutoDisablePolicy pauses a webhook once its receiver has failed at least
+// MinFailures attempts in a row with no success for After. A zero After (or
+// MinFailures) turns automatic disabling off.
+type AutoDisablePolicy struct {
+	After       time.Duration
+	MinFailures int
+}
+
+func (p AutoDisablePolicy) enabled() bool {
+	return p.After > 0 && p.MinFailures > 0
 }
 
 // NewWebhookWorker creates a new webhook worker
-func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo systemEventRepo, deliveryRepo store.DeliveryRepository, subscriptionRepo store.SubscriptionRepository, healthRepo store.HealthRepository, rateLimitRepo store.RateLimitRepository, alertConfigRepo store.AlertConfigRepository, jobInserter JobInserter, cryptoSvc *crypto.Service, clientConfig *client.Config) *WebhookWorker {
+func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo systemEventRepo, deliveryRepo store.DeliveryRepository, subscriptionRepo store.SubscriptionRepository, healthRepo store.HealthRepository, rateLimitRepo store.RateLimitRepository, alertConfigRepo store.AlertConfigRepository, jobInserter JobInserter, cryptoSvc *crypto.Service, clientConfig *client.Config, autoDisable AutoDisablePolicy) *WebhookWorker {
 	// Initialize the centralized webhook client
 	webhookClient := client.NewWebhookClient(clientConfig)
 
@@ -70,6 +87,8 @@ func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo systemEvent
 		client:           webhookClient,
 		captureLimit:     clientConfig.CapturedResponseLimit(),
 		templateErrors:   newTemplateErrorCounter(),
+		autoDisable:      autoDisable,
+		metrics:          newWorkerMetrics(),
 	}
 }
 
@@ -86,10 +105,6 @@ func newTemplateErrorCounter() metric.Int64Counter {
 
 // maxRetryDelay caps the exponential backoff regardless of configuration.
 const maxRetryDelay = 24 * time.Hour
-
-// pausedRecheckInterval is how long a delivery job snoozes before re-checking
-// a paused webhook's state.
-const pausedRecheckInterval = 30 * time.Second
 
 // NextRetry honors the webhook's configured retry_backoff_seconds: the delay
 // after attempt N is base * 2^(N-1), capped at maxRetryDelay. A zero base
@@ -112,6 +127,24 @@ func (w *WebhookWorker) NextRetry(job *river.Job[WebhookArgs]) time.Time {
 		delay = maxRetryDelay
 	}
 	return time.Now().Add(delay)
+}
+
+// holdReason returns why a delivery must be held instead of sent, or "" to
+// send it. Fan-out and the delivery worker both record it on the held
+// delivery, so the UI can say why it was not sent.
+func holdReason(webhook *store.WebhookRegistration, subscription *store.EventSubscription) string {
+	switch {
+	case webhook.AutoDisabledAt != nil && !webhook.Active:
+		return "Held: webhook was auto-disabled; retry after resuming it"
+	case !webhook.Active:
+		return "Held: webhook is paused; retry after resuming it"
+	case subscription != nil && subscription.Paused():
+		if subscription.PausedReason != "" {
+			return "Held: subscription is paused (" + subscription.PausedReason + "); retry after resuming it"
+		}
+		return "Held: subscription is paused; retry after resuming it"
+	}
+	return ""
 }
 
 // statusForFailure resolves the delivery status to record for a failed
@@ -223,13 +256,18 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		return nil
 	}
 
-	// Paused webhooks keep in-flight deliveries queued instead of delivering
-	// or failing them: snooze and re-check so a resume picks them back up.
-	// The expiry check above still bounds how long a paused delivery lingers.
-	if !webhook.Active {
-		log.InfoContext(ctx, "Webhook paused, snoozing delivery", "snooze", pausedRecheckInterval)
-		span.SetAttributes(attribute.String("pause_action", "snoozed"))
-		return river.JobSnooze(pausedRecheckInterval)
+	// A paused webhook or subscription (manual or automatic) holds its
+	// deliveries instead of sending or failing them: the delivery becomes
+	// paused, exactly like one fanned out during the pause, and is sent when
+	// it is retried. Holding is a choice on the sending side, so it never
+	// touches the webhook's health.
+	if reason := holdReason(webhook, subscription); reason != "" {
+		log.InfoContext(ctx, "Holding delivery as paused", "reason", reason)
+		span.SetAttributes(attribute.String("pause_action", "held"))
+		if err := w.deliveryRepo.HoldDelivery(ctx, deliveryID, reason); err != nil {
+			return fmt.Errorf("hold paused delivery: %w", err)
+		}
+		return nil
 	}
 
 	log.InfoContext(ctx, "Processing webhook delivery", "event_id", args.EventID, "url", client.RedactURL(webhook.URL))
@@ -549,6 +587,7 @@ func (w *WebhookWorker) renderPayload(ctx context.Context, log *slog.Logger, job
 // recordHealthOutcome records a webhook health event and updates the health state.
 // This is the shared implementation for all delivery outcome paths (success, client error, server error).
 func (w *WebhookWorker) recordHealthOutcome(ctx context.Context, log *slog.Logger, tenantID uuid.UUID, consumer string, webhookID, deliveryID uuid.UUID, url string, success bool, durationMs int, statusCode int, errorMessage string, errorCategory string) {
+	w.metrics.recordAttempt(ctx, success, durationMs, errorCategory)
 	if err := w.healthRepo.RecordWebhookHealthEvent(ctx, webhookID, deliveryID, success, durationMs, statusCode, errorMessage, errorCategory); err != nil {
 		log.ErrorContext(ctx, "Failed to record health event", "error", err)
 	}
@@ -558,6 +597,35 @@ func (w *WebhookWorker) recordHealthOutcome(ctx context.Context, log *slog.Logge
 		return
 	}
 	w.emitHealthChangedEvent(ctx, log, tenantID, consumer, webhookID, url, oldHealth, newHealth)
+	if !success {
+		w.maybeAutoDisable(ctx, log, tenantID, consumer, webhookID, url)
+	}
+}
+
+// maybeAutoDisable pauses webhookID if its receiver has been failing long
+// enough under w.autoDisable, then announces it with a
+// sparrow.webhook.disabled system event. _sparrow's own webhooks are never
+// auto-disabled: they carry the alerts that would report it.
+func (w *WebhookWorker) maybeAutoDisable(ctx context.Context, log *slog.Logger, tenantID uuid.UUID, consumer string, webhookID uuid.UUID, url string) {
+	if consumer == SystemEventConsumer || !w.autoDisable.enabled() {
+		return
+	}
+	disabled, err := w.healthRepo.AutoDisableWebhook(ctx, webhookID, w.autoDisable.MinFailures, w.autoDisable.After)
+	if err != nil {
+		log.ErrorContext(ctx, "Failed to check webhook for auto-disable", "error", err)
+		return
+	}
+	if disabled == nil {
+		return
+	}
+	log.WarnContext(ctx, "Webhook auto-disabled after repeated failures",
+		"reason", disabled.Reason,
+		"consecutive_failures", disabled.ConsecutiveFailures,
+		"failing_since", disabled.FailingSince)
+	if w.metrics.autoDisabled != nil {
+		w.metrics.autoDisabled.Add(ctx, 1)
+	}
+	w.emitWebhookDisabledEvent(ctx, log, tenantID, consumer, webhookID, url, disabled)
 }
 
 // Helper function for status code checking (re-implemented as standalone or private method)

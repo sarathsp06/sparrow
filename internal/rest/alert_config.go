@@ -14,7 +14,7 @@ import (
 type createAlertConfigBody struct {
 	WebhookID  string   `json:"webhook_id,omitempty" doc:"Scope the alert to one webhook. Omit for a consumer-wide alert covering every webhook."`
 	Email      string   `json:"email" required:"true" format:"email" doc:"Recipient email address."`
-	EventTypes []string `json:"event_types" required:"true" doc:"Sparrow system event types to alert on: sparrow.webhook.health_changed, sparrow.webhook.delivery_failed."`
+	EventTypes []string `json:"event_types" required:"true" doc:"Sparrow system event types to alert on: sparrow.webhook.health_changed, sparrow.webhook.delivery_failed, sparrow.webhook.disabled."`
 }
 
 type createAlertConfigInput struct {

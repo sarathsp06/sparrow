@@ -26,6 +26,9 @@ const (
 	// systemEventDeliveryFailed fires once a delivery has exhausted every
 	// retry and is permanently failed.
 	systemEventDeliveryFailed = "sparrow.webhook.delivery_failed"
+	// systemEventWebhookDisabled fires when Sparrow pauses a webhook itself
+	// because its receiver kept failing (see AutoDisablePolicy).
+	systemEventWebhookDisabled = "sparrow.webhook.disabled"
 )
 
 // systemEventSchemas holds the JSON Schema for each self-generated system
@@ -72,6 +75,25 @@ var systemEventSchemas = map[string]map[string]any{
 			},
 		},
 	},
+	systemEventWebhookDisabled: {
+		"type":     "object",
+		"required": []string{"webhook_id", "consumer", "url", "reason", "consecutive_failures", "failing_since"},
+		"properties": map[string]any{
+			"webhook_id":           map[string]any{"type": "string", "format": "uuid"},
+			"consumer":             map[string]any{"type": "string"},
+			"url":                  map[string]any{"type": "string"},
+			"reason":               map[string]any{"type": "string"},
+			"consecutive_failures": map[string]any{"type": "integer"},
+			"failing_since":        map[string]any{"type": "string", "format": "date-time"},
+			"alert_recipients": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type":       "object",
+					"properties": map[string]any{"email": map[string]any{"type": "string", "format": "email"}},
+				},
+			},
+		},
+	},
 }
 
 // SystemEventRegistrations returns the full catalog entries (name,
@@ -93,6 +115,13 @@ func SystemEventRegistrations() []store.EventRegistration {
 			Description:   "A webhook delivery permanently failed after exhausting every retry.",
 			Schema:        systemEventSchemas[systemEventDeliveryFailed],
 			SamplePayload: systemEventSamplePayload(systemEventSchemas[systemEventDeliveryFailed]),
+			Active:        true,
+		},
+		{
+			Name:          systemEventWebhookDisabled,
+			Description:   "Sparrow paused a webhook automatically because its receiver kept failing. Resume the webhook to deliver again.",
+			Schema:        systemEventSchemas[systemEventWebhookDisabled],
+			SamplePayload: systemEventSamplePayload(systemEventSchemas[systemEventWebhookDisabled]),
 			Active:        true,
 		},
 	}
@@ -247,5 +276,25 @@ func (w *WebhookWorker) emitDeliveryFailedEvent(ctx context.Context, log *slog.L
 		"error_category":   errorCategory,
 		"error_message":    errorMessage,
 		"alert_recipients": toAlertRecipients(recipients),
+	})
+}
+
+// emitWebhookDisabledEvent pushes systemEventWebhookDisabled after
+// maybeAutoDisable paused webhookID. alert_recipients in the payload may be
+// empty.
+func (w *WebhookWorker) emitWebhookDisabledEvent(ctx context.Context, log *slog.Logger, tenantID uuid.UUID, consumer string, webhookID uuid.UUID, url string, disabled *store.AutoDisableResult) {
+	recipients, err := w.alertConfigRepo.ResolveAlertRecipients(ctx, tenantID, webhookID, consumer, systemEventWebhookDisabled)
+	if err != nil {
+		log.ErrorContext(ctx, "Failed to resolve webhook disabled alert recipients", "error", err)
+		recipients = nil
+	}
+	pushSystemEvent(ctx, log, w.eventRepo, w.jobInserter, tenantID, systemEventWebhookDisabled, map[string]any{
+		"webhook_id":           webhookID.String(),
+		"consumer":             consumer,
+		"url":                  url,
+		"reason":               disabled.Reason,
+		"consecutive_failures": disabled.ConsecutiveFailures,
+		"failing_since":        disabled.FailingSince.UTC().Format(time.RFC3339),
+		"alert_recipients":     toAlertRecipients(recipients),
 	})
 }

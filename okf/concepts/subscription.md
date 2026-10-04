@@ -26,7 +26,7 @@ When `transform_template` is set, the event payload is run through the Go templa
 
 ## Pause
 
-`paused_at` / `paused_reason`. While paused, fan-out creates deliveries with status `paused` and no job; resume does not send them (retry with `status=paused&subscription_id=…`). A pause never affects webhook health.
+`paused_at` / `paused_reason`. While paused, fan-out creates deliveries with status `paused` and no job; queued or retrying deliveries are held as `paused` by the worker too; resume does not send them (retry with `status=paused&subscription_id=…`). A paused webhook (manual or auto-disabled) behaves the same for all its subscriptions. A pause never affects webhook health.
 
 ## Citations
 

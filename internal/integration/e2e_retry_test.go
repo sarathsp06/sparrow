@@ -292,7 +292,8 @@ func TestE2E_FanOutMultipleSubscribers(t *testing.T) {
 }
 
 // TestE2E_PausedWebhookNoDelivery verifies that pausing a webhook prevents
-// new deliveries, and resuming it allows them again.
+// new deliveries but holds them as paused, that resuming reports what was
+// held and delivers new events, and that retrying the held delivery sends it.
 func TestE2E_PausedWebhookNoDelivery(t *testing.T) {
 	env := setupEnv(t)
 	c := newRESTClient(t, env)
@@ -311,24 +312,38 @@ func TestE2E_PausedWebhookNoDelivery(t *testing.T) {
 	require.NoError(t, err, "PauseWebhook failed")
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
-	pushTestEvent(t, c, ctx, consumer, eventName)
-
-	time.Sleep(5 * time.Second)
-	assert.Equal(t, int32(0), requestCount.Load(), "paused webhook should not receive deliveries")
-
-	resp, err = c.post(ctx, "/v1/consumers/"+consumer+"/webhooks/"+webhookID+":resume", nil, nil)
-	require.NoError(t, err, "ResumeWebhook failed")
-	require.Equal(t, http.StatusNoContent, resp.StatusCode)
-
-	eventID2 := pushTestEvent(t, c, ctx, consumer, eventName)
+	heldEventID := pushTestEvent(t, c, ctx, consumer, eventName)
 
 	pollCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
+	held := pollDeliveryStatus(t, c, pollCtx, consumer, heldEventID, func(d deliveryItem) bool {
+		return d.Status == "paused"
+	})
+	time.Sleep(2 * time.Second)
+	assert.Equal(t, int32(0), requestCount.Load(), "paused webhook should not receive deliveries")
+
+	var resumed struct {
+		PausedDeliveries int `json:"paused_deliveries"`
+	}
+	resp, err = c.post(ctx, "/v1/consumers/"+consumer+"/webhooks/"+webhookID+":resume", nil, &resumed)
+	require.NoError(t, err, "ResumeWebhook failed")
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, 1, resumed.PausedDeliveries, "resume should report the held delivery")
+
+	eventID2 := pushTestEvent(t, c, ctx, consumer, eventName)
+
 	pollDeliveryStatus(t, c, pollCtx, consumer, eventID2, func(d deliveryItem) bool {
 		return d.Status == "success"
 	})
+	assert.Equal(t, int32(1), requestCount.Load(), "resume must not send held deliveries by itself")
 
-	assert.GreaterOrEqual(t, int(requestCount.Load()), 1, "resumed webhook should receive delivery")
+	// Retrying the held delivery sends it.
+	resp, err = c.post(ctx, "/v1/consumers/"+consumer+"/deliveries/"+held.DeliveryID+":retry", nil, nil)
+	require.NoError(t, err, "RetryDelivery failed")
+	require.Less(t, resp.StatusCode, 300, "retry failed with %d", resp.StatusCode)
+	pollDeliveryStatus(t, c, pollCtx, consumer, heldEventID, func(d deliveryItem) bool {
+		return d.Status == "success"
+	})
 }
 
 // TestE2E_DeleteSubscriptionStopsDelivery verifies that deleting a

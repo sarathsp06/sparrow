@@ -74,6 +74,7 @@ func main() {
 		otelConfig.OTLPEndpoint = cfg.OTLPEndpoint
 	}
 	otelConfig.OTLPProtocol = cfg.OTLPProtocol
+	otelConfig.Prometheus = cfg.MetricsEnabled
 
 	// Initialize OpenTelemetry (no-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset)
 	otelShutdown, err := observability.Setup(ctx, otelConfig)
@@ -91,7 +92,10 @@ func main() {
 		if otelConfig.OTLPEndpoint != "" {
 			fmt.Printf("🔭 OpenTelemetry enabled (endpoint: %s, protocol: %s, env: %s)\n", otelConfig.OTLPEndpoint, otelConfig.OTLPProtocol, otelConfig.Environment)
 		} else {
-			fmt.Println("🔭 OpenTelemetry disabled (set OTEL_EXPORTER_OTLP_ENDPOINT to enable)")
+			fmt.Println("🔭 OpenTelemetry export disabled (set OTEL_EXPORTER_OTLP_ENDPOINT to enable)")
+		}
+		if otelConfig.Prometheus {
+			fmt.Println("📈 Prometheus metrics at /metrics (set SPARROW_METRICS_ENABLED=false to disable)")
 		}
 	}
 
@@ -212,11 +216,18 @@ func main() {
 	clientConfig.MaxCapturedResponseBytes = cfg.MaxCapturedResponseBytes
 
 	// Initialize queue manager
-	queueManager, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, dbPool, clientConfig, cfg.EventRetentionDays)
+	autoDisable := queue.AutoDisablePolicy{After: cfg.AutoDisableAfter, MinFailures: cfg.AutoDisableMinFailuresOrDefault()}
+	queueManager, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, dbPool, clientConfig, cfg.EventRetentionDays, autoDisable)
 	if err != nil {
 		log.Fatalf("Failed to create queue manager: %v", err)
 	}
 	defer func() { _ = queueManager.Stop(ctx) }()
+	if cfg.AutoDisableAfter > 0 {
+		fmt.Printf("⏸️  Webhooks auto-disable after %s of failures (min %d in a row)\n", cfg.AutoDisableAfter, autoDisable.MinFailures)
+	}
+	if err := queueManager.RegisterStateMetrics(webhookRepo); err != nil {
+		log.Printf("⚠️  Failed to register queue/webhook state metrics: %v", err)
+	}
 
 	// Portal links are access tokens minted per visit; purge dead ones daily.
 	queueManager.EnableTokenPurge(accessSvc, accessauth.TokenRetention)
@@ -292,6 +303,13 @@ func main() {
 	// Health and readiness endpoints bypass API key auth.
 	r.Get("/health", healthChecker.HealthHandler())
 	r.Get("/ready", healthChecker.ReadyHandler())
+
+	// Prometheus scrape endpoint for every OTel metric. Like /health it sits
+	// outside API key auth: scrapers rarely carry credentials, and it exposes
+	// only aggregate counts.
+	if h := observability.MetricsHandler(); h != nil {
+		r.Method(http.MethodGet, "/metrics", h)
+	}
 
 	// Serve embedded web UI if enabled.
 	// The UI handler is registered as the NotFound handler so it acts as

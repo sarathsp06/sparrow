@@ -33,7 +33,7 @@ services, storage, and queue workers.
 - **API** -- REST/HTTP on `:8080` (Huma-based)
 - **API Spec** -- OpenAPI 3.1, committed at `api/openapi.yaml`
 - **Web UI** -- SvelteKit 2 + Svelte 5 (Runes) + TypeScript + Tailwind CSS 4 (embedded static build)
-- **Observability** -- OpenTelemetry (traces, metrics, logs via OTLP)
+- **Observability** -- OpenTelemetry (traces, metrics, logs via OTLP; metrics also scrapeable at `/metrics` in Prometheus format)
 - **DB Access** -- pgx/v5 + sqlx (OTel-instrumented)
 - **Container** -- Multi-stage Dockerfile (distroless nonroot)
 
@@ -52,7 +52,7 @@ See the [API Reference](/sparrow/reference/api/) for the full endpoint list.
 <ThemeDiagram
   light={eventProcessingLight}
   dark={eventProcessingDark}
-  alt="Event processing pipeline: a push rejects unknown event types unless auto-register is on, dedups, validates softly, stores the event with its event_version and enqueues it; EventProcessingWorker matches subscriptions and batch-inserts deliveries, paused ones for paused subscriptions, and enqueues jobs for the rest; WebhookWorker renders the transform strictly (failing with template_error or falling back), applies the rate limit, sends the signed request, updates the delivery, records health for receiver outcomes only, and retries retryable failures with backoff."
+  alt="Event processing pipeline: a push rejects unknown event types unless auto-register is on, dedups, validates softly, stores the event with its event_version and enqueues it; EventProcessingWorker matches subscriptions and batch-inserts deliveries, paused ones for paused subscriptions or paused/auto-disabled webhooks, and enqueues jobs for the rest; WebhookWorker renders the transform strictly (failing with template_error or falling back), applies the rate limit, sends the signed request, updates the delivery, records health for receiver outcomes only, and retries retryable failures with backoff."
 />
 
 ---
@@ -72,6 +72,11 @@ Event-sourced health calculation with a 24-hour lookback window:
 2. Health state is atomically upserted (tracks consecutive failures, last success/failure timestamps)
 3. Webhook health status is recalculated and persisted
 4. Hourly aggregation computes per-webhook summaries (p95 response time, error category breakdown)
+5. After a failed attempt, the webhook is auto-disabled (paused, with `auto_disabled_at`/`auto_disabled_reason`, and a `sparrow.webhook.disabled` system event) if `webhook_health_state.failing_since` is older than `SPARROW_AUTO_DISABLE_AFTER` and the run is at least `SPARROW_AUTO_DISABLE_MIN_FAILURES` attempts long. Check and pause are one `UPDATE`, so concurrent workers disable a webhook once. See [Automatic disabling](/sparrow/guides/webhook-health-alerts/#automatic-disabling).
+
+### Pausing
+
+A paused webhook (by hand or auto-disabled) and a paused subscription behave the same way: fan-out records their deliveries as `paused` without queuing a job, and the delivery worker turns any queued or retrying delivery for them into `paused` instead of sending it. Holding is not an attempt and never affects health. Resume reports how many deliveries were held (`paused_deliveries`); they are only sent when retried.
 
 ---
 
@@ -214,7 +219,7 @@ isolation.
 
 **`internal/rest`** -- HTTP REST handlers (transport layer) built with Huma, serving the OpenAPI-described API on `:8080`. Delegates to the domain services and is the only package that imports both domain packages.
 
-**`internal/observability`** -- OpenTelemetry setup (traces, metrics, logs via OTLP).
+**`internal/observability`** -- OpenTelemetry setup (traces, metrics, logs via OTLP) and the Prometheus `/metrics` handler.
 
 **`internal/ui`** -- Embedded SvelteKit frontend (`go:embed`).
 

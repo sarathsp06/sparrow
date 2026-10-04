@@ -163,7 +163,8 @@ func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UU
 		SELECT DISTINCT wr.id, wr.tenant_id, wr.consumer, wr.url, wr.headers, wr.timeout, wr.active, wr.description, wr.health,
 		       wr.max_retries, wr.retry_backoff_seconds, wr.capture_response_body, wr.follow_redirects,
 		       wr.verify_ssl, wr.request_timeout_seconds, wr.expected_status_codes, wr.webhook_secret,
-		       wr.user_agent, wr.content_type, wr.secret_headers, wr.rate_limit_rps, wr.ed25519_private_key, wr.signature_type, wr.requires_transform, wr.created_at, wr.updated_at
+		       wr.user_agent, wr.content_type, wr.secret_headers, wr.rate_limit_rps, wr.ed25519_private_key, wr.signature_type, wr.requires_transform,
+		       wr.auto_disabled_at, wr.auto_disabled_reason, wr.created_at, wr.updated_at
 		FROM webhook_registrations wr
 		LEFT JOIN event_subscriptions es ON wr.id = es.webhook_id
 		WHERE wr.tenant_id = $1
@@ -251,7 +252,8 @@ func (r *Repository) LockWebhook(ctx context.Context, tenantID uuid.UUID, webhoo
 		SELECT id, tenant_id, consumer, url, headers, timeout, active, description, health,
 		       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 		       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-		       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, signature_type, requires_transform, created_at, updated_at
+		       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, signature_type, requires_transform,
+		       auto_disabled_at, auto_disabled_reason, created_at, updated_at
 		FROM webhook_registrations
 		WHERE id = $1 AND tenant_id = $2 AND consumer = $3
 		` + lock
@@ -340,7 +342,8 @@ func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, web
 			SELECT id, tenant_id, consumer, url, headers, timeout, active, description, health,
 			       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-			       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, signature_type, requires_transform, created_at, updated_at
+			       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, signature_type, requires_transform,
+			       auto_disabled_at, auto_disabled_reason, created_at, updated_at
 			FROM webhook_registrations
 			WHERE id = $1 AND tenant_id = $2 AND consumer = $3
 		`
@@ -350,7 +353,8 @@ func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, web
 			SELECT id, tenant_id, consumer, url, headers, timeout, active, description, health,
 			       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-			       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, signature_type, requires_transform, created_at, updated_at
+			       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, signature_type, requires_transform,
+			       auto_disabled_at, auto_disabled_reason, created_at, updated_at
 			FROM webhook_registrations
 			WHERE id = $1 AND tenant_id = $2
 		`
@@ -368,6 +372,10 @@ func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, web
 
 // UpdateWebhook updates a webhook registration within a tenant.
 // This persists ALL mutable fields including HTTP config, secret headers, and webhook secret.
+// Saving it as active clears an automatic disable: the auto_disabled_* columns
+// are reset and the receiver's failure run restarts, so a resumed webhook gets
+// a full window before it can be auto-disabled again. Both statements of the
+// CTE read the row as it was before the update.
 func (r *Repository) UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webhook *WebhookRegistration) error {
 	webhook.UpdatedAt = time.Now()
 
@@ -377,6 +385,13 @@ func (r *Repository) UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webh
 	}
 
 	query := `
+		WITH resumed AS (
+			UPDATE webhook_health_state SET failing_since = NULL
+			WHERE $7 AND webhook_id = (
+				SELECT id FROM webhook_registrations
+				WHERE id = $1 AND tenant_id = $2 AND consumer = $3 AND auto_disabled_at IS NOT NULL
+			)
+		)
 		UPDATE webhook_registrations
 		SET url = $4, headers = $5, timeout = $6, active = $7,
 		    description = $8,
@@ -386,7 +401,10 @@ func (r *Repository) UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webh
 		    expected_status_codes = $15, webhook_secret = $16,
 		    user_agent = $17, content_type = $18,
 		    secret_headers = $19, rate_limit_rps = $20,
-		    ed25519_private_key = $21, signature_type = $22, requires_transform = $23, updated_at = NOW()
+		    ed25519_private_key = $21, signature_type = $22, requires_transform = $23,
+		    auto_disabled_at = CASE WHEN $7 THEN NULL ELSE auto_disabled_at END,
+		    auto_disabled_reason = CASE WHEN $7 THEN NULL ELSE auto_disabled_reason END,
+		    updated_at = NOW()
 		WHERE id = $1 AND tenant_id = $2 AND consumer = $3
 	`
 

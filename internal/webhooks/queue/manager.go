@@ -25,8 +25,9 @@ type Manager struct {
 }
 
 // NewManager creates a new queue manager. retentionDays > 0 enables an hourly
-// periodic job that purges events older than that many days.
-func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryptoSvc *crypto.Service, dbPool *pgxpool.Pool, clientConfig *client.Config, retentionDays int) (*Manager, error) {
+// periodic job that purges events older than that many days; autoDisable
+// controls when failing webhooks are paused automatically.
+func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryptoSvc *crypto.Service, dbPool *pgxpool.Pool, clientConfig *client.Config, retentionDays int, autoDisable AutoDisablePolicy) (*Manager, error) {
 	// Initialize River workers
 	riverWorkers := river.NewWorkers()
 
@@ -70,7 +71,7 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 
 	// Add workers with explicit generic types.
 	// RepositoryInterface satisfies all narrow interfaces via embedding.
-	river.AddWorker(riverWorkers, NewWebhookWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter(), cryptoSvc, clientConfig))
+	river.AddWorker(riverWorkers, NewWebhookWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter(), cryptoSvc, clientConfig, autoDisable))
 	river.AddWorker(riverWorkers, NewEventProcessingWorker(webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter()))
 	river.AddWorker(riverWorkers, NewBatchJobWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter()))
 	river.AddWorker(riverWorkers, NewRetentionWorker(webhookRepo, retentionDays))

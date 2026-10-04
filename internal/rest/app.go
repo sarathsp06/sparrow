@@ -74,7 +74,7 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps Access
 		{Name: "Health", Description: "Rolling per-webhook health status computed from recent delivery " +
 			"outcomes, plus cross-consumer aggregate counts for dashboards."},
 		{Name: "Alert Configs", Description: "Opt-in email recipients for Sparrow's own self-generated " +
-			"webhook.health_changed and webhook.delivery_failed system events."},
+			"webhook.health_changed, webhook.delivery_failed and webhook.disabled system events."},
 		{Name: "Recipes", Description: "Shipped webhook adapter recipes that pre-fill destinations, headers, and payload transforms."},
 		{Name: "Server", Description: "Deployment-level information about this server, such as which optional features are configured."},
 	}

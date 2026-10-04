@@ -527,7 +527,7 @@ export interface paths {
         put?: never;
         /**
          * Pause a webhook
-         * @description Stops new deliveries to this webhook without deleting it. Events matching its subscriptions are still recorded but not delivered until resumed.
+         * @description Stops deliveries to this webhook without deleting it. Events keep fanning out to it: each delivery, and any not yet sent, is held with status paused until it is retried after resuming. Holding never affects the webhook's health.
          */
         post: operations["pauseWebhook"];
         delete?: never;
@@ -547,7 +547,7 @@ export interface paths {
         put?: never;
         /**
          * Resume a paused webhook
-         * @description Re-enables deliveries to a previously paused webhook.
+         * @description Re-enables deliveries to a webhook paused by an operator or auto-disabled. Deliveries held while it was paused stay paused and are never sent automatically: the response says how many there are, so you can retry them with status=paused&webhook_id=... and the delivery retry endpoints.
          */
         post: operations["resumeWebhook"];
         delete?: never;
@@ -1328,7 +1328,7 @@ export interface components {
              * @description Recipient email address.
              */
             email: string;
-            /** @description Sparrow system event types to alert on: sparrow.webhook.health_changed, sparrow.webhook.delivery_failed. */
+            /** @description Sparrow system event types to alert on: sparrow.webhook.health_changed, sparrow.webhook.delivery_failed, sparrow.webhook.disabled. */
             event_types: string[] | null;
             /** @description Scope the alert to one webhook. Omit for a consumer-wide alert covering every webhook. */
             webhook_id?: string;
@@ -2377,6 +2377,19 @@ export interface components {
             /** @description Webhook this subscription delivers to. */
             webhook_id: string;
         };
+        ResumeWebhookOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ResumeWebhookOutputBody.json
+             */
+            readonly $schema?: string;
+            /**
+             * Format: int64
+             * @description Deliveries held as paused for this webhook. They are not sent automatically; retry them to deliver.
+             */
+            paused_deliveries: number;
+        };
         RetryDeliveriesByWebhookInputBody: {
             /**
              * Format: uri
@@ -2833,6 +2846,10 @@ export interface components {
             readonly $schema?: string;
             /** @description Whether the webhook currently receives deliveries. */
             active: boolean;
+            /** @description Set when Sparrow paused this webhook itself because its receiver kept failing (see SPARROW_AUTO_DISABLE_AFTER), RFC3339. Cleared when the webhook is resumed. */
+            auto_disabled_at?: string;
+            /** @description Why Sparrow auto-disabled this webhook. Cleared when the webhook is resumed. */
+            auto_disabled_reason?: string;
             /** @description Tenant consumer this webhook belongs to. */
             consumer: string;
             /** @description Creation timestamp, RFC3339. */
@@ -4654,12 +4671,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description No Content */
-            204: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ResumeWebhookOutputBody"];
+                };
             };
             /** @description Not Found */
             404: {

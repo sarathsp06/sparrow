@@ -138,3 +138,46 @@ func TestSetupRejectsUnknownProtocol(t *testing.T) {
 		t.Fatal("expected error for unsupported protocol")
 	}
 }
+
+func TestSetupServesPrometheusWithoutOTLP(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Prometheus = true
+	shutdown, err := Setup(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("Setup: %v", err)
+	}
+	t.Cleanup(func() { _ = shutdown(context.Background()); metricsHandler = nil })
+
+	handler := MetricsHandler()
+	if handler == nil {
+		t.Fatal("MetricsHandler() = nil with Prometheus enabled")
+	}
+	counter, err := GetMeter("prom-test").Int64Counter("sparrow_test_things_total")
+	if err != nil {
+		t.Fatal(err)
+	}
+	counter.Add(context.Background(), 3)
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	body := rec.Body.String()
+	for _, want := range []string{"sparrow_test_things_total", "go_goroutines"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("scrape output lacks %s:\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, "_total_total") {
+		t.Errorf("counter name got a doubled _total suffix:\n%s", body)
+	}
+}
+
+func TestSetupWithoutExportersHasNoMetricsHandler(t *testing.T) {
+	shutdown, err := Setup(context.Background(), DefaultConfig())
+	if err != nil {
+		t.Fatalf("Setup: %v", err)
+	}
+	_ = shutdown(context.Background())
+	if MetricsHandler() != nil {
+		t.Fatal("MetricsHandler() != nil with Prometheus and OTLP both off")
+	}
+}

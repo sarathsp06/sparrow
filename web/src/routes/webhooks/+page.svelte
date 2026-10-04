@@ -5,6 +5,7 @@
   import HealthBadge from '$lib/components/HealthBadge.svelte';
   import CopyableId from '$lib/components/CopyableId.svelte';
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+  import HeldDeliveriesNotice from '$lib/components/HeldDeliveriesNotice.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import FloatingAction from '$lib/components/FloatingAction.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
@@ -124,6 +125,9 @@
     }
   }
 
+  // Deliveries a just-resumed webhook held while it was paused.
+  let held = $state<{ consumer: string; webhookId: string; count: number } | null>(null);
+
   async function toggleActive(wh: WebhookOut, e: Event) {
     e.stopPropagation();
     try {
@@ -132,9 +136,10 @@
           params: { path: { consumer: wh.consumer, webhook_id: wh.webhook_id } },
         }));
       } else {
-        unwrap(await api.POST('/v1/consumers/{consumer}/webhooks/{webhook_id}:resume', {
+        const res = unwrap(await api.POST('/v1/consumers/{consumer}/webhooks/{webhook_id}:resume', {
           params: { path: { consumer: wh.consumer, webhook_id: wh.webhook_id } },
         }));
+        held = res.paused_deliveries > 0 ? { consumer: wh.consumer, webhookId: wh.webhook_id, count: res.paused_deliveries } : null;
       }
       await fetchWebhooks();
     } catch (e: any) {
@@ -159,6 +164,15 @@
       Register Webhook
     </a>
   </div>
+
+  {#if held}
+    <HeldDeliveriesNotice
+      consumer={held.consumer}
+      count={held.count}
+      filter={{ webhook_id: held.webhookId }}
+      onclose={() => (held = null)}
+    />
+  {/if}
 
   {#if !loading && !error}
     <div class="panel readout mb-6">
@@ -357,11 +371,12 @@
                 <td class="td">
                   <button
                     onclick={(e) => toggleActive(wh, e)}
+                    title={wh.auto_disabled_reason ?? undefined}
                     class="chip transition-colors {wh.active ? '!text-ok' : ''}"
                     style={wh.active ? 'border-color:color-mix(in srgb,var(--color-ok) 35%,transparent);background:color-mix(in srgb,var(--color-ok) 12%,var(--color-panel-2))' : ''}
                   >
                     <span class="w-1.5 h-1.5 rounded-full" style="background:var(--color-{wh.active ? 'ok' : 'idle'})"></span>
-                    {wh.active ? 'Active' : 'Paused'}
+                    {wh.active ? 'Active' : wh.auto_disabled_at ? 'Auto-disabled' : 'Paused'}
                   </button>
                 </td>
                 <td class="td text-right">

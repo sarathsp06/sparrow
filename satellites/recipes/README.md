@@ -29,6 +29,8 @@ sparrow use slack --param webhook_url=https://hooks.slack.com/services/T000/B000
    Params: `account_sid`, `basic_auth`, `from_number`, `to_number`.
 7. `sendgrid` — SendGrid v3 Mail Send (per-recipient personalizations).
    Params: `api_key`, `from_email`, `from_name`.
+8. `cloudevents` — CloudEvents 1.0, HTTP structured mode (Knative, Argo Events, Dapr, …).
+   Params: `target_url`, `source`.
 
 ## Schema (version 1)
 

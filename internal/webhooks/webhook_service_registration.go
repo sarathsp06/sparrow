@@ -523,13 +523,39 @@ func (s *WebhookService) PauseWebhook(ctx context.Context, webhookID string, con
 	return s.setWebhookActive(ctx, webhookID, consumer, false)
 }
 
-// ResumeWebhook re-enables webhook deliveries
-func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, consumer string) error {
+// WebhookResumeResult describes a resumed webhook.
+type WebhookResumeResult struct {
+	// PausedDeliveries counts the webhook's deliveries held as paused. They
+	// are not sent automatically; the caller decides what to retry.
+	PausedDeliveries int
+}
+
+// ResumeWebhook re-enables webhook deliveries, whether it was paused by an
+// operator or auto-disabled. Deliveries held while it was paused stay paused
+// until retried, like those of a resumed subscription.
+func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, consumer string) (*WebhookResumeResult, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.ResumeWebhook")
 	defer span.End()
 
 	s.logger.InfoContext(ctx, "Resuming webhook", "webhook_id", webhookID, "consumer", consumer)
-	return s.setWebhookActive(ctx, webhookID, consumer, true)
+	if err := s.setWebhookActive(ctx, webhookID, consumer, true); err != nil {
+		return nil, err
+	}
+	id, err := parseUUID(webhookID, "webhook ID")
+	if err != nil {
+		return nil, err
+	}
+	status := string(store.StatusPaused)
+	_, count, err := s.webhookRepo.ListDeliveriesFiltered(ctx, tenant.DefaultTenantID, store.DeliveryFilter{
+		Consumer:  consumer,
+		WebhookID: &id,
+		Status:    &status,
+		Limit:     1,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to count paused deliveries: %w", err)
+	}
+	return &WebhookResumeResult{PausedDeliveries: count}, nil
 }
 
 // UpdateWebhookConfig updates webhook configuration.

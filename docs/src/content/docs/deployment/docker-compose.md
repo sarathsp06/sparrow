@@ -83,3 +83,5 @@ Sparrow exports traces, metrics, and logs via OpenTelemetry (OTLP). Set `OTEL_EX
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT=http://your-otel-collector:4318
 ```
+
+Without a collector, Prometheus can scrape the same metrics from `http://sparrow:8080/metrics` (on by default; `SPARROW_METRICS_ENABLED=false` turns it off). See [Prometheus](/sparrow/getting-started/configuration/#prometheus).

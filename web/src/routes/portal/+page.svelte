@@ -8,6 +8,7 @@
   import EmptyState from "$lib/components/EmptyState.svelte";
   import CopyableId from "$lib/components/CopyableId.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
+  import HeldDeliveriesNotice from "$lib/components/HeldDeliveriesNotice.svelte";
   import SubscriptionManager from "$lib/components/SubscriptionManager.svelte";
   import type { components } from "$lib/api-types";
 
@@ -127,14 +128,18 @@
     fetchSubscriptions(id);
   }
 
+  // Deliveries a just-resumed endpoint held while it was paused.
+  let held = $state<{ webhookId: string; count: number } | null>(null);
+
   async function toggleActive(w: WebhookOut) {
     try {
       const op = w.active ? ":pause" : ":resume";
-      unwrap(
+      const res = unwrap(
         await api.POST(`/v1/consumers/{consumer}/webhooks/{webhook_id}${op}` as never, {
           params: { path: { consumer, webhook_id: w.webhook_id } },
         } as never),
-      );
+      ) as { paused_deliveries?: number } | undefined;
+      held = res?.paused_deliveries ? { webhookId: w.webhook_id, count: res.paused_deliveries } : null;
       await refresh();
     } catch (e) {
       error = formatAPIError(e, "Failed to update endpoint");
@@ -279,6 +284,15 @@
         </div>
       {/if}
 
+      {#if held}
+        <HeldDeliveriesNotice
+          {consumer}
+          count={held.count}
+          filter={{ webhook_id: held.webhookId }}
+          onclose={() => { held = null; refresh(); }}
+        />
+      {/if}
+
       <!-- Stats -->
       {#if stats}
         <div class="panel readout overflow-hidden">
@@ -357,7 +371,7 @@
                   </span>
                   <HealthBadge health={w.health} />
                   {#if !w.active}
-                    <span class="chip" style="color:var(--color-warn)">paused</span>
+                    <span class="chip" style="color:var(--color-warn)" title={w.auto_disabled_reason ?? undefined}>{w.auto_disabled_at ? 'auto-disabled' : 'paused'}</span>
                   {/if}
                 </button>
 

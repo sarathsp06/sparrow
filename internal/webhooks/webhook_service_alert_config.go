@@ -18,6 +18,7 @@ import (
 var systemEventTypes = map[string]bool{
 	"sparrow.webhook.health_changed":  true,
 	"sparrow.webhook.delivery_failed": true,
+	"sparrow.webhook.disabled":        true,
 }
 
 // CreateAlertConfig registers an email recipient for one or more Sparrow

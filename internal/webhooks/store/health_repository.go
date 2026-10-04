@@ -21,6 +21,23 @@ type HealthRepository interface {
 	AggregateHealthSummaries(ctx context.Context) (int, error)
 	GetHealthSummary(ctx context.Context, tenantID uuid.UUID) (map[WebhookHealth]int, error)
 	GetConsumerStats(ctx context.Context, tenantID uuid.UUID, consumer string) (*ConsumerStats, error)
+	AutoDisableWebhook(ctx context.Context, webhookID uuid.UUID, minFailures int, failingFor time.Duration) (*AutoDisableResult, error)
+	CountWebhooksByState(ctx context.Context, tenantID uuid.UUID) ([]WebhookStateCount, error)
+}
+
+// WebhookStateCount is the number of webhooks with one health and status,
+// where status is "active", "paused" (by an operator) or "auto_disabled".
+type WebhookStateCount struct {
+	Health string `db:"health"`
+	Status string `db:"status"`
+	Count  int64  `db:"count"`
+}
+
+// AutoDisableResult describes a webhook AutoDisableWebhook just paused.
+type AutoDisableResult struct {
+	Reason              string    `db:"reason"`
+	ConsecutiveFailures int       `db:"consecutive_failures"`
+	FailingSince        time.Time `db:"failing_since"`
 }
 
 // UpdateWebhookHealthState records a webhook delivery outcome and updates health metrics.
@@ -54,10 +71,11 @@ func (r *Repository) UpdateWebhookHealthState(ctx context.Context, webhookID uui
 	}
 
 	_, err := r.conn.ExecContext(ctx, `
-		INSERT INTO webhook_health_state (webhook_id, consecutive_failures, last_success_at, last_failure_at, last_event_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW())
+		INSERT INTO webhook_health_state (webhook_id, consecutive_failures, last_success_at, last_failure_at, failing_since, last_event_at, updated_at)
+		VALUES ($1, $2, $3, $4, $4, $5, NOW())
 		ON CONFLICT (webhook_id) DO UPDATE SET
 			consecutive_failures = CASE WHEN $6 THEN 0 ELSE webhook_health_state.consecutive_failures + 1 END,
+			failing_since = CASE WHEN $6 THEN NULL ELSE COALESCE(webhook_health_state.failing_since, $5) END,
 			last_success_at = COALESCE($3, webhook_health_state.last_success_at),
 			last_failure_at = COALESCE($4, webhook_health_state.last_failure_at),
 			last_event_at = $5,
@@ -86,6 +104,34 @@ func (r *Repository) UpdateWebhookHealthState(ctx context.Context, webhookID uui
 		return "", "", storage.Error(err)
 	}
 	return oldHealth, newHealth, nil
+}
+
+// AutoDisableWebhook pauses an active webhook whose receiver has failed at
+// least minFailures attempts in a row, with no success for failingFor. The
+// check and the pause are one statement, so concurrent delivery jobs pause a
+// webhook at most once. It returns nil when nothing was disabled.
+func (r *Repository) AutoDisableWebhook(ctx context.Context, webhookID uuid.UUID, minFailures int, failingFor time.Duration) (*AutoDisableResult, error) {
+	var result AutoDisableResult
+	err := r.conn.GetContext(ctx, &result, `
+		UPDATE webhook_registrations wr
+		SET active = false,
+		    auto_disabled_at = NOW(),
+		    auto_disabled_reason = format('auto-disabled: %s failed attempts in a row since %s with no success',
+		        hs.consecutive_failures, to_char(hs.failing_since AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')),
+		    updated_at = NOW()
+		FROM webhook_health_state hs
+		WHERE wr.id = $1 AND hs.webhook_id = wr.id AND wr.active
+		  AND hs.consecutive_failures >= $2
+		  AND hs.failing_since <= NOW() - make_interval(secs => $3)
+		RETURNING wr.auto_disabled_reason AS reason, hs.consecutive_failures, hs.failing_since
+	`, webhookID, minFailures, failingFor.Seconds())
+	if err != nil {
+		if storage.IsNotFound(storage.Error(err)) {
+			return nil, nil
+		}
+		return nil, storage.Error(err)
+	}
+	return &result, nil
 }
 
 // CalculateWebhookHealth determines webhook health status based on delivery patterns.
@@ -366,6 +412,26 @@ func (r *Repository) AggregateHealthSummaries(ctx context.Context) (int, error) 
 	}
 
 	return int(rowsAffected), nil
+}
+
+// CountWebhooksByState counts a tenant's webhooks by health and status, for
+// the sparrow_webhooks gauge.
+func (r *Repository) CountWebhooksByState(ctx context.Context, tenantID uuid.UUID) ([]WebhookStateCount, error) {
+	var counts []WebhookStateCount
+	err := r.conn.SelectContext(ctx, &counts, `
+		SELECT health,
+		       CASE WHEN active THEN 'active'
+		            WHEN auto_disabled_at IS NOT NULL THEN 'auto_disabled'
+		            ELSE 'paused' END AS status,
+		       COUNT(*) AS count
+		FROM webhook_registrations
+		WHERE tenant_id = $1
+		GROUP BY 1, 2
+	`, tenantID)
+	if err != nil {
+		return nil, storage.Error(err)
+	}
+	return counts, nil
 }
 
 // GetHealthSummary returns a summary of webhook health within a tenant

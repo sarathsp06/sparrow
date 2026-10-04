@@ -372,7 +372,7 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 		Method:        http.MethodPost,
 		Path:          "/v1/consumers/{consumer}/webhooks/{webhook_id}:pause",
 		Summary:       "Pause a webhook",
-		Description:   "Stops new deliveries to this webhook without deleting it. Events matching its subscriptions are still recorded but not delivered until resumed.",
+		Description:   "Stops deliveries to this webhook without deleting it. Events keep fanning out to it: each delivery, and any not yet sent, is held with status paused until it is retried after resuming. Holding never affects the webhook's health.",
 		Errors:        []int{404},
 		Tags:          []string{"Webhooks"},
 		DefaultStatus: http.StatusNoContent,
@@ -384,19 +384,21 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 	})
 
 	huma.Register(api, huma.Operation{
-		OperationID:   "resumeWebhook",
-		Method:        http.MethodPost,
-		Path:          "/v1/consumers/{consumer}/webhooks/{webhook_id}:resume",
-		Summary:       "Resume a paused webhook",
-		Description:   "Re-enables deliveries to a previously paused webhook.",
-		Errors:        []int{404},
-		Tags:          []string{"Webhooks"},
-		DefaultStatus: http.StatusNoContent,
-	}, func(ctx context.Context, in *webhookIDInput) (*emptyOutput, error) {
-		if err := svc.ResumeWebhook(ctx, in.WebhookID, in.Consumer); err != nil {
+		OperationID: "resumeWebhook",
+		Method:      http.MethodPost,
+		Path:        "/v1/consumers/{consumer}/webhooks/{webhook_id}:resume",
+		Summary:     "Resume a paused webhook",
+		Description: "Re-enables deliveries to a webhook paused by an operator or auto-disabled. Deliveries held while it was paused stay paused and are never sent automatically: the response says how many there are, so you can retry them with status=paused&webhook_id=... and the delivery retry endpoints.",
+		Errors:      []int{404},
+		Tags:        []string{"Webhooks"},
+	}, func(ctx context.Context, in *webhookIDInput) (*resumeWebhookOutput, error) {
+		res, err := svc.ResumeWebhook(ctx, in.WebhookID, in.Consumer)
+		if err != nil {
 			return nil, mapError(ctx, err, "failed to resume webhook")
 		}
-		return &emptyOutput{Status: http.StatusNoContent}, nil
+		out := &resumeWebhookOutput{}
+		out.Body.PausedDeliveries = res.PausedDeliveries
+		return out, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -461,4 +463,10 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 		out.Body.SuccessRate = stats.SuccessRate
 		return out, nil
 	})
+}
+
+type resumeWebhookOutput struct {
+	Body struct {
+		PausedDeliveries int `json:"paused_deliveries" doc:"Deliveries held as paused for this webhook. They are not sent automatically; retry them to deliver."`
+	}
 }

@@ -27,6 +27,9 @@ All configuration is done via environment variables. No config files needed.
 | `CORS_ALLOWED_ORIGINS` | No | -- | Comma-separated list of exact browser origins allowed to call the API (e.g. `https://ui.example.com,https://admin.example.com`; trailing slashes are ignored). Required when the UI is [hosted separately](/sparrow/deployment/separate-ui/). When unset: with `ENVIRONMENT=production` every cross-origin request is rejected; otherwise every origin is allowed (local development only). |
 | `SPARROW_MAX_BODY_BYTES` | No | `5242880` (5 MiB) | Maximum request body size in bytes. Minimum 1 MiB; larger bodies get `413`. |
 | `SPARROW_EVENT_RETENTION_DAYS` | No | `0` (keep forever) | Purge events — and, via cascade, their deliveries — older than this many days. Runs hourly in the background. |
+| `SPARROW_AUTO_DISABLE_AFTER` | No | `120h` (5 days) | Pause a webhook automatically once its receiver has failed every attempt for this long (and at least `SPARROW_AUTO_DISABLE_MIN_FAILURES` attempts in a row). Like a manual pause, deliveries are then held as `paused` until retried. Go duration; `0` turns automatic disabling off. See [Automatic disabling](/sparrow/guides/webhook-health-alerts/#automatic-disabling). |
+| `SPARROW_AUTO_DISABLE_MIN_FAILURES` | No | `10` | Minimum run of consecutive failed attempts before a webhook can be auto-disabled, so a receiver whose only failure was long ago is not paused by the next one. |
+| `SPARROW_METRICS_ENABLED` | No | `true` | Serve every OpenTelemetry metric in Prometheus format at `GET /metrics` (no API key, like `/health`), with or without OTLP export. |
 | `SPARROW_AUTO_REGISTER_EVENTS` | No | `false` | When `true`, pushing an event whose type is not registered creates a schema-less event type instead of returning `404`. Meant for local development (`make run` turns it on); event types are never deleted, so in production a producer typo would become a permanent name. See [Event Type Versions](/sparrow/guides/event-type-versioning/#unregistered-event-names). |
 | `SPARROW_AI_PROVIDER` | No | `anthropic` | With no AI variables set at all, the editor still offers **Copy prompt for AI** (`POST /v1/subscriptions:draftTemplatePrompt`): the same grounded prompt, for pasting into any chat assistant. Configuring a provider upgrades that to in-place drafting with render verification.  Chat API behind AI drafting. `anthropic` uses the Anthropic API (set `SPARROW_AI_API_KEY`). `openai` uses any OpenAI-compatible `/v1/chat/completions` server, local or hosted: Ollama, vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI (set `SPARROW_AI_BASE_URL` and `SPARROW_AI_MODEL`; the key is optional for local servers). Drafts are short and render-verified with up to three repair rounds, so a light model is usually enough. |
 | `SPARROW_AI_API_KEY` | No | -- | Provider API key. With `anthropic`, setting it enables drafting; with `openai` it is sent as a Bearer token when present. When drafting is enabled the subscription editor shows a **Draft with AI** panel and `POST /v1/subscriptions:draftTemplate` is enabled: describe the body the receiver should get and Sparrow drafts the `transform_template`, grounded in the event type's JSON Schema and sample payload, the template helper catalog, and optionally a shipped recipe's destination format or an example body you paste. Every draft is rendered against the sample payload (the same dry-run as the preview) and repaired until it renders. The request can also carry a sample payload to draft against, a description or example of what the receiver expects, and a documentation URL that Sparrow fetches under the same network policy as deliveries (private and cloud-metadata addresses refused unless allowed). Only the schema, that sample payload, and the request's own text are sent to the model — never stored events, headers, or secrets. Unset disables the feature; `GET /v1/capabilities` tells clients which. |
@@ -104,13 +107,36 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://your-otel-collector:4317
 
 The URL scheme controls TLS: `http://` sends plaintext, `https://` uses TLS. The other standard OpenTelemetry exporter variables work as well, for example `OTEL_EXPORTER_OTLP_HEADERS` for a hosted backend's API key, `OTEL_EXPORTER_OTLP_CERTIFICATE` for a private CA, or `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` to send one signal somewhere else. A bare `host:port` without a scheme is still accepted and is sent as plaintext.
 
+### Prometheus
+
+Every metric below is also served for scraping at `GET /metrics` in Prometheus
+text format, whether or not OTLP export is on, together with the standard Go
+runtime and process metrics. It needs no API key (like `/health`) and exposes
+only aggregate counts; set `SPARROW_METRICS_ENABLED=false` to turn it off, or
+keep `/metrics` off the public network at your reverse proxy.
+
+```yaml
+scrape_configs:
+  - job_name: sparrow
+    static_configs:
+      - targets: ["sparrow:8080"]
+```
+
 ### Exported Metrics
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `sparrow_webhook_registrations_total` | Counter | Total number of webhook registrations |
-| `sparrow_events_pushed_total` | Counter | Total number of events pushed |
-| `sparrow_active_webhooks` | UpDownCounter | Current number of active webhook registrations |
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `sparrow_delivery_attempts_total` | Counter | `result`, `error_category` | Delivery attempts that reached the receiver (or failed to). Success rate: `sum(rate(sparrow_delivery_attempts_total{result="success"}[5m])) / sum(rate(sparrow_delivery_attempts_total[5m]))` |
+| `sparrow_delivery_attempt_duration_seconds` | Histogram | `result` | Time from sending an attempt to the receiver's response |
+| `sparrow_queue_jobs` | Gauge | `queue`, `state` | River jobs waiting (`available`, `scheduled`, `retryable`) or `running`, per queue: the delivery backlog |
+| `sparrow_webhooks` | Gauge | `health`, `status` | Webhooks by health and status (`active`, `paused`, `auto_disabled`) |
+| `sparrow_webhooks_auto_disabled_total` | Counter | | Webhooks Sparrow paused automatically because their receiver kept failing |
+| `sparrow_template_errors_total` | Counter | `on_transform_error` | Payload transform templates that failed to render |
+| `sparrow_events_pushed_total` | Counter | | Events pushed |
+| `sparrow_webhook_registrations_total` | Counter | | Webhook registrations |
+
+HTTP server and client metrics (`http_server_*`, `http_client_*`) and database
+pool metrics (`db_sql_*`) come from the OpenTelemetry instrumentation.
 
 ## Default Tenant
 

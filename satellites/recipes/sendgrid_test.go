@@ -130,6 +130,46 @@ func TestSendgridRecipe_DeliveryFailed(t *testing.T) {
 	}
 }
 
+// TestSendgridRecipe_WebhookDisabled renders sendgrid.yaml against a
+// sparrow.webhook.disabled payload: the subject says the webhook was
+// auto-disabled and the body carries the reason.
+func TestSendgridRecipe_WebhookDisabled(t *testing.T) {
+	tmpl := loadSendgridTemplate(t)
+	ctx := template.NewWebhookTemplateContext(
+		"evt_off1", "sparrow.webhook.disabled",
+		time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC).Format(time.RFC3339), 1,
+		map[string]any{
+			"webhook_id":           "wh_123",
+			"consumer":             "acme",
+			"url":                  "https://acme.example.com/hooks",
+			"reason":               "auto-disabled: 42 failed attempts in a row since 2025-12-28T00:00:00Z with no success",
+			"consecutive_failures": 42,
+			"failing_since":        "2025-12-28T00:00:00Z",
+			"alert_recipients": []map[string]string{
+				{"email": "ops@acme.example.com"},
+			},
+		},
+	)
+
+	out, err := template.NewTemplateEngine().ExecuteWith(tmpl, ctx, strictRender)
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	var body struct {
+		Subject string
+		Content []struct{ Value string }
+	}
+	if err := json.Unmarshal(out, &body); err != nil {
+		t.Fatalf("unmarshal: %v\n%s", err, out)
+	}
+	if !strings.Contains(body.Subject, "auto-disabled") {
+		t.Errorf("expected subject to say the webhook was auto-disabled, got %q", body.Subject)
+	}
+	if len(body.Content) != 1 || !strings.Contains(body.Content[0].Value, "42 failed attempts") {
+		t.Errorf("expected content body to carry the reason, got %+v", body.Content)
+	}
+}
+
 // TestSendgridRecipe_CustomEvent renders sendgrid.yaml against a custom event
 // without payload.alert_recipients: the default_recipient param must become
 // the sole recipient and the subject must name the event, not a system alert.
