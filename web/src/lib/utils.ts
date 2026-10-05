@@ -1,4 +1,5 @@
 import { createAjvValidator, type Content, type Validator } from "svelte-jsoneditor";
+import { analyzeSamples, inferSchema, jsonToJsonSchema } from "./schema-infer";
 
 /**
  * JSON Schema Meta-Schema for validating JSON Schemas themselves.
@@ -29,71 +30,6 @@ function safeAjvValidator(options: Parameters<typeof createAjvValidator>[0]): Va
     console.warn("JSON schema validation unavailable (CSP blocks script-src 'unsafe-eval')", e);
     return undefined;
   }
-}
-
-/**
- * Infer a JSON Schema type string from a JavaScript value.
- */
-function inferType(value: any): string {
-  if (value === null) return "null";
-  if (Array.isArray(value)) return "array";
-  return typeof value; // "string", "number", "boolean", "object"
-}
-
-/**
- * Generate a JSON Schema from a sample JSON value.
- *
- * This is a best-effort heuristic: a single JSON value cannot definitively
- * determine the full schema (e.g., optional fields, union types, enums).
- * The generated schema should be treated as a starting point that users
- * can refine — adding `required`, `enum`, `minLength`, `pattern`, etc.
- *
- * @param value - Any JSON-compatible value (object, array, string, number, etc.)
- * @returns A JSON Schema object describing the structure of the input.
- */
-function jsonToJsonSchema(value: any): Record<string, any> {
-  if (value === null || value === undefined) {
-    return { type: "null" };
-  }
-
-  if (Array.isArray(value)) {
-    const schema: Record<string, any> = { type: "array" };
-    if (value.length > 0) {
-      // Use the first element to infer items schema.
-      // For mixed-type arrays, the user will need to adjust manually.
-      schema.items = jsonToJsonSchema(value[0]);
-    }
-    return schema;
-  }
-
-  if (typeof value === "object") {
-    const properties: Record<string, any> = {};
-    const required: string[] = [];
-
-    for (const [key, val] of Object.entries(value)) {
-      properties[key] = jsonToJsonSchema(val);
-      required.push(key);
-    }
-
-    const schema: Record<string, any> = {
-      type: "object",
-      properties,
-    };
-    if (required.length > 0) {
-      schema.required = required;
-    }
-    return schema;
-  }
-
-  // Primitive types: string, number, boolean
-  const type = inferType(value);
-
-  // Distinguish integer vs number
-  if (type === "number" && Number.isInteger(value)) {
-    return { type: "integer" };
-  }
-
-  return { type };
 }
 
 /**
@@ -270,6 +206,8 @@ export {
   formatAPIError,
   getCategoryBadge,
   getCategoryDisplay,
+  analyzeSamples,
+  inferSchema,
   jsonToJsonSchema,
   safeAjvValidator,
   toJSONObject,

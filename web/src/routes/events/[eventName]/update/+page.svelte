@@ -2,13 +2,13 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { api, unwrap } from "$lib/services";
-  import { JSONSchemaMetaSchema, jsonToJsonSchema, toJSONObject, formatAPIError, safeAjvValidator } from "$lib/utils";
+  import { JSONSchemaMetaSchema, toJSONObject, formatAPIError, safeAjvValidator } from "$lib/utils";
   import { onMount } from "svelte";
   import ExpandableEditor from "$lib/components/ExpandableEditor.svelte";
+  import SchemaFromSamples from "$lib/components/SchemaFromSamples.svelte";
   import {
     type JSONContent,
     JSONEditor,
-    Mode,
     type Validator
   } from "svelte-jsoneditor";
   import type { components } from "$lib/api-types";
@@ -30,9 +30,9 @@
   let error = $state("");
   let loading = $state(true);
   let submitting = $state(false);
-  let showSchemaHelper = $state(false);
-  let sampleJson: JSONContent = $state({ json: {} });
-  let schemaHelperError = $state('');
+  // ?sample=<event id> (from an event record) or ?infer opens the helper.
+  const sampleId = page.url.searchParams.get("sample") ?? "";
+  let showSchemaHelper = $state(!!sampleId || page.url.searchParams.has("infer"));
   let schemaExpanded = $state(false);
 
   const validator: Validator | undefined = safeAjvValidator({ schema: JSONSchemaMetaSchema });
@@ -56,26 +56,9 @@
     }
   });
 
-  function generateSchemaFromSample() {
-    schemaHelperError = '';
-    try {
-      let sampleObj: any;
-      if ("text" in sampleJson && typeof sampleJson.text === "string") {
-        sampleObj = JSON.parse(sampleJson.text);
-      } else if ("json" in sampleJson && sampleJson.json !== undefined) {
-        sampleObj = sampleJson.json;
-      } else {
-        schemaHelperError = 'Please enter a valid JSON sample.';
-        return;
-      }
-
-      const generatedSchema = jsonToJsonSchema(sampleObj);
-      schema = { json: generatedSchema };
-      showSchemaHelper = false;
-      sampleJson = { json: {} };
-    } catch (e: any) {
-      schemaHelperError = `Invalid JSON: ${e.message}`;
-    }
+  function hasSchema() {
+    const current = toJSONObject(schema);
+    return !!current && Object.keys(current).length > 0;
   }
 
   async function loadVersions() {
@@ -197,7 +180,7 @@
         <div class="flex items-center justify-between mb-3">
           <span class="field-label mb-0">JSON Schema</span>
           <button type="button" onclick={() => (showSchemaHelper = !showSchemaHelper)} class="text-xs link-beacon">
-            {showSchemaHelper ? 'Hide' : 'Generate from sample'}
+            {showSchemaHelper ? 'Hide' : 'Generate from events or a sample'}
           </button>
         </div>
         <div class="grid grid-cols-1 {showSchemaHelper ? 'lg:grid-cols-2' : ''} gap-4">
@@ -209,18 +192,12 @@
             </ExpandableEditor>
           </div>
           {#if showSchemaHelper}
-            <div class="panel-2 p-4">
-              <p class="text-muted text-xs mb-2">Paste a sample payload to generate a schema:</p>
-              <div class="h-52 mb-2">
-                <JSONEditor bind:content={sampleJson} mode={Mode.text} />
-              </div>
-              {#if schemaHelperError}
-                <p class="text-xs mb-2" style="color:var(--color-bad)">{schemaHelperError}</p>
-              {/if}
-              <button type="button" onclick={generateSchemaFromSample} class="btn btn-beacon !px-3 !py-1.5">
-                Generate Schema
-              </button>
-            </div>
+            <SchemaFromSamples
+              eventName={name}
+              {sampleId}
+              hasSchema={hasSchema()}
+              ongenerate={(generated) => (schema = { json: generated })}
+            />
           {/if}
         </div>
       </section>

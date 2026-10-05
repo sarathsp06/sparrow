@@ -199,6 +199,16 @@
         <h1 class="text-2xl">Event Record</h1>
         <div class="mt-1"><CopyableId id={event.event_id} truncate={0} /></div>
       </div>
+      <div class="flex flex-wrap items-center gap-2">
+      {#if !event.event.toLowerCase().startsWith('sparrow.')}
+        <a
+          href={`/events/${encodeURIComponent(event.event)}/update?sample=${event.event_id}`}
+          class="btn btn-ghost !px-3 !py-1.5"
+          title="Generate the event type's schema from this payload"
+        >
+          Use as schema sample
+        </a>
+      {/if}
       <button
         onclick={rePushEvent}
         disabled={repushing}
@@ -214,6 +224,7 @@
           Re-push
         {/if}
       </button>
+      </div>
     </div>
 
     <div class="panel divide-y divide-line mb-8">
