@@ -232,6 +232,11 @@ func main() {
 	// Portal links are access tokens minted per visit; purge dead ones daily.
 	queueManager.EnableTokenPurge(accessSvc, accessauth.TokenRetention)
 
+	if cfg.ListenEnabled {
+		queueManager.EnableListenSessions(webhookRepo)
+		fmt.Printf("🎧 Listen sessions enabled — sparrow listen can receive this server's deliveries (max %s, %d per consumer)\n", cfg.ListenMaxTTL, cfg.ListenMaxSessions)
+	}
+
 	// Start the queue processing
 	if err := queueManager.Start(ctx); err != nil {
 		log.Fatalf("Failed to start queue manager: %v", err)
@@ -239,7 +244,7 @@ func main() {
 
 	fmt.Println("🚀 River queue started successfully")
 
-	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(cfg.AllowPrivateNetworks), webhooks.WithAllowedNetworks(cfg.AllowedNetworkList()), webhooks.WithAutoRegisterEvents(cfg.AutoRegisterEvents))
+	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(cfg.AllowPrivateNetworks), webhooks.WithAllowedNetworks(cfg.AllowedNetworkList()), webhooks.WithAutoRegisterEvents(cfg.AutoRegisterEvents), webhooks.WithListenSessions(webhooks.ListenPolicy{Enabled: cfg.ListenEnabled, MaxTTL: cfg.ListenMaxTTL, MaxPerConsumer: cfg.ListenMaxSessions}))
 	tracedWebhookService := webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, "")
 
 	// AI-assisted template drafting is opt-in (SPARROW_AI_*). Drafts are

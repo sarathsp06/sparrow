@@ -61,3 +61,35 @@ func TestListenHandlerWithoutSecretAcceptsAll(t *testing.T) {
 		t.Fatalf("status %d, want 200 when the webhook has no secret", rec.Code)
 	}
 }
+
+func TestHandleListenDeliveryForwardsOnlySignedDeliveries(t *testing.T) {
+	secret := "whsec_" + base64.StdEncoding.EncodeToString([]byte("0123456789abcdef01234567"))
+	var forwarded atomic.Int32
+	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		forwarded.Add(1)
+		w.Header().Set("X-App", "yes")
+		w.WriteHeader(http.StatusTeapot)
+		_, _ = io.WriteString(w, "brewed")
+	}))
+	defer app.Close()
+
+	forged := listenDeliveryOut{Method: http.MethodPost, Headers: map[string]string{"Content-Type": "application/json"}, Body: []byte(`{"forged":true}`)}
+	if resp := handleListenDelivery(t.Context(), io.Discard, forged, secret, app.URL); resp.Status != http.StatusUnauthorized || forwarded.Load() != 0 {
+		t.Fatalf("unsigned: status %d, forwarded %d; want 401 and nothing forwarded", resp.Status, forwarded.Load())
+	}
+
+	body := []byte(`{"ok":true}`)
+	signedReq := signedRequest(t, secret, body)
+	headers := map[string]string{}
+	for k := range signedReq.Header {
+		headers[k] = signedReq.Header.Get(k)
+	}
+	resp := handleListenDelivery(t.Context(), io.Discard, listenDeliveryOut{Method: http.MethodPost, Headers: headers, Body: body}, secret, app.URL)
+	if resp.Status != http.StatusTeapot || string(resp.Body) != "brewed" || resp.Headers["X-App"] != "yes" || forwarded.Load() != 1 {
+		t.Fatalf("signed: got %+v, forwarded %d; want the app's response reported back", resp, forwarded.Load())
+	}
+
+	if resp := handleListenDelivery(t.Context(), io.Discard, listenDeliveryOut{Method: http.MethodPost, Headers: headers, Body: body}, secret, ""); resp.Status != http.StatusOK {
+		t.Fatalf("no --forward: status %d, want 200", resp.Status)
+	}
+}

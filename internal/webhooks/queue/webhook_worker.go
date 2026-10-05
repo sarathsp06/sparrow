@@ -43,6 +43,8 @@ type WebhookWorker struct {
 	tracer           trace.Tracer
 	logger           *slog.Logger
 	client           *client.WebhookClient
+	// listen delivers to listen sessions (sparrow-cli:// webhooks).
+	listen *listenSender
 	// captureLimit is the storage limit for capture_response_body webhooks.
 	captureLimit int64
 	// templateErrors counts payload transform failures, labelled by the
@@ -68,7 +70,7 @@ func (p AutoDisablePolicy) enabled() bool {
 }
 
 // NewWebhookWorker creates a new webhook worker
-func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo systemEventRepo, deliveryRepo store.DeliveryRepository, subscriptionRepo store.SubscriptionRepository, healthRepo store.HealthRepository, rateLimitRepo store.RateLimitRepository, alertConfigRepo store.AlertConfigRepository, jobInserter JobInserter, cryptoSvc *crypto.Service, clientConfig *client.Config, autoDisable AutoDisablePolicy) *WebhookWorker {
+func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo systemEventRepo, deliveryRepo store.DeliveryRepository, subscriptionRepo store.SubscriptionRepository, healthRepo store.HealthRepository, rateLimitRepo store.RateLimitRepository, alertConfigRepo store.AlertConfigRepository, listenRepo store.ListenRepository, jobInserter JobInserter, cryptoSvc *crypto.Service, clientConfig *client.Config, autoDisable AutoDisablePolicy) *WebhookWorker {
 	// Initialize the centralized webhook client
 	webhookClient := client.NewWebhookClient(clientConfig)
 
@@ -85,6 +87,7 @@ func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo systemEvent
 		logger:           slog.Default().With("component", "webhook-worker"),
 		tracer:           observability.GetTracer("sparrow.workers.webhook"),
 		client:           webhookClient,
+		listen:           newListenSender(listenRepo),
 		captureLimit:     clientConfig.CapturedResponseLimit(),
 		templateErrors:   newTemplateErrorCounter(),
 		autoDisable:      autoDisable,
@@ -325,8 +328,16 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		log.WarnContext(ctx, "Failed to store request body", "error", err, "delivery_id", args.DeliveryID)
 	}
 
-	// Send the request
-	resp, duration, err := w.client.Send(ctx, deliveryReq)
+	// Send the request. A listen session is never dialed: the CLI that
+	// polls for it answers instead, and everything below handles its
+	// response like an HTTP one.
+	var resp *http.Response
+	var duration time.Duration
+	if client.IsListenURL(webhook.URL) {
+		resp, duration, err = w.listen.Send(ctx, tenantID, deliveryReq)
+	} else {
+		resp, duration, err = w.client.Send(ctx, deliveryReq)
+	}
 
 	if err != nil {
 		// Job-context cancellation (worker shutdown, job timeout) is not a
@@ -586,7 +597,14 @@ func (w *WebhookWorker) renderPayload(ctx context.Context, log *slog.Logger, job
 
 // recordHealthOutcome records a webhook health event and updates the health state.
 // This is the shared implementation for all delivery outcome paths (success, client error, server error).
+//
+// Listen sessions are skipped entirely: a developer's local app failing says
+// nothing about a production receiver, so it must not move health, metrics,
+// alerts or auto-disable.
 func (w *WebhookWorker) recordHealthOutcome(ctx context.Context, log *slog.Logger, tenantID uuid.UUID, consumer string, webhookID, deliveryID uuid.UUID, url string, success bool, durationMs int, statusCode int, errorMessage string, errorCategory string) {
+	if client.IsListenURL(url) {
+		return
+	}
 	w.metrics.recordAttempt(ctx, success, durationMs, errorCategory)
 	if err := w.healthRepo.RecordWebhookHealthEvent(ctx, webhookID, deliveryID, success, durationMs, statusCode, errorMessage, errorCategory); err != nil {
 		log.ErrorContext(ctx, "Failed to record health event", "error", err)

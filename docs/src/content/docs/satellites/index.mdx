@@ -59,6 +59,7 @@ Anything you build against the same three rules inherits the whole pipeline:
 
 :::note
 Sparrow blocks private-network delivery URLs by default (SSRF guard). For any
-local receiver — `sparrow listen`, a dev sink, a laptop endpoint — start the
-**server** with `SPARROW_ALLOW_PRIVATE_NETWORKS=true`.
+local receiver — `sparrow listen --direct`, a dev sink, a laptop endpoint — start the
+**server** with `SPARROW_ALLOW_PRIVATE_NETWORKS=true`. Plain `sparrow listen`
+needs no inbound connection: it polls the server (`SPARROW_LISTEN_ENABLED=true`).
 :::

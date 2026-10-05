@@ -76,6 +76,8 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps Access
 		{Name: "Alert Configs", Description: "Opt-in email recipients for Sparrow's own self-generated " +
 			"webhook.health_changed, webhook.delivery_failed and webhook.disabled system events."},
 		{Name: "Recipes", Description: "Shipped webhook adapter recipes that pre-fill destinations, headers, and payload transforms."},
+		{Name: "Listen Sessions", Description: "Temporary webhooks delivered to a polling client such as `sparrow listen`, " +
+			"for receiving this server's deliveries on a developer machine it cannot reach. Off unless SPARROW_LISTEN_ENABLED=true."},
 		{Name: "Server", Description: "Deployment-level information about this server, such as which optional features are configured."},
 	}
 	config.DocsPath = "/docs"
@@ -108,6 +110,7 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps Access
 	registerRecipeRoutes(api)
 	registerAccessRoutes(api, accessDeps)
 	registerAIRoutes(api, svc, aiDeps)
+	registerListenRoutes(api, svc)
 
 	return api
 }

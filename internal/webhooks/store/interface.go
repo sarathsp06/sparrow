@@ -23,6 +23,7 @@ type RepositoryInterface interface {
 	AlertConfigRepository
 	BatchRepository
 	RateLimitRepository
+	ListenRepository
 
 	// Composite operations that span multiple domains.
 	RegisterWebhookWithSubscriptions(ctx context.Context, tenantID uuid.UUID, registration *WebhookRegistration, subscriptions []*EventSubscription, firstVersion SubscriptionTemplateVersion) error

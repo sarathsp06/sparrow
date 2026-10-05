@@ -17,22 +17,31 @@ import (
 	"github.com/sarathsp06/sparrow/pkg/signature"
 )
 
-const listenHelp = `Start a local HTTP receiver, register it as a temporary webhook, and
-pretty-print every delivery. The webhook is deleted on Ctrl-C.
+const listenHelp = `Receive deliveries on this machine, pretty-print each one, and optionally
+forward it to a local app. Ctrl-C stops and cleans up.
 
-Without --public-url the webhook is registered as
-http://host.docker.internal:<port>, which assumes Sparrow runs in Docker on
-this machine (Docker Desktop resolves host.docker.internal to your host).
-Sparrow blocks private-network delivery URLs by default (SSRF guard); for
-local receivers start the server with SPARROW_ALLOW_PRIVATE_NETWORKS=true
-(or list your network in SPARROW_ALLOWED_NETWORKS).
+By default the CLI starts a listen session: the server keeps the deliveries
+for it and the CLI polls for them over HTTPS, so this works against any
+Sparrow you can reach, including production behind a VPN, with nothing
+listening on this machine. The server needs SPARROW_LISTEN_ENABLED=true.
+Each delivery is signed with the session's secret (printed at start, use it
+as your app's webhook secret) and the CLI only forwards deliveries whose
+signature verifies. Your app's response (or a 200 when not forwarding) is
+reported back as the delivery attempt's result: a 5xx is retried, a timeout
+(no answer within 10s) too.
 
-Only deliveries signed with the temporary webhook's secret are accepted:
-anything else on the port gets 401 and is never forwarded. Use --bind
-127.0.0.1 when Sparrow runs on this machine outside Docker.
+With a consumer access token (the customer portal's credential) add
+--portal; the session then belongs to that token's consumer.
 
-usage: sparrow listen --event <name> [--event <name>...] [--port N]
-                      [--bind ADDR] [--public-url URL] [--forward URL]
+--direct keeps the older mode: start a local HTTP receiver and register it
+as a temporary webhook at http://host.docker.internal:<port> (or
+--public-url). That needs the server to reach this machine, so it is for a
+Sparrow running locally with SPARROW_ALLOW_PRIVATE_NETWORKS=true.
+
+usage: sparrow listen --event <name> [--event <name>...] [--forward URL]
+                      [--ttl DURATION] [--portal]
+       sparrow listen --direct --event <name> [--port N] [--bind ADDR]
+                      [--public-url URL] [--forward URL]
 `
 
 func newListenCmd() *cobra.Command {
@@ -41,32 +50,45 @@ func newListenCmd() *cobra.Command {
 	var events listFlag
 	var publicURL string
 	var forward string
+	var direct, portal bool
+	var ttl time.Duration
 	cmd := &cobra.Command{
 		Use:   "listen",
-		Short: "Receive deliveries on a local HTTP server via a temp webhook",
+		Short: "Receive deliveries on this machine (and forward them to a local app)",
 		Long:  listenHelp,
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if len(events) == 0 {
 				return fmt.Errorf("at least one --event is required")
 			}
+			if direct && portal {
+				return fmt.Errorf("--portal works only with listen sessions, not --direct")
+			}
 			client, cfg, err := clientFromCmd(cmd)
 			if err != nil {
 				return err
 			}
-			return runListen(cmd.Context(), cmd.OutOrStdout(), client, cfg.Consumer, bind, port, events, publicURL, forward)
+			if direct {
+				return runListen(cmd.Context(), cmd.OutOrStdout(), client, cfg.Consumer, bind, port, events, publicURL, forward)
+			}
+			client.portal = portal
+			return runRemoteListen(cmd.Context(), cmd.OutOrStdout(), client, cfg.Consumer, events, ttl, forward)
 		},
 	}
 	f := cmd.Flags()
-	f.IntVar(&port, "port", 0, "local port to listen on (default random)")
-	f.StringVar(&bind, "bind", "", "local address to listen on (default all interfaces, so Docker can reach it; 127.0.0.1 for loopback only)")
 	f.VarP(&events, "event", "e", "event type to subscribe to (repeatable, required)")
-	f.StringVar(&publicURL, "public-url", "", "URL the Sparrow server should deliver to (default http://host.docker.internal:<port>)")
-	f.StringVar(&forward, "forward", "", "proxy each delivery to this URL and mirror its status")
+	f.StringVar(&forward, "forward", "", "proxy each delivery to this URL and report its response")
+	f.DurationVar(&ttl, "ttl", 0, "listen session lifetime (default and maximum: the server's SPARROW_LISTEN_MAX_TTL)")
+	f.BoolVar(&portal, "portal", false, "the API key is a consumer access token: go through the portal API")
+	f.BoolVar(&direct, "direct", false, "run a local receiver the server delivers to, instead of a listen session")
+	f.IntVar(&port, "port", 0, "--direct: local port to listen on (default random)")
+	f.StringVar(&bind, "bind", "", "--direct: local address to listen on (default all interfaces, so Docker can reach it; 127.0.0.1 for loopback only)")
+	f.StringVar(&publicURL, "public-url", "", "--direct: URL the Sparrow server should deliver to (default http://host.docker.internal:<port>)")
 	return cmd
 }
 
-// runListen receives deliveries on a local HTTP server via a temp webhook.
+// runListen (--direct) receives deliveries on a local HTTP server via a temp
+// webhook.
 func runListen(ctx context.Context, out io.Writer, client *apiClient, consumer, bind string, port int, events listFlag, publicURL, forward string) error {
 	ln, err := net.Listen("tcp", net.JoinHostPort(bind, strconv.Itoa(port)))
 	if err != nil {
@@ -162,20 +184,42 @@ func printReceived(out io.Writer, r *http.Request, body []byte, secret string) b
 
 // mirrorForward proxies the delivery to forwardURL and mirrors its status.
 func mirrorForward(out io.Writer, w http.ResponseWriter, r *http.Request, body []byte, forwardURL string) {
-	req, err := http.NewRequestWithContext(r.Context(), r.Method, forwardURL, bytes.NewReader(body))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
-		return
-	}
-	req.Header = r.Header.Clone()
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := forwardRequest(r.Context(), r.Method, forwardURL, r.Header, body)
 	if err != nil {
 		_, _ = fmt.Fprintf(out, "forward: %v\n", err)
 		w.WriteHeader(http.StatusBadGateway)
 		return
 	}
+	_, _ = fmt.Fprintf(out, "forward: %s -> %d\n", forwardURL, resp.status)
+	w.WriteHeader(resp.status)
+	w.Write(resp.body) //nolint:errcheck
+}
+
+// maxForwardResponse caps the local app's response body kept and reported.
+const maxForwardResponse = 64 << 10
+
+type forwardResponse struct {
+	status  int
+	headers map[string]string
+	body    []byte
+}
+
+// forwardRequest sends one delivery to forwardURL with its original headers.
+func forwardRequest(ctx context.Context, method, forwardURL string, header http.Header, body []byte) (forwardResponse, error) {
+	req, err := http.NewRequestWithContext(ctx, method, forwardURL, bytes.NewReader(body))
+	if err != nil {
+		return forwardResponse{}, err
+	}
+	req.Header = header.Clone()
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return forwardResponse{}, err
+	}
 	defer resp.Body.Close() //nolint:errcheck
-	_, _ = fmt.Fprintf(out, "forward: %s -> %d\n", forwardURL, resp.StatusCode)
-	w.WriteHeader(resp.StatusCode)
-	io.Copy(w, resp.Body) //nolint:errcheck
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, maxForwardResponse))
+	headers := make(map[string]string, len(resp.Header))
+	for k := range resp.Header {
+		headers[k] = resp.Header.Get(k)
+	}
+	return forwardResponse{status: resp.StatusCode, headers: headers, body: respBody}, nil
 }

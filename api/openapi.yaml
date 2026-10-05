@@ -243,6 +243,25 @@ components:
       required:
         - ai_drafting
       type: object
+    ClaimListenDeliveriesOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ClaimListenDeliveriesOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/ListenDeliveryItem"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
     ConsumerStatsOutputBody:
       additionalProperties: false
       properties:
@@ -374,6 +393,36 @@ components:
         - invite
         - secret
         - path
+      type: object
+    CreateListenSessionBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CreateListenSessionBody.json
+          format: uri
+          readOnly: true
+          type: string
+        description:
+          description: Shown on the session's webhook, e.g. who is listening from where.
+          maxLength: 200
+          type: string
+        events:
+          description: Event types the session receives.
+          items:
+            type: string
+          minItems: 1
+          type:
+            - array
+            - "null"
+        ttl_seconds:
+          description: Session lifetime in seconds. 0 or more than the server maximum (SPARROW_LISTEN_MAX_TTL) means the maximum.
+          format: int64
+          minimum: 0
+          type: integer
+      required:
+        - events
       type: object
     CreateSubscriptionBody:
       additionalProperties: false
@@ -1507,6 +1556,66 @@ components:
         - items
         - pagination
       type: object
+    ListenDeliveryItem:
+      additionalProperties: false
+      properties:
+        body:
+          contentEncoding: base64
+          description: Request body (base64).
+          type: string
+        delivery_id:
+          type: string
+        headers:
+          additionalProperties:
+            type: string
+          description: Request headers exactly as a receiver gets them, including the webhook-id/-timestamp/-signature signing headers.
+          type: object
+        method:
+          type: string
+      required:
+        - delivery_id
+        - method
+        - headers
+        - body
+      type: object
+    ListenSessionItem:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ListenSessionItem.json
+          format: uri
+          readOnly: true
+          type: string
+        consumer:
+          type: string
+        created_at:
+          description: RFC3339.
+          type: string
+        events:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        expires_at:
+          description: RFC3339. The session and its webhook are deleted after this.
+          type: string
+        session_id:
+          description: Session id. It is also the id of the session's webhook (URL sparrow-cli://<session_id>), so its deliveries show up in the delivery history.
+          type: string
+        webhook_secret:
+          description: Signing secret of the session's deliveries. Returned only here.
+          type: string
+      required:
+        - session_id
+        - consumer
+        - events
+        - webhook_secret
+        - created_at
+        - expires_at
+      type: object
     PaginationOutput:
       additionalProperties: false
       properties:
@@ -1882,6 +1991,33 @@ components:
             - "null"
       required:
         - event_id
+      type: object
+    RespondListenDeliveryInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/RespondListenDeliveryInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        body:
+          contentEncoding: base64
+          description: Response body (base64).
+          type: string
+        headers:
+          additionalProperties:
+            type: string
+          type: object
+        status:
+          description: HTTP status the local app answered with.
+          format: int64
+          maximum: 599
+          minimum: 100
+          type: integer
+      required:
+        - status
       type: object
     ResumeSubscriptionOutputBody:
       additionalProperties: false
@@ -3546,6 +3682,235 @@ paths:
       summary: Start a batch re-push job from a prepared snapshot
       tags:
         - Events
+  /v1/consumers/{consumer}/listen-sessions:
+    post:
+      description: Creates a temporary webhook that is delivered to a polling client (`sparrow listen`) instead of a URL, so a developer can receive this server's deliveries on a machine it cannot reach. Off unless the server runs with SPARROW_LISTEN_ENABLED=true.
+      operationId: createListenSession
+      parameters:
+        - in: path
+          name: consumer
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateListenSessionBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListenSessionItem"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Bad Request
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Forbidden
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Too Many Requests
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+      summary: Start a listen session
+      tags:
+        - Listen Sessions
+  /v1/consumers/{consumer}/listen-sessions/{session_id}:
+    delete:
+      description: Deletes the session and its webhook, subscriptions and deliveries.
+      operationId: deleteListenSession
+      parameters:
+        - in: path
+          name: consumer
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: session_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+      summary: Stop a listen session
+      tags:
+        - Listen Sessions
+  /v1/consumers/{consumer}/listen-sessions/{session_id}/deliveries/{delivery_id}:respond:
+    post:
+      description: Records the local app's response to a claimed delivery. It becomes the delivery attempt's outcome, judged like an HTTP response (expected status codes, retries).
+      operationId: respondListenDelivery
+      parameters:
+        - in: path
+          name: consumer
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: session_id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: delivery_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RespondListenDeliveryInputBody"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Bad Request
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+      summary: Report a listen delivery's response
+      tags:
+        - Listen Sessions
+  /v1/consumers/{consumer}/listen-sessions/{session_id}:claim:
+    post:
+      description: "Long-polls for deliveries to the session and claims them. Answer each with respondListenDelivery before the webhook's request timeout, or the attempt fails as a timeout and is retried. Polling also keeps the session connected: a session not polled for 45 seconds fails its deliveries as offline."
+      operationId: claimListenDeliveries
+      parameters:
+        - in: path
+          name: consumer
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: session_id
+          required: true
+          schema:
+            type: string
+        - description: How long to wait for a delivery before returning an empty list.
+          explode: false
+          in: query
+          name: wait_seconds
+          schema:
+            default: 20
+            description: How long to wait for a delivery before returning an empty list.
+            format: int64
+            maximum: 20
+            minimum: 0
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaimListenDeliveriesOutputBody"
+          description: OK
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+      summary: Wait for a listen session's deliveries
+      tags:
+        - Listen Sessions
   /v1/consumers/{consumer}/repush-jobs/{job_id}:
     get:
       description: Returns a batch re-push job's status and processed/failed/total counts.
@@ -6009,5 +6374,7 @@ tags:
     name: Alert Configs
   - description: Shipped webhook adapter recipes that pre-fill destinations, headers, and payload transforms.
     name: Recipes
+  - description: Temporary webhooks delivered to a polling client such as `sparrow listen`, for receiving this server's deliveries on a developer machine it cannot reach. Off unless SPARROW_LISTEN_ENABLED=true.
+    name: Listen Sessions
   - description: Deployment-level information about this server, such as which optional features are configured.
     name: Server

@@ -61,6 +61,8 @@ services:
       SPARROW_ENCRYPTION_PRIMARY_KEY_ID: main
       # LOCAL ONLY: allow webhooks to localhost/private addresses.
       SPARROW_ALLOW_PRIVATE_NETWORKS: "true"
+      # `sparrow listen` polls this server for deliveries.
+      SPARROW_LISTEN_ENABLED: "true"
       # Optional: require a key on /v1 and show the UI sign-in prompt.
       # SPARROW_API_KEY: "local-test-key"
     depends_on:

@@ -17,6 +17,9 @@ type apiClient struct {
 	baseURL string
 	apiKey  string
 	hc      *http.Client
+	// portal sends apiKey as a consumer token through the portal API
+	// (/portal/api/..., Authorization: Bearer) instead of /v1.
+	portal bool
 }
 
 func newAPIClient(cfg config) *apiClient {
@@ -53,7 +56,10 @@ func (c *apiClient) do(ctx context.Context, method, path string, body, out any) 
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if c.apiKey != "" {
+	switch {
+	case c.portal:
+		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	case c.apiKey != "":
 		req.Header.Set("X-API-Key", c.apiKey)
 	}
 	resp, err := c.hc.Do(req)
@@ -78,6 +84,15 @@ func (c *apiClient) do(ctx context.Context, method, path string, body, out any) 
 		}
 	}
 	return nil
+}
+
+// consumerPath is the path of rest under consumer: /v1/consumers/<c>/rest,
+// or /portal/api/rest in portal mode, where the token carries the consumer.
+func (c *apiClient) consumerPath(consumer, rest string) string {
+	if c.portal {
+		return "/portal/api/" + rest
+	}
+	return "/v1/consumers/" + url.PathEscape(consumer) + "/" + rest
 }
 
 // ── API shapes (only the fields the CLI reads) ──────────────────────────────

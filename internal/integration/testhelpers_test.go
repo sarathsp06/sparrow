@@ -139,7 +139,7 @@ func setupEnv(t *testing.T) *testEnv {
 	require.NoError(t, err, "failed to start queue manager")
 
 	// 10. Create webhook service
-	webhookSvc := webhooks.NewWebhookService(queueMgr.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(true), webhooks.WithAutoRegisterEvents(true))
+	webhookSvc := webhooks.NewWebhookService(queueMgr.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(true), webhooks.WithAutoRegisterEvents(true), webhooks.WithListenSessions(webhooks.ListenPolicy{Enabled: true, MaxTTL: time.Hour, MaxPerConsumer: 5}))
 
 	// 11. Mount the REST API (Huma) on a chi router.
 	tracedSvc := webhooks.NewWebhookServiceInterfaceWithTracing(webhookSvc, "")

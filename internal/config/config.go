@@ -144,6 +144,22 @@ type Config struct {
 	// types are never deleted, so in production a producer typo would become
 	// a permanent name. Turn it on for local development.
 	AutoRegisterEvents bool `envconfig:"SPARROW_AUTO_REGISTER_EVENTS" default:"false"`
+
+	// ListenEnabled turns on listen sessions: `sparrow listen` against a
+	// server that cannot reach the developer's machine. The CLI polls this
+	// server for its deliveries instead of receiving them, so real event
+	// payloads reach whoever holds a token for the consumer. Off by default.
+	// Env: SPARROW_LISTEN_ENABLED
+	ListenEnabled bool `envconfig:"SPARROW_LISTEN_ENABLED" default:"false"`
+
+	// ListenMaxTTL caps how long a listen session lives (and is the default
+	// when the CLI asks for none); expired sessions are deleted.
+	// Env: SPARROW_LISTEN_MAX_TTL (Go duration, default "8h")
+	ListenMaxTTL time.Duration `envconfig:"SPARROW_LISTEN_MAX_TTL" default:"8h"`
+
+	// ListenMaxSessions caps one consumer's concurrent listen sessions.
+	// Env: SPARROW_LISTEN_MAX_SESSIONS (default 5)
+	ListenMaxSessions int `envconfig:"SPARROW_LISTEN_MAX_SESSIONS" default:"5"`
 	// AIProvider selects the chat API behind AI-assisted template drafting:
 	// "anthropic" (default; needs SPARROW_AI_API_KEY) or "openai" for any
 	// OpenAI-compatible /v1/chat/completions server such as Ollama, vLLM,

@@ -30,4 +30,9 @@ fi
 : "${SPARROW_AUTO_REGISTER_EVENTS:=true}"
 export SPARROW_AUTO_REGISTER_EVENTS
 
+# `sparrow listen` polls the local server for deliveries.
+: "${SPARROW_LISTEN_ENABLED:=$(dotenv SPARROW_LISTEN_ENABLED)}"
+: "${SPARROW_LISTEN_ENABLED:=true}"
+export SPARROW_LISTEN_ENABLED
+
 exec "$@"

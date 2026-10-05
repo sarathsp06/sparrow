@@ -193,6 +193,13 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, consumer string, e
 
 // CreateWebhook creates a webhook registration with HTTP configuration support
 func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*WebhookRegistration, error) {
+	return s.createWebhook(ctx, req, true)
+}
+
+// createWebhook creates a webhook. validateURL is false only for listen
+// sessions, whose sparrow-cli:// URL is never dialed and that the public
+// create path must keep refusing.
+func (s *WebhookService) createWebhook(ctx context.Context, req WebhookRegistrationRequest, validateURL bool) (*WebhookRegistration, error) {
 	redactedURL := client.RedactURL(req.URL)
 	ctx, span := s.tracer.Start(ctx, "webhook.create",
 		trace.WithAttributes(
@@ -216,8 +223,10 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	}
 
 	// Validate webhook URL against SSRF
-	if err := ValidateWebhookURL(req.URL, s.networkPolicy); err != nil {
-		return nil, err
+	if validateURL {
+		if err := ValidateWebhookURL(req.URL, s.networkPolicy); err != nil {
+			return nil, err
+		}
 	}
 	if err := validateHeaders("headers", stringHeaders(req.Headers)); err != nil {
 		return nil, err

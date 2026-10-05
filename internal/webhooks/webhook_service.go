@@ -29,6 +29,8 @@ type WebhookService struct {
 	// autoRegisterEvents lets a push to an unknown event name create a
 	// schema-less event type instead of failing with NotFound.
 	autoRegisterEvents bool
+	// listen controls listen sessions (off unless enabled).
+	listen ListenPolicy
 }
 
 // WebhookManager manages webhook registrations and their lifecycle.
@@ -133,6 +135,7 @@ type WebhookServiceInterface interface {
 	BatchManager
 	SecretRevealer
 	AlertConfigManager
+	ListenManager
 }
 
 type TemplateFunctionInfo struct {

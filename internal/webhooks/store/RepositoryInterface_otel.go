@@ -186,6 +186,31 @@ func (_d RepositoryInterfaceWithTracing) CalculateWebhookHealth(ctx context.Cont
 	return _d.RepositoryInterface.CalculateWebhookHealth(ctx, webhookID, lookbackHours)
 }
 
+// ClaimListenDeliveries implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) ClaimListenDeliveries(ctx context.Context, webhookID uuid.UUID, limit int) (lpa1 []*ListenDelivery, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ClaimListenDeliveries")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":       ctx,
+				"webhookID": webhookID,
+				"limit":     limit}, map[string]interface{}{
+				"lpa1": lpa1,
+				"err":  err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.ClaimListenDeliveries(ctx, webhookID, limit)
+}
+
 // CleanupExpiredBatchJobs implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) CleanupExpiredBatchJobs(ctx context.Context) (i1 int, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.CleanupExpiredBatchJobs")
@@ -207,6 +232,31 @@ func (_d RepositoryInterfaceWithTracing) CleanupExpiredBatchJobs(ctx context.Con
 		_span.End()
 	}()
 	return _d.RepositoryInterface.CleanupExpiredBatchJobs(ctx)
+}
+
+// CountListenSessions implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) CountListenSessions(ctx context.Context, tenantID uuid.UUID, consumer string) (i1 int, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.CountListenSessions")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":      ctx,
+				"tenantID": tenantID,
+				"consumer": consumer}, map[string]interface{}{
+				"i1":  i1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.CountListenSessions(ctx, tenantID, consumer)
 }
 
 // CountWebhooksByState implements RepositoryInterface
@@ -305,6 +355,29 @@ func (_d RepositoryInterfaceWithTracing) CreateDelivery(ctx context.Context, ten
 		_span.End()
 	}()
 	return _d.RepositoryInterface.CreateDelivery(ctx, tenantID, delivery)
+}
+
+// CreateListenSession implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) CreateListenSession(ctx context.Context, session *ListenSession) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.CreateListenSession")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":     ctx,
+				"session": session}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.CreateListenSession(ctx, session)
 }
 
 // CreateSubscription implements RepositoryInterface
@@ -424,6 +497,52 @@ func (_d RepositoryInterfaceWithTracing) DeleteEventsBefore(ctx context.Context,
 		_span.End()
 	}()
 	return _d.RepositoryInterface.DeleteEventsBefore(ctx, cutoff)
+}
+
+// DeleteExpiredListenSessions implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) DeleteExpiredListenSessions(ctx context.Context) (i1 int64, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.DeleteExpiredListenSessions")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx": ctx}, map[string]interface{}{
+				"i1":  i1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.DeleteExpiredListenSessions(ctx)
+}
+
+// DeleteListenDelivery implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) DeleteListenDelivery(ctx context.Context, deliveryID uuid.UUID) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.DeleteListenDelivery")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":        ctx,
+				"deliveryID": deliveryID}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.DeleteListenDelivery(ctx, deliveryID)
 }
 
 // DeleteRateLimitState implements RepositoryInterface
@@ -858,6 +977,55 @@ func (_d RepositoryInterfaceWithTracing) GetHealthSummary(ctx context.Context, t
 		_span.End()
 	}()
 	return _d.RepositoryInterface.GetHealthSummary(ctx, tenantID)
+}
+
+// GetListenDelivery implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) GetListenDelivery(ctx context.Context, deliveryID uuid.UUID) (lp1 *ListenDelivery, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetListenDelivery")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":        ctx,
+				"deliveryID": deliveryID}, map[string]interface{}{
+				"lp1": lp1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.GetListenDelivery(ctx, deliveryID)
+}
+
+// GetListenSession implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) GetListenSession(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) (lp1 *ListenSession, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetListenSession")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":       ctx,
+				"tenantID":  tenantID,
+				"webhookID": webhookID}, map[string]interface{}{
+				"lp1": lp1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.GetListenSession(ctx, tenantID, webhookID)
 }
 
 // GetRetriableDeliveries implements RepositoryInterface
@@ -1597,6 +1765,29 @@ func (_d RepositoryInterfaceWithTracing) LockWebhook(ctx context.Context, tenant
 	return _d.RepositoryInterface.LockWebhook(ctx, tenantID, webhookID, consumer, exclusive)
 }
 
+// QueueListenDelivery implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) QueueListenDelivery(ctx context.Context, d *ListenDelivery) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.QueueListenDelivery")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx": ctx,
+				"d":   d}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.QueueListenDelivery(ctx, d)
+}
+
 // RecordWebhookHealthEvent implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) RecordWebhookHealthEvent(ctx context.Context, webhookID uuid.UUID, deliveryID uuid.UUID, success bool, responseTime int, responseCode int, errorMessage string, errorCategory string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.RecordWebhookHealthEvent")
@@ -1776,6 +1967,33 @@ func (_d RepositoryInterfaceWithTracing) ResolveAlertRecipients(ctx context.Cont
 	return _d.RepositoryInterface.ResolveAlertRecipients(ctx, tenantID, webhookID, consumer, eventType)
 }
 
+// RespondListenDelivery implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) RespondListenDelivery(ctx context.Context, webhookID uuid.UUID, deliveryID uuid.UUID, status int, headers map[string]string, body []byte) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.RespondListenDelivery")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":        ctx,
+				"webhookID":  webhookID,
+				"deliveryID": deliveryID,
+				"status":     status,
+				"headers":    headers,
+				"body":       body}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.RespondListenDelivery(ctx, webhookID, deliveryID, status, headers, body)
+}
+
 // SetSubscriptionPaused implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) SetSubscriptionPaused(ctx context.Context, tenantID uuid.UUID, id uuid.UUID, paused bool, reason string) (tp1 *time.Time, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.SetSubscriptionPaused")
@@ -1875,6 +2093,30 @@ func (_d RepositoryInterfaceWithTracing) StoreEvent(ctx context.Context, tenantI
 		_span.End()
 	}()
 	return _d.RepositoryInterface.StoreEvent(ctx, tenantID, event)
+}
+
+// TouchListenSession implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) TouchListenSession(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.TouchListenSession")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":       ctx,
+				"tenantID":  tenantID,
+				"webhookID": webhookID}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.TouchListenSession(ctx, tenantID, webhookID)
 }
 
 // UnregisterWebhook implements RepositoryInterface

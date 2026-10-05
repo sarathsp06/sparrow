@@ -11,10 +11,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 
 	_codes "go.opentelemetry.io/otel/codes"
 )
@@ -86,6 +87,32 @@ func (_d WebhookServiceInterfaceWithTracing) CancelRetry(ctx context.Context, re
 	return _d.WebhookServiceInterface.CancelRetry(ctx, retryID)
 }
 
+// ClaimListenDeliveries implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) ClaimListenDeliveries(ctx context.Context, consumer string, sessionID string, wait time.Duration) (lpa1 []*store.ListenDelivery, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.ClaimListenDeliveries")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":       ctx,
+				"consumer":  consumer,
+				"sessionID": sessionID,
+				"wait":      wait}, map[string]interface{}{
+				"lpa1": lpa1,
+				"err":  err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.ClaimListenDeliveries(ctx, consumer, sessionID, wait)
+}
+
 // CreateAlertConfig implements WebhookServiceInterface
 func (_d WebhookServiceInterfaceWithTracing) CreateAlertConfig(ctx context.Context, consumer string, webhookID string, email string, eventTypes []string) (ap1 *store.AlertConfig, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.CreateAlertConfig")
@@ -111,6 +138,30 @@ func (_d WebhookServiceInterfaceWithTracing) CreateAlertConfig(ctx context.Conte
 		_span.End()
 	}()
 	return _d.WebhookServiceInterface.CreateAlertConfig(ctx, consumer, webhookID, email, eventTypes)
+}
+
+// CreateListenSession implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) CreateListenSession(ctx context.Context, req ListenSessionRequest) (lp1 *ListenSession, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.CreateListenSession")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx": ctx,
+				"req": req}, map[string]interface{}{
+				"lp1": lp1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.CreateListenSession(ctx, req)
 }
 
 // CreateSubscription implements WebhookServiceInterface
@@ -193,6 +244,30 @@ func (_d WebhookServiceInterfaceWithTracing) DeleteAlertConfig(ctx context.Conte
 		_span.End()
 	}()
 	return _d.WebhookServiceInterface.DeleteAlertConfig(ctx, consumer, id)
+}
+
+// DeleteListenSession implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) DeleteListenSession(ctx context.Context, consumer string, sessionID string) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.DeleteListenSession")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":       ctx,
+				"consumer":  consumer,
+				"sessionID": sessionID}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.DeleteListenSession(ctx, consumer, sessionID)
 }
 
 // DeleteSubscription implements WebhookServiceInterface
@@ -970,6 +1045,34 @@ func (_d WebhookServiceInterfaceWithTracing) RegisterWebhook(ctx context.Context
 		_span.End()
 	}()
 	return _d.WebhookServiceInterface.RegisterWebhook(ctx, consumer, events, url, headers, timeout, active, description, secretHeaders)
+}
+
+// RespondListenDelivery implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) RespondListenDelivery(ctx context.Context, consumer string, sessionID string, deliveryID string, status int, headers map[string]string, body []byte) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.RespondListenDelivery")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":        ctx,
+				"consumer":   consumer,
+				"sessionID":  sessionID,
+				"deliveryID": deliveryID,
+				"status":     status,
+				"headers":    headers,
+				"body":       body}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.RespondListenDelivery(ctx, consumer, sessionID, deliveryID, status, headers, body)
 }
 
 // ResumeSubscription implements WebhookServiceInterface

@@ -36,8 +36,8 @@ go install github.com/sarathsp06/sparrow/satellites/sparrow@latest
 # 1. Point the CLI at your server (writes ~/.sparrow/config.yaml)
 sparrow init --url http://localhost:8080
 
-# 2. Receive deliveries locally: registers a temporary webhook,
-#    prints every delivery, deletes the webhook on Ctrl-C
+# 2. Receive deliveries locally: starts a listen session,
+#    prints every delivery, deletes the session on Ctrl-C
 sparrow listen --event order.created
 
 # 3. In another terminal: push an event
@@ -49,9 +49,9 @@ The delivery shows up in the `listen` terminal, signature-verified,
 headers and body pretty-printed.
 
 :::note
-`listen` registers a webhook that points back at your local machine, so the
-Sparrow **server** must allow private-network targets: start it with
-`SPARROW_ALLOW_PRIVATE_NETWORKS=true` (SSRF protection stays on in production).
+`listen` polls the server for its deliveries, so nothing has to reach your
+machine, but the **server** must allow listen sessions: start it with
+`SPARROW_LISTEN_ENABLED=true` (`make run` and the local Compose file do).
 :::
 
 ## How it's connected
@@ -66,35 +66,63 @@ endpoints:
 | `init` | `GET /health` (probe), then writes `~/.sparrow/config.yaml` locally |
 | `push` | `POST /v1/consumers/{consumer}/events?event=<name>` — the server auto-registers an unknown event type inline, so one call is normally enough; the CLI also retries once itself if it ever sees a `404`/`422` for an unregistered type |
 | `tail deliveries` | `GET /v1/consumers/{consumer}/deliveries` every 2 s, printing rows not seen before; webhook IDs are resolved to URLs via `GET /v1/consumers/{consumer}/webhooks` |
-| `listen` | `POST /v1/consumers/{consumer}/webhooks` (temporary registration) … `DELETE /v1/consumers/{consumer}/webhooks/{id}` on Ctrl-C |
+| `listen` | `POST /v1/consumers/{consumer}/listen-sessions`, then `POST …/listen-sessions/{id}:claim` (long-poll) and `POST …/listen-sessions/{id}/deliveries/{delivery}:respond` per delivery … `DELETE …/listen-sessions/{id}` on Ctrl-C. With `--direct`: `POST /v1/consumers/{consumer}/webhooks` (temporary registration) … `DELETE /v1/consumers/{consumer}/webhooks/{id}` |
 | `use` | `POST /v1/consumers/{consumer}/webhooks`, then `GET` + `PATCH /v1/consumers/{consumer}/subscriptions/{id}` to attach the recipe's transform template and label filters |
 | `template test` | none — renders **locally** with the same Go template engine the server uses, against a synthetic sample context; never calls the API |
 
-`listen` is the one command with a receiving side. Its technical path:
+`listen` is the one command with a receiving side. By default it opens no
+port: it starts a **listen session** and fetches its deliveries over HTTPS,
+the same way `stripe listen` works. That is what lets a developer receive a
+production Sparrow's deliveries on a laptop behind NAT or a VPN:
 
 ```
-1. bind a local TCP port (random unless --port; bind address: --bind, default all interfaces)
-2. POST /v1/consumers/{consumer}/webhooks
-     url = --public-url, default http://host.docker.internal:<port>
-     → response contains the webhook secret (shown once)
-3. serve HTTP: for each delivery from Sparrow's worker
-     - verify the Standard Webhooks headers (webhook-id, webhook-timestamp,
-       webhook-signature) against that secret — HMAC-SHA256 over
-       "{id}.{timestamp}.{body}"
-     - unsigned or mis-signed requests get 401 and are never forwarded
-     - request bodies are capped at 5 MiB
-     - pretty-print headers + body, or proxy to --forward and mirror its status
-4. Ctrl-C → DELETE the temporary webhook
+1. POST /v1/consumers/{consumer}/listen-sessions {events, ttl_seconds}
+     → a temporary webhook with URL sparrow-cli://<session id>, which the
+       server never dials, and its signing secret (shown once)
+2. loop: POST …/listen-sessions/{id}:claim?wait_seconds=20
+     the server holds the request until a delivery arrives (or 20 s pass);
+     each delivery is the exact signed request a receiver would get
+3. for each delivery
+     - verify the Standard Webhooks signature against the session secret;
+       a request that fails gets 401 and is never forwarded
+     - pretty-print headers + body, or send it to --forward
+     - POST …/deliveries/{delivery}:respond {status, headers, body}
+       → the delivery attempt's result: 2xx succeeds, 5xx and timeouts are
+         retried, exactly as for an HTTP receiver
+4. Ctrl-C → DELETE the session (its webhook, subscriptions and deliveries)
 ```
 
-`--bind` controls the listen address: the default is all interfaces (so a
-Dockerized server can reach it); use `--bind 127.0.0.1` for loopback only.
+On the server, the delivery worker renders, transforms and signs a session's
+deliveries like any other. Only the send is different: it hands the request to
+the session and waits for the CLI's answer (up to the request timeout, 10 s).
+A session the CLI has not polled for 45 s counts as offline. Its deliveries
+fail immediately as `connection_refused` and are retried. Sessions never
+affect webhook health, alerts or auto-disable. They expire after
+`SPARROW_LISTEN_MAX_TTL` (`--ttl` asks for less), and a consumer can have at
+most `SPARROW_LISTEN_MAX_SESSIONS` at a time.
 
-Because the server delivers *to* the CLI here, the server must be allowed to
-reach your machine: the `host.docker.internal` default covers a Dockerized
-server on the same host (with `SPARROW_ALLOW_PRIVATE_NETWORKS=true` or the
-local evaluation Compose file); use `--public-url` with a tunnel for a remote
-server.
+A tenant's customers can use it too. With a consumer access token (the
+portal's credential) as the API key, `--portal` sends the same calls through
+`/portal/api/listen-sessions…`, pinned to that token's consumer:
+
+```bash
+SPARROW_API_KEY=<consumer token> sparrow listen --portal --url https://sparrow.example.com \
+  --event order.created --forward http://localhost:3000/hooks
+```
+
+:::caution
+A listen session delivers **real event payloads** to whoever runs the CLI with
+a valid credential for the consumer. That is why `SPARROW_LISTEN_ENABLED` is
+off by default. Turn it on for a production server only if that is acceptable
+for its data.
+:::
+
+`--direct` keeps the older mode for a Sparrow running on the same machine:
+the CLI binds a local port and registers it as a temporary webhook at
+`--public-url` (default `http://host.docker.internal:<port>`). `--bind`
+controls the listen address: the default is all interfaces, so a Dockerized
+server can reach it; use `--bind 127.0.0.1` for loopback only. The server must
+be allowed to reach your machine (`SPARROW_ALLOW_PRIVATE_NETWORKS=true`).
 
 ## Configuration
 
@@ -201,16 +229,22 @@ Ctrl-C exits cleanly.
 
 ### `sparrow listen`
 
-Starts a local HTTP receiver, registers it as a **temporary webhook**, and
-pretty-prints every delivery (signature verified against the registration
-secret via the Standard Webhooks headers). The webhook is deleted on Ctrl-C.
+Starts a **listen session** and pretty-prints every delivery (signature
+verified against the session secret via the Standard Webhooks headers). With
+`--forward`, your app's response becomes the delivery's result. The session is
+deleted on Ctrl-C. See [How it's connected](#how-its-connected) for how it
+works.
 
 ```bash
 sparrow listen --event order.created --event order.cancelled
-sparrow listen --event order.created --port 9099
-sparrow listen --event order.created --bind 127.0.0.1          # loopback only
-sparrow listen --event order.created --forward http://localhost:3000/hooks   # proxy to your app, mirror its status
-sparrow listen --event order.created --public-url https://my-tunnel.example  # e.g. an ngrok/cloudflared tunnel
+sparrow listen --event order.created --forward http://localhost:3000/hooks   # proxy to your app, report its response
+sparrow listen --event order.created --ttl 30m                               # end the session sooner than the server maximum
+sparrow listen --portal --event order.created                                # SPARROW_API_KEY is a consumer access token
+
+# --direct: a local receiver the server delivers to (Sparrow on this machine)
+sparrow listen --direct --event order.created --port 9099
+sparrow listen --direct --event order.created --bind 127.0.0.1          # loopback only
+sparrow listen --direct --event order.created --public-url https://my-tunnel.example  # e.g. an ngrok/cloudflared tunnel
 ```
 
 Only deliveries signed with the temporary webhook's secret are accepted;

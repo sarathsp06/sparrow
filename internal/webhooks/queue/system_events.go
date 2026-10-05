@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sarathsp06/schemagen"
 
+	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
@@ -256,7 +257,9 @@ func (w *WebhookWorker) emitHealthChangedEvent(ctx context.Context, log *slog.Lo
 // The event is always pushed regardless of whether any alert configs exist;
 // alert_recipients in the payload may be empty.
 func (w *WebhookWorker) emitDeliveryFailedEvent(ctx context.Context, log *slog.Logger, tenantID uuid.UUID, consumer string, webhookID, deliveryID, eventID uuid.UUID, url string, attempt int, errorCategory, errorMessage string) {
-	if consumer == SystemEventConsumer {
+	// A listen session is a developer's terminal, not a receiver anyone is
+	// alerted about.
+	if consumer == SystemEventConsumer || client.IsListenURL(url) {
 		return
 	}
 	recipients, err := w.alertConfigRepo.ResolveAlertRecipients(ctx, tenantID, webhookID, consumer, systemEventDeliveryFailed)
