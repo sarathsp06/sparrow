@@ -1,0 +1,82 @@
+---
+title: For decision makers
+description: The questions a CTO, CISO, CFO or compliance lead asks before approving a self-hosted webhook platform, answered plainly.
+sidebar:
+  order: 1
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+This page is for the people who approve things, not the people who deploy them. It answers the questions that come up in a security review, a vendor assessment, or a budget meeting, in that order. Each answer is short, and each one is backed by something you can verify in the code or the documentation.
+
+Sparrow delivers webhooks: when something happens in your systems, it tells the other systems that need to know, reliably, with proof of who sent it. The decision in front of you is whether that job runs inside your infrastructure or on a vendor's.
+
+## Where does our data go?
+
+Nowhere you did not put it. Sparrow is a single Go binary and a PostgreSQL database, both of which you run. Event payloads, customer endpoints, and secrets never leave your network unless you deliver them to a destination you chose. There is no control plane to call home to, no usage reporting, and telemetry export is off unless you turn it on ([configuration](/sparrow/getting-started/configuration/)).
+
+For a regulated business this is the whole argument in one line: a hosted webhook vendor is a third party processing your data; a self-hosted one is not.
+
+## Does this help with HIPAA, GDPR, SOC 2, PCI?
+
+It removes a vendor from the picture, and it gives you the controls those frameworks ask for.
+
+- **No new processor or business associate.** Because the delivery layer runs inside your boundary, there is no vendor BAA or DPA to negotiate for it, no sub-processor to list, and no cross-border transfer created by the act of sending a webhook.
+- **Encryption at rest, done properly.** Webhook secrets, signing keys and sensitive headers are envelope-encrypted with AES-256-GCM: every record has its own data key, wrapped by a master key you hold. Keys live in a ring, so you can rotate them without downtime ([how it works](/sparrow/getting-started/configuration/#encryption)).
+- **Encryption in transit** is yours to enforce at your TLS termination point, the same way as any internal service.
+- **Data minimisation and retention.** A retention period purges old events and their delivery records on a schedule, so you keep what the policy says and nothing more.
+- **Audit trail.** Every delivery attempt is recorded with its outcome. For an immutable record, the S3 archive sink writes one JSON object per delivery to a bucket you control, which is the pattern auditors expect for payment and consent events ([sinks](/sparrow/satellites/sinks/)).
+- **Least privilege.** API access is by master key or scoped tokens with expiry; customer-facing portal tokens are pinned to a single customer and cannot reach the admin API ([access](/sparrow/deployment/access/)).
+
+<Aside type="caution" title="What this is not">
+Software is not HIPAA-compliant or SOC 2-certified; deployments and organisations are. Sparrow gives you the technical controls and keeps the data inside your boundary. Your policies, access management and audits are still yours. Treat this page as input to your assessment, not as a certificate.
+</Aside>
+
+## Why does the licence matter to the business?
+
+Sparrow is released under the MIT licence. In practical terms:
+
+- **You can use it for anything**, commercially, internally, in products you sell, with no fee and no usage limits.
+- **You can modify it**, and you are under no obligation to publish your changes. There is no copyleft clause that could reach into your own code.
+- **You can audit it.** Every line that touches your data is readable by your security team. There is no closed component to take on trust.
+- **Nobody can take it away.** A vendor can change pricing, deprecate a tier, or be acquired. A copy of the source under MIT cannot be revoked. If the project stopped tomorrow, your deployment keeps running and you keep the right to maintain it.
+
+All features are in the one open codebase. There is no enterprise edition holding back encryption, signing or audit features behind a contract.
+
+## What does it cost?
+
+The software costs nothing. You pay for a small compute instance and a PostgreSQL database, both of which most organisations already know how to run and already have under contract. There is no per-message, per-endpoint or per-seat pricing, so cost does not grow with success, and nobody has to forecast webhook volume to set a budget.
+
+The honest cost is operational: someone owns the deployment, the database backups and upgrades. Sparrow is built to keep that small. One process, one dependency, migrations that run automatically on start, and standard Prometheus metrics and OpenTelemetry traces so it plugs into the monitoring you already have.
+
+## How do we know it is reliable?
+
+Delivery is at-least-once, with retries that back off and that distinguish a failure worth retrying from one that is not. Each endpoint has a health state, so a customer whose system is down is detected and paused rather than hammered, and your team is alerted. Nothing is dropped silently: a delivery that cannot be made is recorded with the reason.
+
+All of this runs on PostgreSQL, the most boring and best-understood database in the industry, which is a deliberate choice. There is no message broker or cache to operate, size, or explain to an auditor.
+
+## How do our customers know a webhook really came from us?
+
+Every delivery is signed. Sparrow uses the [Standard Webhooks](https://www.standardwebhooks.com/) format with HMAC-SHA256 by default, or Ed25519 public-key signatures per endpoint when a customer needs to verify without sharing a secret. This is the same scheme used by major payment and SaaS platforms, so your customers' engineers already know how to verify it.
+
+## What happens if we want to leave?
+
+Your data is in your PostgreSQL database, in plain tables, with an exported OpenAPI specification describing every operation. Event type definitions export and import as files. There is no proprietary format, and there is nothing to export *from* a vendor because there is no vendor.
+
+## Who is behind it, and what if they stop?
+
+Sparrow is an open-source project with a public repository, public issue tracker and public release history. Because the licence is MIT, continuity does not depend on any one maintainer: your organisation, or a contractor, can carry it forward from the source you already hold. That is a materially stronger position than a hosted vendor, where the end of the company is the end of the service.
+
+## The short version
+
+| Question | Answer |
+|---|---|
+| Where is our data? | In your network, in your PostgreSQL. |
+| Is there a new vendor to assess? | No. There is nothing to send data to. |
+| Secrets at rest? | AES-256-GCM envelope encryption, rotatable keys you hold. |
+| Proof of origin? | Standard Webhooks signatures, HMAC-SHA256 or Ed25519. |
+| Licence? | MIT. Use, modify, keep private, cannot be revoked. |
+| Cost? | Compute and a database. No per-message fees. |
+| Lock-in? | None. Plain tables, OpenAPI spec, open source. |
+
+If the security team wants the detail behind these answers, send them to the [security reference](/sparrow/reference/security/) and the [deployment security guide](/sparrow/deployment/security/).

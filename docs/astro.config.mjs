@@ -48,6 +48,7 @@ export default defineConfig({
           label: 'Getting Started',
           items: [
             { slug: 'getting-started/why-sparrow' },
+            { slug: 'getting-started/for-decision-makers' },
             { slug: 'getting-started/installation' },
             { slug: 'getting-started/quickstart' },
             { slug: 'getting-started/how-it-works' },
