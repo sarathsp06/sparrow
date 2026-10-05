@@ -9,7 +9,7 @@
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"test": "playwright test",
-		"test:unit": "node --test --experimental-strip-types src/lib/portal-link.test.mjs src/lib/runtime-config.test.mjs src/lib/access/client.test.mjs",
+		"test:unit": "node --test --experimental-strip-types src/lib/portal-link.test.mjs src/lib/runtime-config.test.mjs src/lib/access/client.test.mjs src/lib/schema-infer.test.mjs",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"gen:api-types": "openapi-typescript ../api/openapi.yaml -o src/lib/api-types.d.ts"

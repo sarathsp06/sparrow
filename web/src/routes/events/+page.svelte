@@ -255,6 +255,8 @@
 								<td class="td text-right whitespace-nowrap">
 									{#if ev.event_schema && Object.keys(ev.event_schema).length > 0}
 										<button onclick={(e) => viewSchema(ev.event_schema, e)} class="link text-xs mono mr-4">Schema</button>
+									{:else if !isSystemEvent(ev.name)}
+										<a href="/events/{encodeURIComponent(ev.name)}/update?infer" onclick={(e) => e.stopPropagation()} class="link-beacon text-xs mono mr-4" title="No schema yet: generate one from pushed events">Infer schema</a>
 									{/if}
 									{#if !isSystemEvent(ev.name)}
 										<a href="/events/{encodeURIComponent(ev.name)}/update" onclick={(e) => e.stopPropagation()} class="link text-xs mono mr-4">Edit</a>
