@@ -3,7 +3,7 @@ title: Event Type Versions
 description: How event type definitions change over time, why they are never deleted, and what Sparrow checks before a schema change reaches subscribers.
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, Steps } from '@astrojs/starlight/components';
 import ThemeDiagram from '../../../components/ThemeDiagram.astro';
 import lifecycleLight from '../../../assets/diagrams/event-type-lifecycle-light.svg';
 import lifecycleDark from '../../../assets/diagrams/event-type-lifecycle-dark.svg';
@@ -142,6 +142,68 @@ turn every producer typo into a permanent name.
 For local development, set `SPARROW_AUTO_REGISTER_EVENTS=true` (`make run`
 does) to create a schema-less type on first push instead. The CLI's
 `sparrow push` registers an unknown type and retries on its own.
+
+## Inferring a schema from real events
+
+The quickest way to get an accurate schema is to let the producer show you
+what it sends. On a development instance with auto-registration on, push
+events from the real producer first, then generate the schema from what was
+stored instead of writing it by hand.
+
+<Steps>
+
+1. **Push events** from the producer (or with `sparrow push`). Each unknown
+   name becomes a schema-less event type, and every payload is kept.
+
+2. **Open the schema editor.** On the Events page, a type without a schema
+   shows **Infer schema**. From any event record, **Use as schema sample**
+   opens the editor with that event picked.
+
+   ![The Events page: customer.created has a schema and shows Schema; order.placed was auto-registered without one and shows Infer schema.](../../../assets/screenshots/infer-schema-events-list.png)
+
+   ![An event record's header with the Use as schema sample and Re-push buttons.](../../../assets/screenshots/infer-schema-event-record.png)
+
+3. **Pick the samples.** The **Recent events** tab lists the type's last 20
+   events across consumers, with the latest one ticked. Tick several, or
+   choose **All**, to merge them. A coverage table then shows each field's
+   type, detected format, and how many of the events had it (`4/5`), so you
+   can see why a field will come out optional before anything changes.
+   Inside arrays (`items[].sku`) the count is over array elements, not
+   events.
+
+4. **Generate, review and save.** Choose **Generate Schema**, refine the
+   result in the editor (add `enum`, `pattern`, descriptions, tighten
+   `required`), and save. Saving goes through the same checks as any other
+   schema change. If the type already has a schema, you are asked before it
+   is replaced.
+
+   ![The schema editor after merging five order.placed events: the generated schema on the left, and on the right the ticked events and a coverage table where coupon is string or null, seen in 4 of 5 events, and optional, and customer_email is a string with the email format.](../../../assets/screenshots/infer-schema-from-events.png)
+
+</Steps>
+
+When merging events:
+
+- A property is required only if every event had it. One that is missing from
+  some events becomes optional.
+- Types seen across events are combined: a field that is sometimes `null`
+  becomes `["string", "null"]`, and a mix of integers and decimals becomes
+  `number`.
+- Array items are inferred from every element, not just the first.
+- `format` is set (`uuid`, `date-time`, `date`, `email`, `uri`, `ipv4`) only
+  when every sampled value at that position matches it, using strict
+  patterns. Formats also make the generated sample payload, used by template
+  previews and AI drafting, more realistic.
+- Only structure goes into the schema, never values from the payloads.
+
+<Aside type="tip">
+Samples only show what the producer has sent so far. Push a few varied events
+(optional fields present and absent, empty arrays, nulls) before inferring,
+and merge them. Once the schema is right, [export it](/sparrow/guides/event-type-export-import/)
+and import it into staging and production, where auto-registration stays off.
+</Aside>
+
+Paste a payload in the **Paste** tab to generate a schema without any stored
+events.
 
 ## Reserved names
 
