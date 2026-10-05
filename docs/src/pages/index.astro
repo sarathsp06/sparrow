@@ -18,6 +18,11 @@ const whySparrow = `${base}getting-started/why-sparrow/#feature-comparison`;
 const portalDocs = `${base}guides/portal-embedding/`;
 const blog = `${base}blog/`;
 const githubURL = 'https://github.com/sarathsp06/sparrow';
+// Same links as the README badges.
+const releasesURL = `${githubURL}/releases`;
+const ciURL = `${githubURL}/actions/workflows/ci.yml`;
+const dockerURL = `${githubURL}/pkgs/container/sparrow?tag=latest`;
+const licenseURL = `${githubURL}/blob/main/LICENSE`;
 ---
 
 <!doctype html>
@@ -117,9 +122,15 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
         <a href={apiRef} class="sp-btn-ghost sp-btn-lg">API reference</a>
       </div>
       <div class="sp-hero-meta">
-        <span class="sp-hero-meta-item">MIT licensed</span>
+        <span class="sp-hero-meta-item"><a href={releasesURL} target="_blank" rel="noopener">Releases</a></span>
         <span class="sp-hero-meta-sep"></span>
-        <span class="sp-hero-meta-item">Go + PostgreSQL</span>
+        <span class="sp-hero-meta-item"><a href={ciURL} target="_blank" rel="noopener">CI</a></span>
+        <span class="sp-hero-meta-sep"></span>
+        <span class="sp-hero-meta-item"><a href="https://go.dev" target="_blank" rel="noopener">Go 1.26</a> + PostgreSQL</span>
+        <span class="sp-hero-meta-sep"></span>
+        <span class="sp-hero-meta-item"><a href={dockerURL} target="_blank" rel="noopener">ghcr.io/sarathsp06/sparrow</a></span>
+        <span class="sp-hero-meta-sep"></span>
+        <span class="sp-hero-meta-item"><a href={licenseURL} target="_blank" rel="noopener">MIT licensed</a></span>
         <span class="sp-hero-meta-sep"></span>
         <span class="sp-hero-meta-item">OpenAPI 3.1</span>
         <span class="sp-hero-meta-sep"></span>
