@@ -28,8 +28,8 @@ It removes a vendor from the picture, and it gives you the controls those framew
 - **Audit trail.** Every delivery attempt is recorded with its outcome. For an immutable record, the S3 archive sink writes one JSON object per delivery to a bucket you control, which is the pattern auditors expect for payment and consent events ([sinks](/sparrow/satellites/sinks/)).
 - **Least privilege.** API access is by master key or scoped tokens with expiry; customer-facing portal tokens are pinned to a single customer and cannot reach the admin API ([access](/sparrow/deployment/access/)).
 
-<Aside type="caution" title="What this is not">
-Software is not HIPAA-compliant or SOC 2-certified; deployments and organisations are. Sparrow gives you the technical controls and keeps the data inside your boundary. Your policies, access management and audits are still yours. Treat this page as input to your assessment, not as a certificate.
+<Aside type="note" title="How to read this">
+Sparrow enables compliance: it keeps the data inside your boundary and provides the technical controls that regulated frameworks ask for, such as encryption, access scoping, retention and an audit trail. Compliance itself is a property of your deployment and your organisation, so your policies, access management and audits complete the picture. Use this page as evidence in your assessment.
 </Aside>
 
 ## Why does the licence matter to the business?
