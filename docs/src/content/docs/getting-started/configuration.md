@@ -31,10 +31,11 @@ All configuration is done via environment variables. No config files needed.
 | `SPARROW_AUTO_DISABLE_MIN_FAILURES` | No | `10` | Minimum run of consecutive failed attempts before a webhook can be auto-disabled, so a receiver whose only failure was long ago is not paused by the next one. |
 | `SPARROW_METRICS_ENABLED` | No | `true` | Serve every OpenTelemetry metric in Prometheus format at `GET /metrics` (no API key, like `/health`), with or without OTLP export. |
 | `SPARROW_AUTO_REGISTER_EVENTS` | No | `false` | When `true`, pushing an event whose type is not registered creates a schema-less event type instead of returning `404`. Meant for local development (`make run` turns it on); event types are never deleted, so in production a producer typo would become a permanent name. See [Event Type Versions](/sparrow/guides/event-type-versioning/#unregistered-event-names). |
-| `SPARROW_AI_PROVIDER` | No | `anthropic` | With no AI variables set at all, the editor still offers **Copy prompt for AI** (`POST /v1/subscriptions:draftTemplatePrompt`): the same grounded prompt, for pasting into any chat assistant. Configuring a provider upgrades that to in-place drafting with render verification.  Chat API behind AI drafting. `anthropic` uses the Anthropic API (set `SPARROW_AI_API_KEY`). `openai` uses any OpenAI-compatible `/v1/chat/completions` server, local or hosted: Ollama, vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI (set `SPARROW_AI_BASE_URL` and `SPARROW_AI_MODEL`; the key is optional for local servers). Drafts are short and render-verified with up to three repair rounds, so a light model is usually enough. |
-| `SPARROW_AI_API_KEY` | No | -- | Provider API key. With `anthropic`, setting it enables drafting; with `openai` it is sent as a Bearer token when present. When drafting is enabled the subscription editor shows a **Draft with AI** panel and `POST /v1/subscriptions:draftTemplate` is enabled: describe the body the receiver should get and Sparrow drafts the `transform_template`, grounded in the event type's JSON Schema and sample payload, the template helper catalog, and optionally a shipped recipe's destination format or an example body you paste. Every draft is rendered against the sample payload (the same dry-run as the preview) and repaired until it renders. The request can also carry a sample payload to draft against, a description or example of what the receiver expects, and a documentation URL that Sparrow fetches under the same network policy as deliveries (private and cloud-metadata addresses refused unless allowed). Only the schema, that sample payload, and the request's own text are sent to the model — never stored events, headers, or secrets. Unset disables the feature; `GET /v1/capabilities` tells clients which. |
-| `SPARROW_AI_MODEL` | `openai`: yes | `claude-haiku-4-5` for `anthropic` | Model used for drafting. Raise it if drafts regularly need more than a couple of repair rounds. For `openai` name the model the server serves, e.g. `llama3.2`, `qwen2.5-coder:7b`, `gpt-4o-mini`. |
-| `SPARROW_AI_BASE_URL` | `openai`: yes | -- | API base URL. `openai`: the server's OpenAI-compatible root, e.g. `http://localhost:11434/v1` (Ollama), `http://vllm:8000/v1`, `https://openrouter.ai/api/v1`. `anthropic`: optional override for an internal gateway or proxy. |
+| `SPARROW_AI_PROVIDER` | No | `anthropic` | Which chat API drafts templates: `anthropic` or `openai` (any OpenAI-compatible server). See [AI template drafting](#ai-template-drafting). |
+| `SPARROW_AI_API_KEY` | No | -- | Provider API key. With `anthropic`, setting it turns AI drafting on. With `openai` it is optional and sent as a Bearer token (hosted services need it, local servers usually don't). |
+| `SPARROW_AI_MODEL` | No | `claude-haiku-4-5` (`anthropic` only) | Model used for drafting. Must be set when using `openai`; there is no default. |
+| `SPARROW_AI_BASE_URL` | No | -- | API root URL. Must be set when using `openai`, including the `/v1` path (e.g. `http://localhost:11434/v1`). With `anthropic`, only for a gateway or proxy. |
+
 For a single-key deployment, still use the keyring format: `SPARROW_ENCRYPTION_KEYS=main=<64-char-hex-key>` with `SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main`.
 
 ### Web UI Variables
@@ -46,6 +47,57 @@ These configure the web UI, not the Go server. They matter only when the UI is *
 | `apiUrl` | `window.__SPARROW_CONFIG__` in the UI's `/config.js`, set on the static host at deploy time | -- | Absolute URL of the Sparrow server. Overrides `PUBLIC_API_URL`. |
 | `apiKey` | `window.__SPARROW_CONFIG__` in `/config.js` | -- | The master key (`SPARROW_API_KEY`) or a tenant-wide access token. Optional: without it, the UI shows a sign-in prompt on the first `401` and remembers the credential in the browser. Anyone who can load the UI can read a key placed here. |
 | `PUBLIC_API_URL` | Environment variable for `vite build` / `vite dev` | Same origin (`npm run build`), `http://localhost:8080` (`npm run dev`) | Sparrow server URL baked into the bundle at build time. Changing it later requires a rebuild. |
+
+## AI template drafting
+
+The subscription editor can draft a payload `transform_template` from a plain-language description. AI drafting is optional, and there are three ways to run it.
+
+| Setup | What you get |
+|-------|--------------|
+| Nothing set | **Copy prompt for AI**: Sparrow builds the prompt (`POST /v1/subscriptions:draftTemplatePrompt`) and you paste it into any chat assistant. Sparrow sends nothing anywhere. |
+| Anthropic | **Draft with AI** in the editor, using the Anthropic API. |
+| OpenAI-compatible server | **Draft with AI** using Ollama, vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI, or any other server that serves `/v1/chat/completions`. |
+
+### Anthropic
+
+```bash
+SPARROW_AI_API_KEY=sk-ant-...
+# Optional:
+SPARROW_AI_MODEL=claude-sonnet-5-5      # default: claude-haiku-4-5
+SPARROW_AI_BASE_URL=https://gateway.internal/anthropic   # only behind a gateway or proxy
+```
+
+`SPARROW_AI_PROVIDER` defaults to `anthropic`, so the API key alone turns drafting on.
+
+### OpenAI-compatible server
+
+```bash
+SPARROW_AI_PROVIDER=openai
+SPARROW_AI_BASE_URL=http://localhost:11434/v1   # Ollama; e.g. http://vllm:8000/v1, https://openrouter.ai/api/v1
+SPARROW_AI_MODEL=qwen2.5-coder:7b               # a model that server serves
+# Optional, for hosted services:
+SPARROW_AI_API_KEY=...
+```
+
+`SPARROW_AI_BASE_URL` and `SPARROW_AI_MODEL` are both required. Local servers usually need no key.
+
+### Startup checks
+
+The server refuses to start when:
+
+- `SPARROW_AI_PROVIDER` is anything other than `anthropic` or `openai`.
+- `SPARROW_AI_PROVIDER=openai` with a key or base URL set, but `SPARROW_AI_BASE_URL` or `SPARROW_AI_MODEL` missing.
+- `SPARROW_AI_BASE_URL` is not an absolute URL (scheme and host).
+
+To confirm drafting is on, look for the `AI drafting` line in the startup banner, or call `GET /v1/capabilities`.
+
+### Choosing a model
+
+Templates are short. Sparrow renders each draft against the sample payload and asks the model to repair it, up to three rounds, so a light model is usually enough. If drafts often use up the repair rounds, switch to a larger model.
+
+### What is sent to the model
+
+Only the event type's JSON Schema, the sample payload (registered, or provided in the request), the template helper catalog, and the text in the request: your description, an example body, a recipe's destination format, and an excerpt of a documentation URL if you give one. Sparrow fetches that URL under the same network policy as deliveries, so private and cloud-metadata addresses are refused unless allowed. Sparrow never sends stored events, headers, or secrets.
 
 ## Encryption
 
