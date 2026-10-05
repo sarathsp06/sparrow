@@ -21,9 +21,9 @@ Running from source instead of a pre-built image? See [Build from Source](/sparr
 The `X-API-Key` header is only needed when the server was started with
 `SPARROW_API_KEY` set -- add `-H "X-API-Key: <your-key>"` if you have one,
 or omit it on the default local Compose (which runs without a key). All
-URLs use the `default` consumer (bootstrapped on startup); swap the
-`default` path segment for another consumer to isolate a different
-tenant's webhooks and events.
+URLs use the `default` consumer; swap the
+`default` path segment for any other name to isolate a different
+set of webhooks and events.
 :::
 
 <Steps>

@@ -5,7 +5,7 @@ description: Complete reference for Go template functions available in payload t
 
 Sparrow provides 37 built-in template functions for transforming webhook payloads. These are available in subscription `transform_template` fields. They cover string manipulation, encoding, time formatting, arithmetic, and structural map/list building — enough to reshape a payload entirely without an embedded scripting runtime.
 
-Templates use Go's `text/template` syntax. The event payload is available as the template data context (e.g., `{{ .payload.field_name }}`).
+Templates use Go's `text/template` syntax. The template data context contains five fields: `.payload` (the event's JSON data), `.event_name`, `.event_id`, `.timestamp`, and `.attempt` (the delivery attempt number).
 
 ## Quick Reference
 
@@ -56,8 +56,8 @@ Templates use Go's `text/template` syntax. The event payload is available as the
 Converts any value to a JSON string.
 
 ```go
-{{ .data | json }}
-{{ json .payload }}
+{{ .payload | json }}
+{{ json .payload.customer }}
 ```
 
 **Example:**

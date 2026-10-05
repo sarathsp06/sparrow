@@ -1,6 +1,6 @@
 ---
 title: Recipes
-description: Adapters as config — turn Sparrow deliveries into Slack, Discord, PagerDuty, ntfy, ClickHouse, or CloudEvents payloads with one command.
+description: Adapters as config — turn Sparrow deliveries into Slack, Discord, PagerDuty, ntfy, ClickHouse, Twilio, SendGrid, or CloudEvents payloads with one command.
 ---
 
 :::tip[Interactive Studio Apps Available]
@@ -215,18 +215,32 @@ params:                        # values supplied at apply time via --param
   - name: api_token
     prompt: "MyService API token"
     required: true
+    secret: true               # marks the value as sensitive (for UI hints)
   - name: api_url
     prompt: "MyService ingest URL"
     required: true
+    default: https://api.example.com/ingest
+    must_override_default: true  # the user must change this from the default
 webhook:
+  requires_transform: true     # Sparrow refuses subscriptions without a template
   url: '{{param "api_url"}}'
   headers: {Content-Type: application/json}
-  secret_headers:             # envelope-encrypted at rest, masked on read
+  secret_headers:              # envelope-encrypted at rest, masked on read
     Authorization: 'Bearer {{param "api_token"}}'
 subscription:
   transform_template: |
     {"title": {{.event_name | json}}, "body": {{.payload | json}}}
 ```
+
+Every shipped recipe sets `webhook.requires_transform: true`, so Sparrow
+refuses any subscription on that webhook without an enabled transform template
+and never sends the default envelope to the destination.
+
+Param fields beyond `name`, `prompt`, `required`, and `default`:
+
+- `secret` -- hints that the value is sensitive (e.g. an API key).
+- `activation_required` -- the value must be obtained from the destination service before applying (e.g. a SendGrid API key or verified sender).
+- `must_override_default` -- the user must change the default value; applying with the original default is rejected.
 
 `{{param "x"}}` tokens in `webhook.url`, header values, `secret_headers` values,
 and the template are

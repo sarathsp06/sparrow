@@ -32,10 +32,10 @@ backoff = retry_backoff_seconds * 2^(attempt - 1)   # capped at 24 hours
 
 Retries continue until:
 - The delivery succeeds
-- `max_retries` attempts are exhausted (terminal `FAILED` status)
-- The event's `ttl_seconds` expires (terminal `EXPIRED` status)
+- `max_retries` attempts are exhausted (terminal `failed` status)
+- The event's `ttl_seconds` expires (terminal `expired` status)
 
-**Non-retryable** errors immediately mark the delivery as `FAILED` regardless of remaining retry budget.
+**Non-retryable** errors immediately mark the delivery as `failed` regardless of remaining retry budget.
 
 A delivery with status `paused` was held because its subscription or webhook
 was paused (by hand, or because Sparrow
@@ -67,5 +67,5 @@ The error classifier inspects the Go error chain to determine the category:
 Use the [health endpoints](/sparrow/reference/api/) to monitor error patterns:
 
 - `GET /v1/consumers/{consumer}/webhooks/{webhook_id}/health` returns error category breakdown (client_errors, server_errors, timeout_errors, network_errors) for the last 24 hours
-- `GET /v1/webhooks` (filtered by health) finds all webhooks with `UNHEALTHY` or `DEGRADED` status
+- `GET /v1/webhooks` (filtered by health) finds all webhooks with `unhealthy` or `degraded` status
 - `GET /v1/consumers/{consumer}/deliveries/{delivery_id}/attempts` shows per-attempt error details for debugging

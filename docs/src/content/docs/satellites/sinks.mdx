@@ -108,7 +108,7 @@ otlp:
   service_name: sparrow             # resource service.name
 ```
 
-Templates render with Go `text/template` over the parsed envelope: `.event_name`, `.event_id`, `.timestamp`, `.attempt`, `.payload` (decoded JSON, so `.payload.user_id` works), and `.payload_pretty` (indented JSON string).
+Templates render with Go `text/template` over the parsed envelope: `.version`, `.event_name`, `.event_id`, `.timestamp`, `.attempt`, `.payload` (decoded JSON, so `.payload.user_id` works), and `.payload_pretty` (indented JSON string).
 
 S3 credentials come from the standard AWS chain: `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars, shared config files, or instance metadata.
 

@@ -112,10 +112,13 @@ Blocked ranges: loopback (`127.0.0.0/8`, `::1`), private (`10/8`,
 6598), and IETF special-use/multicast/reserved ranges (RFC 6890).
 
 :::note
-`SPARROW_ALLOW_PRIVATE_NETWORKS=true` disables all of these network checks
-(the http/https scheme restriction remains) -- for self-hosted deployments
-where webhook targets legitimately live on the same private network, and for
-local development against a receiver on localhost. Off by default.
+`SPARROW_ALLOW_PRIVATE_NETWORKS=true` disables the private, loopback, and
+link-local checks (the http/https scheme restriction remains) -- for
+self-hosted deployments where webhook targets legitimately live on the same
+private network, and for local development against a receiver on localhost.
+Cloud metadata endpoints (`169.254.169.254`, AWS ECS task metadata) stay
+blocked even with this flag; only an explicit `SPARROW_ALLOWED_NETWORKS`
+entry can reach them. Off by default.
 :::
 
 ### TLS verification
@@ -134,10 +137,10 @@ Defense-in-depth headers on every API and UI response:
 | Header | Value | Stops |
 |---|---|---|
 | `X-Content-Type-Options` | `nosniff` | Browser MIME-sniffing a JSON response as HTML -- reflected XSS |
-| `X-Frame-Options` | `DENY` | Clickjacking -- the UI is never legitimately framed |
+| `X-Frame-Options` | `DENY` (omitted on `/portal` paths, which allow framing) | Clickjacking -- the admin UI is never legitimately framed; the portal is designed for iframe embedding |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` | Leaking consumer/webhook IDs in URLs to an external `Referer` |
 | `Permissions-Policy` | `interest-cohort=()` | FLoC / Topics API tracking |
-| `Content-Security-Policy` | `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'` | Loading any script, style, or image from a non-Sparrow origin other than the UI's Google Fonts (`'unsafe-inline'` is required by the embedded UI's runtime config and inline styles). Applies only when Sparrow serves the UI; a separately hosted UI gets whatever headers its static host sets |
+| `Content-Security-Policy` | `default-src 'self'; script-src 'self' 'sha256-...' ...; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'` | Loading any script, style, or image from a non-Sparrow origin other than the UI's Google Fonts. When the embedded UI is built, `script-src` uses SHA-256 hashes of the SPA's inline scripts instead of `'unsafe-inline'`; the fallback to `'unsafe-inline'` applies only when the UI is not embedded (API-only deploys). Portal paths add `frame-ancestors *`; non-portal paths add `frame-ancestors 'none'`. Applies only when Sparrow serves the UI; a separately hosted UI gets whatever headers its static host sets |
 
 Two more request-level controls:
 
@@ -207,7 +210,8 @@ What Sparrow enforces before the server will boot, and what you should set:
 | `SPARROW_API_KEY` | Required when `ENVIRONMENT=production`. Empty is fine for local dev only. |
 | `DATABASE_URL` | Always required. |
 | `SPARROW_MAX_BODY_BYTES` | Optional, default 5 MiB. Values below 1 MiB are rejected at startup. |
-| `SPARROW_ALLOW_PRIVATE_NETWORKS` | Leave unset (`false`) unless your webhook targets live on your own private network -- `true` disables all SSRF network checks. |
+| `SPARROW_ALLOW_PRIVATE_NETWORKS` | Leave unset (`false`) unless your webhook targets live on your own private network -- `true` disables most SSRF network checks (cloud metadata stays blocked; only `SPARROW_ALLOWED_NETWORKS` can reach it). |
+| `SPARROW_METRICS_ENABLED` | Optional, default `true`. Serves Prometheus metrics at `/metrics`, unauthenticated. Firewall it or set to `false` if the data is sensitive. |
 | `SPARROW_EVENT_RETENTION_DAYS` | Optional, default `0` (keep forever). Purges events and their deliveries older than N days -- event payloads are stored in plaintext, so pair a retention window with storage-layer encryption when payloads are sensitive. See [Securing Sparrow](/sparrow/deployment/security/#data-retention-and-compliance-posture). |
 
 :::danger

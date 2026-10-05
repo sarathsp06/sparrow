@@ -64,11 +64,18 @@ endpoints:
 | Command | API calls |
 | --- | --- |
 | `init` | `GET /health` (probe), then writes `~/.sparrow/config.yaml` locally |
-| `push` | `POST /v1/consumers/{consumer}/events?event=<name>` — the server auto-registers an unknown event type inline, so one call is normally enough; the CLI also retries once itself if it ever sees a `404`/`422` for an unregistered type |
-| `tail deliveries` | `GET /v1/consumers/{consumer}/deliveries` every 2 s, printing rows not seen before; webhook IDs are resolved to URLs via `GET /v1/consumers/{consumer}/webhooks` |
-| `listen` | `POST /v1/consumers/{consumer}/webhooks` (temporary registration) … `DELETE /v1/consumers/{consumer}/webhooks/{id}` on Ctrl-C |
-| `use` | `POST /v1/consumers/{consumer}/webhooks`, then `GET` + `PATCH /v1/consumers/{consumer}/subscriptions/{id}` to attach the recipe's transform template and label filters |
-| `template test` | none — renders **locally** with the same Go template engine the server uses, against a synthetic sample context; never calls the API |
+| `push` | `POST /v1/consumers/{consumer}/events?event=<name>` — auto-creates the event type on `404`/`422` and retries once |
+| `events` | `GET /v1/event-types` (list) or `GET /v1/event-types/{name}` (detail) |
+| `events export/import` | `POST /v1/event-types:export` / `POST /v1/event-types:import` |
+| `webhooks` | `GET /v1/consumers/{consumer}/webhooks` (list or detail) plus subscriptions |
+| `tail deliveries` | `GET /v1/consumers/{consumer}/deliveries` every 2 s, printing rows not seen before |
+| `listen` | `POST /v1/consumers/{consumer}/webhooks` (temporary registration) ... `DELETE` on Ctrl-C |
+| `use` | `POST /v1/consumers/{consumer}/webhooks`, then `PATCH` subscriptions to attach the recipe's transform and label filters |
+| `stats` | `GET /v1/consumers/{consumer}/stats` |
+| `functions` | `GET /v1/template-functions` |
+| `tokens` | `POST /v1/tokens`, `GET /v1/tokens`, `DELETE /v1/tokens/{id}` |
+| `invite` / `invites` | `POST /v1/invites`, `GET /v1/invites`, `DELETE /v1/invites/{id}` |
+| `template test` | none — renders **locally** with the same Go template engine the server uses |
 
 `listen` is the one command with a receiving side. Its technical path:
 
@@ -147,8 +154,10 @@ sample payload.
 
 ```bash
 sparrow events                  # every event type
+sparrow events --active         # only active event types
 sparrow events order.created    # one type's detail
 sparrow events versions order.created
+sparrow events -o json          # machine-readable output
 ```
 
 ### `sparrow events export` and `sparrow events import`
@@ -182,6 +191,18 @@ and exits non-zero, until every block is acknowledged:
 A dry run that would be blocked also exits non-zero, so a promotion job can run
 `--dry-run` as a check.
 
+### `sparrow webhooks [id]`
+
+Lists registered webhooks (id, active state, health, URL) or, with an id
+argument, shows that webhook's details plus its subscriptions.
+
+```bash
+sparrow webhooks                          # list all webhooks
+sparrow webhooks --active                 # only active webhooks
+sparrow webhooks <webhook-id>             # one webhook's detail + subscriptions
+sparrow webhooks -o json                  # machine-readable output
+```
+
 ### `sparrow tail deliveries`
 
 Polls the deliveries API every 2 seconds and prints each new row:
@@ -195,6 +216,7 @@ TIME                  EVENT                                 STATUS     CODE  ATT
 sparrow tail deliveries                    # follow everything in the consumer
 sparrow tail deliveries --status failed    # only failures
 sparrow tail deliveries --once             # print the current batch and exit (scripting/CI)
+sparrow tail deliveries --limit 100        # fetch up to 100 rows per poll (default 50)
 ```
 
 Ctrl-C exits cleanly.
@@ -370,6 +392,28 @@ sparrow invites cancel <invite-id>
 ```
 
 Table columns: ID, FOR, ACCESS, INVITED BY, EXPIRES, STATUS.
+
+### `sparrow stats`
+
+Prints aggregate delivery statistics for the current consumer: total webhooks
+(active), total deliveries (succeeded, failed, pending), and success rate.
+
+```bash
+sparrow stats
+sparrow stats -o json
+```
+
+### `sparrow functions [name]`
+
+Lists the template functions available inside a `transform_template`, or shows
+one function's full documentation. These are the helpers you can pipe values
+through in recipes and transforms (`json`, `upper`, `ellipsis`, `dig`, etc.).
+
+```bash
+sparrow functions               # list all functions
+sparrow functions json          # show one function's docs
+sparrow functions -o json       # machine-readable output
+```
 
 ### `sparrow version`
 

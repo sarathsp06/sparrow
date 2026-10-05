@@ -29,7 +29,7 @@ Model](/sparrow/reference/security/) reference page.
 | API authentication | `SPARROW_API_KEY` (master key) or per-person [access tokens](/sparrow/deployment/access/) → `X-API-Key` or `Authorization: Bearer` header; master key mandatory in production |
 | Secrets at rest | Envelope encryption (AES-256-GCM, per-record DEK) keyed by the `SPARROW_ENCRYPTION_KEYS` keyring |
 | Outbound signing | Standard Webhooks signatures (`v1` HMAC-SHA256, `v1a` Ed25519) on every delivery |
-| SSRF protection | Private/loopback/link-local/metadata IPs blocked at connect time in every mode; cloud metadata endpoints always blocked (even with `SPARROW_ALLOW_PRIVATE_NETWORKS=true`); `SPARROW_ALLOWED_NETWORKS` for targeted internal access; redirects re-validated |
+| SSRF protection | Private/loopback/link-local/metadata IPs blocked at connect time in every mode; cloud metadata endpoints stay blocked even with `SPARROW_ALLOW_PRIVATE_NETWORKS=true`, but an explicit `SPARROW_ALLOWED_NETWORKS` entry can reach them; redirects re-validated |
 | Custom header validation | Header names must be valid HTTP tokens; values reject CR/LF/control chars and are capped at 8 KiB; reserved framing headers (`Host`, `Content-Length`, `Transfer-Encoding`, `Connection`, `Keep-Alive`, `Proxy-Connection`, `TE`, `Trailer`, `Upgrade`) are refused; Sparrow's own signature and ID headers always win over custom headers |
 | Portal path validation | The portal gateway rejects paths containing `.`, `..`, empty segments, backslashes, or control characters (`403`) |
 | Browser access | `CORS_ALLOWED_ORIGINS` allowlist; security headers on all responses |
@@ -247,7 +247,8 @@ Whether or not you add SSO:
 - [ ] Set `CORS_ALLOWED_ORIGINS` explicitly for any browser-based access.
 - [ ] Use `SPARROW_ALLOWED_NETWORKS` (comma-separated CIDRs) to reach internal
       webhook targets instead of `SPARROW_ALLOW_PRIVATE_NETWORKS=true`. Cloud
-      metadata endpoints are always blocked regardless of either setting.
+      metadata endpoints stay blocked with either setting unless an
+      `SPARROW_ALLOWED_NETWORKS` entry explicitly covers them.
 - [ ] Set `SPARROW_EVENT_RETENTION_DAYS` if payloads carry regulated data or
       you have any retention policy — the default keeps events forever.
 - [ ] Terminate TLS and apply rate limiting at a reverse proxy; Sparrow serves
@@ -259,6 +260,8 @@ Whether or not you add SSO:
       token creation for machines.
 - [ ] Revoke tokens when someone leaves or a machine credential is retired
       (`sparrow tokens revoke <id>` or `DELETE /v1/tokens/{id}`).
-- [ ] Keep `/health`, `/ready`, `/docs`, and `/openapi.*` in mind: they are
-      intentionally unauthenticated. Restrict at the proxy if the OpenAPI spec
-      is sensitive in your environment.
+- [ ] Keep `/health`, `/ready`, `/metrics`, `/docs`, and `/openapi.*` in mind:
+      they are intentionally unauthenticated. `/metrics` (Prometheus scrape,
+      on by default via `SPARROW_METRICS_ENABLED`) exposes aggregate counters --
+      firewall it or disable it if the data is sensitive. Restrict the others
+      at the proxy if the OpenAPI spec is sensitive in your environment.

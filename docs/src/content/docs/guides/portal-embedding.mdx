@@ -234,10 +234,11 @@ Why the pieces hold:
   `/portal/api` call to that consumer's own route and refuses minting and
   event injection — the proxy needs no deny rules and cross-consumer access
   is impossible even if the whole prefix is forwarded.
-- **No admin key in the browser, ever.** Portal HTML omits the config
-  injection the admin dashboard relies on, and the mint call is
-  server-to-server. The single fatal misconfiguration is a proxy that
-  injects `X-API-Key` on forwarded portal routes — never do that.
+- **No admin key in the browser, ever.** The server never writes
+  `SPARROW_API_KEY` into any served page (portal or dashboard), and the
+  mint call is server-to-server. The single fatal misconfiguration is a
+  proxy that injects `X-API-Key` on forwarded portal routes -- never do
+  that.
 - **Fragment tokens don't leak into logs.** `#token=...` is never sent in
   HTTP requests; the portal moves it to `sessionStorage` and sends it only
   as an `Authorization` header over TLS.

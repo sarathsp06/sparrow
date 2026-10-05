@@ -71,10 +71,14 @@ Or build without Docker:
 
 ```bash
 make build-with-ui
-export DATABASE_URL=postgres://user:pass@localhost:5432/sparrow?sslmode=disable
+export DATABASE_URL=postgres://sparrow:sparrow@localhost:5432/sparrow?sslmode=disable
+export SPARROW_ENCRYPTION_KEYS="main=$(openssl rand -hex 32)"
+export SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main
 make migrate
 SPARROW_SERVE_UI=true ./build/server-*
 ```
+
+Without a `.env`, `make run` and `make migrate` default to the `make dev-db` database and a dev-only all-zeros keyring, so the exports above are only needed when running the binary directly.
 
 ## Observability
 

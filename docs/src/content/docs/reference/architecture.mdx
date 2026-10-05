@@ -87,7 +87,7 @@ A centralized, OTel-instrumented HTTP client (`internal/webhooks/client/`):
 - **Connection pooling**: 100 max idle connections, 10 per host, 90s idle timeout
 - **Signing**: Support for both HMAC-SHA256 and Ed25519 using [Standard Webhooks](https://www.standardwebhooks.com/) format.
 - **Leaky Bucket**: Per-webhook rate limiting implemented via atomic PostgreSQL `UPDATE` statements. Workers "snooze" jobs when rate limits are hit.
-- **Template engine**: Go `text/template` with LRU cache (100 entries, SHA-256 keyed), ~50 built-in helper functions (json, base64, urlencode, string manipulation, etc.)
+- **Template engine**: Go `text/template` with LRU cache (100 entries, SHA-256 keyed), 37 built-in helper functions (json, base64, urlencode, string manipulation, etc.)
 - **Object pooling**: `sync.Pool` for `bytes.Buffer`, `[]byte` slices, and header maps to reduce GC pressure
 - **Header merging**: Subscription-level headers override webhook-level defaults
 - **In-process metrics**: Lock-free atomic counters for request totals, error categories, cache hit rates, and response time statistics
