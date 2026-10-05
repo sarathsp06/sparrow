@@ -283,3 +283,12 @@ pre {
 ::selection {
   background: rgba(242, 169, 59, 0.35);
 }
+
+/* ─── UI screenshots in guides ───────────────────────────────── */
+.sl-markdown-content p > img {
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.5rem;
+}
+.sl-markdown-content p:has(> img) {
+  margin-block: 1rem;
+}

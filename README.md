@@ -313,7 +313,7 @@ Everything is configured through environment variables.
 14. `SPARROW_EVENT_RETENTION_DAYS` — optional. Default: `0` (keep forever).
     Hourly purge of events, and their deliveries, older than this many days.
 15. `SPARROW_AUTO_REGISTER_EVENTS` — optional. Default: `false`.
-    Pushing an unregistered event name returns `404`; set `true` (as `make run` does) to create a schema-less event type on first push instead. Development only: event types are never deleted.
+    Pushing an unregistered event name returns `404`; set `true` (as `make run` does) to create a schema-less event type on first push instead. Development only: event types are never deleted. Then use **Infer schema** in the UI to generate the type's schema from the pushed events, review it, and export it to other environments.
 
 **Observability**
 

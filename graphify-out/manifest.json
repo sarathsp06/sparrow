@@ -760,8 +760,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1791213631.5856814,
-    "ast_hash": "712d0199402a4f262c821df1f6385d4e",
+    "mtime": 1791215935.107791,
+    "ast_hash": "9ce6af122858f49c9c28f03f2d4ed180",
     "semantic_hash": ""
   },
   "client/README.md": {
@@ -790,8 +790,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/configuration.md": {
-    "mtime": 1791213631.5826545,
-    "ast_hash": "608d3ea1839c7337e4c5fdce3b8ab779",
+    "mtime": 1791215935.1109657,
+    "ast_hash": "8d0791b8f62880c06750efb73fc1df31",
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/how-it-works.mdx": {
@@ -2430,13 +2430,13 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/guides/event-type-export-import.mdx": {
-    "mtime": 1791213631.5923455,
-    "ast_hash": "1319c6dd8502046f67b9df371706fdc8",
+    "mtime": 1791215935.1114583,
+    "ast_hash": "53fa2373281523015fa1bdc3bb8cd20f",
     "semantic_hash": ""
   },
   "docs/src/content/docs/guides/event-type-versioning.mdx": {
-    "mtime": 1791213631.5930417,
-    "ast_hash": "a41fe6ce424d098ffa061fdd202db250",
+    "mtime": 1791215935.1118681,
+    "ast_hash": "a29196ff9bcaba17b1df5d84c15e7994",
     "semantic_hash": ""
   },
   "docs/src/content/docs/guides/subscription-pause.mdx": {
@@ -2705,8 +2705,8 @@
     "semantic_hash": ""
   },
   "web/src/lib/components/SchemaFromSamples.svelte": {
-    "mtime": 1791213631.5943787,
-    "ast_hash": "fef6c7ad5cb577f2639bba0588fc2d82",
+    "mtime": 1791215935.1293433,
+    "ast_hash": "ff47355f510b42d1d0ece3005ea029be",
     "semantic_hash": ""
   },
   "web/src/lib/schema-infer.test.mjs": {
@@ -2717,6 +2717,21 @@
   "web/src/lib/schema-infer.ts": {
     "mtime": 1791213631.6044667,
     "ast_hash": "83daa7ccbae870069694862dd95e0400",
+    "semantic_hash": ""
+  },
+  "docs/src/assets/screenshots/infer-schema-event-record.png": {
+    "mtime": 1791215935.1083248,
+    "ast_hash": "18200ba6ad6c2cb9e3958ae2368564ca",
+    "semantic_hash": ""
+  },
+  "docs/src/assets/screenshots/infer-schema-events-list.png": {
+    "mtime": 1791215935.1089253,
+    "ast_hash": "5d5464765ad8db0e8211081c8072ccfb",
+    "semantic_hash": ""
+  },
+  "docs/src/assets/screenshots/infer-schema-from-events.png": {
+    "mtime": 1791215935.1103358,
+    "ast_hash": "f2416ccf4ed6ef796ff1665020cd4927",
     "semantic_hash": ""
   },
   "docs/src/lib/template-fields.ts": {

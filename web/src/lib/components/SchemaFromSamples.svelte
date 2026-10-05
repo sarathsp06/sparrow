@@ -203,9 +203,12 @@
                   <tr class="border-b border-line last:border-0">
                     <td class="px-3 py-1.5 mono text-text">{f.path}</td>
                     <td class="px-3 py-1.5 mono text-muted">
-                      {f.types.join(' | ')}{#if f.format}<span class="text-text"> · {f.format}</span>{/if}
+                      {f.types.join(' | ')}{#if f.format}<span class="text-text">&nbsp;·&nbsp;{f.format}</span>{/if}
                     </td>
-                    <td class="px-3 py-1.5 mono tnum text-right {f.required ? 'text-muted' : 'text-text'}">{f.seen}/{f.of}</td>
+                    <td
+                      class="px-3 py-1.5 mono tnum text-right {f.required ? 'text-muted' : 'text-text'}"
+                      title={f.path.includes('[]') ? `In ${f.seen} of ${f.of} array elements` : `In ${f.seen} of ${f.of} objects`}
+                    >{f.seen}/{f.of}</td>
                     <td class="px-3 py-1.5">
                       {#if f.required}
                         <span class="text-muted">required</span>

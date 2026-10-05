@@ -13,6 +13,10 @@ through staging to production. Sparrow moves definitions between environments
 as one JSON file: select some or all event types in one environment, export
 them, and import the file in the next.
 
+On a development instance you can skip writing the schema by hand: push real
+events with auto-registration on, then [infer the schema from them](/sparrow/guides/event-type-versioning/#inferring-a-schema-from-real-events)
+in the UI, review it, and export the result.
+
 <Steps>
 
 1. **Export** from the environment where the definitions are right.
