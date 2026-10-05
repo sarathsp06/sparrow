@@ -78,6 +78,16 @@ function evaluateExpression(exprStr: string, scope: Record<string, any>): any {
     return goPrintf(format, ...args.slice(1));
   }
 
+  if (firstToken === 'param') {
+    const key = String(evaluateToken(tokens[1], scope) ?? '');
+    return scope.__params?.[key] ?? '';
+  }
+
+  if (firstToken === 'index') {
+    const [obj, ...keys] = tokens.slice(1).map(t => evaluateToken(t, scope));
+    return keys.reduce((cur, k) => (cur && typeof cur === 'object' ? cur[k] : undefined), obj);
+  }
+
   if (firstToken === 'eq') {
     const args = tokens.slice(1).map(t => evaluateToken(t, scope));
     return args[0] === args[1];
@@ -335,6 +345,7 @@ export function renderGoTemplate(template: string, ctx: EventContext, params: Re
       timestamp: ctx.timestamp,
       attempt: ctx.attempt,
       payload: ctx.payload,
+      __params: params,
     };
 
     // Parse and evaluate Go template tags
@@ -476,6 +487,7 @@ function extractIfElseBlocks(tmpl: string, startIdx: number): { ifBlock: string;
   let depth = 1;
   let cursor = startIdx;
   let elseIdx: number | null = null;
+  let elseIfCond: string | null = null;
 
   while (cursor < tmpl.length) {
     const openIdx = tmpl.indexOf('{{', cursor);
@@ -486,15 +498,18 @@ function extractIfElseBlocks(tmpl: string, startIdx: number): { ifBlock: string;
     const tag = tmpl.slice(openIdx + 2, closeIdx).trim();
     if (tag.startsWith('if ') || tag.startsWith('range ')) {
       depth++;
-    } else if (tag === 'else' && depth === 1) {
+    } else if ((tag === 'else' || tag.startsWith('else if ')) && depth === 1 && elseIdx === null) {
       elseIdx = openIdx;
+      elseIfCond = tag === 'else' ? null : tag.slice(5);
     } else if (tag === 'end') {
       depth--;
       if (depth === 0) {
         if (elseIdx !== null) {
+          const rest = tmpl.slice(elseIdx + tmpl.slice(elseIdx).indexOf('}}') + 2, openIdx);
           return {
             ifBlock: tmpl.slice(startIdx, elseIdx),
-            elseBlock: tmpl.slice(elseIdx + tmpl.slice(elseIdx).indexOf('}}') + 2, openIdx),
+            // `{{else if X}}…` is `{{else}}{{if X}}…{{end}}`
+            elseBlock: elseIfCond ? `{{${elseIfCond}}}${rest}{{end}}` : rest,
             nextCursor: closeIdx + 2,
           };
         } else {

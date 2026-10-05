@@ -83,11 +83,17 @@
     try { return JSON.stringify(JSON.parse(aiSamplePayload)) !== JSON.stringify((eventDetails as EventTypeItem | null)?.sample_payload ?? {}); }
     catch { return true; }
   });
+  // The workbench takes the template as its input; hand it the draft, the
+  // event name, and a sample payload so it opens on exactly this message.
   let workbenchUrl = $derived.by(() => {
+    const b64 = (s: string) => btoa(unescape(encodeURIComponent(s)));
+    const q = new URLSearchParams();
+    if (draft.trim()) q.set("template", b64(draft));
+    if (canRender) q.set("event", eventName);
     const src = (eventDetails as EventTypeItem | null)?.sample_payload ?? (eventDetails as EventTypeItem | null)?.event_schema;
-    if (!src) return WORKBENCH_URL;
-    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(src))));
-    return `${WORKBENCH_URL}?sample=${encodeURIComponent(b64)}`;
+    if (src) q.set("sample", b64(JSON.stringify(src)));
+    const qs = q.toString();
+    return qs ? `${WORKBENCH_URL}?${qs}` : WORKBENCH_URL;
   });
   let prettyRendered = $derived.by(() => {
     if (viewAs !== "json" || !rendered) return rendered;
