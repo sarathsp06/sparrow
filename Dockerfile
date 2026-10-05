@@ -1,6 +1,7 @@
 
-# Frontend build stage
-FROM node:22-alpine AS frontend
+# Frontend build stage. Pinned to the build host: the output is static files,
+# so there is no reason to run Node under QEMU for the arm64 image.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend
 
 ARG SEMVER=dev
 
@@ -19,8 +20,9 @@ COPY web/ .
 # adapter-static outputs to ../internal/ui/dist (i.e. /build/internal/ui/dist)
 RUN VITE_APP_VERSION=${SEMVER} PUBLIC_API_URL=/ npm run build
 
-# Go build stage
-FROM golang:1.26.1-alpine AS builder
+# Go build stage. Also pinned to the build host; the go build below
+# cross-compiles with GOOS/GOARCH from TARGETOS/TARGETARCH.
+FROM --platform=$BUILDPLATFORM golang:1.26.1-alpine AS builder
 
 RUN apk add --no-cache git
 
@@ -49,7 +51,7 @@ COPY --from=frontend /build/internal/ui/dist/ /build/internal/ui/dist/
 # Build server (includes embedded UI via go:embed, runs migrations on startup)
 ARG VERSION=dev
 ARG TARGETOS=linux
-ARG TARGETARCH
+ARG TARGETARCH=amd64
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -ldflags="-w -s -X github.com/sarathsp06/sparrow.Version=${VERSION}" \
     -trimpath \
