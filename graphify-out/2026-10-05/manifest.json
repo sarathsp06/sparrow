@@ -570,8 +570,8 @@
     "semantic_hash": ""
   },
   "web/package.json": {
-    "mtime": 1790779896.4098742,
-    "ast_hash": "61306e23b813bad1f73711122831a591",
+    "mtime": 1791209565.2691922,
+    "ast_hash": "4449ae68eb7536469c99dcbddaf5b49a",
     "semantic_hash": ""
   },
   "web/src/app.d.ts": {
@@ -640,8 +640,8 @@
     "semantic_hash": ""
   },
   "web/src/lib/utils.ts": {
-    "mtime": 1790803353.4924495,
-    "ast_hash": "aa79b1c7a602f0a8314724e469008f78",
+    "mtime": 1791209565.269901,
+    "ast_hash": "c18950a11219b42766f9f0946e9e8a7a",
     "semantic_hash": ""
   },
   "web/src/routes/+layout.svelte": {
@@ -670,8 +670,8 @@
     "semantic_hash": ""
   },
   "web/src/routes/events/+page.svelte": {
-    "mtime": 1790803644.8925915,
-    "ast_hash": "3ae441cdbdea340c12246922e187a6b8",
+    "mtime": 1791209565.2701185,
+    "ast_hash": "e41ebfa286ea5353744b186591ed93c3",
     "semantic_hash": ""
   },
   "web/src/routes/events/[eventName]/reports/+page.svelte": {
@@ -680,13 +680,13 @@
     "semantic_hash": ""
   },
   "web/src/routes/events/[eventName]/update/+page.svelte": {
-    "mtime": 1790803754.3215363,
-    "ast_hash": "0963fdcedd06d5372c13fa39d0dceb1d",
+    "mtime": 1791209565.2703469,
+    "ast_hash": "59143e0d91ccde8d82b553246021da7c",
     "semantic_hash": ""
   },
   "web/src/routes/events/instances/[eventId]/+page.svelte": {
-    "mtime": 1790329540.823591,
-    "ast_hash": "e4081b0ac37d4a35e2070aa78d576792",
+    "mtime": 1791209565.2705393,
+    "ast_hash": "b6dbba262ddda5e7ae182aaf999e5492",
     "semantic_hash": ""
   },
   "web/src/routes/events/push/+page.svelte": {
@@ -1965,7 +1965,7 @@
     "semantic_hash": ""
   },
   ".claude/launch.json": {
-    "mtime": 1790955073.261157,
+    "mtime": 1791209157.552609,
     "ast_hash": "0203dbe8e54e755167bb4089dddc69c9",
     "semantic_hash": ""
   },
@@ -2702,6 +2702,21 @@
   "web/src/lib/components/HeldDeliveriesNotice.svelte": {
     "mtime": 1791109695.2371476,
     "ast_hash": "153e28869da689bbe70bc9cbed0e916b",
+    "semantic_hash": ""
+  },
+  "web/src/lib/components/SchemaFromSamples.svelte": {
+    "mtime": 1791209565.2694218,
+    "ast_hash": "fef6c7ad5cb577f2639bba0588fc2d82",
+    "semantic_hash": ""
+  },
+  "web/src/lib/schema-infer.test.mjs": {
+    "mtime": 1791209565.2695441,
+    "ast_hash": "dfe604966cb25fe05e192b83e8dd3fd0",
+    "semantic_hash": ""
+  },
+  "web/src/lib/schema-infer.ts": {
+    "mtime": 1791209565.2696812,
+    "ast_hash": "83daa7ccbae870069694862dd95e0400",
     "semantic_hash": ""
   }
 }

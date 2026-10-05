@@ -760,8 +760,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1791109784.5915983,
-    "ast_hash": "712d0199402a4f262c821df1f6385d4e",
+    "mtime": 1791209790.0739632,
+    "ast_hash": "9ce6af122858f49c9c28f03f2d4ed180",
     "semantic_hash": ""
   },
   "client/README.md": {
@@ -790,8 +790,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/configuration.md": {
-    "mtime": 1791109784.5918703,
-    "ast_hash": "608d3ea1839c7337e4c5fdce3b8ab779",
+    "mtime": 1791209762.2630527,
+    "ast_hash": "8d0791b8f62880c06750efb73fc1df31",
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/how-it-works.mdx": {
@@ -1965,7 +1965,7 @@
     "semantic_hash": ""
   },
   ".claude/launch.json": {
-    "mtime": 1791209157.552609,
+    "mtime": 1791210072.888252,
     "ast_hash": "0203dbe8e54e755167bb4089dddc69c9",
     "semantic_hash": ""
   },
@@ -2430,13 +2430,13 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/guides/event-type-export-import.mdx": {
-    "mtime": 1790804544.9822724,
-    "ast_hash": "1319c6dd8502046f67b9df371706fdc8",
+    "mtime": 1791209762.2628694,
+    "ast_hash": "53fa2373281523015fa1bdc3bb8cd20f",
     "semantic_hash": ""
   },
   "docs/src/content/docs/guides/event-type-versioning.mdx": {
-    "mtime": 1790804506.2692933,
-    "ast_hash": "a41fe6ce424d098ffa061fdd202db250",
+    "mtime": 1791210001.4130664,
+    "ast_hash": "a29196ff9bcaba17b1df5d84c15e7994",
     "semantic_hash": ""
   },
   "docs/src/content/docs/guides/subscription-pause.mdx": {
@@ -2705,8 +2705,8 @@
     "semantic_hash": ""
   },
   "web/src/lib/components/SchemaFromSamples.svelte": {
-    "mtime": 1791209565.2694218,
-    "ast_hash": "fef6c7ad5cb577f2639bba0588fc2d82",
+    "mtime": 1791209961.4619195,
+    "ast_hash": "ff47355f510b42d1d0ece3005ea029be",
     "semantic_hash": ""
   },
   "web/src/lib/schema-infer.test.mjs": {
@@ -2717,6 +2717,21 @@
   "web/src/lib/schema-infer.ts": {
     "mtime": 1791209565.2696812,
     "ast_hash": "83daa7ccbae870069694862dd95e0400",
+    "semantic_hash": ""
+  },
+  "docs/src/assets/screenshots/infer-schema-event-record.png": {
+    "mtime": 1791210053.6738286,
+    "ast_hash": "18200ba6ad6c2cb9e3958ae2368564ca",
+    "semantic_hash": ""
+  },
+  "docs/src/assets/screenshots/infer-schema-events-list.png": {
+    "mtime": 1791210052.837212,
+    "ast_hash": "5d5464765ad8db0e8211081c8072ccfb",
+    "semantic_hash": ""
+  },
+  "docs/src/assets/screenshots/infer-schema-from-events.png": {
+    "mtime": 1791210053.5808935,
+    "ast_hash": "f2416ccf4ed6ef796ff1665020cd4927",
     "semantic_hash": ""
   }
 }
