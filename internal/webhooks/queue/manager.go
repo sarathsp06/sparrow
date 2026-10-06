@@ -40,7 +40,7 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 	}
 	if retentionDays > 0 {
 		periodicJobs = append(periodicJobs, river.NewPeriodicJob(
-			river.PeriodicInterval(time.Hour),
+			river.PeriodicInterval(retentionInterval),
 			func() (river.JobArgs, *river.InsertOpts) { return RetentionArgs{}, nil },
 			&river.PeriodicJobOpts{RunOnStart: true},
 		))

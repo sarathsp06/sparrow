@@ -28,8 +28,11 @@ var _ river.JobArgsWithInsertOpts = (*BatchCleanupArgs)(nil)
 
 func (BatchCleanupArgs) InsertOpts() river.InsertOpts {
 	return river.InsertOpts{
-		Queue:      QueueDefault,
-		UniqueOpts: river.UniqueOpts{ByArgs: true},
+		Queue: QueueDefault,
+		// ByPeriod is required: River's default unique states include
+		// completed, so without it the next interval's insert is deduped
+		// against the previous run until the job cleaner removes it (~24h).
+		UniqueOpts: river.UniqueOpts{ByArgs: true, ByPeriod: batchCleanupInterval},
 	}
 }
 

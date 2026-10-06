@@ -10,6 +10,9 @@ import (
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
+// retentionInterval is how often the retention purge runs.
+const retentionInterval = time.Hour
+
 // RetentionArgs is the periodic job that purges events older than the
 // configured retention window. Carries no payload; the window comes from
 // server config at worker construction.
@@ -25,8 +28,11 @@ var _ river.JobArgsWithInsertOpts = (*RetentionArgs)(nil)
 func (RetentionArgs) InsertOpts() river.InsertOpts {
 	return river.InsertOpts{
 		Queue: QueueDefault,
-		// One retention job at a time is plenty.
-		UniqueOpts: river.UniqueOpts{ByArgs: true},
+		// One retention job per interval is plenty. ByPeriod is required:
+		// River's default unique states include completed, so without it the
+		// next interval's insert is deduped against the previous run until
+		// the job cleaner removes it (~24h).
+		UniqueOpts: river.UniqueOpts{ByArgs: true, ByPeriod: retentionInterval},
 	}
 }
 
