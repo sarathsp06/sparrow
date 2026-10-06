@@ -62,8 +62,9 @@ No. Wherever an open standard exists for the job, Sparrow uses it rather than in
 - **[OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0)** describes the entire API. Generate a client in any language, import it into your API gateway, or hand it to a contractor; it is a file in the repository.
 - **[OpenTelemetry](https://opentelemetry.io/)** for traces, metrics and logs, and a **Prometheus** endpoint for scraping. It plugs into whatever observability stack you run, not a vendor dashboard.
 - **[CloudEvents](https://cloudevents.io/)** as an output format, when the receiving system speaks it.
-- **OpenAI-compatible API** for the optional AI assistance. It works with any provider that implements that interface, including a model you host yourself, so no data has to leave your network to use it.
-- **Plain HTTP and JSON** for every integration, **Go's standard template language** for payload transformation, and **`llms.txt`** so AI tools can read the documentation.
+- **Plain HTTP and JSON** for every integration, and **Go's standard template language** for payload transformation.
+
+Sparrow is AI-friendly, not AI-dependent. Nothing in delivery, signing or the API uses a model. The one AI feature, drafting a payload transform from a description, is optional and off until you configure a provider; it then talks the OpenAI-compatible interface, so it works with a hosted provider or a model you run yourself, and no data has to leave your network. The documentation also ships an `llms.txt`, so your own AI tools can read it. Switch it all off and nothing else changes.
 
 The practical effect is that Sparrow is replaceable by design. If you ever moved off it, the signatures, the API description, the telemetry and the event formats would all carry over.
 
@@ -101,7 +102,8 @@ Sparrow is an open-source project with a public repository, public issue tracker
 | Proof of origin? | Standard Webhooks signatures, HMAC-SHA256 or Ed25519. |
 | Licence? | MIT. Use, modify, keep private, cannot be revoked. |
 | Open dependencies? | Go, PostgreSQL, Svelte; everything under MIT, BSD, Apache or MPL. |
-| Open standards? | Standard Webhooks, OpenAPI 3.1, OpenTelemetry, CloudEvents, OpenAI-compatible AI. |
+| Open standards? | Standard Webhooks, OpenAPI 3.1, OpenTelemetry, CloudEvents. |
+| AI? | Friendly, not dependent: one optional feature, off by default, any OpenAI-compatible or self-hosted model. |
 | Cost? | Compute and a database. No per-message fees. |
 | Lock-in? | None. Plain tables, OpenAPI spec, open source. |
 
