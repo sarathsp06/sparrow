@@ -99,6 +99,13 @@ type Config struct {
 	// Env: OTEL_EXPORTER_OTLP_PROTOCOL
 	OTLPProtocol string `envconfig:"OTEL_EXPORTER_OTLP_PROTOCOL" default:""`
 
+	// OTLPSignals is a comma-separated subset of "traces", "metrics", "logs"
+	// to send to the OTLP endpoint. Default: all three. Set it to "traces"
+	// for a traces-only backend such as Jaeger or Tempo; metrics remain
+	// scrapeable at /metrics either way.
+	// Env: SPARROW_OTLP_SIGNALS
+	OTLPSignals []string `envconfig:"SPARROW_OTLP_SIGNALS" default:"traces,metrics,logs"`
+
 	// CORSAllowedOrigins is a comma-separated list of allowed CORS origins.
 	// When empty in production, cross-origin requests are blocked.
 	// When empty in development, all origins are allowed.

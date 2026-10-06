@@ -88,4 +88,6 @@ Sparrow exports traces, metrics, and logs via OpenTelemetry (OTLP). Set `OTEL_EX
 OTEL_EXPORTER_OTLP_ENDPOINT=http://your-otel-collector:4318
 ```
 
+For a traces-only backend such as Jaeger or Tempo, add `SPARROW_OTLP_SIGNALS=traces` so Sparrow does not try to upload metrics and logs it cannot accept.
+
 Without a collector, Prometheus can scrape the same metrics from `http://sparrow:8080/metrics` (on by default; `SPARROW_METRICS_ENABLED=false` turns it off). See [Prometheus](/sparrow/getting-started/configuration/#prometheus).

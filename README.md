@@ -319,7 +319,9 @@ Everything is configured through environment variables.
 
 16. `OTEL_EXPORTER_OTLP_ENDPOINT` — optional. OTLP collector URL for traces, metrics, and logs (`https://` for TLS). Export is off when unset.
 17. `OTEL_EXPORTER_OTLP_PROTOCOL` — optional. `http/protobuf` (default) or `grpc`.
-18. `SPARROW_METRICS_ENABLED` — optional. Default: `true`.
+18. `SPARROW_OTLP_SIGNALS` — optional. Default: `traces,metrics,logs`.
+    Which signals go to the OTLP endpoint. Set `traces` for a traces-only backend such as Jaeger or Tempo, which otherwise reject the metric and log exporters with `unknown service`. `/metrics` is unaffected.
+19. `SPARROW_METRICS_ENABLED` — optional. Default: `true`.
     Serves every OTel metric in Prometheus format at `GET /metrics` (no API key, like `/health`): delivery attempts and latency, queue backlog, webhooks by health and status.
 
 **Failing receivers**

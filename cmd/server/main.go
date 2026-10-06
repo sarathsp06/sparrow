@@ -74,6 +74,7 @@ func main() {
 		otelConfig.OTLPEndpoint = cfg.OTLPEndpoint
 	}
 	otelConfig.OTLPProtocol = cfg.OTLPProtocol
+	otelConfig.OTLPSignals = cfg.OTLPSignals
 	otelConfig.Prometheus = cfg.MetricsEnabled
 
 	// Initialize OpenTelemetry (no-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset)
@@ -90,7 +91,8 @@ func main() {
 			}
 		}()
 		if otelConfig.OTLPEndpoint != "" {
-			fmt.Printf("🔭 OpenTelemetry enabled (endpoint: %s, protocol: %s, env: %s)\n", otelConfig.OTLPEndpoint, otelConfig.OTLPProtocol, otelConfig.Environment)
+			fmt.Printf("🔭 OpenTelemetry enabled (endpoint: %s, protocol: %s, signals: %s, env: %s)\n",
+				otelConfig.OTLPEndpoint, otelConfig.OTLPProtocol, strings.Join(otelConfig.OTLPSignals, ","), otelConfig.Environment)
 		} else {
 			fmt.Println("🔭 OpenTelemetry export disabled (set OTEL_EXPORTER_OTLP_ENDPOINT to enable)")
 		}

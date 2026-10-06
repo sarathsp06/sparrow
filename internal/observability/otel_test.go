@@ -130,6 +130,60 @@ func TestSetupExportsSpans(t *testing.T) {
 	}
 }
 
+// TestSetupTracesOnlySkipsOtherExporters points Sparrow at a gRPC collector
+// that serves traces only (as Jaeger and Tempo do). With OTLPSignals limited
+// to traces, no metric or log exporter is created, so shutdown flushes
+// cleanly instead of failing with "unknown service ...MetricsService".
+func TestSetupTracesOnlySkipsOtherExporters(t *testing.T) {
+	addr, spans := startGRPCCollector(t)
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://"+addr)
+
+	cfg := DefaultConfig()
+	cfg.OTLPEndpoint = "http://" + addr
+	cfg.OTLPProtocol = ProtocolGRPC
+	cfg.OTLPSignals = []string{SignalTraces}
+	cfg.Prometheus = true
+	shutdown, err := Setup(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("Setup: %v", err)
+	}
+	t.Cleanup(func() { metricsHandler = nil })
+
+	_, span := GetTracer("otel-test").Start(context.Background(), "traces-only-span")
+	span.End()
+	counter, err := GetMeter("otel-test").Int64Counter("sparrow_traces_only_total")
+	if err != nil {
+		t.Fatal(err)
+	}
+	counter.Add(context.Background(), 1)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := shutdown(ctx); err != nil {
+		t.Fatalf("shutdown: %v", err)
+	}
+	select {
+	case name := <-spans:
+		if name != "traces-only-span" {
+			t.Fatalf("span name = %q", name)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("collector received no span")
+	}
+	if MetricsHandler() == nil {
+		t.Fatal("Prometheus scrape handler missing: /metrics must work regardless of OTLP signals")
+	}
+}
+
+func TestSetupRejectsUnknownSignal(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.OTLPEndpoint = "http://localhost:4318"
+	cfg.OTLPSignals = []string{"traces", "spans"}
+	if _, err := Setup(context.Background(), cfg); err == nil {
+		t.Fatal("expected error for unknown signal")
+	}
+}
+
 func TestSetupRejectsUnknownProtocol(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.OTLPEndpoint = "http://localhost:4318"

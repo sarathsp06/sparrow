@@ -24,6 +24,7 @@ All configuration is done via environment variables. No config files needed.
 | `ENVIRONMENT` | No | -- | Deployment tag; any value is accepted. Set to `production` to block cross-origin requests by default (see `CORS_ALLOWED_ORIGINS`) and tag logs/OTel; any other value behaves as development. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP collector URL for traces, metrics, and logs (e.g. `http://collector:4318`; `https://` for TLS). Export is off when unset. See [Observability](#observability). |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | No | `http/protobuf` (effective; env var is unset by default) | OTLP transport: `http/protobuf` or `grpc`. Any other value prevents export from starting (the server logs a warning and continues without OTel). |
+| `SPARROW_OTLP_SIGNALS` | No | `traces,metrics,logs` | Which signals go to the OTLP endpoint. Set `traces` for a traces-only backend such as Jaeger or Tempo. `/metrics` is unaffected. |
 | `CORS_ALLOWED_ORIGINS` | No | -- | Comma-separated list of exact browser origins allowed to call the API (e.g. `https://ui.example.com,https://admin.example.com`; trailing slashes are ignored). Required when the UI is [hosted separately](/sparrow/deployment/separate-ui/). When unset: with `ENVIRONMENT=production` every cross-origin request is rejected; otherwise every origin is allowed (local development only). |
 | `SPARROW_MAX_BODY_BYTES` | No | `5242880` (5 MiB) | Maximum request body size in bytes. Minimum 1 MiB; larger bodies get `413`. |
 | `SPARROW_EVENT_RETENTION_DAYS` | No | `0` (keep forever) | Purge events — and, via cascade, their deliveries — older than this many days. Runs hourly in the background. |
@@ -104,6 +105,14 @@ To export over OTLP/gRPC instead, set the protocol and use the collector's gRPC 
 OTEL_EXPORTER_OTLP_PROTOCOL=grpc
 OTEL_EXPORTER_OTLP_ENDPOINT=http://your-otel-collector:4317
 ```
+
+Jaeger and Grafana Tempo accept OTLP traces but not metrics or logs. Pointing Sparrow straight at one of them logs `failed to upload metrics: ... unknown service ...MetricsService` every 30 seconds. Send only traces:
+
+```bash
+SPARROW_OTLP_SIGNALS=traces
+```
+
+Metrics stay available for scraping at `/metrics` whenever `SPARROW_METRICS_ENABLED` is on, whatever `SPARROW_OTLP_SIGNALS` says.
 
 The URL scheme controls TLS: `http://` sends plaintext, `https://` uses TLS. The other standard OpenTelemetry exporter variables work as well, for example `OTEL_EXPORTER_OTLP_HEADERS` for a hosted backend's API key, `OTEL_EXPORTER_OTLP_CERTIFICATE` for a private CA, or `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` to send one signal somewhere else. A bare `host:port` without a scheme is still accepted and is sent as plaintext.
 
