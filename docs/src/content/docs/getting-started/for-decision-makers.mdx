@@ -64,8 +64,6 @@ No. Wherever an open standard exists for the job, Sparrow uses it rather than in
 - **[CloudEvents](https://cloudevents.io/)** as an output format, when the receiving system speaks it.
 - **Plain HTTP and JSON** for every integration, and **Go's standard template language** for payload transformation.
 
-Sparrow is AI-friendly, not AI-dependent. Nothing in delivery, signing or the API uses a model. The one AI feature, drafting a payload transform from a description, is optional and off until you configure a provider; it then talks the OpenAI-compatible interface, so it works with a hosted provider or a model you run yourself, and no data has to leave your network. The documentation also ships an `llms.txt`, so your own AI tools can read it. Switch it all off and nothing else changes.
-
 The practical effect is that Sparrow is replaceable by design. If you ever moved off it, the signatures, the API description, the telemetry and the event formats would all carry over.
 
 ## What does it cost?
