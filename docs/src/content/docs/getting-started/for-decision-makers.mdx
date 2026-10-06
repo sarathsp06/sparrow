@@ -66,6 +66,19 @@ No. Wherever an open standard exists for the job, Sparrow uses it rather than in
 
 The practical effect is that Sparrow is replaceable by design. If you ever moved off it, the signatures, the API description, the telemetry and the event formats would all carry over.
 
+## Does it depend on AI?
+
+No. Sparrow is AI-friendly, not AI-dependent.
+
+Nothing in actual operation uses a model: receiving events, matching subscriptions, transforming payloads, signing, delivering, retrying and reporting all run without one. There is no AI in the critical path, and there is nothing to switch off before you can run it.
+
+What "AI-friendly" means in practice:
+
+- **The documentation ships an `llms.txt`**, so your own AI assistants and coding tools can read it accurately.
+- **One optional convenience: drafting a payload transform from a plain-language description.** It is off until you configure a provider, and it speaks the OpenAI-compatible interface, so it works with a hosted provider or a model you run inside your own network. Every draft is checked against a sample event before it is shown, and a person still reviews and saves it.
+
+Leave it unconfigured and nothing else changes.
+
 ## What does it cost?
 
 The software costs nothing. You pay for a small compute instance and a PostgreSQL database, both of which most organisations already know how to run and already have under contract. There is no per-message, per-endpoint or per-seat pricing, so cost does not grow with success, and nobody has to forecast webhook volume to set a budget.
@@ -101,7 +114,7 @@ Sparrow is an open-source project with a public repository, public issue tracker
 | Licence? | MIT. Use, modify, keep private, cannot be revoked. |
 | Open dependencies? | Go, PostgreSQL, Svelte; everything under MIT, BSD, Apache or MPL. |
 | Open standards? | Standard Webhooks, OpenAPI 3.1, OpenTelemetry, CloudEvents. |
-| AI? | Friendly, not dependent: one optional feature, off by default, any OpenAI-compatible or self-hosted model. |
+| Depends on AI? | No. Nothing in operation uses a model; one optional drafting aid, off by default. |
 | Cost? | Compute and a database. No per-message fees. |
 | Lock-in? | None. Plain tables, OpenAPI spec, open source. |
 
