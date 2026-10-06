@@ -43,6 +43,7 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 |----------|---------|---------|
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector URL (scheme sets TLS); empty disables export | — |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` or `grpc` | `http/protobuf` |
+| `SPARROW_OTLP_SIGNALS` | Subset of `traces,metrics,logs` sent to the OTLP endpoint; `traces` for Jaeger/Tempo. Unknown names fail startup of OTel export | `traces,metrics,logs` |
 | `SPARROW_METRICS_ENABLED` | Serve all OTel metrics in Prometheus format at unauthenticated `GET /metrics` (`observability.MetricsHandler`), independent of OTLP | `true` |
 | `ENVIRONMENT` | `development` or `production`; `production` enforces `SPARROW_API_KEY` | — |
 

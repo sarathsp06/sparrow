@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -41,6 +42,15 @@ const (
 	ProtocolGRPC         = "grpc"
 )
 
+// OTLP signals, as spelled in Config.OTLPSignals.
+const (
+	SignalTraces  = "traces"
+	SignalMetrics = "metrics"
+	SignalLogs    = "logs"
+)
+
+var allSignals = []string{SignalTraces, SignalMetrics, SignalLogs}
+
 // Config holds OpenTelemetry configuration
 type Config struct {
 	ServiceName    string
@@ -53,6 +63,11 @@ type Config struct {
 	OTLPEndpoint string
 	// OTLPProtocol is ProtocolHTTPProtobuf (default when empty) or ProtocolGRPC.
 	OTLPProtocol string
+	// OTLPSignals lists which of SignalTraces, SignalMetrics and SignalLogs
+	// are sent to OTLPEndpoint. Empty means all three. Backends such as
+	// Jaeger or Tempo accept traces only and answer the other exporters
+	// with "unknown service"; listing just "traces" never creates them.
+	OTLPSignals []string
 	// Prometheus also exposes every OTel metric for scraping through
 	// MetricsHandler, with or without OTLP export.
 	Prometheus bool
@@ -91,6 +106,12 @@ func Setup(ctx context.Context, config *Config) (func(context.Context) error, er
 	}
 
 	if otlp {
+		for _, signal := range config.OTLPSignals {
+			if !slices.Contains(allSignals, signal) {
+				return nil, fmt.Errorf("unknown OTLP signal %q (use %s)",
+					signal, strings.Join(allSignals, ", "))
+			}
+		}
 		switch config.OTLPProtocol {
 		case "":
 			config.OTLPProtocol = ProtocolHTTPProtobuf
@@ -124,7 +145,7 @@ func Setup(ctx context.Context, config *Config) (func(context.Context) error, er
 
 	var tracerProvider *sdktrace.TracerProvider
 	var loggerProvider *log.LoggerProvider
-	if otlp {
+	if otlp && config.exports(SignalTraces) {
 		tracerProvider, err = setupTracing(ctx, res, config)
 		if err != nil {
 			return nil, fmt.Errorf("failed to setup tracing: %w", err)
@@ -139,7 +160,7 @@ func Setup(ctx context.Context, config *Config) (func(context.Context) error, er
 	}
 	shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
 
-	if otlp {
+	if otlp && config.exports(SignalLogs) {
 		loggerProvider, err = newLoggerProvider(ctx, config)
 		if err != nil {
 			cleanup()
@@ -181,6 +202,12 @@ var metricsHandler http.Handler
 // text format, or nil when Setup did not enable Prometheus.
 func MetricsHandler() http.Handler {
 	return metricsHandler
+}
+
+// exports reports whether signal is among the OTLP signals to export; an
+// empty OTLPSignals list exports every signal.
+func (c *Config) exports(signal string) bool {
+	return len(c.OTLPSignals) == 0 || slices.Contains(c.OTLPSignals, signal)
 }
 
 // legacyEndpoint reports whether endpoint is a bare host:port (the form
@@ -255,7 +282,7 @@ func newLoggerProvider(ctx context.Context, config *Config) (*log.LoggerProvider
 func setupMetrics(ctx context.Context, res *resource.Resource, config *Config) (*sdkmetric.MeterProvider, http.Handler, error) {
 	opts := []sdkmetric.Option{sdkmetric.WithResource(res)}
 
-	if config.OTLPEndpoint != "" {
+	if config.OTLPEndpoint != "" && config.exports(SignalMetrics) {
 		var exporter sdkmetric.Exporter
 		var err error
 		if config.OTLPProtocol == ProtocolGRPC {
