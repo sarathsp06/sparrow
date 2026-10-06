@@ -296,6 +296,15 @@ sparrow template test slack.tmpl --event-name order.created --payload '{"order_i
 sparrow template test slack.tmpl --payload @sample-event.json
 ```
 
+Pass `-` as the file to read the template from stdin, which keeps a one-off
+template and its sample payload in a single command:
+
+```bash
+sparrow template test - --payload '{"order_id":"ord_1","amount":42}' <<'EOF'
+{{ dict "id" .payload.order_id "total" .payload.amount | json }}
+EOF
+```
+
 Prints the rendered output, or the parse/render error. Like a subscription, it
 treats a field the payload lacks as an error; pass `--missing-key zero` to
 render it as `<no value>` instead. The template context is

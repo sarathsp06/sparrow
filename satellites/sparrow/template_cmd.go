@@ -22,9 +22,12 @@ func newTemplateCmd() *cobra.Command {
 	test := &cobra.Command{
 		Use:   "test <template-file>",
 		Short: "Render a transform template locally with the server's engine",
-		Args:  cobra.ExactArgs(1),
+		Long: `Render a transform template locally, with the same engine the server uses
+for deliveries, against a sample payload. Pass "-" as the file to read the
+template from stdin (a heredoc works well).`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runTemplateTest(cmd.OutOrStdout(), args[0], eventName, payloadArg, missingKey)
+			return runTemplateTest(cmd.InOrStdin(), cmd.OutOrStdout(), args[0], eventName, payloadArg, missingKey)
 		},
 	}
 	test.Flags().StringVar(&eventName, "event-name", "example.event", "event name exposed as {{.event_name}}")
@@ -37,12 +40,18 @@ func newTemplateCmd() *cobra.Command {
 // runTemplateTest renders a transform template locally with the same engine
 // the server uses for deliveries - the debugging story for recipe templates.
 // Like a subscription, it renders missing keys as errors unless missingKey is
-// "zero".
-func runTemplateTest(out io.Writer, file, eventName, payloadArg, missingKey string) error {
+// "zero". A file of "-" reads the template from in (stdin).
+func runTemplateTest(in io.Reader, out io.Writer, file, eventName, payloadArg, missingKey string) error {
 	if missingKey != "error" && missingKey != "zero" {
 		return fmt.Errorf(`--missing-key must be "error" or "zero", got %q`, missingKey)
 	}
-	tmpl, err := os.ReadFile(file)
+	var tmpl []byte
+	var err error
+	if file == "-" {
+		tmpl, err = io.ReadAll(in)
+	} else {
+		tmpl, err = os.ReadFile(file)
+	}
 	if err != nil {
 		return err
 	}

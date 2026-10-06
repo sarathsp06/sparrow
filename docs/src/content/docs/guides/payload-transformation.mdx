@@ -68,21 +68,55 @@ moment a value contains a quote. Let `json` do it.
 
 ## Try it before you ship it
 
-You don't have to guess. Test any template against a sample event:
+You don't have to guess. Every example below is a complete command: paste it
+into a terminal and it prints the delivered body. You need the
+[`sparrow` CLI](/sparrow/satellites/cli/) installed; the first two steps work
+without a running server.
 
 <Steps>
 
-1. **List the available helpers:**
+1. **List the available helpers**, or read one helper's full docs:
 
    ```bash
-   curl http://localhost:8080/v1/template-functions
+   sparrow functions
    ```
 
-2. **Test a template against an event type's sample payload** (returns the
-   rendered output; it renders strictly, as a subscription does by default):
+   ```bash
+   sparrow functions dig
+   ```
+
+   `functions` asks the server (`--url` or `sparrow init` point it at one).
+
+2. **Render a template against a sample payload, entirely offline.** The CLI
+   embeds the same engine the delivery worker uses. Pass `-` to read the
+   template from stdin, so a heredoc keeps the template and its sample
+   together:
 
    ```bash
-   curl -X POST http://localhost:8080/v1/subscriptions:testTemplate \
+   sparrow template test - --event-name payment.succeeded --payload '{"amount": 4200}' <<'EOF'
+   {{ dict "id" .event_id "amount" .payload.amount | json }}
+   EOF
+   ```
+
+   Prints:
+
+   ```json
+   {"amount":4200,"id":"evt_sample"}
+   ```
+
+   It renders strictly, as a subscription does by default: read a field the
+   payload lacks and the command fails with the same error a delivery would
+   record. Add `--missing-key zero` to render missing fields as `<no value>`
+   instead, like a subscription with `template_missing_key: zero`. Pass
+   `--payload @event.json` to use a file, or a template file instead of `-`.
+
+3. **Dry-run against the event type's stored sample payload on the server.**
+   This renders with the sample Sparrow derived from the event type's schema,
+   so it catches a template that reads a field the schema does not define.
+   There is no CLI command for it yet; it is one API call:
+
+   ```bash
+   curl -s -X POST http://localhost:8080/v1/subscriptions:testTemplate \
      -H 'Content-Type: application/json' \
      -d '{
        "event_name": "payment.succeeded",
@@ -90,38 +124,50 @@ You don't have to guess. Test any template against a sample event:
      }'
    ```
 
-3. **Or entirely offline with the CLI** (no server round-trip; renders locally
-   against a synthetic sample context instead of a stored event payload):
+   Returns `{"rendered": "{\"amount\":551,\"id\":\"dry-run-event-id\"}"}` (the
+   amount is whatever the generated sample holds). It needs an event type
+   registered **with a schema**: `sparrow events payment.succeeded` shows the
+   schema and sample payload, and an event type auto-created by a push has
+   neither, so register one first if the call answers 404:
 
    ```bash
-   sparrow template test partner.tmpl --payload '{"amount": 4200}'
+   curl -s -X POST http://localhost:8080/v1/event-types \
+     -H 'Content-Type: application/json' \
+     -d '{
+       "name": "payment.succeeded",
+       "description": "A payment was captured",
+       "event_schema": {
+         "type": "object",
+         "properties": {
+           "id": {"type": "string"},
+           "amount": {"type": "integer"},
+           "currency": {"type": "string"}
+         },
+         "required": ["id", "amount", "currency"]
+       }
+     }'
    ```
-
-   Add `--missing-key zero` to render missing fields as `<no value>`, like a
-   subscription with `template_missing_key: zero`.
 
 </Steps>
 
 ## Real-world examples
 
 Each example shows the **incoming event**, the **template** you'd set on the
-subscription, and the **delivered result**.
+subscription, and the **delivered result**, as one command you can run. The
+part between `<<'EOF'` and `EOF` is the template; the `--payload` is the
+incoming `.payload`. To ship one, copy the template into the subscription's
+`transform_template`.
 
 ### 1. Send only the fields a partner needs
 
 **Problem:** your event has 30 internal fields, but a partner should only see
 three.
 
-**Incoming `.payload`:**
-
-```json
-{ "id": "evt_123", "amount": 4200, "internal_notes": "…", "secret": "…" }
-```
-
-**Template:**
-
-```go
+```bash
+sparrow template test - --event-name payment.succeeded \
+  --payload '{"id": "evt_123", "amount": 4200, "internal_notes": "…", "secret": "…"}' <<'EOF'
 {{ dict "id" .payload.id "amount" .payload.amount "event" .event_name | json }}
+EOF
 ```
 
 **Delivered:**
@@ -136,16 +182,11 @@ three.
 
 **Problem:** Slack's Incoming Webhooks expect `{"text": "..."}`.
 
-**Incoming `.payload`:**
-
-```json
-{ "customer": { "name": "Ada" }, "amount": 4200, "currency": "usd" }
-```
-
-**Template:**
-
-```go
+```bash
+sparrow template test - \
+  --payload '{"customer": {"name": "Ada"}, "amount": 4200, "currency": "usd"}' <<'EOF'
 {{ dict "text" (printf "%s paid %s %.2f" (dig "customer" "name" "Someone" .payload) (upper .payload.currency) (div .payload.amount 100)) | json }}
+EOF
 ```
 
 **Delivered:**
@@ -161,16 +202,11 @@ missing), `div` converts cents to dollars, and `printf` formats the sentence.
 
 **Problem:** your event has amounts in dollars; the target wants integer cents.
 
-**Incoming `.payload`:**
-
-```json
-{ "customer": { "id": "cus_9" }, "amount": 42.5, "currency": "usd" }
-```
-
-**Template:**
-
-```go
+```bash
+sparrow template test - \
+  --payload '{"customer": {"id": "cus_9"}, "amount": 42.5, "currency": "usd"}' <<'EOF'
 {{ dict "user" (dig "customer" "id" "" .payload) "amount_cents" (toInt (mul .payload.amount 100)) "currency" .payload.currency | json }}
+EOF
 ```
 
 **Delivered:**
@@ -185,16 +221,11 @@ missing), `div` converts cents to dollars, and `printf` formats the sentence.
 
 **Problem:** an old system wants a flat object, but your data is nested.
 
-**Incoming `.payload`:**
-
-```json
-{ "customer": { "id": "c1", "email": "ada@example.com" }, "order": { "total": 99.5 } }
-```
-
-**Template:**
-
-```go
+```bash
+sparrow template test - \
+  --payload '{"customer": {"id": "c1", "email": "ada@example.com"}, "order": {"total": 99.5}}' <<'EOF'
 {{ dict "customer_id" (dig "customer" "id" "" .payload) "email" (dig "customer" "email" "" .payload) "total" (dig "order" "total" 0 .payload) | json }}
+EOF
 ```
 
 **Delivered:**
@@ -210,16 +241,11 @@ one absent field never breaks the whole delivery.
 
 **Problem:** your event has an array of line items; you only want the SKUs.
 
-**Incoming `.payload`:**
-
-```json
-{ "items": [ { "sku": "A" }, { "sku": "B" }, { "sku": "C" } ] }
-```
-
-**Template:**
-
-```go
+```bash
+sparrow template test - \
+  --payload '{"items": [{"sku": "A"}, {"sku": "B"}, {"sku": "C"}]}' <<'EOF'
 {{ $skus := list }}{{ range .payload.items }}{{ $skus = append $skus .sku }}{{ end }}{{ dict "skus" $skus | json }}
+EOF
 ```
 
 **Delivered:**
@@ -235,13 +261,17 @@ one absent field never breaks the whole delivery.
 **Problem:** you want to pass the whole payload through, but tag it with extra
 metadata.
 
-**Template:**
-
-```go
+```bash
+sparrow template test - --payload '{"id": "evt_123", "amount": 4200}' <<'EOF'
 {{ merge .payload (dict "source" "sparrow" "delivered_at" (formatTime "2006-01-02T15:04:05Z07:00" now)) | json }}
+EOF
 ```
 
-**Delivered:** your original payload, plus `"source"` and `"delivered_at"`.
+**Delivered:** your original payload, plus `"source"` and `"delivered_at"`:
+
+```json
+{"amount":4200,"delivered_at":"2026-10-06T14:45:37Z","id":"evt_123","source":"sparrow"}
+```
 
 `merge` combines maps; later keys win, and the originals are left untouched.
 
@@ -250,15 +280,32 @@ metadata.
 **Problem:** some events are missing optional fields, and you want sensible
 fallbacks instead of empty values.
 
-**Template:**
-
-```go
+```bash
+sparrow template test - --payload '{"plan": ""}' <<'EOF'
 {{ dict "name" (dig "customer" "name" "Guest" .payload) "plan" (default "free" (index .payload "plan")) | json }}
+EOF
+```
+
+**Delivered:**
+
+```json
+{"name":"Guest","plan":"free"}
 ```
 
 `dig` covers missing nested keys. `index` reads a top-level key without failing
 when it is absent, and `default` then covers a field that is missing or
-present but empty.
+present but empty. Compare what strict rendering does with a plain field read
+on the same payload:
+
+```bash
+sparrow template test - --payload '{"plan": ""}' <<'EOF'
+{{ .payload.customer.name }}
+EOF
+```
+
+```
+sparrow: template error: ... map has no entry for key "customer"
+```
 
 ## Good to know
 
@@ -284,8 +331,15 @@ what happens.
 | `on_transform_error` | `fail` (default): nothing is sent. The delivery is marked failed with error category `template_error`, is **not retried automatically**, and keeps the error in `template_error`. `fallback`: the standard event envelope is sent instead, and the error is still recorded on the delivery. |
 | `template_missing_key` | `error` (default): reading a missing field fails the template. `zero`: it prints `<no value>` and the delivery goes out. |
 
+Both are set on the subscription. Find the subscription's id from its webhook
+(`sparrow webhooks` lists webhook ids), then patch it:
+
 ```bash
-curl -X PATCH http://localhost:8080/v1/consumers/acme/subscriptions/{subscription_id} \
+sparrow webhooks "$WEBHOOK_ID" -o json | jq -r '.subscriptions[] | "\(.subscription_id) \(.event_name)"'
+```
+
+```bash
+curl -s -X PATCH "http://localhost:8080/v1/consumers/default/subscriptions/$SUBSCRIPTION_ID" \
   -H 'Content-Type: application/json' \
   -d '{"on_transform_error": "fallback", "template_missing_key": "zero"}'
 ```

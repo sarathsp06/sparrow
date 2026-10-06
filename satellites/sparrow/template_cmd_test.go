@@ -76,3 +76,18 @@ func TestTemplateTestMissingKey(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+// TestTemplateTestReadsStdin checks that "-" renders the template from stdin,
+// the form the docs use with a heredoc.
+func TestTemplateTestReadsStdin(t *testing.T) {
+	var out bytes.Buffer
+	root := newRootCmd(&out)
+	root.SetIn(strings.NewReader(`{{ dict "id" .payload.id "event" .event_name | json }}`))
+	root.SetArgs([]string{"template", "test", "-", "--event-name", "order.created", "--payload", `{"id":"ord_1"}`})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(out.String()); got != `{"event":"order.created","id":"ord_1"}` {
+		t.Fatalf("got %q", got)
+	}
+}
