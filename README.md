@@ -115,12 +115,17 @@ Other useful targets: `make build` / `make build-with-ui` (binary, optionally wi
 
 Prefer a terminal over curl? The `sparrow` CLI covers the same loop in 90 seconds.
 
-Install it — grab a prebuilt binary (no Go toolchain needed) or use Go:
+Install it with one command (macOS/Linux; verifies the release checksum), or use Go:
 
 ```bash
-# No Go? Download the `sparrow-cli` archive for your OS/arch from the latest
-# release, extract it, and move the `sparrow` binary onto your PATH:
-#   https://github.com/sarathsp06/sparrow/releases/latest
+# Latest release into /usr/local/bin (or ~/.local/bin when that is not writable):
+curl -fsSL https://raw.githubusercontent.com/sarathsp06/sparrow/main/scripts/install.sh | sh
+
+# Re-run the same command to update: the installed binary is replaced in place
+# (nothing is downloaded when it is already current). Pin a version or pick
+# the directory:
+#   curl -fsSL .../install.sh | sh -s -- -v v0.8.2 -b ~/bin
+# Windows: download the sparrow-cli .zip from https://github.com/sarathsp06/sparrow/releases/latest
 
 # Have Go? Install straight from source:
 go install github.com/sarathsp06/sparrow/satellites/sparrow@latest
