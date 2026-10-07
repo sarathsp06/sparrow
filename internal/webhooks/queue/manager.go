@@ -24,10 +24,45 @@ type Manager struct {
 	logger  *slog.Logger
 }
 
+// WorkerPoolConfig sizes the River queues. Zero values take the defaults.
+//
+// Throughput per queue is bounded by MaxWorkers / FetchCooldown: River fetches
+// at most once per cooldown, taking as many jobs as there are free worker
+// slots, so 20 workers with River's default 100 ms cooldown cap a queue at
+// about 200 jobs/s however fast the jobs are. The default cooldown here is
+// 20 ms (about 1000 jobs/s per queue with 20 workers).
+type WorkerPoolConfig struct {
+	EventWorkers   int
+	WebhookWorkers int
+	FetchCooldown  time.Duration
+}
+
+// Default worker pool sizing.
+const (
+	DefaultEventWorkers   = 20
+	DefaultWebhookWorkers = 20
+	DefaultFetchCooldown  = 20 * time.Millisecond
+)
+
+func (c WorkerPoolConfig) withDefaults() WorkerPoolConfig {
+	if c.EventWorkers <= 0 {
+		c.EventWorkers = DefaultEventWorkers
+	}
+	if c.WebhookWorkers <= 0 {
+		c.WebhookWorkers = DefaultWebhookWorkers
+	}
+	if c.FetchCooldown <= 0 {
+		c.FetchCooldown = DefaultFetchCooldown
+	}
+	return c
+}
+
 // NewManager creates a new queue manager. retentionDays > 0 enables an hourly
 // periodic job that purges events older than that many days; autoDisable
-// controls when failing webhooks are paused automatically.
-func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryptoSvc *crypto.Service, dbPool *pgxpool.Pool, clientConfig *client.Config, retentionDays int, autoDisable AutoDisablePolicy) (*Manager, error) {
+// controls when failing webhooks are paused automatically; pool sizes the
+// event and delivery worker pools.
+func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryptoSvc *crypto.Service, dbPool *pgxpool.Pool, clientConfig *client.Config, retentionDays int, autoDisable AutoDisablePolicy, pool WorkerPoolConfig) (*Manager, error) {
+	pool = pool.withDefaults()
 	// Initialize River workers
 	riverWorkers := river.NewWorkers()
 
@@ -48,12 +83,13 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 
 	// Create River client first (needed for workers)
 	riverClient, err := river.NewClient(riverpgxv5.New(dbPool), &river.Config{
-		PeriodicJobs: periodicJobs,
+		PeriodicJobs:  periodicJobs,
+		FetchCooldown: pool.FetchCooldown,
 		Queues: map[string]river.QueueConfig{
 			QueueDefault:         {MaxWorkers: 5},
-			QueueEventProcessing: {MaxWorkers: 20, FetchPollInterval: time.Second * 2}, // Event processing queue
-			QueueWebhookDelivery: {MaxWorkers: 20, FetchPollInterval: time.Second * 2}, // Webhook delivery queue
-			QueueBatchJobs:       {MaxWorkers: 5, FetchPollInterval: time.Second * 5},  // Batch job processing queue
+			QueueEventProcessing: {MaxWorkers: pool.EventWorkers, FetchPollInterval: time.Second * 2},   // Event fan-out queue
+			QueueWebhookDelivery: {MaxWorkers: pool.WebhookWorkers, FetchPollInterval: time.Second * 2}, // Webhook delivery queue
+			QueueBatchJobs:       {MaxWorkers: 5, FetchPollInterval: time.Second * 5},                   // Batch job processing queue
 		},
 		Workers: riverWorkers,
 	})

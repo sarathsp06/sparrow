@@ -62,6 +62,9 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 | `SPARROW_EVENT_RETENTION_DAYS` | Purge events (and cascaded deliveries) older than N days via an hourly background job; `0` disables retention (data kept forever) | `0` |
 | `SPARROW_AUTO_DISABLE_AFTER` | Pause a webhook whose receiver failed every attempt for this long (`queue.AutoDisablePolicy`); `0` disables | `120h` |
 | `SPARROW_AUTO_DISABLE_MIN_FAILURES` | Minimum consecutive failed attempts before auto-disable; `0` means the default | `10` |
+| `SPARROW_EVENT_WORKERS` | River `MaxWorkers` for the event fan-out queue (`queue.WorkerPoolConfig`) | `20` |
+| `SPARROW_WEBHOOK_WORKERS` | River `MaxWorkers` for the webhook delivery queue | `20` |
+| `SPARROW_QUEUE_FETCH_COOLDOWN` | River `FetchCooldown`; `workers / cooldown` bounds a queue's throughput (20 workers at 20ms is about 1,000 jobs/s) | `20ms` |
 | `SPARROW_AUTO_REGISTER_EVENTS` | Push to an unregistered event name creates a schema-less event type instead of returning 404; development only | `false` |
 
 ## Template history

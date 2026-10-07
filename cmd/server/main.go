@@ -216,10 +216,20 @@ func main() {
 	clientConfig.AllowPrivateNetworks = cfg.AllowPrivateNetworks
 	clientConfig.AllowedNetworks = cfg.AllowedNetworkList()
 	clientConfig.MaxCapturedResponseBytes = cfg.MaxCapturedResponseBytes
+	// Size the connection pool from the worker pool: each delivery worker can
+	// hold one connection, and many webhooks often share one receiver host.
+	// The library default of 10 per host silently capped in-flight deliveries
+	// to a slow host at 10 however many workers were configured; per-webhook
+	// rate limits (rate_limit_rps) are the intended receiver protection.
+	if workers := cfg.WebhookWorkers; workers > clientConfig.MaxConnsPerHost {
+		clientConfig.MaxConnsPerHost = workers
+		clientConfig.MaxIdleConns = 2 * workers
+	}
 
 	// Initialize queue manager
 	autoDisable := queue.AutoDisablePolicy{After: cfg.AutoDisableAfter, MinFailures: cfg.AutoDisableMinFailuresOrDefault()}
-	queueManager, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, dbPool, clientConfig, cfg.EventRetentionDays, autoDisable)
+	pool := queue.WorkerPoolConfig{EventWorkers: cfg.EventWorkers, WebhookWorkers: cfg.WebhookWorkers, FetchCooldown: cfg.QueueFetchCooldown}
+	queueManager, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, dbPool, clientConfig, cfg.EventRetentionDays, autoDisable, pool)
 	if err != nil {
 		log.Fatalf("Failed to create queue manager: %v", err)
 	}

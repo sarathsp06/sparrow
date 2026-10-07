@@ -330,6 +330,10 @@ Everything is configured through environment variables.
     Pauses a webhook whose receiver has failed every attempt for this long, records why on the webhook, and emits `sparrow.webhook.disabled`. Like a manual pause, deliveries are held as `paused` (not dropped); resume it, then retry what was held.
 20. `SPARROW_AUTO_DISABLE_MIN_FAILURES` — optional. Default: `10`.
     Minimum run of consecutive failed attempts before a webhook can be auto-disabled.
+21. `SPARROW_EVENT_WORKERS` / `SPARROW_WEBHOOK_WORKERS` — optional. Default: `20` each.
+    Concurrent event fan-out jobs and concurrent webhook deliveries.
+22. `SPARROW_QUEUE_FETCH_COOLDOWN` — optional. Default: `20ms`.
+    Minimum interval between job fetches on a queue; `workers / cooldown` is a queue's throughput ceiling (20 workers at `20ms` is about 1,000 jobs/s).
 
 **Template history**: every save that changes a subscription's `transform_template` records a version (`GET /v1/consumers/{c}/subscriptions/{id}/templateVersions`, last 20, with `manual`/`ai_draft` source, notes, and who saved it). The template editor lists them and can load one back; saving records it again.
 

@@ -140,6 +140,22 @@ type Config struct {
 	// Env: SPARROW_AUTO_DISABLE_MIN_FAILURES (default 10)
 	AutoDisableMinFailures int `envconfig:"SPARROW_AUTO_DISABLE_MIN_FAILURES" default:"10"`
 
+	// EventWorkers is the number of concurrent event fan-out jobs (one per
+	// pushed event). Env: SPARROW_EVENT_WORKERS (default 20)
+	EventWorkers int `envconfig:"SPARROW_EVENT_WORKERS" default:"20"`
+
+	// WebhookWorkers is the number of concurrent webhook deliveries.
+	// Env: SPARROW_WEBHOOK_WORKERS (default 20)
+	WebhookWorkers int `envconfig:"SPARROW_WEBHOOK_WORKERS" default:"20"`
+
+	// QueueFetchCooldown is the minimum interval between two job fetches on
+	// a queue. Each fetch takes as many jobs as there are idle workers, so
+	// workers/cooldown is the hard throughput ceiling of a queue (20 workers
+	// at 20ms is about 1000 jobs/s). Lower values poll Postgres more often
+	// under load; idle queues are not affected.
+	// Env: SPARROW_QUEUE_FETCH_COOLDOWN (Go duration, default "20ms")
+	QueueFetchCooldown time.Duration `envconfig:"SPARROW_QUEUE_FETCH_COOLDOWN" default:"20ms"`
+
 	// MetricsEnabled serves the OpenTelemetry metrics in Prometheus text
 	// format at GET /metrics (unauthenticated, like /health), independent of
 	// OTLP export.
