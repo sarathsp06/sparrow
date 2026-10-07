@@ -290,8 +290,8 @@
     "semantic_hash": ""
   },
   "internal/config/config.go": {
-    "mtime": 1791324147.3256328,
-    "ast_hash": "74dc2a4938359bc4100fb73e68695d84",
+    "mtime": 1791359790.0584295,
+    "ast_hash": "11729cb792a2a5121a627c88f3e3470f",
     "semantic_hash": ""
   },
   "internal/health/checker.go": {
@@ -310,8 +310,8 @@
     "semantic_hash": ""
   },
   "internal/integration/testhelpers_test.go": {
-    "mtime": 1791324147.3261259,
-    "ast_hash": "727f61341b45452f45cd4be601c08c8c",
+    "mtime": 1791359790.0589757,
+    "ast_hash": "418d66a56366a3d76c040a57b48886c8",
     "semantic_hash": ""
   },
   "internal/middleware/security_headers.go": {
@@ -430,8 +430,8 @@
     "semantic_hash": "22761e32895ed13ed48e502ca648d906"
   },
   "internal/webhooks/queue/manager.go": {
-    "mtime": 1791324168.9325657,
-    "ast_hash": "b582d2a6578ad90c35d29912a70c8518",
+    "mtime": 1791359790.0580611,
+    "ast_hash": "c06f222d349dbf698d5fa64ca1372e76",
     "semantic_hash": ""
   },
   "internal/webhooks/queue/rate_limit_test.go": {
@@ -445,8 +445,8 @@
     "semantic_hash": ""
   },
   "internal/webhooks/queue/webhook_worker.go": {
-    "mtime": 1791358729.1971142,
-    "ast_hash": "b3d06e430ba52fe05dc0b7440d5f8103",
+    "mtime": 1791359875.75929,
+    "ast_hash": "6e652be58e8fd53494101a647f93ae79",
     "semantic_hash": ""
   },
   "internal/webhooks/rate_limit_test.go": {
@@ -455,8 +455,8 @@
     "semantic_hash": ""
   },
   "internal/webhooks/store/RepositoryInterface_otel.go": {
-    "mtime": 1791359009.287998,
-    "ast_hash": "2297c1e174f4877c1d0e3df663852f70",
+    "mtime": 1791361759.3583164,
+    "ast_hash": "e16c61ac409df33be9108cf3c4f45849",
     "semantic_hash": ""
   },
   "internal/webhooks/store/batch_repository.go": {
@@ -465,8 +465,8 @@
     "semantic_hash": ""
   },
   "internal/webhooks/store/delivery_repository.go": {
-    "mtime": 1791321899.827099,
-    "ast_hash": "40bfac0ec946e84a79ed8beb1c718874",
+    "mtime": 1791359790.0560799,
+    "ast_hash": "dd547b841c37893e6d90cc003ca10b70",
     "semantic_hash": ""
   },
   "internal/webhooks/store/event_repository.go": {
@@ -475,13 +475,13 @@
     "semantic_hash": ""
   },
   "internal/webhooks/store/health_repository.go": {
-    "mtime": 1791358729.2058444,
-    "ast_hash": "307a49a0e27e2343a15b1f56fadf0346",
+    "mtime": 1791359808.590888,
+    "ast_hash": "66d49d95b216b80c4380d317e8fba498",
     "semantic_hash": ""
   },
   "internal/webhooks/store/interface.go": {
-    "mtime": 1791321899.8291662,
-    "ast_hash": "29291ed9f8ca4fb8a90e3985b55decd0",
+    "mtime": 1791359790.0562887,
+    "ast_hash": "90461725f2d8bec49b9f26d6099eb3a7",
     "semantic_hash": ""
   },
   "internal/webhooks/store/models.go": {
@@ -750,8 +750,8 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1791359004.9979475,
-    "ast_hash": "48f0f792c0a20a8e6ea30f5555852607",
+    "mtime": 1791360920.0228746,
+    "ast_hash": "29c23417d95af2554b9658fcf578a255",
     "semantic_hash": ""
   },
   "CONTRIBUTING.md": {
@@ -790,8 +790,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/configuration.md": {
-    "mtime": 1791325332.184082,
-    "ast_hash": "155b9a18136a2d5e330fbee2fa3f25f9",
+    "mtime": 1791360920.0220501,
+    "ast_hash": "8a61d07353eb612d5068618af4d41188",
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/how-it-works.mdx": {
@@ -1590,13 +1590,13 @@
     "semantic_hash": ""
   },
   "internal/webhooks/queue/system_events.go": {
-    "mtime": 1791321899.8204076,
-    "ast_hash": "e1fc90d5f0ba08cd08c3ff027bf9a791",
+    "mtime": 1791359790.0566738,
+    "ast_hash": "7a9deb83b9acf1e05fe434288e46c34c",
     "semantic_hash": ""
   },
   "internal/webhooks/queue/system_events_test.go": {
-    "mtime": 1791321899.8205485,
-    "ast_hash": "d676b49f70fcae87e569336e304d0e65",
+    "mtime": 1791359875.759636,
+    "ast_hash": "eaa1e3cbea5adb0e88ae169c5cd61d74",
     "semantic_hash": ""
   },
   "internal/webhooks/store/alert_config_repository.go": {
@@ -2680,13 +2680,13 @@
     "semantic_hash": ""
   },
   "internal/integration/webhook_auto_disable_test.go": {
-    "mtime": 1791321899.9112327,
-    "ast_hash": "f1d7cb02a3597ff60731c10ea1d81b7f",
+    "mtime": 1791359875.7597706,
+    "ast_hash": "8073ad1b0d0739f18d651e54929c0917",
     "semantic_hash": ""
   },
   "internal/webhooks/queue/auto_disable_test.go": {
-    "mtime": 1791321899.8456802,
-    "ast_hash": "2f084ca1e768302835ba1efbeee2e5bb",
+    "mtime": 1791359790.0594635,
+    "ast_hash": "10f5759a42902a48c17fa02171a6c80e",
     "semantic_hash": ""
   },
   "internal/webhooks/queue/metrics.go": {
@@ -2745,8 +2745,8 @@
     "semantic_hash": ""
   },
   "docs/src/blog/benchmark-four-walls.md": {
-    "mtime": 1791359024.725902,
-    "ast_hash": "ae34098499a18931ba15a6db4796e8c1",
+    "mtime": 1791361734.1809003,
+    "ast_hash": "921074166a4e55f7d01c0333aced48ba",
     "semantic_hash": ""
   },
   "cmd/benchmark/e2e.go": {
@@ -2759,24 +2759,34 @@
     "ast_hash": "53dca177218efe0a6b4807d626a33645",
     "semantic_hash": ""
   },
-  "db/migrations/000037_health_label_recompute.down.sql": {
-    "mtime": 1791358729.1770089,
-    "ast_hash": "68281a6a05ab59e9d29159397ae42cd6",
-    "semantic_hash": ""
-  },
-  "db/migrations/000037_health_label_recompute.up.sql": {
-    "mtime": 1791358729.174872,
-    "ast_hash": "d5938ab387f12bbc3f5ec3173e515e33",
-    "semantic_hash": ""
-  },
   "internal/webhooks/store/health_label_test.go": {
-    "mtime": 1791358729.2053092,
-    "ast_hash": "7531ad50153aeee8423f3790ccd49a73",
+    "mtime": 1791359790.0556915,
+    "ast_hash": "5a5790cd7c85ecf1e650ef2cb5c5af7f",
     "semantic_hash": ""
   },
   "scripts/install.sh": {
     "mtime": 1791352634.3846006,
     "ast_hash": "462554d1e788344440a5b3cc47721070",
+    "semantic_hash": ""
+  },
+  "db/migrations/000037_health_evaluator.down.sql": {
+    "mtime": 1791360765.4429061,
+    "ast_hash": "f2a072ce0225188e23e1c9b8eab1e749",
+    "semantic_hash": ""
+  },
+  "db/migrations/000037_health_evaluator.up.sql": {
+    "mtime": 1791360765.4428139,
+    "ast_hash": "1ab996e42acfa8b842d39f642d28b87e",
+    "semantic_hash": ""
+  },
+  "internal/webhooks/queue/health_evaluator_worker.go": {
+    "mtime": 1791360516.4478955,
+    "ast_hash": "400c34b03332b003c8a22b4563c7a667",
+    "semantic_hash": ""
+  },
+  "internal/webhooks/store/health_evaluator.go": {
+    "mtime": 1791360777.1956065,
+    "ast_hash": "0802506a1e56d8b63e8e819e81d65067",
     "semantic_hash": ""
   }
 }
