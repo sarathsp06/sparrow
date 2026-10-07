@@ -23,7 +23,9 @@ type E2EConfig struct {
 	APIKey          string
 	Consumer        string
 	EventName       string
-	Webhooks        int // receivers; each gets its own event type and an equal share of the events
+	Webhooks        int // event types; each gets its own receiver URL(s) and an equal share of the events
+	Subscribers     int // webhooks per event type (fan-out); an event counts as delivered when all of them got it
+	Burst           int // >0: publish exactly this many events as fast as possible instead of pacing for Duration
 	ReceiverAddr    string
 	ReceiverURL     string // URL Sparrow uses to reach the receiver (defaults to the listener address)
 	ReceiverDelay   time.Duration
@@ -40,8 +42,9 @@ type E2EConfig struct {
 // first: the delivery can reach the receiver before the publisher has read
 // the 201 response that carries the event id.
 type eventRecord struct {
-	sent time.Time
-	recv time.Time
+	sent  time.Time
+	recv  time.Time // when the last required subscriber received it
+	count int       // deliveries seen
 }
 
 // E2EResults is the pipeline benchmark report.
@@ -139,6 +142,9 @@ func (r *E2ERunner) Run(ctx context.Context) (*E2EResults, error) {
 	if r.cfg.Webhooks < 1 {
 		r.cfg.Webhooks = 1
 	}
+	if r.cfg.Subscribers < 1 {
+		r.cfg.Subscribers = 1
+	}
 	base := fmt.Sprintf("%s.%d", strings.TrimSuffix(r.cfg.EventName, "."), time.Now().Unix())
 	for i := 0; i < r.cfg.Webhooks; i++ {
 		r.eventNames = append(r.eventNames, fmt.Sprintf("%s.w%d", base, i))
@@ -162,14 +168,22 @@ func (r *E2ERunner) Run(ctx context.Context) (*E2EResults, error) {
 		return nil, err
 	}
 
-	log.Printf("publishing %s at %d rps with %d publishers across %d webhooks → %s", r.cfg.EventName, r.cfg.TargetRPS, r.cfg.Publishers, r.cfg.Webhooks, r.cfg.SparrowURL)
+	if r.cfg.Burst > 0 {
+		log.Printf("publishing a burst of %d %s events with %d publishers across %d event types × %d subscribers → %s", r.cfg.Burst, r.cfg.EventName, r.cfg.Publishers, r.cfg.Webhooks, r.cfg.Subscribers, r.cfg.SparrowURL)
+	} else {
+		log.Printf("publishing %s at %d rps with %d publishers across %d event types × %d subscribers → %s", r.cfg.EventName, r.cfg.TargetRPS, r.cfg.Publishers, r.cfg.Webhooks, r.cfg.Subscribers, r.cfg.SparrowURL)
+	}
 
 	start := time.Now()
 	timeline := make([]BacklogSample, 0, int(r.cfg.Duration.Seconds())+int(r.cfg.DrainTimeout.Seconds())+2)
 	var timelineMu sync.Mutex
 	sampler := r.startBacklogSampler(start, &timeline, &timelineMu)
 
-	publishCtx, cancelPublish := context.WithTimeout(ctx, r.cfg.Duration)
+	window := r.cfg.Duration
+	if r.cfg.Burst > 0 {
+		window = r.cfg.DrainTimeout // the burst ends when the events are out, not on a clock
+	}
+	publishCtx, cancelPublish := context.WithTimeout(ctx, window)
 	r.publish(publishCtx)
 	cancelPublish()
 	publishEnd := time.Now()
@@ -270,8 +284,10 @@ func (r *E2ERunner) handleDelivery(w http.ResponseWriter, req *http.Request) {
 			rec = &eventRecord{}
 			r.records[eventID] = rec
 		}
-		dup := !rec.recv.IsZero()
-		if !dup {
+		rec.count++
+		complete := rec.count == r.cfg.Subscribers
+		dup := rec.count > r.cfg.Subscribers
+		if complete {
 			rec.recv = now
 		}
 		sent := rec.sent
@@ -280,12 +296,12 @@ func (r *E2ERunner) handleDelivery(w http.ResponseWriter, req *http.Request) {
 		switch {
 		case dup:
 			r.duplicates.Add(1)
-		case !sent.IsZero():
+		case complete && !sent.IsZero():
 			r.delivered.Add(1)
 			r.e2e.Add(now.Sub(sent))
 		default:
-			// Publisher has not recorded this id yet (or never will, if the
-			// event is from an earlier run); publishOne settles it.
+			// Not all subscribers yet, or the publisher has not recorded
+			// this id (publishOne settles that case).
 		}
 	}
 
@@ -338,28 +354,30 @@ func (r *E2ERunner) registerPipeline(ctx context.Context) error {
 			return fmt.Errorf("register event type: HTTP %d", code)
 		}
 
-		var out struct {
-			WebhookID string `json:"webhook_id"`
+		for sub := 0; sub < r.cfg.Subscribers; sub++ {
+			var out struct {
+				WebhookID string `json:"webhook_id"`
+			}
+			code, err = r.do(ctx, http.MethodPost, "/v1/consumers/"+r.cfg.Consumer+"/webhooks", map[string]any{
+				"events": []string{name},
+				"url":    fmt.Sprintf("%s/webhook/%d/%d", r.cfg.ReceiverURL, i, sub),
+				"active": true,
+				"http_config": map[string]any{
+					"max_retries":             3,
+					"retry_backoff_seconds":   1,
+					"request_timeout_seconds": 10,
+				},
+			}, &out)
+			if err != nil {
+				return fmt.Errorf("register webhook: %w", err)
+			}
+			if code != http.StatusCreated {
+				return fmt.Errorf("register webhook: HTTP %d (is SPARROW_ALLOW_PRIVATE_NETWORKS=true on the server?)", code)
+			}
+			r.webhookIDs = append(r.webhookIDs, out.WebhookID)
 		}
-		code, err = r.do(ctx, http.MethodPost, "/v1/consumers/"+r.cfg.Consumer+"/webhooks", map[string]any{
-			"events": []string{name},
-			"url":    fmt.Sprintf("%s/webhook/%d", r.cfg.ReceiverURL, i),
-			"active": true,
-			"http_config": map[string]any{
-				"max_retries":             3,
-				"retry_backoff_seconds":   1,
-				"request_timeout_seconds": 10,
-			},
-		}, &out)
-		if err != nil {
-			return fmt.Errorf("register webhook: %w", err)
-		}
-		if code != http.StatusCreated {
-			return fmt.Errorf("register webhook: HTTP %d (is SPARROW_ALLOW_PRIVATE_NETWORKS=true on the server?)", code)
-		}
-		r.webhookIDs = append(r.webhookIDs, out.WebhookID)
 	}
-	log.Printf("registered %d webhook(s) → %s", len(r.webhookIDs), r.cfg.ReceiverURL)
+	log.Printf("registered %d webhook(s) over %d event type(s) → %s", len(r.webhookIDs), len(r.eventNames), r.cfg.ReceiverURL)
 	return nil
 }
 
@@ -457,11 +475,11 @@ func (r *E2ERunner) publishOne(ctx context.Context, sample bool) error {
 		r.records[out.EventID] = rec
 	}
 	rec.sent = sent
-	recv := rec.recv
+	recv := rec.recv // set only once all subscribers delivered
 	r.mu.Unlock()
 	r.published.Add(1)
 
-	// Delivery beat us to it: settle it now.
+	// Deliveries beat us to it: settle it now.
 	if !recv.IsZero() {
 		r.delivered.Add(1)
 		if sample {
@@ -473,8 +491,13 @@ func (r *E2ERunner) publishOne(ctx context.Context, sample bool) error {
 
 // publish runs the paced publishers until ctx expires.
 func (r *E2ERunner) publish(ctx context.Context) {
-	limiter := NewRateLimiter(r.cfg.TargetRPS, r.cfg.Publishers)
-	defer limiter.Stop()
+	var limiter *RateLimiter
+	if r.cfg.Burst <= 0 {
+		limiter = NewRateLimiter(r.cfg.TargetRPS, r.cfg.Publishers)
+		defer limiter.Stop()
+	}
+	var remaining atomic.Int64
+	remaining.Store(int64(r.cfg.Burst))
 
 	var wg sync.WaitGroup
 	var firstErr sync.Once
@@ -482,8 +505,12 @@ func (r *E2ERunner) publish(ctx context.Context) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for {
-				if err := limiter.Wait(ctx); err != nil {
+			for ctx.Err() == nil {
+				if limiter != nil {
+					if err := limiter.Wait(ctx); err != nil {
+						return
+					}
+				} else if remaining.Add(-1) < 0 {
 					return
 				}
 				if err := r.publishOne(ctx, true); err != nil && ctx.Err() == nil {
@@ -546,14 +573,18 @@ func (r *E2ERunner) snapshotStatusCodes() map[string]int64 {
 func (res *E2EResults) Print() {
 	fmt.Printf("\n=== End-to-End Pipeline Results ===\n\n")
 	fmt.Printf("Sparrow:          %s  (event %s, consumer %s)\n", res.Config.SparrowURL, res.Config.EventName, res.Config.Consumer)
-	fmt.Printf("Receiver:         %s, %d webhook(s) (simulated delay %v)\n", res.Config.ReceiverURL, res.Config.Webhooks, res.Config.ReceiverDelay)
-	fmt.Printf("Publish window:   %v at target %d rps, %d publishers, %d KB payload\n", res.PublishDuration.Round(time.Millisecond), res.Config.TargetRPS, res.Config.Publishers, res.Config.PayloadSizeKB)
+	fmt.Printf("Receiver:         %s, %d event type(s) × %d subscriber(s) = %d webhooks (simulated delay %v)\n", res.Config.ReceiverURL, res.Config.Webhooks, res.Config.Subscribers, res.Config.Webhooks*res.Config.Subscribers, res.Config.ReceiverDelay)
+	if res.Config.Burst > 0 {
+		fmt.Printf("Publish window:   %v for a burst of %d events, %d publishers, %d KB payload\n", res.PublishDuration.Round(time.Millisecond), res.Config.Burst, res.Config.Publishers, res.Config.PayloadSizeKB)
+	} else {
+		fmt.Printf("Publish window:   %v at target %d rps, %d publishers, %d KB payload\n", res.PublishDuration.Round(time.Millisecond), res.Config.TargetRPS, res.Config.Publishers, res.Config.PayloadSizeKB)
+	}
 	fmt.Printf("Drain:            %v (%s)\n\n", res.DrainDuration.Round(time.Millisecond), map[bool]string{true: "backlog reached zero", false: "TIMED OUT with backlog"}[res.Drained])
 
 	fmt.Printf("Events:\n")
 	fmt.Printf("  Accepted (201): %d\n", res.Accepted)
 	fmt.Printf("  Rejected:       %d  %v\n", res.Rejected, res.StatusCodes)
-	fmt.Printf("  Delivered:      %d\n", res.Delivered)
+	fmt.Printf("  Delivered:      %d events (all %d subscriber(s) reached)\n", res.Delivered, res.Config.Subscribers)
 	fmt.Printf("  Duplicates:     %d (retries that re-hit the receiver)\n", res.Duplicates)
 	fmt.Printf("  Unmatched:      %d (deliveries without an event id)\n", res.Unmatched)
 	fmt.Printf("  Foreign:        %d (deliveries of events this run did not publish: leftover backlog)\n\n", res.Foreign)

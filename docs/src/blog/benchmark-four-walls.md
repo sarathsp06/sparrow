@@ -118,9 +118,11 @@ CPU                |  2 | SELECT COUNT(DISTINCT delivery_id), ... FROM webhook_h
 
 Two things are going on.
 
-**Every delivery is several small transactions.** The worker loads the webhook, the event and the subscription, takes a rate-limit slot, stores the request body, writes the delivery status, inserts a health event, upserts the health state, and updates the registration's health label. Each write autocommits on its own, and each autocommit is a WAL fsync. On a laptop with Postgres in Docker an fsync is a few milliseconds, so half a dozen of them per delivery is most of the 30 to 45 ms. Faster disks shrink it; the number of round trips does not change.
+**Every delivery is several small transactions.** The worker loads the webhook, the event and the subscription, takes a rate-limit slot, stores the request body, writes the delivery status, inserts a health event, upserts the health state, recomputes the health label, and writes it back to the registration. None of this is wrapped in a transaction: each statement autocommits on its own, and each autocommit is a WAL fsync. On a laptop with Postgres in Docker an fsync is a few milliseconds, so half a dozen of them per delivery is most of the 30 to 45 ms. Faster disks shrink it; the number of round trips does not change.
 
-**One busy receiver serializes its workers.** Three of those statements touch rows that belong to the webhook: the health state row, the registration row, and the health events for the 24-hour label recalculation. In this benchmark every delivery goes to one webhook, so twenty workers queue on one row. And the label recalculation, a `COUNT(DISTINCT ...)` over that webhook's last 24 hours of health events, runs inside the transaction that holds the row lock. The lock is held for as long as the scan takes, and the scan grows as the webhook gets busier. That is why a 10-second run at 500 per second kept up and a 30-second run did not: the first 5,000 rows are cheap to count, the next 15,000 less so.
+**One busy receiver serializes its workers.** Two of those writes go to rows that belong to the webhook: the upsert of its `webhook_health_state` row and the `UPDATE webhook_registrations SET health = ...` on its registration row, which runs on every delivery whether or not the label changed. A row lock in Postgres is held until the transaction commits, and with `synchronous_commit = on` the commit waits for the fsync. So with one hot webhook, twenty workers take turns holding a row through an fsync, and throughput becomes roughly one over commit latency: about 440 per second here, no matter how many workers you add. The `Lock:transactionid` waits in the sample above are exactly that queue.
+
+**The health label gets more expensive as the webhook gets busier.** The label is recomputed on every delivery with a `COUNT(DISTINCT delivery_id)` over that webhook's health events from the last 24 hours. It does not hold the row lock (it is its own statement), but it is paid on every delivery and it grows with the number of recent deliveries. That is why a 10-second run at 500 per second kept up and a 30-second run did not: the first 5,000 rows are cheap to count, the next 15,000 less so, and after an hour of real traffic to a busy receiver it is a scan of every delivery that hour, per delivery.
 
 Spreading the same traffic across receivers separates the two effects:
 
@@ -148,7 +150,20 @@ Except that the slow-receiver row did not move. Five times the workers, the same
 | 500/s, receiver sleeps 50 ms | 10 | 100 | 10 | 198 | 23.3 s |
 | 500/s, receiver sleeps 50 ms | 10 | 100 | 100 | 500 | 34 ms |
 
-The per-delivery bookkeeping is a design question rather than a config knob, and we are not changing it in the same release as the other two fixes. The candidates are obvious enough: do the status, health event and health state writes in one transaction instead of several; keep the health label incremental instead of rescanning 24 hours; and compute it outside the row lock. The benchmark now gives a reproducible number to hold any of those against.
+The per-delivery bookkeeping is a design question rather than a config knob, and we are not changing it in the same release as the other fixes. The candidates are clear enough: skip the registration write when the label has not changed (one hot-row commit per delivery gone for free); keep the label incremental, from counters on the health state row or a periodic recompute, instead of rescanning 24 hours on every delivery; and fold the remaining per-delivery writes into one transaction so a delivery costs one fsync rather than six. The benchmark now gives a reproducible number to hold any of those against.
+
+## The realistic shape
+
+Ten subscribers on one event type is a stress shape, not a typical one. In practice an event type has one subscriber, sometimes two, and what a webhook server actually faces is many webhooks registered and bursts of events across many types. So the last runs look like that, at the shipped defaults (20 fan-out workers, 20 delivery workers, 20 ms cooldown): 300 event types, each with its own receiver URL, and one or two webhooks per type.
+
+| Shape | Events in | Delivered/s (events × subscribers) | p50 publish → fully delivered | Drain after publishing stopped |
+|---|---|---|---|---|
+| 300 types × 1 subscriber, paced 1,000/s for 30 s | 1,003/s | 457 → 607/s whole run | 17.8 s | 19.6 s |
+| 300 types × 2 subscribers, paced 500/s for 30 s | 502/s | 425 events/s = 850 deliveries/s | 3.2 s | 5.1 s |
+| 300 types × 1, burst of 20,000 events | 3,616/s accepted in 5.5 s | 749/s | 13.6 s | 21.2 s |
+| 300 types × 2, burst of 20,000 events | 4,013/s accepted in 5.0 s | 406 events/s = 811 deliveries/s | 24.2 s | 44.3 s |
+
+Three things to read off that table. Ingest is fast: a burst of 20,000 events is accepted in five seconds, about 4,000 per second with a 20 ms median, and nothing is rejected. Delivery at the defaults runs at 600 to 850 per second once the hot-row problem is spread across 300 webhooks, and the fan-out to two subscribers costs almost nothing extra per event. And while a burst is being accepted, delivery slows (148 per second during the five-second burst, 749 after), because ingest and delivery share the same Postgres; the backlog then drains at the delivery rate. With `SPARROW_WEBHOOK_WORKERS=100` the earlier runs put delivery near 940 per second on this laptop; past that, the per-delivery commits in the previous section are the limit.
 
 ## What the numbers mean for you
 
@@ -176,8 +191,10 @@ SPARROW_ALLOW_PRIVATE_NETWORKS=true SPARROW_AUTO_REGISTER_EVENTS=true make run
 
 ```bash
 go run ./cmd/benchmark -mode e2e -sparrow-url http://localhost:8080 \
-  -duration 30s -rps 500 -concurrency 50 -webhooks 10 -json results.json
+  -duration 30s -rps 500 -concurrency 50 -webhooks 300 -subscribers 2 -json results.json
 ```
+
+`-webhooks` is the number of event types (each with its own receiver URL), `-subscribers` the webhooks per event type, and `-burst 20000` publishes that many events as fast as possible instead of pacing, then times the drain.
 
 Each run registers its own event types and webhooks and removes them afterwards. If a run times out with a backlog, the leftover jobs will still be processed; the next run reports them as "foreign" deliveries rather than counting them. The JSON report includes the per-second backlog timeline if you want to plot it.
 

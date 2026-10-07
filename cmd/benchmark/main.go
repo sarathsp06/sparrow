@@ -422,7 +422,9 @@ func main() {
 	apiKey := flag.String("api-key", os.Getenv("SPARROW_API_KEY"), "e2e mode: X-API-Key for Sparrow (default $SPARROW_API_KEY)")
 	consumer := flag.String("consumer", "bench", "e2e mode: consumer id to publish under")
 	eventName := flag.String("event", "bench.event", "e2e mode: event type name prefix (a unique suffix is added per run)")
-	webhooks := flag.Int("webhooks", 1, "e2e mode: number of receivers/webhooks to spread the events over (each on its own event type)")
+	webhooks := flag.Int("webhooks", 1, "e2e mode: number of event types to spread the events over (each with its own receiver URL)")
+	subscribers := flag.Int("subscribers", 1, "e2e mode: webhooks subscribed to each event type (fan-out); typical is 1 or 2")
+	burst := flag.Int("burst", 0, "e2e mode: publish exactly this many events as fast as possible, then wait for the drain (ignores -duration and -rps)")
 	receiverAddr := flag.String("receiver-addr", "127.0.0.1:0", "e2e mode: local receiver listen address")
 	receiverURL := flag.String("receiver-url", "", "e2e mode: URL Sparrow should call (default: the receiver listen address; set when Sparrow runs in a container)")
 	receiverDelay := flag.Duration("receiver-delay", 0, "e2e mode: simulated processing time inside the receiver")
@@ -452,7 +454,7 @@ func main() {
 		report = res
 	case "e2e":
 		cfg := E2EConfig{
-			SparrowURL: *sparrowURL, APIKey: *apiKey, Consumer: *consumer, EventName: *eventName, Webhooks: *webhooks,
+			SparrowURL: *sparrowURL, APIKey: *apiKey, Consumer: *consumer, EventName: *eventName, Webhooks: *webhooks, Subscribers: *subscribers, Burst: *burst,
 			ReceiverAddr: *receiverAddr, ReceiverURL: *receiverURL, ReceiverDelay: *receiverDelay,
 			Duration: *duration, TargetRPS: *rps, Publishers: *concurrency, PayloadSizeKB: *payloadKB,
 			DrainTimeout: *drainTimeout, KeepWebhook: *keepWebhook,
