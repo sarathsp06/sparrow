@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -447,5 +448,56 @@ func TestDeliverySpansDoNotExportSecretURLs(t *testing.T) {
 				t.Fatalf("url.full = %q, want the redacted form", kv.Value.AsString())
 			}
 		}
+	}
+}
+
+// TestSendReusesConnections guards against the per-request timeout context
+// being cancelled before the body is read, which makes net/http drop the
+// keep-alive connection after every delivery.
+func TestSendReusesConnections(t *testing.T) {
+	var newConns atomic.Int32
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	server.Config.ConnState = func(_ net.Conn, st http.ConnState) {
+		if st == http.StateNew {
+			newConns.Add(1)
+		}
+	}
+	server.Start()
+	defer server.Close()
+
+	c := NewWebhookClient(&Config{
+		Timeout:              5 * time.Second,
+		MaxIdleConns:         10,
+		MaxConnsPerHost:      10,
+		IdleConnTimeout:      time.Minute,
+		AllowPrivateNetworks: true, // httptest.NewServer binds to 127.0.0.1
+	})
+	defer func() { _ = c.Close() }()
+
+	const n = 20
+	for i := 0; i < n; i++ {
+		resp, _, err := c.Send(context.Background(), &DeliveryRequest{
+			WebhookID:  uuid.New(),
+			DeliveryID: "d",
+			EventID:    uuid.New(),
+			URL:        server.URL,
+			Method:     http.MethodPost,
+			Payload:    []byte(`{}`),
+			Timeout:    2 * time.Second, // the per-request timeout that used to break reuse
+		})
+		if err != nil {
+			t.Fatalf("send %d: %v", i, err)
+		}
+		if _, err := ReadBody(resp, 1024); err != nil {
+			t.Fatalf("read body %d: %v", i, err)
+		}
+		_ = resp.Body.Close()
+	}
+
+	if got := newConns.Load(); got != 1 {
+		t.Fatalf("expected %d sequential sends to reuse one connection, server saw %d new connections", n, got)
 	}
 }
