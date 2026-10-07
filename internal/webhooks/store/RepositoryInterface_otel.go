@@ -161,31 +161,6 @@ func (_d RepositoryInterfaceWithTracing) BatchCreateDeliveries(ctx context.Conte
 	return _d.RepositoryInterface.BatchCreateDeliveries(ctx, tenantID, deliveries)
 }
 
-// CalculateWebhookHealth implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) CalculateWebhookHealth(ctx context.Context, webhookID uuid.UUID, lookbackHours int) (s1 string, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.CalculateWebhookHealth")
-	defer func() {
-		if _d._spanDecorator != nil {
-			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":           ctx,
-				"webhookID":     webhookID,
-				"lookbackHours": lookbackHours}, map[string]interface{}{
-				"s1":  s1,
-				"err": err})
-		} else if err != nil {
-			_span.RecordError(err)
-			_span.SetStatus(_codes.Error, err.Error())
-			_span.SetAttributes(
-				attribute.String("event", "error"),
-				attribute.String("message", err.Error()),
-			)
-		}
-
-		_span.End()
-	}()
-	return _d.RepositoryInterface.CalculateWebhookHealth(ctx, webhookID, lookbackHours)
-}
-
 // CleanupExpiredBatchJobs implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) CleanupExpiredBatchJobs(ctx context.Context) (i1 int, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.CleanupExpiredBatchJobs")
@@ -471,6 +446,31 @@ func (_d RepositoryInterfaceWithTracing) DeleteSubscription(ctx context.Context,
 		_span.End()
 	}()
 	return _d.RepositoryInterface.DeleteSubscription(ctx, tenantID, id)
+}
+
+// EvaluateHealth implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) EvaluateHealth(ctx context.Context, upTo time.Time, maxEvents int) (hp1 *HealthEvaluation, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.EvaluateHealth")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":       ctx,
+				"upTo":      upTo,
+				"maxEvents": maxEvents}, map[string]interface{}{
+				"hp1": hp1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.EvaluateHealth(ctx, upTo, maxEvents)
 }
 
 // FillInEventTypeVersion implements RepositoryInterface
@@ -1597,17 +1597,15 @@ func (_d RepositoryInterfaceWithTracing) LockWebhook(ctx context.Context, tenant
 	return _d.RepositoryInterface.LockWebhook(ctx, tenantID, webhookID, consumer, exclusive)
 }
 
-// RecordDeliveryOutcome implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) RecordDeliveryOutcome(ctx context.Context, outcome DeliveryOutcome) (oldHealth string, newHealth string, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.RecordDeliveryOutcome")
+// RecordDeliveryAttempt implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) RecordDeliveryAttempt(ctx context.Context, attempt DeliveryAttempt) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.RecordDeliveryAttempt")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
 				"ctx":     ctx,
-				"outcome": outcome}, map[string]interface{}{
-				"oldHealth": oldHealth,
-				"newHealth": newHealth,
-				"err":       err})
+				"attempt": attempt}, map[string]interface{}{
+				"err": err})
 		} else if err != nil {
 			_span.RecordError(err)
 			_span.SetStatus(_codes.Error, err.Error())
@@ -1619,7 +1617,7 @@ func (_d RepositoryInterfaceWithTracing) RecordDeliveryOutcome(ctx context.Conte
 
 		_span.End()
 	}()
-	return _d.RepositoryInterface.RecordDeliveryOutcome(ctx, outcome)
+	return _d.RepositoryInterface.RecordDeliveryAttempt(ctx, attempt)
 }
 
 // RecordWebhookHealthEvent implements RepositoryInterface
@@ -2122,33 +2120,6 @@ func (_d RepositoryInterfaceWithTracing) UpdateWebhook(ctx context.Context, tena
 		_span.End()
 	}()
 	return _d.RepositoryInterface.UpdateWebhook(ctx, tenantID, webhook)
-}
-
-// UpdateWebhookHealthState implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) UpdateWebhookHealthState(ctx context.Context, webhookID uuid.UUID, success bool, eventTimestamp time.Time) (oldHealth string, newHealth string, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.UpdateWebhookHealthState")
-	defer func() {
-		if _d._spanDecorator != nil {
-			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":            ctx,
-				"webhookID":      webhookID,
-				"success":        success,
-				"eventTimestamp": eventTimestamp}, map[string]interface{}{
-				"oldHealth": oldHealth,
-				"newHealth": newHealth,
-				"err":       err})
-		} else if err != nil {
-			_span.RecordError(err)
-			_span.SetStatus(_codes.Error, err.Error())
-			_span.SetAttributes(
-				attribute.String("event", "error"),
-				attribute.String("message", err.Error()),
-			)
-		}
-
-		_span.End()
-	}()
-	return _d.RepositoryInterface.UpdateWebhookHealthState(ctx, webhookID, success, eventTimestamp)
 }
 
 // UpsertRateLimitState implements RepositoryInterface

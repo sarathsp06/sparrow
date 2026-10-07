@@ -64,6 +64,7 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 | `SPARROW_AUTO_DISABLE_MIN_FAILURES` | Minimum consecutive failed attempts before auto-disable; `0` means the default | `10` |
 | `SPARROW_EVENT_WORKERS` | River `MaxWorkers` for the event fan-out queue (`queue.WorkerPoolConfig`) | `20` |
 | `SPARROW_WEBHOOK_WORKERS` | River `MaxWorkers` for the webhook delivery queue | `20` |
+| `SPARROW_HEALTH_EVAL_INTERVAL` | Period of the River `health_evaluate` job that folds `webhook_health_events` into state, buckets and labels (`queue.HealthEvaluatorConfig`) | `1m` |
 | `SPARROW_QUEUE_FETCH_COOLDOWN` | River `FetchCooldown`; `workers / cooldown` bounds a queue's throughput (20 workers at 20ms is about 1,000 jobs/s) | `20ms` |
 | `SPARROW_AUTO_REGISTER_EVENTS` | Push to an unregistered event name creates a schema-less event type instead of returning 404; development only | `false` |
 

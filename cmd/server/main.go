@@ -229,7 +229,8 @@ func main() {
 	// Initialize queue manager
 	autoDisable := queue.AutoDisablePolicy{After: cfg.AutoDisableAfter, MinFailures: cfg.AutoDisableMinFailuresOrDefault()}
 	pool := queue.WorkerPoolConfig{EventWorkers: cfg.EventWorkers, WebhookWorkers: cfg.WebhookWorkers, FetchCooldown: cfg.QueueFetchCooldown}
-	queueManager, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, dbPool, clientConfig, cfg.EventRetentionDays, autoDisable, pool)
+	healthEval := queue.HealthEvaluatorConfig{Interval: cfg.HealthEvalInterval}
+	queueManager, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, dbPool, clientConfig, cfg.EventRetentionDays, autoDisable, pool, healthEval)
 	if err != nil {
 		log.Fatalf("Failed to create queue manager: %v", err)
 	}

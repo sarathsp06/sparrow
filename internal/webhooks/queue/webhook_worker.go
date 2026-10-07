@@ -35,7 +35,6 @@ type WebhookWorker struct {
 	eventRepo        systemEventRepo
 	deliveryRepo     store.DeliveryRepository
 	subscriptionRepo store.SubscriptionRepository
-	healthRepo       store.HealthRepository
 	rateLimitRepo    store.RateLimitRepository
 	alertConfigRepo  store.AlertConfigRepository
 	jobInserter      JobInserter
@@ -48,9 +47,6 @@ type WebhookWorker struct {
 	// templateErrors counts payload transform failures, labelled by the
 	// subscription's on_transform_error. Nil if the meter is unavailable.
 	templateErrors metric.Int64Counter
-	// autoDisable decides when a webhook whose receiver keeps failing is
-	// paused automatically.
-	autoDisable AutoDisablePolicy
 	// metrics are the delivery-outcome instruments; nil fields are skipped.
 	metrics workerMetrics
 }
@@ -68,7 +64,7 @@ func (p AutoDisablePolicy) enabled() bool {
 }
 
 // NewWebhookWorker creates a new webhook worker
-func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo systemEventRepo, deliveryRepo store.DeliveryRepository, subscriptionRepo store.SubscriptionRepository, healthRepo store.HealthRepository, rateLimitRepo store.RateLimitRepository, alertConfigRepo store.AlertConfigRepository, jobInserter JobInserter, cryptoSvc *crypto.Service, clientConfig *client.Config, autoDisable AutoDisablePolicy) *WebhookWorker {
+func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo systemEventRepo, deliveryRepo store.DeliveryRepository, subscriptionRepo store.SubscriptionRepository, rateLimitRepo store.RateLimitRepository, alertConfigRepo store.AlertConfigRepository, jobInserter JobInserter, cryptoSvc *crypto.Service, clientConfig *client.Config) *WebhookWorker {
 	// Initialize the centralized webhook client
 	webhookClient := client.NewWebhookClient(clientConfig)
 
@@ -77,7 +73,6 @@ func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo systemEvent
 		eventRepo:        eventRepo,
 		deliveryRepo:     deliveryRepo,
 		subscriptionRepo: subscriptionRepo,
-		healthRepo:       healthRepo,
 		rateLimitRepo:    rateLimitRepo,
 		alertConfigRepo:  alertConfigRepo,
 		jobInserter:      jobInserter,
@@ -87,7 +82,6 @@ func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo systemEvent
 		client:           webhookClient,
 		captureLimit:     clientConfig.CapturedResponseLimit(),
 		templateErrors:   newTemplateErrorCounter(),
-		autoDisable:      autoDisable,
 		metrics:          newWorkerMetrics(),
 	}
 }
@@ -320,10 +314,9 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		return fmt.Errorf("prepare delivery request: %w", err)
 	}
 
-	// Store the request body in the delivery record
-	if err := w.deliveryRepo.UpdateDeliveryRequestBody(ctx, deliveryID, string(payloadBytes)); err != nil {
-		log.WarnContext(ctx, "Failed to store request body", "error", err, "delivery_id", args.DeliveryID)
-	}
+	// The rendered body is stored with the attempt's outcome, in the same
+	// transaction as the status, so a delivery costs one commit.
+	requestBody := string(payloadBytes)
 
 	// Send the request
 	resp, duration, err := w.client.Send(ctx, deliveryReq)
@@ -355,10 +348,11 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		if !terminal {
 			status = statusForFailure(job.Attempt, args.MaxAttempts)
 		}
-		_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, status, 0, "", fmt.Sprintf("Request failed: %v", err), string(errorCategory))
-
-		// Record health event and update health state
-		w.recordHealthOutcome(ctx, log, tenantID, args.Consumer, webhookID, deliveryID, webhook.URL, false, int(duration.Milliseconds()), 0, err.Error(), string(errorCategory))
+		w.finishAttempt(ctx, log, store.DeliveryAttempt{
+			DeliveryID: deliveryID, WebhookID: webhookID, UpdateStatus: true,
+			Status: status, ErrorMessage: fmt.Sprintf("Request failed: %v", err), ErrorCategory: string(errorCategory),
+			RequestBody: &requestBody, Success: false, ResponseTimeMs: int(duration.Milliseconds()), HealthErrorMessage: err.Error(),
+		})
 		if status == store.StatusFailed {
 			w.emitDeliveryFailedEvent(ctx, log, tenantID, args.Consumer, webhookID, deliveryID, eventID, webhook.URL, job.Attempt, string(errorCategory), fmt.Sprintf("Request failed: %v", err))
 		}
@@ -407,13 +401,11 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	if isSuccess {
 		span.SetStatus(otelcodes.Ok, "webhook delivered successfully")
 
-		err := w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID,
-			store.StatusSuccess, resp.StatusCode, string(body), "", string(sparrowerrors.CategorySuccess))
-		if err != nil {
-			log.ErrorContext(ctx, "Failed to update delivery status to success", "error", err)
-		}
-
-		w.recordHealthOutcome(ctx, log, tenantID, args.Consumer, webhookID, deliveryID, webhook.URL, true, int(duration.Milliseconds()), resp.StatusCode, "", string(sparrowerrors.CategorySuccess))
+		w.finishAttempt(ctx, log, store.DeliveryAttempt{
+			DeliveryID: deliveryID, WebhookID: webhookID, UpdateStatus: true,
+			Status: store.StatusSuccess, ResponseCode: resp.StatusCode, ResponseBody: string(body), ErrorCategory: string(sparrowerrors.CategorySuccess),
+			RequestBody: &requestBody, Success: true, ResponseTimeMs: int(duration.Milliseconds()),
+		})
 
 		return nil
 	}
@@ -434,10 +426,13 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 			attribute.Int64("snooze_seconds", int64(snoozeDuration.Seconds())),
 		)
 
-		// Record the 429 as a health event (the endpoint is overloaded)
-		w.recordHealthOutcome(ctx, log, tenantID, args.Consumer, webhookID, deliveryID, webhook.URL, false,
-			int(duration.Milliseconds()), resp.StatusCode,
-			"HTTP 429: Too Many Requests", string(sparrowerrors.CategoryRateLimited))
+		// Record the 429 as a health event (the endpoint is overloaded); the
+		// delivery row keeps its status since the send will be retried.
+		w.finishAttempt(ctx, log, store.DeliveryAttempt{
+			DeliveryID: deliveryID, WebhookID: webhookID, UpdateStatus: false,
+			ResponseCode: resp.StatusCode, ErrorCategory: string(sparrowerrors.CategoryRateLimited),
+			Success: false, ResponseTimeMs: int(duration.Milliseconds()), HealthErrorMessage: "HTTP 429: Too Many Requests",
+		})
 
 		// Don't update delivery status to failed — we're going to retry via snooze.
 		// The delivery remains in its current status (pending/retrying).
@@ -469,13 +464,11 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		status = statusForFailure(job.Attempt, args.MaxAttempts)
 	}
 
-	err = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID,
-		status, resp.StatusCode, string(body), errorMessage, string(errorCategory))
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to update delivery status to failed", "error", err)
-	}
-
-	w.recordHealthOutcome(ctx, log, tenantID, args.Consumer, webhookID, deliveryID, webhook.URL, false, int(duration.Milliseconds()), resp.StatusCode, errorMessage, string(errorCategory))
+	w.finishAttempt(ctx, log, store.DeliveryAttempt{
+		DeliveryID: deliveryID, WebhookID: webhookID, UpdateStatus: true,
+		Status: status, ResponseCode: resp.StatusCode, ResponseBody: string(body), ErrorMessage: errorMessage, ErrorCategory: string(errorCategory),
+		RequestBody: &requestBody, Success: false, ResponseTimeMs: int(duration.Milliseconds()), HealthErrorMessage: errorMessage,
+	})
 	if status == store.StatusFailed {
 		w.emitDeliveryFailedEvent(ctx, log, tenantID, args.Consumer, webhookID, deliveryID, eventID, webhook.URL, job.Attempt, string(errorCategory), errorMessage)
 	}
@@ -584,54 +577,21 @@ func (w *WebhookWorker) renderPayload(ctx context.Context, log *slog.Logger, job
 	return fail("Template transformation failed: " + msg)
 }
 
-// recordHealthOutcome records a webhook health event and updates the health state.
-// This is the shared implementation for all delivery outcome paths (success, client error, server error).
-func (w *WebhookWorker) recordHealthOutcome(ctx context.Context, log *slog.Logger, tenantID uuid.UUID, consumer string, webhookID, deliveryID uuid.UUID, url string, success bool, durationMs int, statusCode int, errorMessage string, errorCategory string) {
-	w.metrics.recordAttempt(ctx, success, durationMs, errorCategory)
-	oldHealth, newHealth, err := w.healthRepo.RecordDeliveryOutcome(ctx, store.DeliveryOutcome{
-		WebhookID:     webhookID,
-		DeliveryID:    deliveryID,
-		Success:       success,
-		ResponseTime:  durationMs,
-		ResponseCode:  statusCode,
-		ErrorMessage:  errorMessage,
-		ErrorCategory: errorCategory,
-		At:            time.Now(),
-	})
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to record delivery outcome for health", "error", err)
-		return
-	}
-	w.emitHealthChangedEvent(ctx, log, tenantID, consumer, webhookID, url, oldHealth, newHealth)
-	if !success {
-		w.maybeAutoDisable(ctx, log, tenantID, consumer, webhookID, url)
-	}
+// systemEvents is the emitter dependency set shared with the health evaluator.
+func (w *WebhookWorker) systemEvents() systemEventDeps {
+	return systemEventDeps{eventRepo: w.eventRepo, jobInserter: w.jobInserter, alertConfigRepo: w.alertConfigRepo}
 }
 
-// maybeAutoDisable pauses webhookID if its receiver has been failing long
-// enough under w.autoDisable, then announces it with a
-// sparrow.webhook.disabled system event. _sparrow's own webhooks are never
-// auto-disabled: they carry the alerts that would report it.
-func (w *WebhookWorker) maybeAutoDisable(ctx context.Context, log *slog.Logger, tenantID uuid.UUID, consumer string, webhookID uuid.UUID, url string) {
-	if consumer == SystemEventConsumer || !w.autoDisable.enabled() {
-		return
+// finishAttempt records an attempt's outcome: metrics, then the delivery row
+// and the health event in one transaction. Health state, labels, alerts and
+// auto-disable are derived from the health events by HealthEvaluatorWorker,
+// so nothing here writes a row shared by other deliveries to the same
+// webhook.
+func (w *WebhookWorker) finishAttempt(ctx context.Context, log *slog.Logger, a store.DeliveryAttempt) {
+	w.metrics.recordAttempt(ctx, a.Success, a.ResponseTimeMs, a.ErrorCategory)
+	if err := w.deliveryRepo.RecordDeliveryAttempt(ctx, a); err != nil {
+		log.ErrorContext(ctx, "Failed to record delivery attempt", "error", err, "delivery_id", a.DeliveryID)
 	}
-	disabled, err := w.healthRepo.AutoDisableWebhook(ctx, webhookID, w.autoDisable.MinFailures, w.autoDisable.After)
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to check webhook for auto-disable", "error", err)
-		return
-	}
-	if disabled == nil {
-		return
-	}
-	log.WarnContext(ctx, "Webhook auto-disabled after repeated failures",
-		"reason", disabled.Reason,
-		"consecutive_failures", disabled.ConsecutiveFailures,
-		"failing_since", disabled.FailingSince)
-	if w.metrics.autoDisabled != nil {
-		w.metrics.autoDisabled.Add(ctx, 1)
-	}
-	w.emitWebhookDisabledEvent(ctx, log, tenantID, consumer, webhookID, url, disabled)
 }
 
 // Helper function for status code checking (re-implemented as standalone or private method)

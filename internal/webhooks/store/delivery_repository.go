@@ -17,6 +17,7 @@ type DeliveryRepository interface {
 	CreateDelivery(ctx context.Context, tenantID uuid.UUID, delivery *WebhookDelivery) error
 	BatchCreateDeliveries(ctx context.Context, tenantID uuid.UUID, deliveries []*WebhookDelivery) error
 	UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage, errorCategory string) error
+	RecordDeliveryAttempt(ctx context.Context, attempt DeliveryAttempt) error
 	HoldDelivery(ctx context.Context, deliveryID uuid.UUID, reason string) error
 	UpdateDeliveryRequestBody(ctx context.Context, deliveryID uuid.UUID, requestBody string) error
 	GetDeliveryByID(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, consumer string) (*WebhookDelivery, error)

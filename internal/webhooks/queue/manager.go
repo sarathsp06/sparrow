@@ -61,8 +61,9 @@ func (c WorkerPoolConfig) withDefaults() WorkerPoolConfig {
 // periodic job that purges events older than that many days; autoDisable
 // controls when failing webhooks are paused automatically; pool sizes the
 // event and delivery worker pools.
-func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryptoSvc *crypto.Service, dbPool *pgxpool.Pool, clientConfig *client.Config, retentionDays int, autoDisable AutoDisablePolicy, pool WorkerPoolConfig) (*Manager, error) {
+func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryptoSvc *crypto.Service, dbPool *pgxpool.Pool, clientConfig *client.Config, retentionDays int, autoDisable AutoDisablePolicy, pool WorkerPoolConfig, health HealthEvaluatorConfig) (*Manager, error) {
 	pool = pool.withDefaults()
+	health = health.withDefaults()
 	// Initialize River workers
 	riverWorkers := river.NewWorkers()
 
@@ -70,6 +71,11 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 		river.NewPeriodicJob(
 			river.PeriodicInterval(batchCleanupInterval),
 			func() (river.JobArgs, *river.InsertOpts) { return BatchCleanupArgs{}, nil },
+			&river.PeriodicJobOpts{RunOnStart: true},
+		),
+		river.NewPeriodicJob(
+			river.PeriodicInterval(health.Interval),
+			func() (river.JobArgs, *river.InsertOpts) { return HealthEvaluateArgs{}, nil },
 			&river.PeriodicJobOpts{RunOnStart: true},
 		),
 	}
@@ -107,7 +113,8 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 
 	// Add workers with explicit generic types.
 	// RepositoryInterface satisfies all narrow interfaces via embedding.
-	river.AddWorker(riverWorkers, NewWebhookWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter(), cryptoSvc, clientConfig, autoDisable))
+	river.AddWorker(riverWorkers, NewWebhookWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter(), cryptoSvc, clientConfig))
+	river.AddWorker(riverWorkers, NewHealthEvaluatorWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter(), autoDisable, health))
 	river.AddWorker(riverWorkers, NewEventProcessingWorker(webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter()))
 	river.AddWorker(riverWorkers, NewBatchJobWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter()))
 	river.AddWorker(riverWorkers, NewRetentionWorker(webhookRepo, retentionDays))

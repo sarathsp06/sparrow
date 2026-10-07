@@ -150,15 +150,24 @@ Except that the slow-receiver row did not move. Five times the workers, the same
 | 500/s, receiver sleeps 50 ms | 10 | 100 | 10 | 198 | 23.3 s |
 | 500/s, receiver sleeps 50 ms | 10 | 100 | 100 | 500 | 34 ms |
 
-So we changed the bookkeeping. One repository call now records a delivery outcome in a single transaction: the health event is inserted first (append-only, nothing to contend on), then the state row is upserted, and the registration is written only when the label actually changed. The 24-hour recomputation runs at most every five seconds per webhook while outcomes stay the same, and immediately when they flip (a failure after successes, a success after failures, or the fifth consecutive failure), so the label still moves when it matters. Same benchmark, same defaults, before and after:
+So we took the bookkeeping off the delivery path entirely. A delivery attempt now writes exactly one transaction: the delivery row (status, response, and the request body that was sent) plus one append-only row in the health events table. Nothing it writes is shared with any other delivery to the same webhook, so there is nothing to queue on.
 
-| Shape, 1,000 events/s for 30 s, 20 workers | Delivered/s while publishing | p50 publish → delivered | Drain |
-|---|---|---|---|
-| 1 webhook | 438 → 535 | 19 s → 13 s | 44 s → 19 s |
-| 10 webhooks | 601 → 862 | 9.2 s → 1.5 s | 22 s → 5.9 s |
-| 300 webhooks | 457 → 861 | 17.8 s → 1.7 s | 19.6 s → 4.7 s |
+Health state, labels, alerts and auto-disable are derived from that event log by a periodic job, once a minute by default. Each pass reads only the events since its watermark, folds them into per-minute counters per webhook, derives the failure run (consecutive failures and when it started) from the ordered outcomes, sums the last 24 hours of counters for the success rate, and rewrites a registration's label only when it changed. Everything, including advancing the watermark, is one transaction, so a crash mid-pass replays cleanly and two instances cannot both evaluate. A webhook taking ten thousand events a minute costs that pass one aggregate over ten thousand rows and one write. Metrics stay the real-time signal; the health label is the reflective one, now at most a minute behind.
 
-The many-webhook shapes now run at about 860 deliveries per second on 20 workers, where before they needed 100 workers to get near that. The single hot webhook still has one webhook-owned row commit per delivery (the state upsert), so it stays bounded by commit latency; spreading a very busy integration over two webhooks, or batching that upsert, would be the next step if anyone needs more than about 500 per second to one receiver.
+Two things went wrong on the way that are worth writing down. The first version stored the watermark in a settings table that a later migration had dropped, so the job failed on every run; it has its own one-row table now. And River's unique-job option, with only `ByArgs` set, treats a job as a duplicate of a *completed* one for 24 hours, so the periodic evaluator ran once at startup and never again until uniqueness was scoped to active states. Our hourly cleanup jobs have the same latent bug, tracked separately.
+
+Because identical runs on this laptop vary by up to 45% hours apart, the comparison that counts is an alternating A/B on fresh databases, the previous commit against this one:
+
+| Shape, 1,000 events/s for 30 s, 20 workers | Previous | Evaluator |
+|---|---|---|
+| 1 busy webhook, delivered/s | 335 | 922 |
+| 1 busy webhook, p50 publish → delivered | 28.2 s | 1.8 s |
+| 1 busy webhook, peak backlog | 20,041 | 2,404 |
+| 300 webhooks, delivered/s (two rounds) | 556 / 802 | 686 / 609 |
+
+The hot-webhook ceiling is gone: one receiver now takes deliveries as fast as three hundred do. Where there was no hot row, nothing changed. The evaluator's own passes took 66 ms on average and 189 ms at most while folding thirty thousand outcomes, and a SQL cross-check after the run found the per-minute counters and failure runs equal to what the raw events say, for every bucket and every webhook.
+
+One semantic shift to know about: the 24-hour success rate now counts attempts, not distinct deliveries, so a delivery that failed once and succeeded on retry counts as one failure and one success instead of a success. A flaky receiver reads as degraded a little sooner. The thresholds themselves are unchanged.
 
 ## The realistic shape
 
@@ -171,14 +180,15 @@ Ten subscribers on one event type is a stress shape, not a typical one. In pract
 | 300 types × 1, burst of 20,000 events | 3,616/s accepted in 5.5 s | 749/s | 13.6 s | 21.2 s |
 | 300 types × 2, burst of 20,000 events | 4,013/s accepted in 5.0 s | 406 events/s = 811 deliveries/s | 24.2 s | 44.3 s |
 
-Three things to read off that table. Ingest is fast: a burst of 20,000 events is accepted in five seconds, about 4,000 per second with a 20 ms median, and nothing is rejected. Delivery at the defaults runs at 600 to 850 per second once the hot-row problem is spread across 300 webhooks, and the fan-out to two subscribers costs almost nothing extra per event. And while a burst is being accepted, delivery slows (148 per second during the five-second burst, 749 after), because ingest and delivery share the same Postgres; the backlog then drains at the delivery rate. Those numbers were taken before the bookkeeping change in the previous section; with it, the same 300-webhook shape delivers about 860 per second on the default 20 workers (table above), and `SPARROW_WEBHOOK_WORKERS` scales it from there until the remaining per-delivery commits are the limit.
+Three things to read off that table. Ingest is fast: a burst of 20,000 events is accepted in five seconds, about 4,000 per second with a 20 ms median, and nothing is rejected. Delivery at the defaults runs at 600 to 850 per second once the hot-row problem is spread across 300 webhooks, and the fan-out to two subscribers costs almost nothing extra per event. And while a burst is being accepted, delivery slows (148 per second during the five-second burst, 749 after), because ingest and delivery share the same Postgres; the backlog then drains at the delivery rate. Those numbers were taken before the bookkeeping change in the previous section. With it, the many-webhook shapes stay in the same 600 to 850 range (the hot row was never their limit), and `SPARROW_WEBHOOK_WORKERS` scales them from there until the one commit per delivery is the limit.
 
 ## What the numbers mean for you
 
 - **Upgrade for the client fix** even if you never push 200 events a second. Every HTTPS delivery you have ever sent paid a TLS handshake it did not need.
 - **If deliveries lag under load with idle CPU**, check `SPARROW_QUEUE_FETCH_COOLDOWN` and the worker counts. The ceiling is `workers / cooldown` per queue; the new defaults give about 1,000 per second.
 - **If your receivers are slow**, raise `SPARROW_WEBHOOK_WORKERS`. Throughput to a slow host is `workers / receiver latency`, now that the connection pool follows the worker count. Use the webhook's `rate_limit_rps` to protect a receiver, not the worker count.
-- **If one receiver takes most of your traffic**, expect around 500 deliveries per second to that one webhook on commodity disks: its health state row is still committed once per delivery. Deliveries to other webhooks are unaffected, and splitting a very busy integration across two webhooks doubles its ceiling.
+- **If one receiver takes most of your traffic**, that no longer matters: deliveries to a single webhook are limited by the same worker count and per-delivery cost as deliveries to many.
+- **Health lags by up to `SPARROW_HEALTH_EVAL_INTERVAL`** (one minute by default). Watch metrics for the moment something breaks; read the health label for what has been true for a while.
 - **Ingest is not the bottleneck.** `POST /events` answered in 5 to 8 ms at p50 across every run, up to 2,000 per second, and never rejected an event. Sparrow accepts first and delivers from a durable queue, so a delivery backlog never turns into lost events; it turns into latency you can see on the dashboard.
 
 ## Run it yourself

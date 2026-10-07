@@ -156,6 +156,14 @@ type Config struct {
 	// Env: SPARROW_QUEUE_FETCH_COOLDOWN (Go duration, default "20ms")
 	QueueFetchCooldown time.Duration `envconfig:"SPARROW_QUEUE_FETCH_COOLDOWN" default:"20ms"`
 
+	// HealthEvalInterval is how often delivery outcomes are folded into
+	// webhook health: the health label, health_changed alerts and
+	// auto-disable lag outcomes by at most this much. The evaluation is
+	// incremental (only outcomes since the last run), so a busy webhook does
+	// not make it more expensive. Metrics remain the real-time signal.
+	// Env: SPARROW_HEALTH_EVAL_INTERVAL (Go duration, default "1m")
+	HealthEvalInterval time.Duration `envconfig:"SPARROW_HEALTH_EVAL_INTERVAL" default:"1m"`
+
 	// MetricsEnabled serves the OpenTelemetry metrics in Prometheus text
 	// format at GET /metrics (unauthenticated, like /health), independent of
 	// OTLP export.
