@@ -1,7 +1,7 @@
 ---
 title: Introducing Sparrow
 kicker: Hello, world
-author: Sarath Sadasivan Pillai
+author: sarathsp06
 description: Sparrow is a self-hosted webhook delivery server. One Go binary, one PostgreSQL database, MIT licensed. Here is what it does and why it is built the way it is.
 pubDate: 2026-10-07
 tags: [announcement, self-hosting, open-source]

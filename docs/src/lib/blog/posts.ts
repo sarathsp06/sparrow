@@ -8,7 +8,7 @@ export interface PostFrontmatter {
   title: string;
   kicker?: string;
   description?: string;
-  author?: string;
+  author?: string; // GitHub username
   pubDate: string | Date;
   tags?: string[];
 }

@@ -14,13 +14,17 @@ const newer = index > 0 ? posts[index - 1] : undefined;
 const older = index < posts.length - 1 ? posts[index + 1] : undefined;
 const iso = post.date.toISOString();
 const description = frontmatter.description ?? '';
+// `author` is a GitHub username; link it to the profile.
+const authorUrl = frontmatter.author ? `https://github.com/${frontmatter.author}` : undefined;
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'BlogPosting',
   headline: frontmatter.title,
   description,
   datePublished: iso,
-  author: { '@type': 'Organization', name: frontmatter.author ?? 'Sparrow team' },
+  author: frontmatter.author
+    ? { '@type': 'Person', name: frontmatter.author, url: authorUrl }
+    : { '@type': 'Organization', name: 'Sparrow' },
   publisher: { '@type': 'Organization', name: 'Sparrow' },
   keywords: post.tags.join(', '),
   mainEntityOfPage: new URL(Astro.url.pathname, Astro.site).href,
@@ -37,7 +41,7 @@ const jsonLd = {
       <div class="fn-meta">
         <time datetime={iso}>{formatDate(post.date)}</time>
         <span>{post.minutes} min read</span>
-        {frontmatter.author && <span>{frontmatter.author}</span>}
+        {frontmatter.author && <a href={authorUrl} rel="author">@{frontmatter.author}</a>}
       </div>
     </header>
     <div class="fn-prose"><Content /></div>

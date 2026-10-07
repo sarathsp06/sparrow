@@ -44,6 +44,8 @@ a.fn-eyebrow:hover { text-decoration: underline; }
 .fn-standfirst { color: var(--sp-on-surface-variant); font-size: 1.15rem; line-height: 1.6; margin: 0; max-width: 40rem; }
 .fn-meta { display: flex; flex-wrap: wrap; gap: 0.25rem 1.1rem; color: var(--sp-outline); font: 0.75rem/1.4 var(--sp-font-mono); letter-spacing: 0.04em; text-transform: uppercase; border-block: 1px solid var(--sp-outline-variant); padding-block: 0.75rem; }
 .fn-meta--plain { border: 0; padding: 0; }
+.fn-meta a[rel="author"] { text-transform: none; color: inherit; text-decoration: none; }
+.fn-meta a[rel="author"]:hover { color: var(--sp-brand-primary-text); text-decoration: underline; }
 .fn-kicker { color: var(--sp-primary); font-weight: 600; margin: 0.75rem 0 0; }
 .fn-kicker-sm { color: var(--sp-primary); }
 
