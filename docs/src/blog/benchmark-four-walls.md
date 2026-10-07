@@ -95,6 +95,8 @@ Twenty workers, one fetch per 100 ms, each fetch taking as many jobs as there ar
 
 We had never set it. Sparrow now defaults the cooldown to 20 ms and exposes it, together with both worker counts, as `SPARROW_QUEUE_FETCH_COOLDOWN`, `SPARROW_EVENT_WORKERS` and `SPARROW_WEBHOOK_WORKERS`. The ceiling becomes workers divided by cooldown.
 
+Be clear about what that is: a wall moved, not a wall removed. With the new defaults, 20 workers over 20 ms is 1,000 jobs per second, per queue. The fan-out queue can take 1,000 events a second and the delivery queue 1,000 deliveries a second, and the 1,000-events-per-second workloads later in this post run right at that line. The best number we report, 881 deliveries a second, sits just under it. If you need more, the arithmetic is the whole tuning guide: 50 workers at 5 ms is 10,000. The knobs exist now; what we have not done is measure where the next wall is once the queue is no longer the pacer.
+
 ## Wall three: ten connections per receiver
 
 The next ceiling only showed up when we made the receiver slow. With the receiver sleeping 50 ms per request, throughput was 198 per second, and raising the worker count from 20 to 100 did nothing at all. Five times the workers, the same 198.
@@ -122,6 +124,8 @@ After every delivery the worker recorded the outcome: insert a health event, ups
 The 24-hour recount made it worse over time. A ten-second run at 500 per second kept up. A thirty-second run did not, because the first 5,000 rows are cheap to count and the next 15,000 are not. After an hour of real traffic to a busy receiver, every single delivery would have been scanning an hour of rows.
 
 We tried the small fix first: do the bookkeeping in one transaction, skip the registration write when the label is unchanged, recompute the label at most every five seconds. It helped, 440 to 535 per second, and it was not enough, because one webhook-owned row was still being committed once per delivery.
+
+There were two cheaper fixes on the table, and it is worth saying why we did not take them. Postgres can commit without waiting for the fsync (`synchronous_commit = off`, settable per transaction), and it can batch nearby commits into one flush (`commit_delay`, a server setting). Either would have shortened the time each worker spent holding the webhook's row. We rejected them for three reasons. The row lock was held across the delivery row write too, so an asynchronous commit would have made the delivery outcome itself non-durable: a crash could forget that a delivery succeeded and send it again, which is a worse at-least-once than the one we promise. The 24-hour recount was still there, and it got slower with every row, regardless of how fast the commit was. And `commit_delay` is a server setting; Sparrow is self-hosted on a Postgres we do not control, so a fix that only works if the operator tunes their database is not a fix we can ship. The honest version is that these would have bought a few hundred per second and left the shape of the problem in place.
 
 So we asked a different question: why does a delivery write a webhook's health at all?
 
@@ -159,7 +163,13 @@ Three builds of the server, five workloads, run back to back on the same machine
 
 Rates are deliveries per second while publishing (over the whole run for the burst); "never drained" means the 90-second drain limit expired with events still queued, so that median is a lower bound.
 
+A caveat before reading it. Every cell is one run. We said above that identical runs on this machine differed by up to 45%, and the right way to present numbers with that much noise is the median of several runs with the range alongside; we did not do that, and the table is weaker for it. What the table can support is the big moves: main to the final build is two to four and a half times in every row, which is well outside the noise. What it cannot support is the small ones. The final build's 899 against the middle build's 872, or 817 against 757, are within a single run's variance, and we do not claim them as improvements.
+
 Two things to read off that table beyond the obvious. Main is pinned near 195 in every shape: that is wall two, and nothing else matters until it is gone. And in the middle build the busy webhook sits far below the fleet, while in the final build it leads it. That gap was wall four, and it is the one that would have hurt most in production, because the receiver that takes most of your traffic is the integration you care about most.
+
+One number in the final column does not fit, and we would rather point at it than hope you do not notice. 300 webhooks at 1,000 events a second delivered 530 a second, well under the 1,000-per-queue ceiling and well under what the same build does for one webhook or for 600. Something else is pacing that shape, and we have not found it yet. It is the first thing on the list.
+
+The next cost is already visible, too. The delivery row stores the full request body that was sent, which is the right thing for debugging and replay and is what the dashboard shows you. It also means that at 1,000 deliveries a second with 10 KB payloads, Postgres is writing roughly 10 MB a second of delivery bodies into the WAL before indexes and the event rows themselves. We have not measured where that becomes the wall. `SPARROW_EVENT_RETENTION_DAYS` bounds how much of it you keep; it does nothing for how fast it is written. Storing the body only when a transform changed it from the event payload is the obvious candidate, and it is on the list behind the 530.
 
 Ingest never flinched. `POST /events` answered in 4 to 13 milliseconds at the median under paced load in every build, in the low tens of milliseconds during the burst, a burst of 20,000 events was accepted in about five seconds every time, and nothing was ever rejected. Sparrow accepts first and delivers from a durable queue, so a slow stage shows up as latency on the dashboard, never as loss.
 
@@ -167,7 +177,7 @@ Ingest never flinched. `POST /events` answered in 4 to 13 milliseconds at the me
 
 - **A benchmark that cannot fail loudly is a liability.** Ours printed zeros and a capacity plan. The first thing to add to any load tool is the first error message and a count of something that should be constant, like connections.
 - **`defer cancel()` after returning a body is a connection leak.** If a function returns an `*http.Response`, the context that governs it must live until `Body.Close()`.
-- **Read the defaults of your queue library.** River's `FetchCooldown` is documented as a throughput limit, in those words. We had never set it. Twenty workers at 100 ms is 200 jobs a second, however fast the jobs are.
+- **Read the defaults of your queue library.** River's `FetchCooldown` is documented as a throughput limit, in those words. We had never set it. Twenty workers at 100 ms is 200 jobs a second, however fast the jobs are. Walls two and three are both Little's law: throughput is bounded by concurrency over time-in-system, and the concurrency was 20 and 10 respectively.
 - **Read the defaults of your HTTP transport too.** `MaxConnsPerHost: 10` is a fine default for a browser and a ceiling for a webhook sender.
 - **Idle CPU with a growing backlog means a lock or a pacer.** `pg_stat_activity` with `wait_event_type` tells you which in under a minute.
 - **Per-delivery writes to a per-webhook row serialize on commit latency.** Not on CPU, not on workers. Append per event; derive per period.
@@ -200,3 +210,9 @@ go run ./cmd/benchmark -mode e2e -sparrow-url http://localhost:8080 \
 `-webhooks` is the number of event types, each with its own receiver URL; `-subscribers` is the webhooks per event type; `-burst 20000` publishes that many events as fast as possible and times the drain; `-receiver-delay 50ms` makes the receiver slow. The JSON report includes the per-second backlog timeline if you want to plot it.
 
 A benchmark earns its keep by failing in interesting ways. Ours had been failing in the least interesting way possible, silently, for months. Four walls later, we are glad we ran it.
+
+## Further reading
+
+- Little, J. D. C. (1961). "A Proof for the Queuing Formula L = λW." *Operations Research* 9(3). The formal basis for walls two and three: with a fixed number of slots and a fixed time per job, throughput is the ratio, whatever the hardware is doing.
+- Gil Tene, [*How NOT to Measure Latency*](https://www.youtube.com/watch?v=lJ8ydIuPFeU). On coordinated omission, where a load generator that waits for slow responses quietly stops sampling the slow part. The pipeline mode here measures from publish time rather than from when the sender got around to sending, so it mostly avoids the problem; the talk is the clearest explanation of why that matters.
+- PostgreSQL documentation, [*Write-Ahead Log: Settings*](https://www.postgresql.org/docs/current/runtime-config-wal.html). `synchronous_commit` and `commit_delay`, the two cheaper fixes for wall four that we chose not to take.
