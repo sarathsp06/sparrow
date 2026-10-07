@@ -143,7 +143,7 @@ The first version stored the watermark in a `system_settings` table. That table 
 
 `make test-integration` pipes `go test` through `tail -40`. The exit code of a pipeline is the exit code of its last command. The suite had been "passing" with two failing tests, and we had reported it as green twice. Run directly, the health tests failed immediately and told us exactly what was wrong.
 
-The third was River again. Insert a periodic job with `UniqueOpts{ByArgs: true}` and nothing else, and River's default unique states include *completed* jobs, which it keeps for 24 hours. The evaluator ran once at startup and was then treated as a duplicate of itself until the next day. Uniqueness is now scoped to active states. While fixing it we noticed our hourly cleanup and retention jobs are configured the same way, which means they have been running daily, not hourly. That one is tracked separately.
+The third was River again. Insert a periodic job with `UniqueOpts{ByArgs: true}` and nothing else, and River's default unique states include *completed* jobs, which it keeps for 24 hours. The evaluator ran once at startup and was then treated as a duplicate of itself until the next day. Uniqueness is now scoped to active states. While fixing it we noticed our hourly cleanup and retention jobs were configured the same way, which means they had been running daily, not hourly. That fix landed on main the same day.
 
 ## The numbers, side by side
 
