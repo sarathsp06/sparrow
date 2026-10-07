@@ -95,7 +95,16 @@ Twenty workers, one fetch per 100 ms, each fetch taking as many jobs as there ar
 
 We had never set it. Sparrow now defaults the cooldown to 20 ms and exposes it, together with both worker counts, as `SPARROW_QUEUE_FETCH_COOLDOWN`, `SPARROW_EVENT_WORKERS` and `SPARROW_WEBHOOK_WORKERS`. The ceiling becomes workers divided by cooldown.
 
-Be clear about what that is: a wall moved, not a wall removed. With the new defaults, 20 workers over 20 ms is 1,000 jobs per second, per queue. The fan-out queue can take 1,000 events a second and the delivery queue 1,000 deliveries a second, and the 1,000-events-per-second workloads later in this post run right at that line. The best number we report, 881 deliveries a second, sits just under it. If you need more, the arithmetic is the whole tuning guide: 50 workers at 5 ms is 10,000. The knobs exist now; what we have not done is measure where the next wall is once the queue is no longer the pacer.
+Be clear about what that is: a wall moved, not a wall removed. With the new defaults, 20 workers over 20 ms is 1,000 jobs per second, per queue. The fan-out queue can take 1,000 events a second and the delivery queue 1,000 deliveries a second, and the 1,000-events-per-second workloads later in this post run right at that line. The best number we report, 881 deliveries a second, sits just under it. If you need more, the arithmetic is the whole tuning guide:
+
+| Workers per queue | Fetch cooldown | Ceiling per queue |
+|---|---|---|
+| 20 | 100 ms (River default) | 200/s |
+| 20 | 20 ms (Sparrow default) | 1,000/s |
+| 50 | 20 ms | 2,500/s |
+| 50 | 5 ms | 10,000/s |
+
+The knobs exist now; what we have not done is measure where the next wall is once the queue is no longer the pacer.
 
 ## Wall three: ten connections per receiver
 
@@ -109,15 +118,14 @@ Here is where the story stops being about defaults and becomes about design.
 
 After the first three fixes, 300 webhooks sharing 1,000 events a second delivered about 800 per second. One webhook taking all 1,000 delivered about 440, and adding workers did not help: 100 workers, 434 per second. CPU was under 20%. Postgres was nearly idle. Where did the time go?
 
-Sampling `pg_stat_activity` during a run answered it:
+Sampling `pg_stat_activity` during a run answered it. Of the worker connections caught mid-statement:
 
-```text
-Lock:transactionid | 10 | INSERT INTO webhook_health_state (...) ON CONFLICT ...
-LWLock:WALWrite    |  2 | INSERT INTO webhook_health_events (...)
-Lock:tuple         |  1 | UPDATE webhook_registrations SET health = $1 ...
-CPU                |  2 | SELECT COUNT(DISTINCT delivery_id), ... FROM webhook_health_events
-                   |    |   WHERE webhook_id = $1 AND timestamp >= NOW() - INTERVAL '24 hours'
-```
+| Wait event | Backends | Statement |
+|---|---|---|
+| `Lock:transactionid` | 10 | `INSERT INTO webhook_health_state … ON CONFLICT …` |
+| `LWLock:WALWrite` | 2 | `INSERT INTO webhook_health_events …` |
+| `Lock:tuple` | 1 | `UPDATE webhook_registrations SET health = $1 …` |
+| (on CPU) | 2 | `SELECT COUNT(DISTINCT delivery_id), … FROM webhook_health_events WHERE webhook_id = $1 AND timestamp >= NOW() - INTERVAL '24 hours'` |
 
 After every delivery the worker recorded the outcome: insert a health event, upsert the webhook's health-state row, recompute the webhook's health label from its last 24 hours of events, and write the label back to the registration whether or not it changed. Each of those was its own autocommit. Two of them wrote a row that belongs to the webhook. A row lock in Postgres is held until the transaction commits, and with synchronous commit the commit waits for the WAL fsync. So twenty workers delivering to one webhook took turns holding a row through an fsync. Throughput to that webhook became roughly one over commit latency, a couple of milliseconds on this disk, and the number of workers stopped mattering.
 
@@ -125,7 +133,14 @@ The 24-hour recount made it worse over time. A ten-second run at 500 per second 
 
 We tried the small fix first: do the bookkeeping in one transaction, skip the registration write when the label is unchanged, recompute the label at most every five seconds. It helped, 440 to 535 per second, and it was not enough, because one webhook-owned row was still being committed once per delivery.
 
-There were two cheaper fixes on the table, and it is worth saying why we did not take them. Postgres can commit without waiting for the fsync (`synchronous_commit = off`, settable per transaction), and it can batch nearby commits into one flush (`commit_delay`, a server setting). Either would have shortened the time each worker spent holding the webhook's row. We rejected them for three reasons. The row lock was held across the delivery row write too, so an asynchronous commit would have made the delivery outcome itself non-durable: a crash could forget that a delivery succeeded and send it again, which is a worse at-least-once than the one we promise. The 24-hour recount was still there, and it got slower with every row, regardless of how fast the commit was. And `commit_delay` is a server setting; Sparrow is self-hosted on a Postgres we do not control, so a fix that only works if the operator tunes their database is not a fix we can ship. The honest version is that these would have bought a few hundred per second and left the shape of the problem in place.
+There were two cheaper fixes on the table, and it is worth saying why we did not take them. Either would have shortened the time each worker spent holding the webhook's row.
+
+| Fix | What it changes | Why we did not take it |
+|---|---|---|
+| `synchronous_commit = off` for the bookkeeping transaction | Commit returns before the WAL fsync, so the row lock is released sooner | The delivery row shared that transaction, so a crash could forget a successful delivery and send it again: a worse at-least-once than the one we promise. The 24-hour recount stays, and gets slower with every row. |
+| `commit_delay` (group commit) | Nearby commits from different workers share one flush | A server setting. Sparrow is self-hosted on a Postgres we do not control, so a fix that only works if the operator tunes their database is not one we can ship. It also leaves the per-delivery recount in place. |
+
+The honest version is that these would have bought a few hundred per second and left the shape of the problem in place.
 
 So we asked a different question: why does a delivery write a webhook's health at all?
 
@@ -207,7 +222,13 @@ go run ./cmd/benchmark -mode e2e -sparrow-url http://localhost:8080 \
   -duration 30s -rps 500 -concurrency 50 -webhooks 300 -subscribers 2 -json results.json
 ```
 
-`-webhooks` is the number of event types, each with its own receiver URL; `-subscribers` is the webhooks per event type; `-burst 20000` publishes that many events as fast as possible and times the drain; `-receiver-delay 50ms` makes the receiver slow. The JSON report includes the per-second backlog timeline if you want to plot it.
+| Flag | Meaning |
+|---|---|
+| `-webhooks N` | Number of event types, each with its own receiver URL |
+| `-subscribers N` | Webhooks per event type (deliveries per event) |
+| `-burst N` | Publish N events as fast as possible, then time the drain |
+| `-receiver-delay 50ms` | Make the receiver slow |
+| `-json FILE` | Write the full report, including the per-second backlog timeline, for plotting |
 
 A benchmark earns its keep by failing in interesting ways. Ours had been failing in the least interesting way possible, silently, for months. Four walls later, we are glad we ran it.
 
