@@ -132,7 +132,9 @@ func setupEnv(t *testing.T) *testEnv {
 	clientCfg := webhookclient.DefaultConfig()
 	clientCfg.AllowPrivateNetworks = true
 
-	queueMgr, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, pgxPool, clientCfg, 0, queue.AutoDisablePolicy{})
+	queueMgr, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, pgxPool, clientCfg, 0, queue.AutoDisablePolicy{}, queue.WorkerPoolConfig{},
+		// Health is evaluated periodically; keep the tests' waits short.
+		queue.HealthEvaluatorConfig{Interval: 2 * time.Second, Lag: 500 * time.Millisecond})
 	require.NoError(t, err, "failed to create queue manager")
 
 	err = queueMgr.Start(ctx)

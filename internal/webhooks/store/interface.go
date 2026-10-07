@@ -20,6 +20,7 @@ type RepositoryInterface interface {
 	EventRepository
 	DeliveryRepository
 	HealthRepository
+	HealthEvaluationRepository
 	AlertConfigRepository
 	BatchRepository
 	RateLimitRepository

@@ -12,8 +12,6 @@ import (
 
 // HealthRepository defines operations for webhook health tracking.
 type HealthRepository interface {
-	UpdateWebhookHealthState(ctx context.Context, webhookID uuid.UUID, success bool, eventTimestamp time.Time) (oldHealth, newHealth string, err error)
-	CalculateWebhookHealth(ctx context.Context, webhookID uuid.UUID, lookbackHours int) (string, error)
 	RecordWebhookHealthEvent(ctx context.Context, webhookID, deliveryID uuid.UUID, success bool, responseTime, responseCode int, errorMessage string, errorCategory string) error
 	GetWebhookHealthState(ctx context.Context, webhookID uuid.UUID) (*WebhookHealthMetrics, error)
 	GetWebhookHealthSummary(ctx context.Context, webhookID uuid.UUID, hours int) (*WebhookHealthSummary, error)
@@ -38,72 +36,6 @@ type AutoDisableResult struct {
 	Reason              string    `db:"reason"`
 	ConsecutiveFailures int       `db:"consecutive_failures"`
 	FailingSince        time.Time `db:"failing_since"`
-}
-
-// UpdateWebhookHealthState records a webhook delivery outcome and updates health metrics.
-// For successful deliveries, it resets consecutive failures to 0 and updates last success timestamp.
-// For failed deliveries, it increments consecutive failures and updates last failure timestamp.
-// After updating health state, it recalculates the overall webhook health status (healthy/degraded/unhealthy)
-// and returns the health value from immediately before and after this call, so callers can detect a
-// transition (e.g. to emit a health-change notification) without a separate read.
-// This function performs upsert operations to handle both new webhooks and existing ones.
-func (r *Repository) UpdateWebhookHealthState(ctx context.Context, webhookID uuid.UUID, success bool, eventTimestamp time.Time) (string, string, error) {
-	var oldHealth string
-	if err := r.conn.GetContext(ctx, &oldHealth, `SELECT health FROM webhook_registrations WHERE id = $1`, webhookID); err != nil {
-		return "", "", storage.Error(err)
-	}
-
-	var lastSuccessAt, lastFailureAt *time.Time
-	if success {
-		lastSuccessAt = &eventTimestamp
-	} else {
-		lastFailureAt = &eventTimestamp
-	}
-
-	// Atomic upsert: use a single SQL statement to avoid read-then-write race conditions.
-	// For failures, increment consecutive_failures atomically in the ON CONFLICT clause.
-	// For successes, reset to 0.
-	var consecutiveFailures int
-	if success {
-		consecutiveFailures = 0
-	} else {
-		consecutiveFailures = 1
-	}
-
-	_, err := r.conn.ExecContext(ctx, `
-		INSERT INTO webhook_health_state (webhook_id, consecutive_failures, last_success_at, last_failure_at, failing_since, last_event_at, updated_at)
-		VALUES ($1, $2, $3, $4, $4, $5, NOW())
-		ON CONFLICT (webhook_id) DO UPDATE SET
-			consecutive_failures = CASE WHEN $6 THEN 0 ELSE webhook_health_state.consecutive_failures + 1 END,
-			failing_since = CASE WHEN $6 THEN NULL ELSE COALESCE(webhook_health_state.failing_since, $5) END,
-			last_success_at = COALESCE($3, webhook_health_state.last_success_at),
-			last_failure_at = COALESCE($4, webhook_health_state.last_failure_at),
-			last_event_at = $5,
-			updated_at = NOW()
-	`,
-		webhookID,
-		consecutiveFailures,
-		lastSuccessAt,
-		lastFailureAt,
-		eventTimestamp,
-		success,
-	)
-	if err != nil {
-		return "", "", storage.Error(err)
-	}
-
-	// Calculate health status
-	newHealth, err := r.CalculateWebhookHealth(ctx, webhookID, 24)
-	if err != nil {
-		return "", "", storage.Error(err)
-	}
-
-	// Update webhook_registrations health field
-	_, err = r.conn.ExecContext(ctx, `UPDATE webhook_registrations SET health = $1, updated_at = NOW() WHERE id = $2`, newHealth, webhookID)
-	if err != nil {
-		return "", "", storage.Error(err)
-	}
-	return oldHealth, newHealth, nil
 }
 
 // AutoDisableWebhook pauses an active webhook whose receiver has failed at
@@ -134,57 +66,22 @@ func (r *Repository) AutoDisableWebhook(ctx context.Context, webhookID uuid.UUID
 	return &result, nil
 }
 
-// CalculateWebhookHealth determines webhook health status based on delivery patterns.
-// Health calculation considers: recent success rate within lookbackHours window, consecutive failures,
-// and minimum event threshold for statistical significance.
-// Returns: "healthy" (>90% success, <5 failures), "degraded" (80-90% success),
-//
-//	"unhealthy" (<80% success or >=5 consecutive failures), "unknown" (insufficient data).
-func (r *Repository) CalculateWebhookHealth(ctx context.Context, webhookID uuid.UUID, lookbackHours int) (string, error) {
-	// Get recent delivery statistics (count unique deliveries, not attempts)
-	query := `
-		SELECT 
-			COUNT(DISTINCT delivery_id),
-			COALESCE(
-				CASE WHEN COUNT(DISTINCT delivery_id) > 0
-				     THEN COUNT(DISTINCT CASE WHEN success THEN delivery_id END)::FLOAT / COUNT(DISTINCT delivery_id)
-				     ELSE 0
-				END, 0)
-		FROM webhook_health_events
-		WHERE webhook_id = $1 AND timestamp >= NOW() - INTERVAL '1 hour' * $2
-	`
-	var result struct {
-		EventsCount int     `db:"count"`
-		SuccessRate float64 `db:"coalesce"`
-	}
-	err := r.conn.GetContext(ctx, &result, query, webhookID, lookbackHours)
-	if err != nil {
-		return "unknown", storage.Error(err)
-	}
-	recentEventsCount := result.EventsCount
-	recentSuccessRate := result.SuccessRate
-
-	// Get consecutive failures
-	var consecutiveFailuresCount int
-	err = r.conn.GetContext(ctx, &consecutiveFailuresCount, `SELECT COALESCE(consecutive_failures, 0) FROM webhook_health_state WHERE webhook_id = $1`, webhookID)
-	if err != nil && !storage.IsNotFound(storage.Error(err)) {
-		return "", storage.Error(err)
-	}
-
-	// Calculate health status
+// healthLabel is the health classification: recent distinct deliveries in
+// the lookback window, their success rate, and the current run of failures.
+func healthLabel(recentEvents int, successRate float64, consecutiveFailures int) string {
 	switch {
-	case recentEventsCount == 0:
-		return "unknown", nil
-	case consecutiveFailuresCount >= 5:
-		return "unhealthy", nil
-	case recentSuccessRate < 0.8 && recentEventsCount >= 10:
-		return "unhealthy", nil
-	case recentSuccessRate < 0.9 && recentEventsCount >= 5:
-		return "degraded", nil
-	case recentSuccessRate >= 0.9 && recentEventsCount >= 3:
-		return "healthy", nil
+	case recentEvents == 0:
+		return "unknown"
+	case consecutiveFailures >= 5:
+		return "unhealthy"
+	case successRate < 0.8 && recentEvents >= 10:
+		return "unhealthy"
+	case successRate < 0.9 && recentEvents >= 5:
+		return "degraded"
+	case successRate >= 0.9 && recentEvents >= 3:
+		return "healthy"
 	default:
-		return "unknown", nil
+		return "unknown"
 	}
 }
 

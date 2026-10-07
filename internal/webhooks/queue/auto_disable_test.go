@@ -28,14 +28,19 @@ func (f *fakeAutoDisableRepo) AutoDisableWebhook(ctx context.Context, webhookID 
 	return f.result, nil
 }
 
-func newAutoDisableWorker(repo *fakeAutoDisableRepo, eventRepo *fakeSystemEventRepo, policy AutoDisablePolicy) *WebhookWorker {
-	return &WebhookWorker{
-		healthRepo:      repo,
-		alertConfigRepo: &fakeAlertConfigRepo{},
-		eventRepo:       eventRepo,
-		jobInserter:     noopJobInserter{},
-		autoDisable:     policy,
+func newAutoDisableWorker(repo *fakeAutoDisableRepo, eventRepo *fakeSystemEventRepo, policy AutoDisablePolicy) *HealthEvaluatorWorker {
+	return &HealthEvaluatorWorker{
+		healthRepo:  repo,
+		events:      systemEventDeps{eventRepo: eventRepo, jobInserter: noopJobInserter{}, alertConfigRepo: &fakeAlertConfigRepo{}},
+		autoDisable: policy,
+		logger:      slog.Default(),
 	}
+}
+
+// failing builds the evaluator's view of a webhook in a failure run long
+// enough to reach the threshold check.
+func failing(consumer string, n int) store.FailingWebhook {
+	return store.FailingWebhook{WebhookID: uuid.New(), TenantID: uuid.New(), Consumer: consumer, URL: "https://x", ConsecutiveFailures: n}
 }
 
 var testPolicy = AutoDisablePolicy{After: 120 * time.Hour, MinFailures: 10}
@@ -49,7 +54,7 @@ func TestMaybeAutoDisable_DisablesAndEmits(t *testing.T) {
 	eventRepo := &fakeSystemEventRepo{}
 	w := newAutoDisableWorker(repo, eventRepo, testPolicy)
 
-	w.maybeAutoDisable(context.Background(), slog.Default(), uuid.New(), "acme", uuid.New(), "https://x")
+	w.maybeAutoDisable(context.Background(), slog.Default(), failing("acme", 12))
 
 	if repo.calls != 1 || repo.minFailures != 10 || repo.failingFor != 120*time.Hour {
 		t.Fatalf("AutoDisableWebhook calls=%d min=%d for=%s, want 1/10/120h", repo.calls, repo.minFailures, repo.failingFor)
@@ -64,7 +69,7 @@ func TestMaybeAutoDisable_NothingDisabledEmitsNothing(t *testing.T) {
 	eventRepo := &fakeSystemEventRepo{}
 	w := newAutoDisableWorker(repo, eventRepo, testPolicy)
 
-	w.maybeAutoDisable(context.Background(), slog.Default(), uuid.New(), "acme", uuid.New(), "https://x")
+	w.maybeAutoDisable(context.Background(), slog.Default(), failing("acme", 12))
 
 	if repo.calls != 1 {
 		t.Errorf("expected the threshold check to run, got %d calls", repo.calls)
@@ -89,7 +94,7 @@ func TestMaybeAutoDisable_Skips(t *testing.T) {
 			repo := &fakeAutoDisableRepo{result: &store.AutoDisableResult{}}
 			w := newAutoDisableWorker(repo, &fakeSystemEventRepo{}, tt.policy)
 
-			w.maybeAutoDisable(context.Background(), slog.Default(), uuid.New(), tt.consumer, uuid.New(), "https://x")
+			w.maybeAutoDisable(context.Background(), slog.Default(), failing(tt.consumer, 12))
 
 			if repo.calls != 0 {
 				t.Errorf("expected no threshold check, got %d calls", repo.calls)
