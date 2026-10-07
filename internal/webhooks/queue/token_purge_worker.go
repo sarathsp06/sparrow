@@ -29,12 +29,14 @@ func (TokenPurgeArgs) Kind() string {
 
 var _ river.JobArgsWithInsertOpts = (*TokenPurgeArgs)(nil)
 
-// InsertOpts deliberately sets no UniqueOpts: River's default unique states
-// include completed jobs until its cleaner removes them (24h), which would
-// silently skip the next day's run. The purge is an idempotent DELETE, and
-// periodic jobs are only enqueued by the leader, so duplicates are harmless.
+// InsertOpts dedupes to one purge per interval. ByPeriod is required: River's
+// default unique states include completed jobs until its cleaner removes them
+// (~24h), so ByArgs alone would silently skip the next run.
 func (TokenPurgeArgs) InsertOpts() river.InsertOpts {
-	return river.InsertOpts{Queue: QueueDefault}
+	return river.InsertOpts{
+		Queue:      QueueDefault,
+		UniqueOpts: river.UniqueOpts{ByArgs: true, ByPeriod: tokenPurgeInterval},
+	}
 }
 
 // TokenPurgeWorker runs TokenPurgeArgs jobs.
