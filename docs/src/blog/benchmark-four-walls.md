@@ -150,7 +150,15 @@ Except that the slow-receiver row did not move. Five times the workers, the same
 | 500/s, receiver sleeps 50 ms | 10 | 100 | 10 | 198 | 23.3 s |
 | 500/s, receiver sleeps 50 ms | 10 | 100 | 100 | 500 | 34 ms |
 
-The per-delivery bookkeeping is a design question rather than a config knob, and we are not changing it in the same release as the other fixes. The candidates are clear enough: skip the registration write when the label has not changed (one hot-row commit per delivery gone for free); keep the label incremental, from counters on the health state row or a periodic recompute, instead of rescanning 24 hours on every delivery; and fold the remaining per-delivery writes into one transaction so a delivery costs one fsync rather than six. The benchmark now gives a reproducible number to hold any of those against.
+So we changed the bookkeeping. One repository call now records a delivery outcome in a single transaction: the health event is inserted first (append-only, nothing to contend on), then the state row is upserted, and the registration is written only when the label actually changed. The 24-hour recomputation runs at most every five seconds per webhook while outcomes stay the same, and immediately when they flip (a failure after successes, a success after failures, or the fifth consecutive failure), so the label still moves when it matters. Same benchmark, same defaults, before and after:
+
+| Shape, 1,000 events/s for 30 s, 20 workers | Delivered/s while publishing | p50 publish → delivered | Drain |
+|---|---|---|---|
+| 1 webhook | 438 → 535 | 19 s → 13 s | 44 s → 19 s |
+| 10 webhooks | 601 → 862 | 9.2 s → 1.5 s | 22 s → 5.9 s |
+| 300 webhooks | 457 → 861 | 17.8 s → 1.7 s | 19.6 s → 4.7 s |
+
+The many-webhook shapes now run at about 860 deliveries per second on 20 workers, where before they needed 100 workers to get near that. The single hot webhook still has one webhook-owned row commit per delivery (the state upsert), so it stays bounded by commit latency; spreading a very busy integration over two webhooks, or batching that upsert, would be the next step if anyone needs more than about 500 per second to one receiver.
 
 ## The realistic shape
 
@@ -163,14 +171,14 @@ Ten subscribers on one event type is a stress shape, not a typical one. In pract
 | 300 types × 1, burst of 20,000 events | 3,616/s accepted in 5.5 s | 749/s | 13.6 s | 21.2 s |
 | 300 types × 2, burst of 20,000 events | 4,013/s accepted in 5.0 s | 406 events/s = 811 deliveries/s | 24.2 s | 44.3 s |
 
-Three things to read off that table. Ingest is fast: a burst of 20,000 events is accepted in five seconds, about 4,000 per second with a 20 ms median, and nothing is rejected. Delivery at the defaults runs at 600 to 850 per second once the hot-row problem is spread across 300 webhooks, and the fan-out to two subscribers costs almost nothing extra per event. And while a burst is being accepted, delivery slows (148 per second during the five-second burst, 749 after), because ingest and delivery share the same Postgres; the backlog then drains at the delivery rate. With `SPARROW_WEBHOOK_WORKERS=100` the earlier runs put delivery near 940 per second on this laptop; past that, the per-delivery commits in the previous section are the limit.
+Three things to read off that table. Ingest is fast: a burst of 20,000 events is accepted in five seconds, about 4,000 per second with a 20 ms median, and nothing is rejected. Delivery at the defaults runs at 600 to 850 per second once the hot-row problem is spread across 300 webhooks, and the fan-out to two subscribers costs almost nothing extra per event. And while a burst is being accepted, delivery slows (148 per second during the five-second burst, 749 after), because ingest and delivery share the same Postgres; the backlog then drains at the delivery rate. Those numbers were taken before the bookkeeping change in the previous section; with it, the same 300-webhook shape delivers about 860 per second on the default 20 workers (table above), and `SPARROW_WEBHOOK_WORKERS` scales it from there until the remaining per-delivery commits are the limit.
 
 ## What the numbers mean for you
 
 - **Upgrade for the client fix** even if you never push 200 events a second. Every HTTPS delivery you have ever sent paid a TLS handshake it did not need.
 - **If deliveries lag under load with idle CPU**, check `SPARROW_QUEUE_FETCH_COOLDOWN` and the worker counts. The ceiling is `workers / cooldown` per queue; the new defaults give about 1,000 per second.
 - **If your receivers are slow**, raise `SPARROW_WEBHOOK_WORKERS`. Throughput to a slow host is `workers / receiver latency`, now that the connection pool follows the worker count. Use the webhook's `rate_limit_rps` to protect a receiver, not the worker count.
-- **If one receiver takes most of your traffic**, expect a few hundred deliveries per second to it until the health bookkeeping is reworked. Deliveries to other receivers are unaffected.
+- **If one receiver takes most of your traffic**, expect around 500 deliveries per second to that one webhook on commodity disks: its health state row is still committed once per delivery. Deliveries to other webhooks are unaffected, and splitting a very busy integration across two webhooks doubles its ceiling.
 - **Ingest is not the bottleneck.** `POST /events` answered in 5 to 8 ms at p50 across every run, up to 2,000 per second, and never rejected an event. Sparrow accepts first and delivers from a durable queue, so a delivery backlog never turns into lost events; it turns into latency you can see on the dashboard.
 
 ## Run it yourself

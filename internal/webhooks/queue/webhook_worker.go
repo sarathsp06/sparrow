@@ -588,12 +588,18 @@ func (w *WebhookWorker) renderPayload(ctx context.Context, log *slog.Logger, job
 // This is the shared implementation for all delivery outcome paths (success, client error, server error).
 func (w *WebhookWorker) recordHealthOutcome(ctx context.Context, log *slog.Logger, tenantID uuid.UUID, consumer string, webhookID, deliveryID uuid.UUID, url string, success bool, durationMs int, statusCode int, errorMessage string, errorCategory string) {
 	w.metrics.recordAttempt(ctx, success, durationMs, errorCategory)
-	if err := w.healthRepo.RecordWebhookHealthEvent(ctx, webhookID, deliveryID, success, durationMs, statusCode, errorMessage, errorCategory); err != nil {
-		log.ErrorContext(ctx, "Failed to record health event", "error", err)
-	}
-	oldHealth, newHealth, err := w.healthRepo.UpdateWebhookHealthState(ctx, webhookID, success, time.Now())
+	oldHealth, newHealth, err := w.healthRepo.RecordDeliveryOutcome(ctx, store.DeliveryOutcome{
+		WebhookID:     webhookID,
+		DeliveryID:    deliveryID,
+		Success:       success,
+		ResponseTime:  durationMs,
+		ResponseCode:  statusCode,
+		ErrorMessage:  errorMessage,
+		ErrorCategory: errorCategory,
+		At:            time.Now(),
+	})
 	if err != nil {
-		log.ErrorContext(ctx, "Failed to update webhook health state", "error", err)
+		log.ErrorContext(ctx, "Failed to record delivery outcome for health", "error", err)
 		return
 	}
 	w.emitHealthChangedEvent(ctx, log, tenantID, consumer, webhookID, url, oldHealth, newHealth)

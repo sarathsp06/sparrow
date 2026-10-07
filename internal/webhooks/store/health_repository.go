@@ -12,6 +12,7 @@ import (
 
 // HealthRepository defines operations for webhook health tracking.
 type HealthRepository interface {
+	RecordDeliveryOutcome(ctx context.Context, outcome DeliveryOutcome) (oldHealth, newHealth string, err error)
 	UpdateWebhookHealthState(ctx context.Context, webhookID uuid.UUID, success bool, eventTimestamp time.Time) (oldHealth, newHealth string, err error)
 	CalculateWebhookHealth(ctx context.Context, webhookID uuid.UUID, lookbackHours int) (string, error)
 	RecordWebhookHealthEvent(ctx context.Context, webhookID, deliveryID uuid.UUID, success bool, responseTime, responseCode int, errorMessage string, errorCategory string) error
@@ -161,9 +162,6 @@ func (r *Repository) CalculateWebhookHealth(ctx context.Context, webhookID uuid.
 	if err != nil {
 		return "unknown", storage.Error(err)
 	}
-	recentEventsCount := result.EventsCount
-	recentSuccessRate := result.SuccessRate
-
 	// Get consecutive failures
 	var consecutiveFailuresCount int
 	err = r.conn.GetContext(ctx, &consecutiveFailuresCount, `SELECT COALESCE(consecutive_failures, 0) FROM webhook_health_state WHERE webhook_id = $1`, webhookID)
@@ -171,21 +169,179 @@ func (r *Repository) CalculateWebhookHealth(ctx context.Context, webhookID uuid.
 		return "", storage.Error(err)
 	}
 
-	// Calculate health status
+	return healthLabel(result.EventsCount, result.SuccessRate, consecutiveFailuresCount), nil
+}
+
+// healthLabel is the health classification: recent distinct deliveries in
+// the lookback window, their success rate, and the current run of failures.
+func healthLabel(recentEvents int, successRate float64, consecutiveFailures int) string {
 	switch {
-	case recentEventsCount == 0:
-		return "unknown", nil
-	case consecutiveFailuresCount >= 5:
-		return "unhealthy", nil
-	case recentSuccessRate < 0.8 && recentEventsCount >= 10:
-		return "unhealthy", nil
-	case recentSuccessRate < 0.9 && recentEventsCount >= 5:
-		return "degraded", nil
-	case recentSuccessRate >= 0.9 && recentEventsCount >= 3:
-		return "healthy", nil
+	case recentEvents == 0:
+		return "unknown"
+	case consecutiveFailures >= 5:
+		return "unhealthy"
+	case successRate < 0.8 && recentEvents >= 10:
+		return "unhealthy"
+	case successRate < 0.9 && recentEvents >= 5:
+		return "degraded"
+	case successRate >= 0.9 && recentEvents >= 3:
+		return "healthy"
 	default:
-		return "unknown", nil
+		return "unknown"
 	}
+}
+
+// healthLabelRecomputeInterval bounds how often a webhook's health label is
+// recomputed from its 24h event history while deliveries keep producing the
+// same outcome. A flip between success and failure, or crossing the
+// consecutive-failure threshold, recomputes immediately.
+const healthLabelRecomputeInterval = 5 * time.Second
+
+// healthLabelDue reports whether the 24h recomputation should run now.
+// prevComputedAt is nil when the label has never been computed; prevFailures
+// and prevLastWasFailure describe the state before this outcome.
+func healthLabelDue(now time.Time, prevComputedAt *time.Time, prevFailures, newFailures int, prevLastWasFailure, prevKnown, success bool) bool {
+	switch {
+	case !prevKnown, prevComputedAt == nil:
+		return true
+	case now.Sub(*prevComputedAt) >= healthLabelRecomputeInterval:
+		return true
+	case prevLastWasFailure == success: // outcome flipped
+		return true
+	case (prevFailures >= 5) != (newFailures >= 5):
+		return true
+	}
+	return false
+}
+
+// DeliveryOutcome is one delivery attempt's result, as recorded for health.
+type DeliveryOutcome struct {
+	WebhookID     uuid.UUID
+	DeliveryID    uuid.UUID
+	Success       bool
+	ResponseTime  int
+	ResponseCode  int
+	ErrorMessage  string
+	ErrorCategory string
+	At            time.Time
+}
+
+// RecordDeliveryOutcome records a delivery attempt for health tracking in
+// one transaction: the health event, the webhook's health state, and the
+// health label on the registration when it changed. It returns the label
+// before and after.
+//
+// It replaces the pair RecordWebhookHealthEvent + UpdateWebhookHealthState,
+// which issued four to five autocommit statements per delivery. Two of them
+// wrote rows owned by the webhook, each holding its row lock through its own
+// commit, so deliveries to one busy webhook serialized at roughly one per
+// commit latency however many workers ran. Here the webhook-owned rows are
+// touched last, the registration is written only when the label changes,
+// and the 24h event scan behind the label runs at most every
+// healthLabelRecomputeInterval unless the outcome flips.
+func (r *Repository) RecordDeliveryOutcome(ctx context.Context, o DeliveryOutcome) (string, string, error) {
+	if o.At.IsZero() {
+		o.At = time.Now()
+	}
+	var oldHealth, newHealth string
+	err := storage.WithTransaction(r.db, func(tx storage.DBTX) error {
+		var err error
+		oldHealth, newHealth, err = r.WithConn(tx).recordDeliveryOutcome(ctx, o)
+		return err
+	})
+	return oldHealth, newHealth, err
+}
+
+func (r *Repository) recordDeliveryOutcome(ctx context.Context, o DeliveryOutcome) (string, string, error) {
+	var oldHealth string
+	if err := r.conn.GetContext(ctx, &oldHealth, `SELECT health FROM webhook_registrations WHERE id = $1`, o.WebhookID); err != nil {
+		return "", "", storage.Error(err)
+	}
+
+	// Append-only, no contention: do it before taking the webhook's state row.
+	if _, err := r.conn.ExecContext(ctx, `
+		INSERT INTO webhook_health_events (webhook_id, delivery_id, success, response_time, response_code, error_message, error_category, timestamp)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`, o.WebhookID, o.DeliveryID, o.Success, o.ResponseTime, o.ResponseCode, o.ErrorMessage, o.ErrorCategory, o.At); err != nil {
+		return "", "", storage.Error(err)
+	}
+
+	var lastSuccessAt, lastFailureAt *time.Time
+	initialFailures := 0
+	if o.Success {
+		lastSuccessAt = &o.At
+	} else {
+		lastFailureAt = &o.At
+		initialFailures = 1
+	}
+
+	// Upsert the state row and read back what it looked like before, so the
+	// label decision below needs no extra round trip.
+	var st struct {
+		Failures          int        `db:"consecutive_failures"`
+		PrevKnown         bool       `db:"prev_known"`
+		PrevFailures      int        `db:"prev_failures"`
+		PrevLastSuccessAt *time.Time `db:"prev_last_success_at"`
+		PrevLastFailureAt *time.Time `db:"prev_last_failure_at"`
+		PrevLabelComputed *time.Time `db:"prev_label_computed_at"`
+	}
+	if err := r.conn.GetContext(ctx, &st, `
+		WITH prev AS (
+			SELECT consecutive_failures, last_success_at, last_failure_at, health_label_computed_at
+			FROM webhook_health_state WHERE webhook_id = $1
+		)
+		INSERT INTO webhook_health_state (webhook_id, consecutive_failures, last_success_at, last_failure_at, failing_since, last_event_at, updated_at)
+		VALUES ($1, $2, $3, $4, $4, $5, NOW())
+		ON CONFLICT (webhook_id) DO UPDATE SET
+			consecutive_failures = CASE WHEN $6 THEN 0 ELSE webhook_health_state.consecutive_failures + 1 END,
+			failing_since = CASE WHEN $6 THEN NULL ELSE COALESCE(webhook_health_state.failing_since, $5) END,
+			last_success_at = COALESCE($3, webhook_health_state.last_success_at),
+			last_failure_at = COALESCE($4, webhook_health_state.last_failure_at),
+			last_event_at = $5,
+			updated_at = NOW()
+		RETURNING
+			webhook_health_state.consecutive_failures,
+			EXISTS (SELECT 1 FROM prev) AS prev_known,
+			COALESCE((SELECT consecutive_failures FROM prev), 0) AS prev_failures,
+			(SELECT last_success_at FROM prev) AS prev_last_success_at,
+			(SELECT last_failure_at FROM prev) AS prev_last_failure_at,
+			(SELECT health_label_computed_at FROM prev) AS prev_label_computed_at
+	`, o.WebhookID, initialFailures, lastSuccessAt, lastFailureAt, o.At, o.Success); err != nil {
+		return "", "", storage.Error(err)
+	}
+
+	prevLastWasFailure := st.PrevLastFailureAt != nil && (st.PrevLastSuccessAt == nil || st.PrevLastFailureAt.After(*st.PrevLastSuccessAt))
+	newHealth := oldHealth
+	if healthLabelDue(o.At, st.PrevLabelComputed, st.PrevFailures, st.Failures, prevLastWasFailure, st.PrevKnown, o.Success) {
+		var agg struct {
+			Count int     `db:"count"`
+			Rate  float64 `db:"coalesce"`
+		}
+		if err := r.conn.GetContext(ctx, &agg, `
+			SELECT
+				COUNT(DISTINCT delivery_id),
+				COALESCE(
+					CASE WHEN COUNT(DISTINCT delivery_id) > 0
+					     THEN COUNT(DISTINCT CASE WHEN success THEN delivery_id END)::FLOAT / COUNT(DISTINCT delivery_id)
+					     ELSE 0
+					END, 0)
+			FROM webhook_health_events
+			WHERE webhook_id = $1 AND timestamp >= NOW() - INTERVAL '24 hours'
+		`, o.WebhookID); err != nil {
+			return "", "", storage.Error(err)
+		}
+		newHealth = healthLabel(agg.Count, agg.Rate, st.Failures)
+		if _, err := r.conn.ExecContext(ctx, `UPDATE webhook_health_state SET health_label_computed_at = $2 WHERE webhook_id = $1`, o.WebhookID, o.At); err != nil {
+			return "", "", storage.Error(err)
+		}
+	}
+
+	if newHealth != oldHealth {
+		if _, err := r.conn.ExecContext(ctx, `UPDATE webhook_registrations SET health = $1, updated_at = NOW() WHERE id = $2`, newHealth, o.WebhookID); err != nil {
+			return "", "", storage.Error(err)
+		}
+	}
+	return oldHealth, newHealth, nil
 }
 
 // RecordWebhookHealthEvent creates a health tracking record for analytics and monitoring.

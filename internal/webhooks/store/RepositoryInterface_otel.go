@@ -1597,6 +1597,31 @@ func (_d RepositoryInterfaceWithTracing) LockWebhook(ctx context.Context, tenant
 	return _d.RepositoryInterface.LockWebhook(ctx, tenantID, webhookID, consumer, exclusive)
 }
 
+// RecordDeliveryOutcome implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) RecordDeliveryOutcome(ctx context.Context, outcome DeliveryOutcome) (oldHealth string, newHealth string, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.RecordDeliveryOutcome")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":     ctx,
+				"outcome": outcome}, map[string]interface{}{
+				"oldHealth": oldHealth,
+				"newHealth": newHealth,
+				"err":       err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.RecordDeliveryOutcome(ctx, outcome)
+}
+
 // RecordWebhookHealthEvent implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) RecordWebhookHealthEvent(ctx context.Context, webhookID uuid.UUID, deliveryID uuid.UUID, success bool, responseTime int, responseCode int, errorMessage string, errorCategory string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.RecordWebhookHealthEvent")
