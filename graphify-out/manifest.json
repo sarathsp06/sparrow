@@ -205,8 +205,8 @@
     "semantic_hash": "ef22a70165b9970b542c7b86e2c305dc"
   },
   "docs/astro.config.mjs": {
-    "mtime": 1791360016.2747169,
-    "ast_hash": "aed3828b8a29b7513159941552bd4fd3",
+    "mtime": 1791370202.4772992,
+    "ast_hash": "ad1c582d498d5fc4f8082ac927a99d97",
     "semantic_hash": ""
   },
   "docs/package.json": {
@@ -220,8 +220,8 @@
     "semantic_hash": ""
   },
   "docs/src/components/Footer.astro": {
-    "mtime": 1791213631.5727024,
-    "ast_hash": "f7741eb3ef9daa0858a906bdb8df556e",
+    "mtime": 1791370202.4775434,
+    "ast_hash": "8db2a083ae7b373e8ae4b18b2d3b957a",
     "semantic_hash": ""
   },
   "docs/src/components/ThemeDiagram.astro": {
@@ -2495,18 +2495,18 @@
     "semantic_hash": ""
   },
   "docs/src/lib/blog/posts.ts": {
-    "mtime": 1791369230.6883342,
-    "ast_hash": "347e36ed370fd79c8edeb897b6581964",
+    "mtime": 1791370227.1443963,
+    "ast_hash": "1ec16ee1bab3dd9703f0ee480f01d935",
     "semantic_hash": ""
   },
   "docs/src/pages/blog/rss.xml.ts": {
-    "mtime": 1791213631.6126912,
-    "ast_hash": "77c89347367fba553304917935b662dd",
+    "mtime": 1791370202.4769175,
+    "ast_hash": "22a55e3f23d5fae39714bb4c9c3d9837",
     "semantic_hash": ""
   },
   "docs/src/pages/blog/tags/[tag].astro": {
-    "mtime": 1791213631.6133435,
-    "ast_hash": "1cebce8ab683d8b1c4f0b465fcbc9485",
+    "mtime": 1791370202.476729,
+    "ast_hash": "58726b808b1c21e75cf440329890477f",
     "semantic_hash": ""
   },
   "internal/observability/otel_test.go": {
@@ -2535,18 +2535,18 @@
     "semantic_hash": ""
   },
   "docs/src/layouts/BlogLayout.astro": {
-    "mtime": 1791369755.055293,
-    "ast_hash": "ff26a894dd6f539414ff55b6201b6840",
+    "mtime": 1791370202.476234,
+    "ast_hash": "86e3a36b9cac542e9c23c19949167f12",
     "semantic_hash": ""
   },
   "docs/src/pages/blog/[slug].astro": {
-    "mtime": 1791369992.2956643,
-    "ast_hash": "3a49f9bfec811ddae257030bf487f812",
+    "mtime": 1791370202.476118,
+    "ast_hash": "a11491af16ef261dd149505dbec6d620",
     "semantic_hash": ""
   },
   "docs/src/pages/blog/index.astro": {
-    "mtime": 1791213631.6118844,
-    "ast_hash": "05dd04e4a47340e69c6f957ddc228542",
+    "mtime": 1791370202.4764936,
+    "ast_hash": "78a5283e0dc005df7473b04395c2ebe1",
     "semantic_hash": ""
   },
   "internal/ai/ai.go": {
