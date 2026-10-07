@@ -4,6 +4,19 @@ import sitemap from '@astrojs/sitemap';
 import svelte from '@astrojs/svelte';
 import starlightLlmsTxt from './src/lib/llms/starlight-llms-txt/index.mjs';
 import { llmsBasePrompt, llmsRootDetails } from './src/lib/llms/prompts.mjs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { parse as parseYaml } from 'yaml';
+
+// Publish/update dates of the field notes, so the sitemap can carry <lastmod>
+// for /blog/<slug>/ (the pages themselves are built from the same files).
+const blogLastmod = Object.fromEntries(
+  readdirSync('./src/blog')
+    .filter((f) => f.endsWith('.md'))
+    .map((f) => {
+      const fm = parseYaml(readFileSync(`./src/blog/${f}`, 'utf8').split(/^---$/m)[1] ?? '') ?? {};
+      return [f.replace(/\.md$/, ''), new Date(fm.updated ?? fm.pubDate)];
+    }),
+);
 
 export default defineConfig({
   site: 'https://sarathsp06.github.io',
@@ -70,6 +83,11 @@ export default defineConfig({
             { slug: 'satellites/sources' },
             { slug: 'satellites/sinks' },
           ],
+        },
+        {
+          label: 'Field notes',
+          link: '/blog/',
+          badge: { text: 'Blog', variant: 'tip' },
         },
         {
           label: 'Interactive Apps',
@@ -141,7 +159,14 @@ export default defineConfig({
         },
       },
     }),
-    sitemap(),
+    sitemap({
+      filter: (page) => !page.includes('/blog/tags/'),
+      serialize: (item) => {
+        const m = item.url.match(/\/blog\/([^/]+)\/$/);
+        const lastmod = m && blogLastmod[m[1]];
+        return lastmod && !Number.isNaN(lastmod.valueOf()) ? { ...item, lastmod: lastmod.toISOString() } : item;
+      },
+    }),
     svelte(),
   ],
 });

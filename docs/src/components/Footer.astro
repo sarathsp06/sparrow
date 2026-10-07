@@ -13,6 +13,7 @@ const buildDate = new Date().toLocaleDateString('en-US', {
 <Default><slot /></Default>
 <div class="build-date-footer">
   {version ? `v${version} · ` : ''}Built on {buildDate} ·
+  <a href="/sparrow/blog/">Field notes</a> ·
   <a href="/sparrow/llms.txt">llms.txt</a> ·
   <a href="/sparrow/llms-full.txt">llms-full.txt</a>
 </div>

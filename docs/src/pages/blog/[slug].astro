@@ -24,23 +24,37 @@ const permalink = new URL(Astro.url.pathname, Astro.site).href;
 const ogImage = new URL(`${base}blog/og/${post.slug}.png`, Astro.site).href;
 // `author` is a GitHub username; link it to the profile.
 const authorUrl = frontmatter.author ? `https://github.com/${frontmatter.author}` : undefined;
-const jsonLd = {
+const modifiedIso = post.modified.toISOString();
+const siteLogo = new URL(`${base}favicon.svg`, Astro.site).href;
+const jsonLd = [{
   '@context': 'https://schema.org',
   '@type': 'BlogPosting',
   headline: frontmatter.title,
   description,
   datePublished: iso,
+  dateModified: modifiedIso,
+  inLanguage: 'en',
+  isAccessibleForFree: true,
+  timeRequired: `PT${post.minutes}M`,
   author: frontmatter.author
     ? { '@type': 'Person', name: frontmatter.author, url: authorUrl }
     : { '@type': 'Organization', name: 'Sparrow' },
-  publisher: { '@type': 'Organization', name: 'Sparrow' },
+  publisher: { '@type': 'Organization', name: 'Sparrow', url: new URL(base, Astro.site).href, logo: { '@type': 'ImageObject', url: siteLogo } },
   keywords: post.tags.join(', '),
   mainEntityOfPage: permalink,
   image: ogImage,
-};
+}, {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Sparrow', item: new URL(base, Astro.site).href },
+    { '@type': 'ListItem', position: 2, name: 'Field notes', item: new URL(`${base}blog/`, Astro.site).href },
+    { '@type': 'ListItem', position: 3, name: frontmatter.title, item: permalink },
+  ],
+}];
 ---
 
-<BlogLayout title={frontmatter.title} description={description} type="article" publishedTime={iso} tags={post.tags} jsonLd={jsonLd} image={ogImage}>
+<BlogLayout title={frontmatter.title} description={description} type="article" publishedTime={iso} modifiedTime={modifiedIso} author={frontmatter.author} tags={post.tags} jsonLd={jsonLd} image={ogImage}>
   <ReadingProgress slot="after-header" />
   <div class="fn-article-grid">
     <article class="fn-article">
@@ -51,6 +65,7 @@ const jsonLd = {
         {description && <p class="fn-standfirst">{description}</p>}
         <div class="fn-meta">
           <time datetime={iso}>{formatDate(post.date)}</time>
+        {post.modified.valueOf() !== post.date.valueOf() && <span>Updated <time datetime={modifiedIso}>{formatDate(post.modified)}</time></span>}
           <span>{post.minutes} min read</span>
           {frontmatter.author && <a href={authorUrl} rel="author">@{frontmatter.author}</a>}
         </div>

@@ -12,13 +12,21 @@ interface Props {
   description: string;
   type?: 'website' | 'article';
   publishedTime?: string;
+  modifiedTime?: string;
+  /** GitHub username of the author, for article:author and meta name=author. */
+  author?: string;
+  /** Keep thin pages (tag listings) out of the index while still following links. */
+  noindex?: boolean;
+  /** Use the title as the full <title> instead of appending the site name. */
+  bareTitle?: boolean;
   tags?: string[];
-  jsonLd?: Record<string, unknown>;
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
   /** Absolute URL of the social preview image. Defaults to the site card. */
   image?: string;
 }
 
-const { title, description, type = 'website', publishedTime, tags = [], jsonLd, image } = Astro.props;
+const { title, description, type = 'website', publishedTime, modifiedTime, author, noindex = false, bareTitle = false, tags = [], jsonLd, image } = Astro.props;
+const pageTitle = bareTitle ? title : `${title} | Sparrow field notes`;
 const ogImage = image ?? new URL(`${base}og.png`, Astro.site).href;
 const favicon = faviconSrc.src;
 const canonical = new URL(Astro.url.pathname, Astro.site).href;
@@ -40,8 +48,12 @@ const docsHome = `${base}getting-started/installation/`;
         document.documentElement.dataset.theme = dark ? 'dark' : 'light';
       })();
     </script>
-    <title>{title} | Sparrow field notes</title>
+    <title>{pageTitle}</title>
     <meta name="description" content={description} />
+    <meta name="robots" content={noindex ? 'noindex, follow' : 'index, follow, max-image-preview:large, max-snippet:-1'} />
+    {author && <meta name="author" content={author} />}
+    <meta name="theme-color" content="#faf9f7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)" />
     <link rel="canonical" href={canonical} />
     <link rel="icon" href={favicon} type="image/svg+xml" />
     <link rel="alternate" type="application/rss+xml" title="Sparrow field notes" href={rss} />
@@ -50,9 +62,14 @@ const docsHome = `${base}getting-started/installation/`;
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:image" content={ogImage} />
     <meta property="og:image:alt" content={`${title} — Sparrow field notes`} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     {publishedTime && <meta property="article:published_time" content={publishedTime} />}
+    {modifiedTime && <meta property="article:modified_time" content={modifiedTime} />}
+    {type === 'article' && author && <meta property="article:author" content={`https://github.com/${author}`} />}
     {tags.map((t) => <meta property="article:tag" content={t} />)}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content={ogImage} />

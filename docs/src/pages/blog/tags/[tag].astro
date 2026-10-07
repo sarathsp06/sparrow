@@ -10,9 +10,16 @@ export async function getStaticPaths() {
 const { tag } = Astro.props as { tag: string };
 const posts = await getPosts();
 const tagged = posts.filter((p) => p.tags.includes(tag));
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: `Sparrow field notes on ${tag}`,
+  url: new URL(Astro.url.pathname, Astro.site).href,
+  hasPart: tagged.map((p) => ({ '@type': 'BlogPosting', headline: p.frontmatter.title, url: new URL(p.url, Astro.site).href })),
+};
 ---
 
-<BlogLayout title={`Notes on ${tag}`} description={`Sparrow field notes tagged “${tag}”.`}>
+<BlogLayout title={`Notes on ${tag}`} description={`Sparrow field notes tagged “${tag}”.`} noindex jsonLd={jsonLd}>
   <section class="fn-hero">
     <a class="fn-eyebrow" href={`${base}blog/`}>← All field notes</a>
     <h1>{tag}</h1>

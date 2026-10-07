@@ -10,6 +10,8 @@ export interface PostFrontmatter {
   description?: string;
   author?: string; // GitHub username
   pubDate: string | Date;
+  /** Set when a post is materially revised; feeds dateModified and the sitemap. */
+  updated?: string | Date;
   tags?: string[];
 }
 
@@ -18,9 +20,13 @@ export interface Post {
   slug: string;
   frontmatter: PostFrontmatter;
   date: Date;
+  /** `updated` if set, else the publish date. */
+  modified: Date;
   minutes: number;
   tags: string[];
   Content: MarkdownInstance<PostFrontmatter>['Content'];
+  /** Rendered HTML of the body, for the RSS feed. */
+  html: string;
   headings: MarkdownHeading[];
 }
 
@@ -46,23 +52,27 @@ let cache: Promise<Post[]> | undefined;
 // Newest first; posts published the same day fall back to title order so the
 // list is stable between builds.
 export const getPosts = (): Promise<Post[]> =>
-  (cache ??= Promise.all(Object.values(loaders).map((load) => load())).then((modules) =>
-    modules
-      .map((m) => {
+  (cache ??= Promise.all(Object.values(loaders).map((load) => load())).then(async (modules) => {
+    const posts = await Promise.all(
+      modules.map(async (m): Promise<Post> => {
         const slug = m.file.split('/').pop()!.replace(/\.md$/, '');
+        const date = new Date(m.frontmatter.pubDate);
         return {
           url: `${base}blog/${slug}/`,
           slug,
           frontmatter: m.frontmatter,
-          date: new Date(m.frontmatter.pubDate),
+          date,
+          modified: m.frontmatter.updated ? new Date(m.frontmatter.updated) : date,
           minutes: readingMinutes(m.rawContent()),
           tags: (m.frontmatter.tags ?? []).map((t) => t.toLowerCase()),
           Content: m.Content,
+          html: await m.compiledContent(),
           headings: m.getHeadings(),
         };
-      })
-      .sort((a, b) => b.date.valueOf() - a.date.valueOf() || a.frontmatter.title.localeCompare(b.frontmatter.title)),
-  ));
+      }),
+    );
+    return posts.sort((a, b) => b.date.valueOf() - a.date.valueOf() || a.frontmatter.title.localeCompare(b.frontmatter.title));
+  }));
 
 export const allTags = (posts: Post[]): { tag: string; count: number }[] => {
   const counts = new Map<string, number>();
