@@ -227,21 +227,28 @@ func systemEventSamplePayload(schema map[string]any) map[string]any {
 // and self-events for _sparrow's own webhooks (feedback-loop guard).
 // The event is always pushed regardless of whether any alert configs exist;
 // alert_recipients in the payload may be empty.
-func (w *WebhookWorker) emitHealthChangedEvent(ctx context.Context, log *slog.Logger, tenantID uuid.UUID, consumer string, webhookID uuid.UUID, url, oldHealth, newHealth string) {
+// systemEventDeps is what the health and auto-disable emitters need.
+type systemEventDeps struct {
+	eventRepo       systemEventRepo
+	jobInserter     JobInserter
+	alertConfigRepo store.AlertConfigRepository
+}
+
+func emitHealthChangedEvent(ctx context.Context, log *slog.Logger, d systemEventDeps, tenantID uuid.UUID, consumer string, webhookID uuid.UUID, url, oldHealth, newHealth string) {
 	if consumer == SystemEventConsumer || oldHealth == newHealth {
 		return
 	}
 	if oldHealth == string(store.HealthUnknown) && newHealth == string(store.HealthHealthy) {
 		return
 	}
-	recipients, err := w.alertConfigRepo.ResolveAlertRecipients(ctx, tenantID, webhookID, consumer, systemEventHealthChanged)
+	recipients, err := d.alertConfigRepo.ResolveAlertRecipients(ctx, tenantID, webhookID, consumer, systemEventHealthChanged)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to resolve health_changed alert recipients", "error", err)
 		// Resolve failure is non-fatal: push the event with empty recipients
 		// so the transition is recorded in the _sparrow event history.
 		recipients = nil
 	}
-	pushSystemEvent(ctx, log, w.eventRepo, w.jobInserter, tenantID, systemEventHealthChanged, map[string]any{
+	pushSystemEvent(ctx, log, d.eventRepo, d.jobInserter, tenantID, systemEventHealthChanged, map[string]any{
 		"webhook_id":       webhookID.String(),
 		"consumer":         consumer,
 		"url":              url,
@@ -282,13 +289,13 @@ func (w *WebhookWorker) emitDeliveryFailedEvent(ctx context.Context, log *slog.L
 // emitWebhookDisabledEvent pushes systemEventWebhookDisabled after
 // maybeAutoDisable paused webhookID. alert_recipients in the payload may be
 // empty.
-func (w *WebhookWorker) emitWebhookDisabledEvent(ctx context.Context, log *slog.Logger, tenantID uuid.UUID, consumer string, webhookID uuid.UUID, url string, disabled *store.AutoDisableResult) {
-	recipients, err := w.alertConfigRepo.ResolveAlertRecipients(ctx, tenantID, webhookID, consumer, systemEventWebhookDisabled)
+func emitWebhookDisabledEvent(ctx context.Context, log *slog.Logger, d systemEventDeps, tenantID uuid.UUID, consumer string, webhookID uuid.UUID, url string, disabled *store.AutoDisableResult) {
+	recipients, err := d.alertConfigRepo.ResolveAlertRecipients(ctx, tenantID, webhookID, consumer, systemEventWebhookDisabled)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to resolve webhook disabled alert recipients", "error", err)
 		recipients = nil
 	}
-	pushSystemEvent(ctx, log, w.eventRepo, w.jobInserter, tenantID, systemEventWebhookDisabled, map[string]any{
+	pushSystemEvent(ctx, log, d.eventRepo, d.jobInserter, tenantID, systemEventWebhookDisabled, map[string]any{
 		"webhook_id":           webhookID.String(),
 		"consumer":             consumer,
 		"url":                  url,

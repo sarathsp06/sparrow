@@ -51,8 +51,11 @@ func NewWebhookClient(config *Config) *WebhookClient {
 	checkRedirect := policy.checkRedirect // SEC-001: validate redirect targets against the policy
 
 	transport := &http.Transport{
-		MaxIdleConns:        config.MaxIdleConns,
-		MaxConnsPerHost:     config.MaxConnsPerHost,
+		MaxIdleConns:    config.MaxIdleConns,
+		MaxConnsPerHost: config.MaxConnsPerHost,
+		// Default is 2, which closes every connection beyond two after each
+		// request when many workers deliver to the same receiver.
+		MaxIdleConnsPerHost: config.MaxConnsPerHost,
 		IdleConnTimeout:     config.IdleConnTimeout,
 		TLSHandshakeTimeout: 10 * time.Second,
 		DialContext:         dialer.DialContext,
@@ -109,11 +112,15 @@ func (c *WebhookClient) Send(ctx context.Context, req *DeliveryRequest) (*http.R
 		return nil, 0, err
 	}
 
-	// Apply per-webhook request timeout if set, overriding the global client timeout.
+	// Apply per-webhook request timeout if set, overriding the global client
+	// timeout. The cancel must NOT run when Send returns: the caller reads
+	// the body afterwards, and net/http closes a keep-alive connection whose
+	// request context is cancelled before the body hits EOF. Cancelling here
+	// made every delivery open a fresh TCP (and TLS) connection. Instead the
+	// cancel is tied to resp.Body.Close.
+	cancel := context.CancelFunc(func() {})
 	if req.Timeout > 0 {
-		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, req.Timeout)
-		defer cancel()
 		httpReq = httpReq.WithContext(ctx)
 	}
 
@@ -132,6 +139,7 @@ func (c *WebhookClient) Send(ctx context.Context, req *DeliveryRequest) (*http.R
 	duration := time.Since(start)
 
 	if err != nil {
+		cancel()
 		// *url.Error embeds the full request URL in its message ("Post
 		// \"https://…/<secret>\": …"), which then reaches logs and delivery
 		// records. Redact it in place; the error type and its wrapped cause
@@ -143,7 +151,22 @@ func (c *WebhookClient) Send(ctx context.Context, req *DeliveryRequest) (*http.R
 		return nil, duration, err
 	}
 
+	resp.Body = &cancelOnClose{ReadCloser: resp.Body, cancel: cancel}
 	return resp, duration, nil
+}
+
+// cancelOnClose releases the per-request timeout context when the caller is
+// done with the body, so the transport can return the connection to its
+// idle pool instead of closing it.
+type cancelOnClose struct {
+	io.ReadCloser
+	cancel context.CancelFunc
+}
+
+func (b *cancelOnClose) Close() error {
+	err := b.ReadCloser.Close()
+	b.cancel()
+	return err
 }
 
 // Close shuts down the client

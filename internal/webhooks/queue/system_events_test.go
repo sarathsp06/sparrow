@@ -80,7 +80,7 @@ func TestEmitHealthChangedEvent_SkipsNoOpTransition(t *testing.T) {
 	eventRepo := &fakeSystemEventRepo{}
 	w := newTestWorker(alertRepo, eventRepo)
 
-	w.emitHealthChangedEvent(context.Background(), slog.Default(), uuid.New(), "acme", uuid.New(), "https://x", "healthy", "healthy")
+	emitHealthChangedEvent(context.Background(), slog.Default(), w.systemEvents(), uuid.New(), "acme", uuid.New(), "https://x", "healthy", "healthy")
 
 	if alertRepo.calls != 0 {
 		t.Errorf("expected no recipient lookup for a no-op transition, got %d calls", alertRepo.calls)
@@ -95,7 +95,7 @@ func TestEmitHealthChangedEvent_SkipsFirstEverOutcome(t *testing.T) {
 	eventRepo := &fakeSystemEventRepo{}
 	w := newTestWorker(alertRepo, eventRepo)
 
-	w.emitHealthChangedEvent(context.Background(), slog.Default(), uuid.New(), "acme", uuid.New(), "https://x", string(store.HealthUnknown), string(store.HealthHealthy))
+	emitHealthChangedEvent(context.Background(), slog.Default(), w.systemEvents(), uuid.New(), "acme", uuid.New(), "https://x", string(store.HealthUnknown), string(store.HealthHealthy))
 
 	if alertRepo.calls != 0 {
 		t.Errorf("expected no recipient lookup for unknown->healthy, got %d calls", alertRepo.calls)
@@ -110,7 +110,7 @@ func TestEmitHealthChangedEvent_SkipsSparrowConsumer(t *testing.T) {
 	eventRepo := &fakeSystemEventRepo{}
 	w := newTestWorker(alertRepo, eventRepo)
 
-	w.emitHealthChangedEvent(context.Background(), slog.Default(), uuid.New(), SystemEventConsumer, uuid.New(), "https://x", string(store.HealthHealthy), string(store.HealthDegraded))
+	emitHealthChangedEvent(context.Background(), slog.Default(), w.systemEvents(), uuid.New(), SystemEventConsumer, uuid.New(), "https://x", string(store.HealthHealthy), string(store.HealthDegraded))
 
 	if alertRepo.calls != 0 {
 		t.Errorf("expected no recipient lookup for _sparrow's own webhooks (feedback-loop guard), got %d calls", alertRepo.calls)
@@ -122,7 +122,7 @@ func TestEmitHealthChangedEvent_EmitsWithZeroRecipients(t *testing.T) {
 	eventRepo := &fakeSystemEventRepo{}
 	w := newTestWorker(alertRepo, eventRepo)
 
-	w.emitHealthChangedEvent(context.Background(), slog.Default(), uuid.New(), "acme", uuid.New(), "https://x", string(store.HealthHealthy), string(store.HealthDegraded))
+	emitHealthChangedEvent(context.Background(), slog.Default(), w.systemEvents(), uuid.New(), "acme", uuid.New(), "https://x", string(store.HealthHealthy), string(store.HealthDegraded))
 
 	if alertRepo.calls != 1 {
 		t.Errorf("expected recipient lookup to run once, got %d calls", alertRepo.calls)
@@ -137,7 +137,7 @@ func TestEmitHealthChangedEvent_EmitsOnRealTransition(t *testing.T) {
 	eventRepo := &fakeSystemEventRepo{}
 	w := newTestWorker(alertRepo, eventRepo)
 
-	w.emitHealthChangedEvent(context.Background(), slog.Default(), uuid.New(), "acme", uuid.New(), "https://x", string(store.HealthHealthy), string(store.HealthDegraded))
+	emitHealthChangedEvent(context.Background(), slog.Default(), w.systemEvents(), uuid.New(), "acme", uuid.New(), "https://x", string(store.HealthHealthy), string(store.HealthDegraded))
 
 	if len(eventRepo.stored) != 1 || eventRepo.stored[0] != systemEventHealthChanged {
 		t.Errorf("expected one %s event stored, got %v", systemEventHealthChanged, eventRepo.stored)
@@ -210,7 +210,7 @@ func TestEmitHealthChangedEvent_EmitsOnRecipientLookupError(t *testing.T) {
 		jobInserter:     noopJobInserter{},
 	}
 
-	w.emitHealthChangedEvent(context.Background(), slog.Default(), uuid.New(), "acme", uuid.New(), "https://x", string(store.HealthHealthy), string(store.HealthDegraded))
+	emitHealthChangedEvent(context.Background(), slog.Default(), w.systemEvents(), uuid.New(), "acme", uuid.New(), "https://x", string(store.HealthHealthy), string(store.HealthDegraded))
 
 	if alertRepo.calls != 1 {
 		t.Errorf("expected recipient lookup to run once, got %d calls", alertRepo.calls)

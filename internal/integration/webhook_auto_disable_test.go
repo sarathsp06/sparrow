@@ -51,6 +51,14 @@ func TestWebhookAutoDisable(t *testing.T) {
 		require.NoError(t, env.sqlxDB.GetContext(ctx, &state,
 			`SELECT consecutive_failures, failing_since FROM webhook_health_state WHERE webhook_id = $1`, id))
 	}
+	// Health state is folded in by the periodic evaluator (2s in tests).
+	require.Eventually(t, func() bool {
+		var n int
+		if err := env.sqlxDB.GetContext(ctx, &n, `SELECT consecutive_failures FROM webhook_health_state WHERE webhook_id = $1`, id); err != nil {
+			return false
+		}
+		return n == 3
+	}, 30*time.Second, 200*time.Millisecond, "evaluator should fold the three failed attempts into the failure run")
 	readState()
 	require.Equal(t, 3, state.ConsecutiveFailures)
 	require.NotNil(t, state.FailingSince, "a failure run must record when it started")

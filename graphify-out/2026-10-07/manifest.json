@@ -430,7 +430,7 @@
     "semantic_hash": "22761e32895ed13ed48e502ca648d906"
   },
   "internal/webhooks/queue/manager.go": {
-    "mtime": 1791322509.2005363,
+    "mtime": 1791359586.0352113,
     "ast_hash": "92eb16e27ac2501a661b7ba646a36b1e",
     "semantic_hash": ""
   },
@@ -750,8 +750,8 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1791213631.581372,
-    "ast_hash": "16a22461372aaf243b1efe089b472e38",
+    "mtime": 1791359586.0078611,
+    "ast_hash": "74beb9cb2350cb5507901438024aa442",
     "semantic_hash": ""
   },
   "CONTRIBUTING.md": {
@@ -760,8 +760,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1791291911.6384912,
-    "ast_hash": "41af874edd865f7bb42f024840d1ee35",
+    "mtime": 1791359586.0082247,
+    "ast_hash": "5c7f333d752cbbb5679db232a0e5f363",
     "semantic_hash": ""
   },
   "client/README.md": {
@@ -1345,8 +1345,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/cli.mdx": {
-    "mtime": 1791320005.5905082,
-    "ast_hash": "39d431acfee07e9a4e91a09a09422ac2",
+    "mtime": 1791359586.0086942,
+    "ast_hash": "b63f3368438627225448328b3e67ebed",
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/index.mdx": {
@@ -1730,7 +1730,7 @@
     "semantic_hash": ""
   },
   "internal/webhooks/queue/retention_worker.go": {
-    "mtime": 1791322509.200728,
+    "mtime": 1791359586.035592,
     "ast_hash": "734641d149d7389805bafb7bad8f6e2d",
     "semantic_hash": ""
   },
@@ -2270,7 +2270,7 @@
     "semantic_hash": ""
   },
   "internal/webhooks/queue/token_purge_worker.go": {
-    "mtime": 1791322509.2009065,
+    "mtime": 1791359586.0358768,
     "ast_hash": "b5622903213e00dc2e92970eaf5620c0",
     "semantic_hash": ""
   },
@@ -2625,7 +2625,7 @@
     "semantic_hash": ""
   },
   "internal/webhooks/queue/batch_cleanup_worker.go": {
-    "mtime": 1791322509.2002244,
+    "mtime": 1791359586.0349197,
     "ast_hash": "cb1c08c7f4886d29c8a3e5f18b5d6bd4",
     "semantic_hash": ""
   },
@@ -2742,6 +2742,11 @@
   "docs/src/content/docs/getting-started/for-decision-makers.mdx": {
     "mtime": 1791322509.1548705,
     "ast_hash": "4de191e9c6ab1eaa05dbac9b4fd64292",
+    "semantic_hash": ""
+  },
+  "scripts/install.sh": {
+    "mtime": 1791359586.0238574,
+    "ast_hash": "462554d1e788344440a5b3cc47721070",
     "semantic_hash": ""
   }
 }
