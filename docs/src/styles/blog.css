@@ -102,3 +102,73 @@ a.fn-eyebrow:hover { text-decoration: underline; }
   .fn-pager { grid-template-columns: 1fr; }
   .fn-pager-next { text-align: left; }
 }
+
+/* ---- Article tools: progress, table of contents, share, call to action ---- */
+
+.fn-progress { position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; background: transparent; }
+.fn-progress-bar { height: 100%; background: var(--sp-primary); transform-origin: left; transform: scaleX(0); transition: transform 80ms linear; }
+
+.fn-article-grid { display: grid; grid-template-columns: minmax(0, 46rem); justify-content: center; gap: 3rem; }
+.fn-article { max-width: none; margin-inline: 0; min-width: 0; }
+.fn-aside { display: none; }
+.fn-toc-inline { margin-bottom: 2rem; }
+
+.fn-toc { border: 1px solid var(--sp-outline-variant); border-radius: var(--sp-radius); background: var(--sp-surface-container-lowest); padding: 0.6rem 0.9rem; }
+.fn-toc summary { cursor: pointer; color: var(--sp-outline); font: 500 0.72rem/1.4 var(--sp-font-mono); letter-spacing: 0.08em; text-transform: uppercase; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+.fn-toc summary::-webkit-details-marker { display: none; }
+.fn-toc summary::before { content: ''; width: 0.4rem; height: 0.4rem; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform 120ms; }
+.fn-toc[open] summary::before { transform: rotate(45deg); }
+.fn-toc ol { list-style: none; margin: 0.6rem 0 0.2rem; padding: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.fn-toc a { display: block; color: var(--sp-on-surface-variant); font-size: 0.875rem; line-height: 1.4; padding: 0.2rem 0.5rem; margin-left: -0.5rem; border-left: 2px solid transparent; border-radius: 0 var(--sp-radius-sm) var(--sp-radius-sm) 0; text-decoration: none; }
+.fn-toc a:hover { color: var(--sp-on-surface); background: var(--sp-surface-container); }
+.fn-toc a[aria-current='true'] { color: var(--sp-primary); border-left-color: var(--sp-primary); }
+.fn-toc-d3 a { padding-left: 1.25rem; font-size: 0.82rem; }
+
+.fn-share { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.fn-share-label { color: var(--sp-outline); font: 500 0.72rem/1 var(--sp-font-mono); letter-spacing: 0.08em; text-transform: uppercase; margin-right: 0.35rem; }
+.fn-share-btn { display: inline-flex; align-items: center; gap: 0.4rem; border: 1px solid var(--sp-outline-variant); border-radius: 999px; background: var(--sp-surface-container-lowest); color: var(--sp-on-surface-variant); font: 500 0.8rem/1 var(--sp-font-body); padding: 0.45rem 0.75rem; text-decoration: none; cursor: pointer; }
+.fn-share-btn svg { width: 0.95rem; height: 0.95rem; flex: none; }
+.fn-share-btn:hover { border-color: var(--sp-primary); color: var(--sp-primary); }
+.fn-share-btn.is-done { border-color: var(--sp-success); color: var(--sp-success-text); background: var(--sp-success-bg); }
+.fn-share--compact { flex-direction: column; align-items: stretch; gap: 0.3rem; margin-top: 1.25rem; }
+.fn-share--compact .fn-share-label { margin: 0 0 0.3rem; }
+.fn-share--compact .fn-share-btn { border-radius: var(--sp-radius-sm); justify-content: flex-start; }
+
+.fn-anchor { margin-left: 0.4em; color: var(--sp-outline); font-weight: 400; text-decoration: none; opacity: 0; transition: opacity 120ms; }
+.fn-prose h2:hover .fn-anchor, .fn-prose h3:hover .fn-anchor, .fn-anchor:focus-visible { opacity: 1; }
+.fn-anchor:hover { color: var(--sp-primary); }
+.fn-prose h2, .fn-prose h3 { scroll-margin-top: 4.5rem; }
+
+.fn-cta { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; }
+.fn-cta a { color: var(--sp-primary); font-size: 0.9rem; font-weight: 600; text-decoration: none; }
+.fn-cta a:hover { text-decoration: underline; }
+
+.fn-card-author { text-transform: none; }
+
+/* ---- Prose: everything Markdown can produce ---- */
+.fn-prose h4 { font-size: 1.05rem; margin: 1.6em 0 0.4em; font-family: var(--sp-font-display); }
+.fn-prose hr { border: 0; border-top: 1px solid var(--sp-outline-variant); margin: 2.5em 0; }
+.fn-prose img, .fn-prose video { max-width: 100%; height: auto; border-radius: var(--sp-radius); border: 1px solid var(--sp-outline-variant); display: block; }
+.fn-prose figure { margin: 1.8em 0; }
+.fn-prose figcaption { color: var(--sp-outline); font-size: 0.85rem; margin-top: 0.5rem; text-align: center; }
+.fn-prose table { display: block; overflow-x: auto; width: 100%; border-collapse: collapse; margin: 1.6em 0; font-size: 0.92em; line-height: 1.5; }
+.fn-prose th, .fn-prose td { border: 1px solid var(--sp-outline-variant); padding: 0.5rem 0.75rem; text-align: left; vertical-align: top; }
+.fn-prose th { background: var(--sp-surface-container); font-weight: 600; font-family: var(--sp-font-display); white-space: nowrap; }
+.fn-prose tbody tr:nth-child(even) { background: var(--sp-surface-container-low); }
+.fn-prose td code, .fn-prose th code { white-space: nowrap; }
+.fn-prose kbd { font: 0.85em var(--sp-font-mono); border: 1px solid var(--sp-outline-variant); border-bottom-width: 2px; border-radius: var(--sp-radius-sm); padding: 0.05em 0.4em; background: var(--sp-surface-container-lowest); }
+.fn-prose ul ul, .fn-prose ol ol, .fn-prose ul ol, .fn-prose ol ul { margin: 0.3em 0 0; }
+.fn-prose blockquote p:last-child { margin-bottom: 0; }
+.fn-prose sup a { text-decoration: none; }
+.fn-prose .footnotes { font-size: 0.9em; color: var(--sp-on-surface-variant); border-top: 1px solid var(--sp-outline-variant); margin-top: 3em; padding-top: 1em; }
+
+/* Wide screens: table of contents and share tools in a sticky side rail. */
+@media (min-width: 70rem) {
+  .fn-article-grid { grid-template-columns: minmax(0, 46rem) 15rem; justify-content: center; }
+  .fn-aside { display: block; }
+  .fn-aside-sticky { position: sticky; top: 5rem; max-height: calc(100vh - 6rem); overflow-y: auto; }
+  .fn-toc-inline { display: none; }
+  .fn-aside .fn-toc { border: 0; background: transparent; padding: 0; }
+  .fn-aside .fn-toc summary { pointer-events: none; }
+  .fn-aside .fn-toc summary::before { display: none; }
+}

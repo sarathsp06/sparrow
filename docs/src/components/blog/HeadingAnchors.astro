@@ -1,0 +1,18 @@
+---
+// Adds a hover-revealed "#" link to every h2/h3 in the prose so readers can
+// link to a section. Astro already gives each heading a slug id.
+---
+
+<script>
+  document.querySelectorAll<HTMLHeadingElement>('.fn-prose h2[id], .fn-prose h3[id]').forEach((h) => {
+    const a = document.createElement('a');
+    a.className = 'fn-anchor';
+    a.href = `#${h.id}`;
+    a.setAttribute('aria-label', `Link to “${h.textContent?.trim()}”`);
+    a.textContent = '#';
+    a.addEventListener('click', () => {
+      navigator.clipboard?.writeText(new URL(a.href, location.href).href).catch(() => {});
+    });
+    h.append(a);
+  });
+</script>

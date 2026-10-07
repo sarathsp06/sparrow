@@ -1,0 +1,52 @@
+---
+// In-page navigation built from the post's h2/h3 headings. Rendered only
+// when there is enough to navigate; collapsed by default on small screens.
+import type { MarkdownHeading } from 'astro';
+
+interface Props { headings: MarkdownHeading[]; minHeadings?: number }
+const { headings, minHeadings = 3 } = Astro.props;
+const items = headings.filter((h) => h.depth === 2 || h.depth === 3);
+---
+
+{items.length >= minHeadings && (
+  <details class="fn-toc" open>
+    <summary>On this page</summary>
+    <nav aria-label="On this page">
+      <ol>
+        {items.map((h) => (
+          <li class={`fn-toc-d${h.depth}`}><a href={`#${h.slug}`}>{h.text}</a></li>
+        ))}
+      </ol>
+    </nav>
+  </details>
+)}
+
+<script>
+  const toc = document.querySelector<HTMLDetailsElement>('.fn-toc');
+  if (toc) {
+    // Start collapsed on narrow screens, where it sits above the prose.
+    if (!matchMedia('(min-width: 70rem)').matches) toc.open = false;
+
+    // Highlight the section currently in view.
+    const links = [...toc.querySelectorAll<HTMLAnchorElement>('a[href^="#"]')];
+    const byId = new Map(links.map((a) => [a.hash.slice(1), a]));
+    const targets = [...byId.keys()].map((id) => document.getElementById(id)).filter((el): el is HTMLElement => !!el);
+    if (targets.length && 'IntersectionObserver' in window) {
+      let current: HTMLAnchorElement | undefined;
+      const io = new IntersectionObserver(
+        (entries) => {
+          const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+          if (!visible) return;
+          const next = byId.get(visible.target.id);
+          if (next && next !== current) {
+            current?.removeAttribute('aria-current');
+            next.setAttribute('aria-current', 'true');
+            current = next;
+          }
+        },
+        { rootMargin: '-10% 0px -75% 0px' },
+      );
+      targets.forEach((t) => io.observe(t));
+    }
+  }
+</script>

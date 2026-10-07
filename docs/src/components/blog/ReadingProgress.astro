@@ -1,0 +1,22 @@
+---
+// Thin progress bar under the sticky header showing how far the reader is
+// through the article. Pure presentation; hidden from assistive tech.
+---
+
+<div class="fn-progress" aria-hidden="true"><div class="fn-progress-bar"></div></div>
+
+<script>
+  const bar = document.querySelector<HTMLElement>('.fn-progress-bar');
+  const article = document.querySelector<HTMLElement>('.fn-prose');
+  if (bar && article) {
+    const update = () => {
+      const start = article.offsetTop;
+      const end = start + article.offsetHeight - innerHeight;
+      const p = end > start ? Math.min(1, Math.max(0, (scrollY - start) / (end - start))) : 1;
+      bar.style.transform = `scaleX(${p})`;
+    };
+    update();
+    addEventListener('scroll', update, { passive: true });
+    addEventListener('resize', update);
+  }
+</script>

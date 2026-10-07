@@ -4,7 +4,7 @@ import { formatDate, tagUrl } from '../lib/blog/posts';
 
 interface Props { post: Post }
 const { post } = Astro.props;
-const { title, kicker, description } = post.frontmatter;
+const { title, kicker, description, author } = post.frontmatter;
 ---
 
 <article class="fn-card">
@@ -12,6 +12,7 @@ const { title, kicker, description } = post.frontmatter;
     {kicker && <span class="fn-kicker-sm">{kicker}</span>}
     <time datetime={post.date.toISOString()}>{formatDate(post.date, 'short')}</time>
     <span>{post.minutes} min read</span>
+    {author && <span class="fn-card-author">@{author}</span>}
   </div>
   <h2 class="fn-card-title"><a href={post.url}>{title}</a></h2>
   {description && <p>{description}</p>}

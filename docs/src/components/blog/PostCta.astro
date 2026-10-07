@@ -1,0 +1,15 @@
+---
+// What to do after reading: a single row of links, nothing more.
+import { base } from '../../lib/blog/posts';
+const repo = 'https://github.com/sarathsp06/sparrow';
+const links = [
+  { label: 'Try the quickstart', href: `${base}getting-started/quickstart/` },
+  { label: 'Star on GitHub', href: repo },
+  { label: 'Subscribe via RSS', href: `${base}blog/rss.xml` },
+  { label: 'Ask a question', href: `${repo}/issues` },
+];
+---
+
+<nav class="fn-cta" aria-label="Next steps">
+  {links.map((l) => <a href={l.href}>{l.label} →</a>)}
+</nav>

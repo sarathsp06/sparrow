@@ -1,5 +1,10 @@
 ---
 import BlogLayout from '../../layouts/BlogLayout.astro';
+import ShareBar from '../../components/blog/ShareBar.astro';
+import TableOfContents from '../../components/blog/TableOfContents.astro';
+import ReadingProgress from '../../components/blog/ReadingProgress.astro';
+import HeadingAnchors from '../../components/blog/HeadingAnchors.astro';
+import PostCta from '../../components/blog/PostCta.astro';
 import { base, formatDate, getPosts, tagUrl } from '../../lib/blog/posts';
 
 export async function getStaticPaths() {
@@ -14,6 +19,9 @@ const newer = index > 0 ? posts[index - 1] : undefined;
 const older = index < posts.length - 1 ? posts[index + 1] : undefined;
 const iso = post.date.toISOString();
 const description = frontmatter.description ?? '';
+const permalink = new URL(Astro.url.pathname, Astro.site).href;
+// Rendered at build time by src/pages/blog/og/[...route].ts.
+const ogImage = new URL(`${base}blog/og/${post.slug}.png`, Astro.site).href;
 // `author` is a GitHub username; link it to the profile.
 const authorUrl = frontmatter.author ? `https://github.com/${frontmatter.author}` : undefined;
 const jsonLd = {
@@ -27,34 +35,48 @@ const jsonLd = {
     : { '@type': 'Organization', name: 'Sparrow' },
   publisher: { '@type': 'Organization', name: 'Sparrow' },
   keywords: post.tags.join(', '),
-  mainEntityOfPage: new URL(Astro.url.pathname, Astro.site).href,
+  mainEntityOfPage: permalink,
+  image: ogImage,
 };
 ---
 
-<BlogLayout title={frontmatter.title} description={description} type="article" publishedTime={iso} tags={post.tags} jsonLd={jsonLd}>
-  <article class="fn-article">
-    <header class="fn-article-head">
-      <a class="fn-eyebrow" href={`${base}blog/`}>← Field notes</a>
-      {frontmatter.kicker && <p class="fn-kicker">{frontmatter.kicker}</p>}
-      <h1>{frontmatter.title}</h1>
-      {description && <p class="fn-standfirst">{description}</p>}
-      <div class="fn-meta">
-        <time datetime={iso}>{formatDate(post.date)}</time>
-        <span>{post.minutes} min read</span>
-        {frontmatter.author && <a href={authorUrl} rel="author">@{frontmatter.author}</a>}
+<BlogLayout title={frontmatter.title} description={description} type="article" publishedTime={iso} tags={post.tags} jsonLd={jsonLd} image={ogImage}>
+  <ReadingProgress slot="after-header" />
+  <div class="fn-article-grid">
+    <article class="fn-article">
+      <header class="fn-article-head">
+        <a class="fn-eyebrow" href={`${base}blog/`}>← Field notes</a>
+        {frontmatter.kicker && <p class="fn-kicker">{frontmatter.kicker}</p>}
+        <h1>{frontmatter.title}</h1>
+        {description && <p class="fn-standfirst">{description}</p>}
+        <div class="fn-meta">
+          <time datetime={iso}>{formatDate(post.date)}</time>
+          <span>{post.minutes} min read</span>
+          {frontmatter.author && <a href={authorUrl} rel="author">@{frontmatter.author}</a>}
+        </div>
+      </header>
+      <div class="fn-toc-inline"><TableOfContents headings={post.headings} /></div>
+      <div class="fn-prose"><Content /></div>
+      <footer class="fn-article-foot">
+        <ShareBar url={permalink} title={frontmatter.title} description={description} />
+        <ul class="fn-tags" aria-label="Tags">
+          {post.tags.map((t) => <li><a href={tagUrl(t)}>{t}</a></li>)}
+        </ul>
+        <PostCta />
+        {(older || newer) && (
+          <nav class="fn-pager" aria-label="More field notes">
+            {older ? <a href={older.url} rel="prev"><span>Earlier</span>{older.frontmatter.title}</a> : <span />}
+            {newer && <a href={newer.url} rel="next" class="fn-pager-next"><span>Later</span>{newer.frontmatter.title}</a>}
+          </nav>
+        )}
+      </footer>
+    </article>
+    <aside class="fn-aside" aria-label="Article tools">
+      <div class="fn-aside-sticky">
+        <TableOfContents headings={post.headings} />
+        <ShareBar url={permalink} title={frontmatter.title} description={description} compact />
       </div>
-    </header>
-    <div class="fn-prose"><Content /></div>
-    <footer class="fn-article-foot">
-      <ul class="fn-tags" aria-label="Tags">
-        {post.tags.map((t) => <li><a href={tagUrl(t)}>{t}</a></li>)}
-      </ul>
-      {(older || newer) && (
-        <nav class="fn-pager" aria-label="More field notes">
-          {older ? <a href={older.url} rel="prev"><span>Earlier</span>{older.frontmatter.title}</a> : <span />}
-          {newer && <a href={newer.url} rel="next" class="fn-pager-next"><span>Later</span>{newer.frontmatter.title}</a>}
-        </nav>
-      )}
-    </footer>
-  </article>
+    </aside>
+  </div>
+  <HeadingAnchors />
 </BlogLayout>
