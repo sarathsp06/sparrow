@@ -2,7 +2,8 @@
 server
 main
 httpqueue
-benchmark
+/benchmark
+cmd/benchmark/benchmark
 build/
 /dist/
 cmd/*/migrate
