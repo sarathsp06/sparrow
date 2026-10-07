@@ -11,6 +11,34 @@ This page is for the people who approve things, not the people who deploy them. 
 
 Sparrow delivers webhooks: when something happens in your systems, it tells the other systems that need to know, reliably, with proof of who sent it. The decision in front of you is whether that job runs inside your infrastructure or on a vendor's.
 
+## Why Sparrow, and not a hosted service or another open-source project?
+
+Because the other two options each make you give something up, and Sparrow does not.
+
+There are three ways to run webhook delivery. Here is what each one costs you.
+
+**A paid, hosted service.** The vendor runs the operation, and in exchange the operation is theirs. Your event payloads, your customers' endpoint URLs, the signing secrets that prove you are you, and the network path every delivery travels all sit on infrastructure you do not own and cannot inspect. You get a dashboard and an invoice. You also get a new processor on your data map, a sub-processor on your privacy notice, a per-message bill that scales with your success, and a dependency on a company whose pricing, roadmap and ownership can change without asking you.
+
+**The usual self-hosted platform.** Now everything is yours, and that is where the trouble starts. The typical open-source webhook stack arrives as a convoy: a message broker, a cache, a scheduler, a separate worker fleet, sometimes a second database, each with its own version matrix, its own failure modes, its own security advisories and its own 3 a.m. page. Ownership is real, but it is bought with an operations burden that grows every time the project adds a dependency, and the team that inherits it spends more time keeping the convoy moving than delivering webhooks.
+
+**Sparrow.** Everything stays with you, and keeping it running is trivial.
+
+- **All yours.** The binary runs in your network, the data sits in your database, the keys are held by you, and the delivery path is one you can trace end to end. There is no control plane, no phone-home, no vendor in the loop.
+- **All open.** MIT licence, every line readable by your security team, nothing held back for an enterprise tier, and a stack of open-source components all the way down.
+- **All standards.** Standard Webhooks signatures, OpenAPI 3.1, OpenTelemetry, CloudEvents. Every seam where you could be locked in is an open specification instead.
+- **One dependency, and it is PostgreSQL.** Not a broker plus a cache plus a queue. One database, the most widely deployed SQL database in the world, the one your team already runs, backs up, monitors and trusts. Queueing, scheduling, rate limiting, retry state and the audit trail all live inside it, using the same backup you already take and the same expertise you already have. A single Go process on top. Migrations run themselves on start. Upgrading is replacing a binary.
+
+| | Hosted service | Typical self-hosted | Sparrow |
+|---|---|---|---|
+| Who holds the data, keys and network path | The vendor | You | You |
+| Who carries the operations | The vendor | You, across many moving parts | You, with one process and one database |
+| Infrastructure dependencies | Opaque | Broker, cache, workers, database | PostgreSQL |
+| Source you can audit | No | Usually | Yes, all of it, MIT |
+| Price scales with volume | Yes | No | No |
+| Can be withdrawn or repriced | Yes | No | No |
+
+The result is the combination the other two cannot offer: the sovereignty of self-hosting with an operational footprint smaller than most teams' internal services. That is the case for Sparrow in one sentence. The rest of this page is the evidence.
+
 ## Where does our data go?
 
 Nowhere you did not put it. Sparrow is a single Go binary and a PostgreSQL database, both of which you run. Event payloads, customer endpoints, and secrets never leave your network unless you deliver them to a destination you chose. There is no control plane to call home to, no usage reporting, and telemetry export is off unless you turn it on ([configuration](/sparrow/getting-started/configuration/)).
@@ -107,6 +135,8 @@ Sparrow is an open-source project with a public repository, public issue tracker
 
 | Question | Answer |
 |---|---|
+| Why not a hosted service? | Your data, keys and network would be theirs; the bill grows with volume. |
+| Why not another self-hosted platform? | Brokers, caches and worker fleets to run; Sparrow needs only PostgreSQL. |
 | Where is our data? | In your network, in your PostgreSQL. |
 | Is there a new vendor to assess? | No. There is nothing to send data to. |
 | Secrets at rest? | AES-256-GCM envelope encryption, rotatable keys you hold. |
