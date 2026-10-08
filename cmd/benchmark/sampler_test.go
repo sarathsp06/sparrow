@@ -40,6 +40,36 @@ func TestResourceSampler_Self(t *testing.T) {
 	assert.GreaterOrEqual(t, usage.SparrowCPUAvg, 0.0)
 }
 
+func TestResourceSampler_MemoryUsageTracking(t *testing.T) {
+	pid := os.Getpid()
+	cfg := ResourceConfig{
+		SparrowPID: pid,
+	}
+
+	sampler, err := NewResourceSampler(cfg)
+	require.NoError(t, err)
+	require.NotNil(t, sampler)
+
+	// Manually invoke sample before allocation
+	sampler.sample()
+
+	// Allocate a slice to change memory usage and ensure it is touched
+	buf := make([]byte, 10*1024*1024)
+	for i := 0; i < len(buf); i += 4096 {
+		buf[i] = 1
+	}
+
+	// Sample again after allocation
+	sampler.sample()
+
+	usage := sampler.summarize(100)
+	require.NotNil(t, usage)
+	assert.Greater(t, usage.SparrowPeakRSS, 0.0, "peak RSS memory usage should be recorded and positive")
+
+	// Ensure buf is retained until here
+	assert.NotEmpty(t, buf)
+}
+
 func TestResourceSampler_Summarize(t *testing.T) {
 	s := &ResourceSampler{
 		cfg: ResourceConfig{
