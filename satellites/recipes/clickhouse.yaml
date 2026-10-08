@@ -3,17 +3,26 @@ name: clickhouse
 description: Insert events into a ClickHouse table over the HTTP interface (JSONEachRow)
 params:
   - name: base_url
-    prompt: "ClickHouse HTTP endpoint (e.g. https://ch.example.com:8443)"
+    prompt: "ClickHouse HTTP endpoint"
+    help: "Base URL of the ClickHouse HTTP interface, with scheme and port; no path."
+    example: https://ch.example.com:8443
+    docs_url: https://clickhouse.com/docs/en/interfaces/http
     required: true
   - name: table
-    prompt: "Destination table (e.g. sparrow.events); needs columns event_id/event_name/timestamp String, payload String"
+    prompt: "Destination table"
+    help: "Database-qualified table; it needs String columns event_id, event_name, timestamp and payload."
+    example: sparrow.events
     required: true
   - name: user
     prompt: "ClickHouse user"
+    help: "A user allowed to INSERT into the table."
+    example: sparrow_writer
     required: true
   - name: password
     prompt: "ClickHouse password"
+    help: "Password of that user. Stored encrypted and never shown again."
     required: true
+    secret: true
 webhook:
   # The receiver only accepts the transformed payload below.
   requires_transform: true

@@ -235,6 +235,33 @@ func TestIsReservedEventName(t *testing.T) {
 	}
 }
 
+func TestCheckEventForConsumer(t *testing.T) {
+	tests := []struct {
+		consumer, event string
+		ok              bool
+	}{
+		{"_sparrow", "sparrow.webhook.health_changed", true},
+		{"_sparrow", "order.created", false},
+		{"_sparrow", "*", true},
+		{"billing", "*", true},
+		{"billing", "order.created", true},
+		{"billing", "sparrow.webhook.disabled", false},
+		{"billing", "Sparrow.webhook.disabled", false},
+	}
+	for _, tt := range tests {
+		err := checkEventForConsumer(tt.consumer, tt.event)
+		if tt.ok {
+			assert.NoError(t, err, "%s/%s", tt.consumer, tt.event)
+			continue
+		}
+		require.Error(t, err, "%s/%s", tt.consumer, tt.event)
+		assertStatus(t, err, svcerrors.InvalidArgument)
+	}
+	assert.Equal(t, new(false), eventTypesForConsumer(""))
+	assert.Equal(t, new(true), eventTypesForConsumer("_sparrow"))
+	assert.Equal(t, new(false), eventTypesForConsumer("billing"))
+}
+
 func TestSaveEventType_VersionLifecycle(t *testing.T) {
 	repo := newFakeEventTypeRepo()
 	svc := NewWebhookService(nil, repo, nil)

@@ -20,7 +20,7 @@ type EventTypeRepository interface {
 	GetEventByName(ctx context.Context, tenantID uuid.UUID, eventName string) (*EventRegistration, error)
 	GetEventByNameForUpdate(ctx context.Context, tenantID uuid.UUID, eventName string) (*EventRegistration, error)
 	ListEvents(ctx context.Context, tenantID uuid.UUID, activeOnly bool) ([]*EventRegistration, error)
-	ListEventsPaginated(ctx context.Context, tenantID uuid.UUID, activeOnly bool, limit, offset int) ([]*EventRegistration, int, error)
+	ListEventsPaginated(ctx context.Context, tenantID uuid.UUID, filter EventTypeFilter, limit, offset int) ([]*EventRegistration, int, error)
 	UpdateEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) error
 	AddEventTypeVersion(ctx context.Context, tenantID uuid.UUID, version *EventRegistrationVersion) error
 	FillInEventTypeVersion(ctx context.Context, tenantID uuid.UUID, version *EventRegistrationVersion) error
@@ -103,15 +103,35 @@ func (r *Repository) getEventByName(ctx context.Context, tenantID uuid.UUID, eve
 
 // ListEvents returns all registered events for a tenant
 func (r *Repository) ListEvents(ctx context.Context, tenantID uuid.UUID, activeOnly bool) ([]*EventRegistration, error) {
-	events, _, err := r.ListEventsPaginated(ctx, tenantID, activeOnly, 1000, 0)
+	events, _, err := r.ListEventsPaginated(ctx, tenantID, EventTypeFilter{ActiveOnly: activeOnly}, 1000, 0)
 	return events, err
 }
 
+// SystemEventPrefix is the name prefix of Sparrow's own system event types
+// (e.g. sparrow.webhook.health_changed).
+const SystemEventPrefix = "sparrow."
+
+// EventTypeFilter narrows ListEventsPaginated.
+type EventTypeFilter struct {
+	ActiveOnly bool
+	// System, when set, keeps only Sparrow's system event types (true) or
+	// only tenant event types (false). Nil keeps both.
+	System *bool
+}
+
+// eventTypeFilterWhere matches EventTypeFilter with $2 = ActiveOnly and
+// $3 = System. The prefix match is case-insensitive, like
+// webhooks.IsReservedEventName.
+const eventTypeFilterWhere = `
+	tenant_id = $1
+	AND ($2 IS FALSE OR active = true)
+	AND ($3::boolean IS NULL OR (lower(name) LIKE '` + SystemEventPrefix + `%') = $3)`
+
 // ListEventsPaginated returns registered events for a tenant with pagination
-func (r *Repository) ListEventsPaginated(ctx context.Context, tenantID uuid.UUID, activeOnly bool, limit, offset int) ([]*EventRegistration, int, error) {
-	countQuery := `SELECT COUNT(*) FROM event_registrations WHERE tenant_id = $1 AND ($2 IS FALSE OR active = true)`
+func (r *Repository) ListEventsPaginated(ctx context.Context, tenantID uuid.UUID, filter EventTypeFilter, limit, offset int) ([]*EventRegistration, int, error) {
+	countQuery := `SELECT COUNT(*) FROM event_registrations WHERE ` + eventTypeFilterWhere
 	var totalCount int
-	err := r.conn.GetContext(ctx, &totalCount, countQuery, tenantID, activeOnly)
+	err := r.conn.GetContext(ctx, &totalCount, countQuery, tenantID, filter.ActiveOnly, filter.System)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -119,12 +139,12 @@ func (r *Repository) ListEventsPaginated(ctx context.Context, tenantID uuid.UUID
 	query := `
 		SELECT ` + eventRegistrationColumns + `
 		FROM event_registrations
-		WHERE tenant_id = $1 AND ($2 IS FALSE OR active = true)
+		WHERE ` + eventTypeFilterWhere + `
 		ORDER BY name ASC
-		LIMIT $3 OFFSET $4
+		LIMIT $4 OFFSET $5
 	`
 	var events []*EventRegistration
-	err = r.conn.SelectContext(ctx, &events, query, tenantID, activeOnly, limit, offset)
+	err = r.conn.SelectContext(ctx, &events, query, tenantID, filter.ActiveOnly, filter.System, limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}

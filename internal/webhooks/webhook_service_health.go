@@ -114,8 +114,8 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 		}, nil
 	}
 
-	// Get health summary for the last 24 hours
-	healthSummary, err := s.webhookRepo.GetWebhookHealthSummary(ctx, id, 24)
+	// Metrics over the same window the health label is derived from.
+	healthSummary, err := s.webhookRepo.GetWebhookHealthSummary(ctx, id, store.DefaultHealthRules.WindowHours)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Failed to get health summary", "error", err)
 		// Continue with just the state info
@@ -154,19 +154,18 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 	return healthData, nil
 }
 
-// GetHealthSummary retrieves a summary of webhook health across all consumers
-func (s *WebhookService) GetHealthSummary(ctx context.Context) (*HealthSummaryData, error) {
+// GetHealthSummary counts webhooks by health in one consumer, or across all
+// consumers when consumer is empty.
+func (s *WebhookService) GetHealthSummary(ctx context.Context, consumer string) (*HealthSummaryData, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.GetHealthSummary")
 	defer span.End()
 
-	s.logger.InfoContext(ctx, "Processing get health summary request")
+	s.logger.InfoContext(ctx, "Processing get health summary request", "consumer", consumer)
 
 	tenantID := tenant.DefaultTenantID
 
-	// Health summary is a cross-consumer query — only tenant-level roles can do this
-
 	// Get health summary from repository
-	summary, err := s.webhookRepo.GetHealthSummary(ctx, tenantID)
+	summary, err := s.webhookRepo.GetHealthSummary(ctx, tenantID, consumer)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "Failed to get health summary")
@@ -196,7 +195,8 @@ func (s *WebhookService) GetHealthSummary(ctx context.Context) (*HealthSummaryDa
 	return healthSummary, nil
 }
 
-// GetConsumerStats retrieves statistics for a consumer, or across all consumers if empty
+// GetConsumerStats retrieves statistics for a consumer, or across all
+// consumers if empty.
 func (s *WebhookService) GetConsumerStats(ctx context.Context, consumer string) (*ConsumerStatsData, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.GetConsumerStats")
 	defer span.End()
@@ -227,4 +227,19 @@ func (s *WebhookService) GetConsumerStats(ctx context.Context, consumer string) 
 		"active_webhooks", res.ActiveWebhooks,
 		"success_rate", res.SuccessRate)
 	return res, nil
+}
+
+// ListConsumers returns up to limit consumer names that own a webhook or an
+// event and contain query (case-insensitive), sorted by name.
+func (s *WebhookService) ListConsumers(ctx context.Context, query string, limit int32) ([]string, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.ListConsumers")
+	defer span.End()
+
+	l, _ := normalizePagination(int(limit), 0)
+	names, err := s.webhookRepo.ListConsumers(ctx, tenant.DefaultTenantID, query, l)
+	if err != nil {
+		span.RecordError(err)
+		return nil, fmt.Errorf("failed to list consumers: %w", err)
+	}
+	return names, nil
 }

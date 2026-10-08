@@ -26,6 +26,7 @@ type deliveryIDOnlyInput struct {
 type deliveryItem struct {
 	DeliveryID      string  `json:"delivery_id" doc:"Delivery id (UUID)."`
 	WebhookID       string  `json:"webhook_id" doc:"Webhook this delivery was sent to."`
+	Consumer        string  `json:"consumer,omitempty" doc:"Consumer of the webhook. Set in delivery listings."`
 	EventID         string  `json:"event_id" doc:"Pushed event occurrence this delivery originated from."`
 	Status          string  `json:"status" enum:"pending,sending,success,failed,retrying,expired,paused" doc:"Current delivery status. paused: created while its subscription was paused; not attempted until retried."`
 	AttemptCount    int     `json:"attempt_count" doc:"Number of delivery attempts made so far."`
@@ -48,6 +49,7 @@ func toDeliveryItem(dl *store.WebhookDelivery) deliveryItem {
 	item := deliveryItem{
 		DeliveryID:    dl.ID.String(),
 		WebhookID:     dl.WebhookID.String(),
+		Consumer:      dl.Consumer,
 		EventID:       dl.EventID.String(),
 		Status:        string(dl.Status),
 		AttemptCount:  dl.AttemptCount,

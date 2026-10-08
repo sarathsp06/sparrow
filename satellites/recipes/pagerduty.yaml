@@ -3,10 +3,16 @@ name: pagerduty
 description: Trigger PagerDuty alerts from events via the Events API v2
 params:
   - name: routing_key
-    prompt: "PagerDuty Events API v2 integration/routing key (32 characters)"
+    prompt: "Routing key"
+    help: "The 32-character Integration Key of an Events API v2 integration on a PagerDuty service."
+    example: R0123456789ABCDEF0123456789ABCDE
+    docs_url: https://support.pagerduty.com/main/docs/services-and-integrations#create-a-generic-events-api-integration
     required: true
   - name: severity
-    prompt: "Default severity when the payload has none (critical|error|warning|info)"
+    prompt: "Default severity"
+    help: "Used when the event payload has no severity field of its own."
+    enum: [critical, error, warning, info]
+    docs_url: https://developer.pagerduty.com/docs/events-api-v2-overview
     default: error
 webhook:
   # The receiver only accepts the transformed payload below.

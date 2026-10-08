@@ -43,6 +43,9 @@ func newPortalGateway(t *testing.T) (*access.Service, http.Handler, *string) {
 			return
 		}
 		*seen = r.URL.Path
+		if r.URL.RawQuery != "" {
+			*seen += "?" + r.URL.RawQuery
+		}
 		w.WriteHeader(http.StatusNoContent)
 	})
 	return svc, PortalGateway(NewPortalVerifier(svc, testRealm), next), seen
@@ -81,9 +84,13 @@ func TestPortalGatewayScopesToTokenConsumer(t *testing.T) {
 		{http.MethodPost, "/portal/api/events", http.StatusForbidden, ""},
 		{http.MethodPost, "/portal/api/tokens", http.StatusNoContent, "/v1/consumers/acme/tokens"},
 		// Read-only global helpers the portal UI needs: allowed, not consumer-scoped.
-		{http.MethodGet, "/portal/api/event-types", http.StatusNoContent, "/v1/event-types"},
+		// The event-type list is pinned to the token's consumer, whatever the
+		// client asks for.
+		{http.MethodGet, "/portal/api/event-types", http.StatusNoContent, "/v1/event-types?consumer=acme"},
+		{http.MethodGet, "/portal/api/event-types?consumer=_sparrow&active_only=true", http.StatusNoContent, "/v1/event-types?active_only=true&consumer=acme"},
 		{http.MethodGet, "/portal/api/event-types/order.created", http.StatusNoContent, "/v1/event-types/order.created"},
 		{http.MethodGet, "/portal/api/template-functions", http.StatusNoContent, "/v1/template-functions"},
+		{http.MethodGet, "/portal/api/capabilities", http.StatusNoContent, "/v1/capabilities"},
 		{http.MethodPost, "/portal/api/subscriptions:testTemplate", http.StatusNoContent, "/v1/subscriptions:testTemplate"},
 		// Dot segments, empty segments and backslashes never reach the router,
 		// so the consumer pin can't be escaped even if paths get cleaned later.
@@ -164,6 +171,9 @@ func TestPortalGatewayAcceptsConsumerAccessTokens(t *testing.T) {
 	seen := new(string)
 	gw := PortalGateway(NewPortalVerifier(svc, testRealm), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		*seen = r.URL.Path
+		if r.URL.RawQuery != "" {
+			*seen += "?" + r.URL.RawQuery
+		}
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	ctx := context.Background()

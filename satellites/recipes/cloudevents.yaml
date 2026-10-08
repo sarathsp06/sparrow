@@ -3,10 +3,16 @@ name: cloudevents
 description: Deliver events as CloudEvents 1.0 (HTTP structured mode) to any CloudEvents receiver
 params:
   - name: target_url
-    prompt: "CloudEvents receiver URL (e.g. a Knative broker, Argo Events or Dapr endpoint)"
+    prompt: "CloudEvents receiver URL"
+    help: "Any HTTP receiver that accepts structured-mode CloudEvents, e.g. a Knative broker, Argo Events or Dapr endpoint."
+    example: http://broker-ingress.knative-eventing.svc/default/default
+    docs_url: https://github.com/cloudevents/spec/blob/main/cloudevents/bindings/http-protocol-binding.md
     required: true
   - name: source
-    prompt: "CloudEvents source attribute identifying this producer (a URI-reference)"
+    prompt: "Event source"
+    help: "The CloudEvents source attribute identifying this producer, a URI-reference."
+    example: /sparrow/prod
+    docs_url: https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md#source-1
     default: /sparrow
 webhook:
   # The receiver only accepts the transformed payload below.

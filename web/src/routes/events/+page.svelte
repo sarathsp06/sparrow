@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { api, unwrap } from '$lib/services';
-	import { onMount } from 'svelte';
+	import { untrack } from 'svelte';
 	import { JSONEditor, Mode, type Content } from 'svelte-jsoneditor';
 	import type { components } from '$lib/api-types';
 	import EmptyState from '$lib/components/EmptyState.svelte';
@@ -10,6 +10,8 @@
 	import EventTypeImport from '$lib/components/EventTypeImport.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import { formatAPIError } from '$lib/utils';
+	import { consumerFilter, withConsumer } from '$lib/consumer.svelte';
+	import { ALERTS_GUIDE_URL, SYSTEM_CONSUMER, isSystemConsumer } from '$lib/system';
 
 	type EventTypeItem = components["schemas"]["EventTypeItem"];
 
@@ -46,7 +48,8 @@
 		try {
 			const offset = (currentPage - 1) * pageSize;
 			const res = unwrap(await api.GET('/v1/event-types', {
-				params: { query: { active_only: false, limit: pageSize, offset } },
+				// Sparrow's own sparrow.* events are listed only when the switcher is on _sparrow.
+				params: { query: { active_only: false, consumer: consumerFilter.value || undefined, limit: pageSize, offset } },
 			}));
 			events = res.items || [];
 			totalCount = res.pagination?.total_count || 0;
@@ -57,7 +60,13 @@
 		}
 	}
 
-	onMount(fetchEvents);
+	$effect(() => {
+		consumerFilter.value; // refetch when the active consumer changes
+		untrack(() => {
+			currentPage = 1;
+			fetchEvents();
+		});
+	});
 
 	function handlePageChange(pageNum: number) {
 		currentPage = pageNum;
@@ -171,6 +180,27 @@
 		</div>
 	</div>
 
+	<!-- Event types are tenant-wide; the only split is yours versus Sparrow's own alert events. -->
+	<div class="flex gap-1 mb-4" role="group" aria-label="Which event types">
+		{#each [{ value: '', label: 'Your event types' }, { value: SYSTEM_CONSUMER, label: `Sparrow alert events (${SYSTEM_CONSUMER})` }] as opt (opt.value)}
+			<button
+				type="button"
+				onclick={() => (consumerFilter.value = opt.value)}
+				aria-pressed={consumerFilter.value === opt.value || (!opt.value && !isSystemConsumer(consumerFilter.value))}
+				class="px-3 py-1.5 text-xs rounded-md mono transition-colors {consumerFilter.value === opt.value || (!opt.value && !isSystemConsumer(consumerFilter.value)) ? 'bg-beacon text-[#2a1a02] font-semibold' : 'text-muted border border-line hover:text-text hover:bg-black/5'}"
+			>
+				{opt.label}
+			</button>
+		{/each}
+	</div>
+
+	{#if isSystemConsumer(consumerFilter.value)}
+		<p class="panel-2 px-4 py-3 mb-4 text-sm text-muted" data-testid="system-events-note">
+			These are Sparrow's own alert events. Sparrow emits them itself, under this consumer only; subscribe an alert-delivery webhook to them to send alert emails.
+			<a href={ALERTS_GUIDE_URL} target="_blank" rel="noreferrer" class="link-beacon">Guide</a>
+		</p>
+	{/if}
+
 	{#if !loading && !error && events.length > 0}
 		<div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
 			<input
@@ -226,7 +256,7 @@
 					</thead>
 					<tbody>
 						{#each filteredEvents as ev}
-							<tr class="row-line row-hover transition cursor-pointer" onclick={() => goto(`/events/${encodeURIComponent(ev.name)}/reports`)}>
+							<tr class="row-line row-hover transition cursor-pointer" onclick={() => goto(withConsumer(`/events/${encodeURIComponent(ev.name)}/reports`, consumerFilter.value))}>
 								<td class="td" onclick={(e) => e.stopPropagation()}>
 									{#if !isSystemEvent(ev.name)}
 										<input type="checkbox" aria-label="Select {ev.name} for export" checked={selected.has(ev.name)} onchange={() => toggleSelected(ev.name)} class="accent-[color:var(--color-beacon)]" />

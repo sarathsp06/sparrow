@@ -69,6 +69,13 @@ func PortalGateway(verify PortalVerifier, next http.Handler) http.Handler {
 		r2 := r.Clone(ctx)
 		r2.URL.Path = target
 		r2.URL.RawPath = ""
+		if target == "/v1/event-types" {
+			// The catalog lists only what this consumer can subscribe to, so a
+			// portal never offers Sparrow's own sparrow.* events.
+			q := r2.URL.Query()
+			q.Set("consumer", consumer)
+			r2.URL.RawQuery = q.Encode()
+		}
 		r2.RequestURI = ""
 		next.ServeHTTP(w, r2)
 	})
@@ -79,7 +86,7 @@ func PortalGateway(verify PortalVerifier, next http.Handler) http.Handler {
 // A token for consumer C may reach anything under /v1/consumers/C/ except
 // injecting events (the producer's job), plus the
 // read-only global helpers the portal UI needs (event-type catalog, template
-// function list, and the stateless template dry-run).
+// function list, server capabilities, and the stateless template dry-run).
 func portalTarget(method, rest, consumer string) (string, bool) {
 	if !cleanPortalPath(rest) {
 		return "", false
@@ -91,6 +98,8 @@ func portalTarget(method, rest, consumer string) (string, bool) {
 		return "/v1/" + rest, true
 	case method == http.MethodGet && rest == "template-functions":
 		return "/v1/template-functions", true
+	case method == http.MethodGet && rest == "capabilities":
+		return "/v1/capabilities", true
 	case method == http.MethodPost && rest == "subscriptions:testTemplate":
 		return "/v1/subscriptions:testTemplate", true
 	default:

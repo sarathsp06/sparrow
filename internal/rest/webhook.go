@@ -72,6 +72,28 @@ type webhookOutput struct {
 	Body WebhookOut
 }
 
+type rotateWebhookSecretOutput struct {
+	Body struct {
+		WebhookSecret string `json:"webhook_secret" doc:"The new HMAC signing secret, in plaintext. Shown only in this response."`
+	}
+}
+
+type listConsumersInput struct {
+	Q     string `query:"q" maxLength:"255" doc:"Only consumers whose name contains this text, case-insensitive."`
+	Limit int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum names to return."`
+}
+
+// ConsumerItem is one consumer in a consumer search.
+type ConsumerItem struct {
+	Name string `json:"name" doc:"Consumer name."`
+}
+
+type listConsumersOutput struct {
+	Body struct {
+		Items []ConsumerItem `json:"items"`
+	}
+}
+
 type consumerOnlyInput struct {
 	Consumer string `path:"consumer"`
 }
@@ -368,6 +390,24 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 	})
 
 	huma.Register(api, huma.Operation{
+		OperationID: "rotateWebhookSecret",
+		Method:      http.MethodPost,
+		Path:        "/v1/consumers/{consumer}/webhooks/{webhook_id}:rotateSecret",
+		Summary:     "Rotate a webhook's signing secret",
+		Description: "Replaces the webhook's HMAC signing secret with a newly generated one and returns it in plaintext. This response is the only time the new secret is shown; it is masked on every later read. Deliveries sent after the rotation are signed with the new secret, so update the receiver right away.",
+		Errors:      []int{404},
+		Tags:        []string{"Webhooks"},
+	}, func(ctx context.Context, in *webhookIDInput) (*rotateWebhookSecretOutput, error) {
+		secret, err := svc.RotateWebhookSecret(ctx, in.WebhookID, in.Consumer)
+		if err != nil {
+			return nil, mapError(ctx, err, "failed to rotate webhook secret")
+		}
+		out := &rotateWebhookSecretOutput{}
+		out.Body.WebhookSecret = secret
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
 		OperationID:   "pauseWebhook",
 		Method:        http.MethodPost,
 		Path:          "/v1/consumers/{consumer}/webhooks/{webhook_id}:pause",
@@ -398,6 +438,26 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 		}
 		out := &resumeWebhookOutput{}
 		out.Body.PausedDeliveries = res.PausedDeliveries
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "listConsumers",
+		Method:      http.MethodGet,
+		Path:        "/v1/consumers",
+		Summary:     "Search consumer names",
+		Description: "Lists the consumers that own a webhook or an event, sorted by name, optionally only those whose name contains q (case-insensitive). Consumers are created implicitly by registering a webhook or pushing an event under them; this is how clients find them, e.g. for a consumer picker.",
+		Tags:        []string{"Webhooks"},
+	}, func(ctx context.Context, in *listConsumersInput) (*listConsumersOutput, error) {
+		names, err := svc.ListConsumers(ctx, in.Q, in.Limit)
+		if err != nil {
+			return nil, mapError(ctx, err, "failed to list consumers")
+		}
+		out := &listConsumersOutput{}
+		out.Body.Items = make([]ConsumerItem, 0, len(names))
+		for _, n := range names {
+			out.Body.Items = append(out.Body.Items, ConsumerItem{Name: n})
+		}
 		return out, nil
 	})
 

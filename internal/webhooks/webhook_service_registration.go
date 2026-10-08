@@ -249,8 +249,11 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		if event == "" {
 			return nil, svcerrors.Error(svcerrors.InvalidArgument, "empty event name not allowed")
 		}
+		if err := checkEventForConsumer(req.Consumer, event); err != nil {
+			return nil, err
+		}
 		// Check if event is registered
-		events, _, err := s.webhookRepo.ListEventsPaginated(ctx, tenantID, false, 1000, 0)
+		events, _, err := s.webhookRepo.ListEventsPaginated(ctx, tenantID, store.EventTypeFilter{}, 1000, 0)
 		if err != nil {
 			s.logger.WarnContext(ctx, "Failed to validate event names", "error", err)
 		} else {
@@ -620,6 +623,9 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	replaceEvents := shouldUpdate("events") && len(events) > 0
 	if replaceEvents {
 		for _, event := range events {
+			if err := checkEventForConsumer(consumer, event); err != nil {
+				return err
+			}
 			newSubs = append(newSubs, &store.EventSubscription{
 				EventName: event,
 			})
@@ -847,4 +853,42 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	s.logger.InfoContext(ctx, "Webhook configuration updated successfully",
 		"webhook_id", webhookID)
 	return nil
+}
+
+// RotateWebhookSecret replaces a webhook's HMAC signing secret with a freshly
+// generated one and returns it in plaintext. This is the only time the new
+// secret is readable; every later read masks it. Deliveries signed after the
+// rotation use the new secret, so receivers must be updated with it.
+func (s *WebhookService) RotateWebhookSecret(ctx context.Context, webhookID string, consumer string) (string, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.RotateWebhookSecret")
+	defer span.End()
+
+	if consumer == "" {
+		return "", svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
+	}
+	webhookUUID, err := parseUUID(webhookID, "webhook ID")
+	if err != nil {
+		return "", err
+	}
+
+	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenant.DefaultTenantID, webhookUUID, consumer)
+	if err != nil {
+		return "", fmt.Errorf("failed to retrieve webhook: %w", err)
+	}
+
+	secret, err := generateWebhookSecret()
+	if err != nil {
+		return "", fmt.Errorf("failed to generate webhook secret: %w", err)
+	}
+	encSecret, err := s.EncryptWebhookSecret(secret)
+	if err != nil {
+		return "", fmt.Errorf("failed to encrypt webhook secret: %w", err)
+	}
+	webhook.WebhookSecret = encSecret
+
+	if err := s.webhookRepo.UpdateWebhook(ctx, tenant.DefaultTenantID, webhook); err != nil {
+		return "", fmt.Errorf("failed to store rotated webhook secret: %w", err)
+	}
+	s.logger.InfoContext(ctx, "Rotated webhook signing secret", "webhook_id", webhookID, "consumer", consumer)
+	return secret, nil
 }

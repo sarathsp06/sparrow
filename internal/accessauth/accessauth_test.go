@@ -139,7 +139,7 @@ func TestValidateConsumer(t *testing.T) {
 			t.Errorf("ValidateConsumer(%q) = %v", ok, err)
 		}
 	}
-	for _, bad := range []string{"", " acme", "acme ", ".", "..", "../../v1", "a/b", `a\b`, "a?b", "a#b", "a%2fb", "a\nb", strings.Repeat("x", 256)} {
+	for _, bad := range []string{"", " acme", "acme ", ".", "..", "../../v1", "a/b", `a\b`, "a?b", "a#b", "a%2fb", "a\nb", "_sparrow", strings.Repeat("x", 256)} {
 		if err := ValidateConsumer(bad); err == nil {
 			t.Errorf("ValidateConsumer(%q) accepted", bad)
 		}

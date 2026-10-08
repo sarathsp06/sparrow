@@ -215,8 +215,8 @@ func (r *Repository) evaluateHealth(ctx context.Context, upTo time.Time, maxEven
 	if err := r.conn.SelectContext(ctx, &wins, `
 		SELECT webhook_id, SUM(attempts) AS attempts, SUM(failures) AS failures
 		FROM webhook_health_buckets
-		WHERE webhook_id = ANY($1) AND bucket_start >= date_trunc('minute', $2::timestamptz) - INTERVAL '24 hours'
-		GROUP BY webhook_id`, pq.Array(ids), to); err != nil {
+		WHERE webhook_id = ANY($1) AND bucket_start >= date_trunc('minute', $2::timestamptz) - make_interval(hours => $3)
+		GROUP BY webhook_id`, pq.Array(ids), to, DefaultHealthRules.WindowHours); err != nil {
 		return nil, storage.Error(err)
 	}
 	window := make(map[uuid.UUID]winRow, len(wins))

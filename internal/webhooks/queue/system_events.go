@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sarathsp06/schemagen"
 
+	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
@@ -17,7 +18,7 @@ import (
 // opt an email address into them via webhook_alert_configs, and an operator
 // wires an actual delivery channel (e.g. the sendgrid recipe) as a normal
 // webhook + subscription under this consumer.
-const SystemEventConsumer = "_sparrow"
+const SystemEventConsumer = tenant.SystemConsumer
 
 const (
 	// systemEventHealthChanged fires on every webhook health transition

@@ -86,6 +86,9 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, even
 	if consumer == "" {
 		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
 	}
+	if err := checkEventForConsumer(consumer, eventName); err != nil {
+		return "", time.Time{}, err
+	}
 	if err := validateHeaders("headers", headers); err != nil {
 		return "", time.Time{}, err
 	}

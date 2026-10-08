@@ -16,11 +16,12 @@ func newEventsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "events [name]",
 		Short: "List event types, or show one type's detail",
-		Long: `List registered event types so you know what to subscribe to. With a name
+		Long: `List the event types the consumer can subscribe to. Sparrow's own
+sparrow.* events are listed only with --consumer _sparrow. With a name
 argument, show that event type's schema and sample payload.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, _, err := clientFromCmd(cmd)
+			client, cfg, err := clientFromCmd(cmd)
 			if err != nil {
 				return err
 			}
@@ -28,7 +29,7 @@ argument, show that event type's schema and sample payload.`,
 			if len(args) == 1 {
 				name = args[0]
 			}
-			return runEvents(cmd.Context(), cmd.OutOrStdout(), client, name, activeOnly, outputFmt(cmd))
+			return runEvents(cmd.Context(), cmd.OutOrStdout(), client, cfg.Consumer, name, activeOnly, outputFmt(cmd))
 		},
 	}
 	cmd.Flags().BoolVar(&activeOnly, "active", false, "only show active event types")
@@ -37,8 +38,9 @@ argument, show that event type's schema and sample payload.`,
 	return cmd
 }
 
-// runEvents lists event types, or shows one type's full detail when named.
-func runEvents(ctx context.Context, out io.Writer, client *apiClient, name string, activeOnly bool, format string) error {
+// runEvents lists the event types consumer can subscribe to, or shows one
+// type's full detail when named.
+func runEvents(ctx context.Context, out io.Writer, client *apiClient, consumer, name string, activeOnly bool, format string) error {
 	if name != "" {
 		et, err := client.getEventType(ctx, name)
 		if err != nil {
@@ -50,7 +52,7 @@ func runEvents(ctx context.Context, out io.Writer, client *apiClient, name strin
 		return printEventType(out, et)
 	}
 
-	types, err := client.listEventTypes(ctx, activeOnly)
+	types, err := client.listEventTypes(ctx, consumer, activeOnly)
 	if err != nil {
 		return err
 	}

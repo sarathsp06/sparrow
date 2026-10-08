@@ -3,7 +3,8 @@
     import { EventReportsTable, Pagination } from '$lib';
     import { api, unwrap } from '$lib/services';
     import { onDestroy } from 'svelte';
-    import { consumerStore } from '$lib/consumer.svelte';
+    import { consumerFilter } from '$lib/consumer.svelte';
+    import ConsumerPicker from '$lib/components/ConsumerPicker.svelte';
     import type { components } from '$lib/api-types';
     import { formatAPIError } from '$lib/utils';
     import BatchProgress from '$lib/components/BatchProgress.svelte';
@@ -60,7 +61,7 @@
         }
 
         const offset = (pageNum - 1) * pageSize;
-        const ns = consumerStore.value;
+        const ns = consumerFilter.value;
 
         try {
             const res = unwrap(await api.GET('/v1/events', {
@@ -140,7 +141,7 @@
         if (!repushId) return;
         // Repush-job routes ignore the path consumer (jobs are id-scoped);
         // "default" is a placeholder when scope is all-consumers.
-        const ns = consumerStore.value || 'default';
+        const ns = consumerFilter.value || 'default';
         try {
             const res = unwrap(await api.POST('/v1/consumers/{consumer}/events:rePush', {
                 params: { path: { consumer: ns } },
@@ -155,7 +156,7 @@
 
     function startPolling() {
         if (pollingTimer) clearInterval(pollingTimer);
-        const ns = consumerStore.value || 'default';
+        const ns = consumerFilter.value || 'default';
         pollingTimer = setInterval(async () => {
             if (!repushId) { stopPolling(); return; }
             try {
@@ -178,7 +179,7 @@
 
     async function cancelRepush() {
         if (!repushId) return;
-        const ns = consumerStore.value || 'default';
+        const ns = consumerFilter.value || 'default';
         try {
             await api.POST('/v1/consumers/{consumer}/repush-jobs/{job_id}:cancel', {
                 params: { path: { consumer: ns, job_id: repushId } },
@@ -193,7 +194,7 @@
     }
 
     $effect(() => {
-        consumerStore.value; // refetch when the active consumer changes
+        consumerFilter.value; // refetch when the active consumer changes
         fetchEventReports(1);
     });
 </script>
@@ -215,7 +216,7 @@
                 <p class="eyebrow mb-1.5">Catalog / Reports</p>
                 <h1 class="text-2xl">Event Reports</h1>
                 <p class="text-sm text-muted mt-1">
-                    Instances of "{currentEvent?.name || 'Loading…'}" in <span class="chip">{consumerStore.label}</span>
+                    Instances of "{currentEvent?.name || 'Loading…'}" in <span class="chip">{consumerFilter.label}</span>
                 </p>
             </div>
             {#if !loading}
@@ -240,6 +241,7 @@
     <div class="panel p-4 mb-4">
         <div class="flex flex-col gap-3">
             <div class="flex flex-col sm:flex-row gap-3">
+                <ConsumerPicker id="reports-consumer" label="Filter by consumer" value={consumerFilter.value} onchange={(c) => (consumerFilter.value = c)} class="sm:w-60" />
                 <input type="text" placeholder="Labels (key=value, key2=value2)" bind:value={labelsFilter} class="input flex-1" />
                 <select bind:value={schemaValidFilter} class="select sm:w-48">
                     <option value="all">All schema validity</option>
@@ -257,7 +259,6 @@
                     <input type="date" bind:value={createdBeforeFilter} class="input sm:w-44" />
                 </label>
                 <div class="flex items-center gap-3 sm:ml-auto">
-                    <span class="text-xs text-muted">Scope: <span class="chip">{consumerStore.label}</span></span>
                     <button onclick={applyFilters} class="btn btn-beacon !px-4 !py-1.5 text-sm">Apply</button>
                     {#if hasActiveFilters}
                         <button onclick={clearFilters} class="btn btn-ghost !px-4 !py-1.5 text-sm">Clear</button>

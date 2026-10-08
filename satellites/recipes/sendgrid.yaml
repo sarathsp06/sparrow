@@ -4,21 +4,34 @@ description: Send events as email via the SendGrid v3 Mail Send API
 params:
   - name: api_key
     prompt: "SendGrid API key"
+    help: "A key with the Mail Send permission. Stored encrypted and never shown again."
+    example: SG.xxxxxxxx.yyyyyyyy
+    docs_url: https://www.twilio.com/docs/sendgrid/ui/account-and-settings/api-keys
     required: true
     secret: true
     activation_required: true
   - name: from_email
-    prompt: "Verified sender email address"
+    prompt: "Sender email"
+    help: "Must be a verified Single Sender or on a domain you authenticated in SendGrid, or sends are rejected."
+    example: alerts@acme.com
+    docs_url: https://www.twilio.com/docs/sendgrid/ui/sending-email/sender-verification
     required: true
     default: alerts@example.com
     activation_required: true
     must_override_default: true
   - name: from_name
-    prompt: "Sender display name"
+    prompt: "Sender name"
+    help: "Display name recipients see in the From line."
+    example: Acme Webhooks
     default: Sparrow
   - name: default_recipient
-    prompt: "Recipient for events without payload.alert_recipients (e.g. team@acme.com)"
+    prompt: "Fallback recipient"
+    help: "Gets events that carry no payload.alert_recipients, i.e. anything but Sparrow's own alerts."
+    example: team@acme.com
     required: true
+consumer:
+  name: _sparrow
+  note: "Register under _sparrow to deliver Sparrow's alert emails to each opted-in recipient. Under any other consumer it emails that consumer's own events to the fallback recipient."
 webhook:
   # The receiver only accepts the transformed payload below.
   requires_transform: true

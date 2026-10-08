@@ -3,10 +3,15 @@ name: ntfy
 description: Push events as notifications to an ntfy topic
 params:
   - name: server_url
-    prompt: "ntfy server URL"
+    prompt: "ntfy server"
+    help: "The public ntfy.sh service, or your self-hosted server's URL."
+    example: https://ntfy.example.com
+    docs_url: https://docs.ntfy.sh/publish/
     default: https://ntfy.sh
   - name: topic
-    prompt: "ntfy topic name (e.g. sparrow_alerts)"
+    prompt: "Topic"
+    help: "Subscribers to this topic get the notifications. On ntfy.sh topics are public, so pick a hard-to-guess name."
+    example: sparrow_alerts_x7k2
     required: true
 webhook:
   # The receiver only accepts the transformed payload below.

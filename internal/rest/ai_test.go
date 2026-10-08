@@ -20,7 +20,12 @@ import (
 // the nil embedded interface, which is what we want in these tests.
 type eventOnlyService struct {
 	webhooks.WebhookServiceInterface
-	events map[string]*store.EventRegistration
+	events        map[string]*store.EventRegistration
+	alertDelivery bool
+}
+
+func (s eventOnlyService) AlertDeliveryConfigured(context.Context) (bool, error) {
+	return s.alertDelivery, nil
 }
 
 func (s eventOnlyService) GetEvent(_ context.Context, name string) (*store.EventRegistration, error) {
@@ -83,6 +88,26 @@ func TestCapabilities_ReflectsDrafter(t *testing.T) {
 	_ = json.Unmarshal(rec.Body.Bytes(), &caps)
 	if !caps.AIDrafting.Enabled || caps.AIDrafting.Model != "stub-model" {
 		t.Fatalf("enabled server reports %+v", caps)
+	}
+}
+
+func TestCapabilities_ReportsAlertDelivery(t *testing.T) {
+	for _, configured := range []bool{false, true} {
+		r := chi.NewRouter()
+		rest.Mount(r, eventOnlyService{alertDelivery: configured}, rest.AccessDeps{}, rest.AIDeps{})
+		rec := do(r, http.MethodGet, "/v1/capabilities", "")
+		if rec.Code != 200 {
+			t.Fatalf("status %d: %s", rec.Code, rec.Body)
+		}
+		var caps struct {
+			AlertDelivery struct {
+				Configured bool `json:"configured"`
+			} `json:"alert_delivery"`
+		}
+		_ = json.Unmarshal(rec.Body.Bytes(), &caps)
+		if caps.AlertDelivery.Configured != configured {
+			t.Fatalf("alert_delivery.configured = %v, want %v", caps.AlertDelivery.Configured, configured)
+		}
 	}
 }
 

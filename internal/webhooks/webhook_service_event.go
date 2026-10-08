@@ -452,13 +452,15 @@ func (s *WebhookService) RegisterEvent(ctx context.Context, name string, descrip
 	return res.Name, res.Event.CreatedAt, nil
 }
 
-// ListEvents lists all registered events
-func (s *WebhookService) ListEvents(ctx context.Context, activeOnly bool, limit, offset int32) ([]*store.EventRegistration, int32, error) {
+// ListEvents lists the event types consumer can subscribe to (see
+// checkEventForConsumer): Sparrow's own sparrow.* events for the system
+// consumer, tenant event types for any other consumer or none.
+func (s *WebhookService) ListEvents(ctx context.Context, activeOnly bool, consumer string, limit, offset int32) ([]*store.EventRegistration, int32, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.ListEvents")
 	defer span.End()
 
 	s.logger.InfoContext(ctx, "Processing list events request",
-		"active_only", activeOnly, "limit", limit, "offset", offset)
+		"active_only", activeOnly, "consumer", consumer, "limit", limit, "offset", offset)
 
 	tenantID := tenant.DefaultTenantID
 
@@ -467,7 +469,8 @@ func (s *WebhookService) ListEvents(ctx context.Context, activeOnly bool, limit,
 	l, o := normalizePagination(int(limit), int(offset))
 	limit, offset = int32(l), int32(o)
 
-	events, totalCount, err := s.webhookRepo.ListEventsPaginated(ctx, tenantID, activeOnly, int(limit), int(offset))
+	filter := store.EventTypeFilter{ActiveOnly: activeOnly, System: eventTypesForConsumer(consumer)}
+	events, totalCount, err := s.webhookRepo.ListEventsPaginated(ctx, tenantID, filter, int(limit), int(offset))
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Failed to list events", "error", err)
 		return nil, 0, fmt.Errorf("failed to retrieve events: %w", err)

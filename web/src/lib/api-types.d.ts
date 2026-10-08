@@ -13,9 +13,29 @@ export interface paths {
         };
         /**
          * List optional server features
-         * @description Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI. Currently: AI-assisted transform template drafting, with the provider and model in use.
+         * @description Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, and whether alert email delivery is set up.
          */
         get: operations["getCapabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search consumer names
+         * @description Lists the consumers that own a webhook or an event, sorted by name, optionally only those whose name contains q (case-insensitive). Consumers are created implicitly by registering a webhook or pushing an event under them; this is how clients find them, e.g. for a consumer picker.
+         */
+        get: operations["listConsumers"];
         put?: never;
         post?: never;
         delete?: never;
@@ -556,6 +576,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/consumers/{consumer}/webhooks/{webhook_id}:rotateSecret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate a webhook's signing secret
+         * @description Replaces the webhook's HMAC signing secret with a newly generated one and returns it in plaintext. This response is the only time the new secret is shown; it is masked on every later read. Deliveries sent after the rotation are signed with the new secret, so update the receiver right away.
+         */
+        post: operations["rotateWebhookSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/deliveries": {
         parameters: {
             query?: never;
@@ -645,7 +685,7 @@ export interface paths {
         };
         /**
          * List event type definitions
-         * @description Lists registered event types, optionally filtered to only active ones.
+         * @description Lists registered event types, optionally only active ones. Sparrow's own sparrow.* events are listed only with consumer=_sparrow.
          */
         get: operations["listEventTypes"];
         put?: never;
@@ -852,8 +892,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get aggregate webhook health counts across all consumers
-         * @description Returns how many webhooks are currently healthy, degraded, unhealthy, or unknown, across every consumer — for a top-level dashboard tile.
+         * Get aggregate webhook health counts
+         * @description Returns how many webhooks are currently healthy, degraded, unhealthy, or unknown, in one consumer or across every consumer — for a top-level dashboard tile — plus the thresholds behind those statuses.
          */
         get: operations["getHealthSummary"];
         put?: never;
@@ -1163,6 +1203,10 @@ export interface components {
             /** @description Webhook this alert is scoped to; omitted for consumer-wide alerts. */
             webhook_id?: string;
         };
+        AlertDeliveryStruct: {
+            /** @description True when an active webhook under the _sparrow consumer has an unpaused subscription to Sparrow's system events, so alert configs actually send email. When false, alert configs are stored but nothing is sent. */
+            configured: boolean;
+        };
         AttemptItem: {
             /**
              * @description Failure classification for this attempt.
@@ -1272,6 +1316,18 @@ export interface components {
             readonly $schema?: string;
             /** @description AI-assisted transform template drafting. */
             ai_drafting: components["schemas"]["AIDraftingStruct"];
+            /** @description Delivery of Sparrow's own alert emails (see the alert-configs endpoints). */
+            alert_delivery: components["schemas"]["AlertDeliveryStruct"];
+        };
+        ConsumerHint: {
+            /** @description Consumer to register the recipe under, e.g. _sparrow. */
+            name: string;
+            /** @description Why, and what the recipe does under any other consumer. */
+            note: string;
+        };
+        ConsumerItem: {
+            /** @description Consumer name. */
+            name: string;
         };
         ConsumerStatsOutputBody: {
             /**
@@ -1459,6 +1515,8 @@ export interface components {
              * @description Number of delivery attempts made so far.
              */
             attempt_count: number;
+            /** @description Consumer of the webhook. Set in delivery listings. */
+            consumer?: string;
             /** @description Creation timestamp, RFC3339. */
             created_at: string;
             /** @description Delivery id (UUID). */
@@ -1821,6 +1879,43 @@ export interface components {
             /** @description Export every event type whose name starts with this prefix. */
             prefix?: string;
         };
+        HealthRules: {
+            /**
+             * Format: int64
+             * @description Attempts in the window needed before a low success rate counts as degraded.
+             */
+            degraded_min_attempts: number;
+            /**
+             * Format: double
+             * @description A success rate below this (0.0 to 1.0), over at least degraded_min_attempts attempts, is degraded.
+             */
+            degraded_success_rate: number;
+            /**
+             * Format: int64
+             * @description Attempts at or above degraded_success_rate needed to call a webhook healthy; with fewer it stays unknown.
+             */
+            healthy_min_attempts: number;
+            /**
+             * Format: int64
+             * @description Failed attempts in a row that make a webhook unhealthy whatever its success rate.
+             */
+            unhealthy_consecutive_failures: number;
+            /**
+             * Format: int64
+             * @description Attempts in the window needed before a low success rate counts as unhealthy.
+             */
+            unhealthy_min_attempts: number;
+            /**
+             * Format: double
+             * @description A success rate below this (0.0 to 1.0), over at least unhealthy_min_attempts attempts, is unhealthy.
+             */
+            unhealthy_success_rate: number;
+            /**
+             * Format: int64
+             * @description Lookback window, in hours, of the attempt counts and success rate.
+             */
+            window_hours: number;
+        };
         HealthSummaryOutputBody: {
             /**
              * Format: uri
@@ -1830,22 +1925,24 @@ export interface components {
             readonly $schema?: string;
             /**
              * Format: int64
-             * @description Webhooks currently degraded, across all consumers.
+             * @description Webhooks currently degraded.
              */
             degraded_count: number;
             /**
              * Format: int64
-             * @description Webhooks currently healthy, across all consumers.
+             * @description Webhooks currently healthy.
              */
             healthy_count: number;
+            /** @description Thresholds the health statuses are derived from. */
+            rules: components["schemas"]["HealthRules"];
             /**
              * Format: int64
-             * @description Webhooks currently unhealthy, across all consumers.
+             * @description Webhooks currently unhealthy.
              */
             unhealthy_count: number;
             /**
              * Format: int64
-             * @description Webhooks with no recent delivery attempts, across all consumers.
+             * @description Webhooks with no recent delivery attempts.
              */
             unknown_count: number;
         };
@@ -1971,6 +2068,15 @@ export interface components {
             readonly $schema?: string;
             items: components["schemas"]["AlertConfigItem"][] | null;
         };
+        ListConsumersOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ListConsumersOutputBody.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["ConsumerItem"][] | null;
+        };
         ListDeliveriesOutputBody: {
             /**
              * Format: uri
@@ -2083,6 +2189,14 @@ export interface components {
         Param: {
             activation_required?: boolean;
             default?: string;
+            /** @description Destination documentation for this value. */
+            docs_url?: string;
+            /** @description The only accepted values, when set. */
+            enum?: string[] | null;
+            /** @description A sample value. */
+            example?: string;
+            /** @description What the value is and where to find it. */
+            help?: string;
             must_override_default?: boolean;
             name: string;
             prompt: string;
@@ -2222,6 +2336,8 @@ export interface components {
             warnings?: string[] | null;
         };
         Recipe: {
+            /** @description The consumer the recipe is meant to be registered under, when it matters. */
+            consumer?: components["schemas"]["ConsumerHint"];
             description: string;
             name: string;
             params?: components["schemas"]["Param"][] | null;
@@ -2416,6 +2532,16 @@ export interface components {
             count: number;
             /** @description Ids of the deliveries that were retried. */
             delivery_ids?: string[] | null;
+        };
+        RotateWebhookSecretOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/RotateWebhookSecretOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description The new HMAC signing secret, in plaintext. Shown only in this response. */
+            webhook_secret: string;
         };
         SchemaCompatibilityItem: {
             /** @description Each breaking change with the path it affects. */
@@ -2804,6 +2930,8 @@ export interface components {
              * @description Count of other network-level failures (DNS, TLS, connection refused, reset).
              */
             network_errors: number;
+            /** @description Thresholds the health status is derived from. */
+            rules: components["schemas"]["HealthRules"];
             /**
              * Format: int64
              * @description Count of 5xx failures.
@@ -2930,6 +3058,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CapabilitiesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listConsumers: {
+        parameters: {
+            query?: {
+                /** @description Only consumers whose name contains this text, case-insensitive. */
+                q?: string;
+                /** @description Maximum names to return. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListConsumersOutputBody"];
                 };
             };
             /** @description Error */
@@ -4709,6 +4871,58 @@ export interface operations {
             };
         };
     };
+    rotateWebhookSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tenant consumer the webhook belongs to. */
+                consumer: string;
+                /** @description Webhook id (UUID). */
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RotateWebhookSecretOutputBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     listDeliveriesGlobal: {
         parameters: {
             query?: {
@@ -4913,6 +5127,8 @@ export interface operations {
             query?: {
                 /** @description Only return active event types. */
                 active_only?: boolean;
+                /** @description Return the event types this consumer can subscribe to: Sparrow's own sparrow.* events for the _sparrow consumer, tenant event types for any other consumer or when omitted. */
+                consumer?: string;
                 /** @description Maximum items to return. */
                 limit?: number;
                 /** @description Number of items to skip, for pagination. */
@@ -5548,7 +5764,10 @@ export interface operations {
     };
     getHealthSummary: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Count one consumer's webhooks; omit to count across all consumers. */
+                consumer?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;

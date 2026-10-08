@@ -3,6 +3,7 @@ package webhooks
 import (
 	"bytes"
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -51,8 +52,8 @@ func (m *mockRepo) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UUID
 	return args.Get(0).([]*store.WebhookRegistration), args.Int(1), args.Error(2)
 }
 
-func (m *mockRepo) ListEventsPaginated(ctx context.Context, tenantID uuid.UUID, activeOnly bool, limit, offset int) ([]*store.EventRegistration, int, error) {
-	args := m.Called(ctx, tenantID, activeOnly, limit, offset)
+func (m *mockRepo) ListEventsPaginated(ctx context.Context, tenantID uuid.UUID, filter store.EventTypeFilter, limit, offset int) ([]*store.EventRegistration, int, error) {
+	args := m.Called(ctx, tenantID, filter, limit, offset)
 	return args.Get(0).([]*store.EventRegistration), args.Int(1), args.Error(2)
 }
 
@@ -564,4 +565,40 @@ func TestWebhookService_RequiresTransform(t *testing.T) {
 		require.ErrorAs(t, err, &svcErr)
 		assert.Equal(t, svcerrors.FailedPrecondition, svcErr.Status)
 	})
+}
+
+func TestWebhookService_RotateWebhookSecret(t *testing.T) {
+	repo := new(mockRepo)
+	cryptoSvc, err := cryptosvc.NewService(bytes.Repeat([]byte{1}, 32))
+	require.NoError(t, err)
+	service := NewWebhookService(nil, repo, cryptoSvc)
+
+	ctx := testContext()
+	consumer := "default"
+	webhookID := uuid.New()
+	oldSecret, err := service.EncryptWebhookSecret("whsec_old")
+	require.NoError(t, err)
+
+	repo.On("GetWebhookByID", mock.Anything, mock.Anything, webhookID, consumer).Return(&store.WebhookRegistration{
+		ID:            webhookID,
+		Consumer:      consumer,
+		URL:           "https://example.com/webhook",
+		Active:        true,
+		WebhookSecret: oldSecret,
+	}, nil)
+	var stored []byte
+	repo.On("UpdateWebhook", mock.Anything, mock.Anything, mock.MatchedBy(func(webhook *store.WebhookRegistration) bool {
+		stored = webhook.WebhookSecret
+		return webhook.ID == webhookID && webhook.URL == "https://example.com/webhook"
+	})).Return(nil)
+
+	secret, err := service.RotateWebhookSecret(ctx, webhookID.String(), consumer)
+
+	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(secret, "whsec_"), "secret %q is not in Standard Webhooks format", secret)
+	assert.NotEqual(t, "whsec_old", secret)
+	decrypted, err := service.DecryptWebhookSecret(stored)
+	require.NoError(t, err)
+	assert.Equal(t, secret, decrypted, "the returned secret must be the one stored")
+	repo.AssertExpectations(t)
 }

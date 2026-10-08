@@ -168,9 +168,10 @@ func toEventTypeOutput(e *store.EventRegistration) *eventTypeOutput {
 }
 
 type listEventTypesInput struct {
-	ActiveOnly bool  `query:"active_only" default:"false" doc:"Only return active event types."`
-	Limit      int32 `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
-	Offset     int32 `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
+	ActiveOnly bool   `query:"active_only" default:"false" doc:"Only return active event types."`
+	Consumer   string `query:"consumer" doc:"Return the event types this consumer can subscribe to: Sparrow's own sparrow.* events for the _sparrow consumer, tenant event types for any other consumer or when omitted."`
+	Limit      int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
+	Offset     int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
 }
 
 type listEventTypesOutput struct {
@@ -346,12 +347,12 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		Method:      http.MethodGet,
 		Path:        "/v1/event-types",
 		Summary:     "List event type definitions",
-		Description: "Lists registered event types, optionally filtered to only active ones.",
+		Description: "Lists registered event types, optionally only active ones. Sparrow's own sparrow.* events are listed only with consumer=_sparrow.",
 		Tags:        []string{"Event Types"},
 	}, func(ctx context.Context, in *listEventTypesInput) (*listEventTypesOutput, error) {
 		limit, offset := in.Limit, in.Offset
 		activeOnly := in.ActiveOnly
-		regs, total, err := svc.ListEvents(ctx, activeOnly, limit, offset)
+		regs, total, err := svc.ListEvents(ctx, activeOnly, in.Consumer, limit, offset)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to list event types")
 		}

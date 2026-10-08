@@ -3,7 +3,10 @@ name: slack
 description: Post events to a Slack channel as Block Kit messages via an incoming webhook
 params:
   - name: webhook_url
-    prompt: "Slack incoming webhook URL (https://hooks.slack.com/services/...)"
+    prompt: "Slack webhook URL"
+    help: "An Incoming Webhook URL from a Slack app; each URL posts to one channel."
+    example: https://hooks.slack.com/services/T000/B000/XXXX
+    docs_url: https://api.slack.com/messaging/webhooks
     required: true
 webhook:
   # The receiver only accepts the transformed payload below.

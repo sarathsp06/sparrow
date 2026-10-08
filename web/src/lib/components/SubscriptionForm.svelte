@@ -4,6 +4,7 @@
   import { goto } from "$app/navigation";
   import { api, unwrap } from "$lib/services";
   import { formatAPIError } from "$lib/utils";
+  import { listAllEventTypes } from "$lib/system";
   import { onMount } from "svelte";
   import Disclosure from "./Disclosure.svelte";
   import TransformSettings from "./TransformSettings.svelte";
@@ -58,8 +59,8 @@
 
   onMount(async () => {
     try {
-      const res = unwrap(await api.GET('/v1/event-types', { params: { query: { active_only: true } } }));
-      availableEvents = res.items || [];
+      // Only the events this consumer can subscribe to (sparrow.* for _sparrow).
+      availableEvents = await listAllEventTypes({ active_only: true, consumer });
     } catch (e: any) {
       error = formatAPIError(e, "Failed to load event types");
     }
