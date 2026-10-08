@@ -105,6 +105,7 @@ Route-group middleware (API key auth) wraps only the `/v1/*` group (`r.Group` in
 - **Template history**: `subscription_template_versions` (migration 000034). `UpdateSubscription` records a version in the same transaction when the template changes, with `TemplateSaveMeta{Source: manual|ai_draft, Notes, SavedBy}`; `CreateSubscription` records the first. No restore endpoint by design: the UI loads a version into the editor and saves normally.
 - **Subscription UI**: create/edit are pages (`/webhooks/{id}/subscriptions/new`, `/{sub}/edit`, `SubscriptionForm.svelte`); the template is edited in `TemplateEditor.svelte` (full-viewport modal: live strict render, AI drawer or copy-prompt mode, history, helper reference). `SubscriptionManager.svelte` is the list only.
 - **OTel wrappers**: generated via `//go:generate gowrap gen -i InterfaceName ...` — do not hand-edit `*_otel.go` files.
+- **Docs diagrams**: write them as ```mermaid blocks in the page (`astro-mermaid`, registered before Starlight in `docs/astro.config.mjs`); they render in the browser, follow the light/dark theme, and open in a zoomable viewer on click (`docs/public/diagram-viewer.js`). Add `accTitle`/`accDescr` lines for screen readers. No pre-rendered SVGs.
 - **OpenAPI spec**: exported from Go via `cmd/openapi-export`, committed at `api/openapi.{yaml,json}` — regenerate with `make generate` after any handler change; `internal/rest/openapi_drift_test.go` fails CI if it's stale.
 
 ### Repository / Storage pattern

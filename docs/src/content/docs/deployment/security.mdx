@@ -3,11 +3,6 @@ title: Securing Sparrow
 description: Sparrow's security model, the trust assumptions of the embedded dashboard, and how to add SSO (username/password, Microsoft Entra, Google) with an identity-aware proxy.
 ---
 
-import ThemeDiagram from '../../../components/ThemeDiagram.astro';
-import portalSliceLight from '../../../assets/diagrams/security-portal-slice-light.svg';
-import portalSliceDark from '../../../assets/diagrams/security-portal-slice-dark.svg';
-import authProxyLight from '../../../assets/diagrams/security-auth-proxy-light.svg';
-import authProxyDark from '../../../assets/diagrams/security-auth-proxy-dark.svg';
 
 Sparrow's built-in authentication is deliberately minimal: a master key
 (`SPARROW_API_KEY`, optional in development, required when
@@ -117,11 +112,16 @@ How that plays out per network topology:
 - **Sparrow on a VPN, consumers external** — expose only the portal slice
   through your reverse proxy and keep everything else private:
 
-  <ThemeDiagram
-    light={portalSliceLight}
-    dark={portalSliceDark}
-    alt="Portal slice topology: the internet reaches a proxy (TLS and rate limiting) that forwards only /portal, /_app/*, and the single bearer-scoped /portal/api/* prefix to Sparrow, denying everything else; a separate VPN path reaches Sparrow :8080 for the admin UI, full API, and token minting."
-  />
+  ```mermaid
+  flowchart LR
+      accTitle: Portal slice topology
+      accDescr: Portal slice topology: the internet reaches a proxy (TLS and rate limiting) that forwards only /portal, /_app/*, and the single bearer-scoped /portal/api/* prefix to Sparrow, denying everything else; a separate VPN path reaches Sparrow :8080 for the admin UI, full API, and token minting.
+      Net[internet] --> Proxy["proxy<br>TLS + rate limit"]
+      Proxy -->|"/portal, /_app/*"| S["Sparrow :8080"]
+      Proxy -->|"/portal/api/* — bearer-scoped, all portal API"| S
+      Proxy -->|everything else| Deny[deny]
+      VPN["VPN (admin)"] -->|"admin UI, full API, token minting"| S
+  ```
 
   `SPARROW_API_KEY` **must** be set in this topology — without it the auth
   middleware is disabled and the exposed paths are open to everyone. The
@@ -168,11 +168,14 @@ proxy authenticates humans, then injects the `X-API-Key` header on every
 authenticated request. Sparrow needs zero configuration changes beyond setting
 the key, and the browser never sees the key at all.
 
-<ThemeDiagram
-  light={authProxyLight}
-  dark={authProxyDark}
-  alt="Auth proxy topology: the browser logs in at an auth proxy (password, Microsoft Entra, or Google), which injects the X-API-Key header and forwards to Sparrow :8080, which is not directly reachable; CI and machine services reach Sparrow directly over an internal route using X-API-Key."
-/>
+```mermaid
+flowchart LR
+    accTitle: Auth proxy topology
+    accDescr: Auth proxy topology: the browser logs in at an auth proxy (password, Microsoft Entra, or Google), which injects the X-API-Key header and forwards to Sparrow :8080, which is not directly reachable; CI and machine services reach Sparrow directly over an internal route using X-API-Key.
+    B[browser] -->|"login: password / Entra / Google"| AP["auth proxy<br>injects X-API-Key"]
+    AP --> S["Sparrow :8080<br>(not directly reachable)"]
+    CI["CI / services"] -->|"X-API-Key directly"| S
+```
 
 Rules for this topology:
 

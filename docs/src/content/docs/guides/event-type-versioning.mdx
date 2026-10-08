@@ -4,11 +4,6 @@ description: How event type definitions change over time, why they are never del
 ---
 
 import { Aside, Steps } from '@astrojs/starlight/components';
-import ThemeDiagram from '../../../components/ThemeDiagram.astro';
-import lifecycleLight from '../../../assets/diagrams/event-type-lifecycle-light.svg';
-import lifecycleDark from '../../../assets/diagrams/event-type-lifecycle-dark.svg';
-import saveRulesLight from '../../../assets/diagrams/event-type-save-rules-light.svg';
-import saveRulesDark from '../../../assets/diagrams/event-type-save-rules-dark.svg';
 
 An event type is a contract between the systems that push events and the
 subscriptions that receive them. Sparrow treats it that way: every schema the
@@ -18,11 +13,20 @@ version it was accepted under, and a type is never deleted.
 You always refer to an event type by its name. The version is bookkeeping:
 push, subscriptions and the API resolve the name to the current version.
 
-<ThemeDiagram
-  light={lifecycleLight}
-  dark={lifecycleDark}
-  alt="Lifecycle of an event type: unregistered, then version 1 (blank if auto-registered, filled in by the first schema without a new version), then version 2 on a compatible schema change, version 3 on a breaking change applied with allow_breaking, then deactivated and reactivated without changing the version."
-/>
+```mermaid
+stateDiagram-v2
+    accTitle: Lifecycle of an event type
+    accDescr: Lifecycle of an event type: unregistered, then version 1 (blank if auto-registered, filled in by the first schema without a new version), then version 2 on a compatible schema change, version 3 on a breaking change applied with allow_breaking, then deactivated and reactivated without changing the version.
+    [*] --> Unregistered
+    Unregistered --> v1_blank : push, with SPARROW_AUTO_REGISTER_EVENTS on
+    Unregistered --> v1 : register or import with a schema
+    v1_blank --> v1 : first schema added (fill-in, stays v1)
+    v1 --> v2 : compatible schema change
+    v2 --> v3 : breaking change, applied with allow_breaking
+    v3 --> v3_inactive : deactivate (active=false, same version)
+    v3_inactive --> v3 : reactivate
+    note right of v3 : Every version is kept. Each event records the version it was accepted under. Event types are never deleted.
+```
 
 ## What creates a new version
 
@@ -48,11 +52,26 @@ auto-registered in development, then imported with its real schema, is at
 version 1 everywhere.
 </Aside>
 
-<ThemeDiagram
-  light={saveRulesLight}
-  dark={saveRulesDark}
-  alt="Decision flow for saving an event type: reserved names are rejected, the current row is locked, a missing type is created at v1, a first schema fills in v1, a changed schema is classified and either refused with 409 when breaking for subscribers or saved as a new version, other changes update in place, and identical definitions write nothing."
-/>
+```mermaid
+flowchart TD
+    accTitle: Decision flow for saving an event type
+    accDescr: Decision flow for saving an event type: reserved names are rejected, the current row is locked, a missing type is created at v1, a first schema fills in v1, a changed schema is classified and either refused with 409 when breaking for subscribers or saved as a new version, other changes update in place, and identical definitions write nothing.
+    A["Register, PATCH, import, or auto-register"] --> R{"name starts with sparrow. ?"}
+    R -- "yes, from a user" --> RJ["400: reserved for Sparrow's own events"]
+    R -- no --> L["Lock the current row"]
+    L --> E{"exists?"}
+    E -- no --> C["created: v1 + history row"]
+    E -- yes --> S{"current has no schema,<br>new one has a schema?"}
+    S -- yes --> F["updated in place:<br>fill in v1, set schema_defined_at"]
+    S -- no --> D{"schema differs by value?"}
+    D -- no --> M{"description, metadata<br>or active differ?"}
+    M -- yes --> U["updated in place, same version"]
+    M -- no --> N["unchanged: nothing written"]
+    D -- yes --> K["classify from the subscribers' side"]
+    K --> B{"breaking, and subscriptions<br>receive this type?"}
+    B -- "yes, no allow_breaking" --> X["409: nothing written, reasons listed"]
+    B -- otherwise --> V["new_version: bump, keep old version,<br>regenerate sample payload"]
+```
 
 Every write (register, PATCH, import, and auto-register on push) goes through
 the same rules, in a transaction that locks the event type's row, so two

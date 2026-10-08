@@ -3,11 +3,6 @@ title: Embedding the Consumer Portal
 description: Give external consumers a self-service webhook portal while Sparrow stays on a private network — full walkthrough of the proxy-the-slice topology with nginx and Express examples, plus the security analysis.
 ---
 
-import ThemeDiagram from '../../../components/ThemeDiagram.astro';
-import portalFlowLight from '../../../assets/diagrams/portal-embedding-flow-light.svg';
-import portalFlowDark from '../../../assets/diagrams/portal-embedding-flow-dark.svg';
-import portalTraceLight from '../../../assets/diagrams/portal-embedding-trace-light.svg';
-import portalTraceDark from '../../../assets/diagrams/portal-embedding-trace-dark.svg';
 
 Sparrow's consumer portal (`/portal`) lets each consumer manage their own
 webhooks, subscriptions, and deliveries with a scoped, expiring **portal
@@ -22,11 +17,26 @@ browser is a token that can touch one consumer and nothing more.
 
 ## How it works, end to end
 
-<ThemeDiagram
-  light={portalFlowLight}
-  dark={portalFlowDark}
-  alt="Sequence diagram: the consumer's browser logs in to yourapp.com; yourapp mints a consumer token (POST /v1/tokens) from sparrow:8080 over the private network with the admin API key; the token link is handed back to the browser; the browser loads the portal HTML and SPA bundle proxied from Sparrow; then the browser calls the API with a bearer token, which the proxy forwards and Sparrow verifies and scopes to the consumer."
-/>
+```mermaid
+sequenceDiagram
+    accTitle: Sequence diagram
+    accDescr: Sequence diagram: the consumer's browser logs in to yourapp.com; yourapp mints a consumer token (POST /v1/tokens) from sparrow:8080 over the private network with the admin API key; the token link is handed back to the browser; the browser loads the portal HTML and SPA bundle proxied from Sparrow; then the browser calls the API with a bearer token, which the proxy forwards and Sparrow verifies and scopes to the consumer.
+    actor U as Consumer browser
+    participant A as yourapp.com (public proxy)
+    participant S as sparrow:8080 (private / VPN)
+    U->>A: 1. Log in with your own auth
+    A->>S: 2. POST /v1/tokens with consumer (X-API-Key: admin key)
+    S-->>A: token + link /portal#35;token=sparrow_tk_...
+    A-->>U: 3. Hand over link or iframe
+    U->>A: 4. GET /portal and /_app/*.js
+    A->>S: forward (no admin key)
+    S-->>A: portal HTML + SPA bundle
+    A-->>U: portal HTML + SPA bundle
+    U->>A: 5. GET /portal/api/webhooks (Bearer token)
+    A->>S: forward over VPN
+    S-->>A: gateway derives consumer from token, 200 JSON
+    A-->>U: 200 JSON
+```
 
 1. **Your app authenticates the user** with whatever login it already has.
    Sparrow plays no part in identity — it never needs user accounts.
@@ -84,11 +94,20 @@ the VPN/private network. For every incoming request it does four things:
 
 Trace one real request through it:
 
-<ThemeDiagram
-  light={portalTraceLight}
-  dark={portalTraceDark}
-  alt="Sequence diagram tracing one request: the browser sends a bearer-authenticated GET to the proxy under /portal/api; the proxy matches the single /portal/api allowlist and forwards to Sparrow over the VPN; Sparrow's portal gateway checks the token is active (a cached lookup by its hash), derives the consumer from the token, maps the call to that consumer's route, then returns 200 and JSON; the proxy streams the response back to the browser unchanged."
-/>
+```mermaid
+sequenceDiagram
+    accTitle: Sequence diagram tracing one request
+    accDescr: Sequence diagram tracing one request: the browser sends a bearer-authenticated GET to the proxy under /portal/api; the proxy matches the single /portal/api allowlist and forwards to Sparrow over the VPN; Sparrow's portal gateway checks the token is active (a cached lookup by its hash), derives the consumer from the token, maps the call to that consumer's route, then returns 200 and JSON; the proxy streams the response back to the browser unchanged.
+    actor U as Browser
+    participant P as Proxy
+    participant S as Sparrow
+    U->>P: GET /portal/api/webhooks (Bearer sparrow_tk_...)
+    Note over P: path starts with /portal/api/ -> allowed
+    P->>S: GET /portal/api/webhooks (over VPN)
+    Note over S: verify token, derive consumer acme,<br>map to /v1/consumers/acme/webhooks
+    S-->>P: 200 + JSON
+    P-->>U: stream 200 back unchanged
+```
 
 The browser never learns Sparrow's address, never joins the VPN, and never
 holds anything but the scoped token. To the browser the portal simply *is*
