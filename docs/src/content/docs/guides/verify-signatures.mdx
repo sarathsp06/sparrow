@@ -61,7 +61,7 @@ Each example below shows how to get the raw bytes in that framework.
 
 | Scheme | Value the receiver needs | Where you get it |
 |--------|--------------------------|------------------|
-| HMAC (`v1`, the default) | `http_config.webhook_secret`, e.g. `whsec_7P18Fjmj...` | The response to `POST /v1/consumers/{consumer}/webhooks`, **only there**. Reading the webhook later returns it masked (`whsec_••••`). Store it in the receiver's secret store when you register; if it's lost, register a new webhook. |
+| HMAC (`v1`, the default) | `http_config.webhook_secret`, e.g. `whsec_7P18Fjmj...` | The response to `POST /v1/consumers/{consumer}/webhooks`, **only there**. Reading the webhook later returns it masked (`whsec_••••`). Store it in the receiver's secret store when you register. If it's lost, rotate it: **Rotate secret** on the webhook page, or `POST /v1/consumers/{consumer}/webhooks/{webhook_id}:rotateSecret`, which returns the new secret once. Deliveries after the rotation are signed with the new secret, so update the receiver right away. |
 | Ed25519 (`v1a`) | `signing_public_key`, 64 hex characters | Register with `"signature_type": "ed25519"`. The key is in the registration response and in every later `GET /v1/consumers/{consumer}/webhooks/{webhook_id}`, since it isn't secret. |
 
 ```bash

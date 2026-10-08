@@ -118,6 +118,18 @@ before you apply it. See [Recipes](/sparrow/satellites/recipes/) for how
 recipes are applied and parameterized.
 </Aside>
 
+## Check that alerts are being sent
+
+- `GET /v1/capabilities` returns `"alert_delivery": {"configured": true}` once an
+  active webhook under `_sparrow` is subscribed to the system events. Until
+  then, the dashboard and the portal say alert emails aren't set up, and alert
+  configs are stored but nothing is sent.
+- In the dashboard, set the consumer filter on **Webhooks** or **Deliveries** to
+  `_sparrow`. You'll see the alert-delivery webhook with its health, and every alert
+  email it sent, failed or retried, like any other webhook's deliveries.
+- Each webhook's page has an **Alerts** section listing the addresses alerted
+  about it, where you can add or remove them.
+
 ## Automatic disabling
 
 A receiver that has been down for days only collects retries that will never

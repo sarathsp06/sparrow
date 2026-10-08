@@ -3,7 +3,7 @@ type: UI Route
 title: SvelteKit Routes
 description: SvelteKit dashboard plus an embeddable consumer portal for webhook, event, delivery, and health management
 tags: [sveltekit, ui, routes]
-timestamp: 2026-08-29T00:00:00Z
+timestamp: 2026-10-08T00:00:00Z
 ---
 
 # SvelteKit Routes
@@ -18,6 +18,8 @@ The dashboard covers the full webhook lifecycle plus an embeddable, token-scoped
 - Deliveries — list and detail
 - Health dashboard (`/dashboard/health`)
 - Consumer portal (`/portal`) — token-scoped, embeddable self-service for a single consumer
+
+List pages scope by consumer through their own consumer filter, kept in the URL (`?consumer=`); the Events catalog instead toggles between tenant event types and Sparrow's alert events (`_sparrow`).
 
 Route files live under `web/src/routes/`; browse there for the current, authoritative set.
 

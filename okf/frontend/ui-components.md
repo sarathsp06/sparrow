@@ -3,7 +3,7 @@ type: UI Component
 title: Frontend Components
 description: Reusable Svelte components for the web UI — tables, badges, dialogs, batch progress, access/auth
 tags: [svelte, components, ui, access, auth]
-timestamp: 2026-09-27T00:00:00Z
+timestamp: 2026-10-08T00:00:00Z
 ---
 
 # Frontend Components
@@ -24,6 +24,9 @@ All under `web/src/lib/components/`.
 | `CopyableId.svelte` | Click-to-copy UUID |
 | `ConfirmDialog.svelte` | Confirmation modal |
 | `FloatingAction.svelte` | Floating action button |
+| `ConsumerPicker.svelte` | Consumer input with server-side search (`GET /v1/consumers?q=`); list filters and forms |
+| `SigningSecretReveal.svelte` | Shows a webhook's signing secret or Ed25519 public key once, after registration or rotation |
+| `AlertConfigs.svelte` | Lists, adds and removes a webhook's alert email configs |
 
 ## Access Components
 
@@ -49,6 +52,10 @@ Invite dialog: name, full access or one consumer's portal, link expiry (1h/24h/7
 ## Service Layer
 
 `web/src/lib/services.ts` — creates a single typed REST client (`openapi-fetch`) against `/v1/*`, typed from the generated `api-types.d.ts`. Base URL and key come from `web/src/lib/runtime-config.ts` + `web/src/lib/access/auth.svelte.ts`: `window.__SPARROW_CONFIG__` (`apiUrl`/`apiKey`, set in the static `/config.js` for a separately hosted UI) > `PUBLIC_API_URL` (build time) > same origin (`http://localhost:8080` under `vite dev`). On a `401` the layout shows `SignInPrompt.svelte`; the credential (master key or access token) is stored in `localStorage`. A pasted master key is exchanged for a browser token. Portal pages use a bearer token and rewrite `/v1/...` to `<apiBase>/portal/api/...`.
+
+## Consumer scoping
+
+`web/src/lib/consumer.svelte.ts` — `consumerFilter` reads and writes the page's `?consumer=` URL param (empty = all consumers); `withConsumer()` builds links that keep it. There is no global switcher.
 
 ## Citations
 
