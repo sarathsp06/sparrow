@@ -1,129 +1,331 @@
 ---
 title: Sinks
-description: Forward Sparrow deliveries to non-HTTP destinations — SMTP email, S3 archives, and OTLP log export — with the sparrow-sinks binary.
+description: Forward Sparrow deliveries to destinations that don't take a webhook (SMTP email, S3 archives, OTLP logs) with the sparrow-sinks binary.
 ---
 
-`sparrow-sinks` is a small companion binary that receives Sparrow webhook deliveries and forwards them **out** of HTTP land. It ships three sinks:
+import { Aside, Steps } from '@astrojs/starlight/components';
 
-- **Email** — send each event as a plain-text email via SMTP.
-- **S3** — archive each delivery as one JSON object in S3 (or MinIO/R2).
-- **OTLP** — export each delivery as an OpenTelemetry log record, making events visible in any OTel-compatible backend.
+`sparrow-sinks` is a small server you run next to Sparrow. Sparrow delivers to
+it like to any webhook endpoint, and it passes each delivery on to a
+destination that doesn't accept webhooks: an SMTP server, an S3 bucket, or an
+OpenTelemetry collector. Sparrow's retries, backoff and delivery history still
+apply, because to Sparrow the sink is just a webhook URL.
 
-## Sink or recipe?
+## Pick a sink
 
-A [recipe](/sparrow/satellites/recipes/) is the right tool when the destination speaks HTTP and its auth fits in static headers — Slack, Discord, PagerDuty. Sparrow delivers directly; nothing extra runs.
+| Sink | Path on `sparrow-sinks` | Each delivery becomes | You need |
+|------|-------------------------|-----------------------|----------|
+| [email](#email) | `POST /sinks/email` | A plain-text email | An SMTP server and its login |
+| [s3](#s3) | `POST /sinks/s3` | One JSON object in a bucket | A bucket and AWS credentials (or MinIO / R2) |
+| [otlp](#otlp) | `POST /sinks/otlp` | One OpenTelemetry log record | An OTLP/HTTP endpoint, such as an OpenTelemetry Collector |
 
-Reach for a sink when either of those breaks down:
+`GET /healthz` returns `200` while the process is up.
 
-- **Non-HTTP protocols** — SMTP, S3's signed API, message queues. Sparrow only delivers over HTTP, so something must translate.
-- **Signing beyond static headers** — destinations that need per-request signatures (like AWS SigV4) can't be expressed as recipe headers.
+### Sink or recipe?
 
-A sink is just another webhook endpoint from Sparrow's point of view, so retries, backoff, and delivery observability all still apply.
+If the destination accepts an HTTP request whose auth fits in fixed headers
+(Slack, PagerDuty, SendGrid), use a [recipe](/sparrow/satellites/recipes/)
+instead: Sparrow delivers straight to it and there's nothing extra to run. Use
+a sink when the destination speaks another protocol (SMTP, S3's signed API) or
+needs a per-request signature such as AWS SigV4.
 
 ## Install and run
 
+Install the release binary (macOS and Linux) with the install script:
+
 ```sh
-go install github.com/sarathsp06/sparrow/satellites/sparrow-sinks@latest
+curl -fsSL https://raw.githubusercontent.com/sarathsp06/sparrow/main/scripts/install.sh | sh -s -- -c sinks
 sparrow-sinks --config sinks.yaml
 ```
 
-:::note
-Sparrow blocks private-network delivery URLs by default (SSRF guard). If `sparrow-sinks` runs on localhost or a private network during development, start the Sparrow **server** with `SPARROW_ALLOW_PRIVATE_NETWORKS=true`.
-:::
+Or download the `sparrow-sinks-*` archive for your platform from the
+[releases page](https://github.com/sarathsp06/sparrow/releases/latest), or
+build it from a checkout with `go build ./satellites/sparrow-sinks`.
 
-## How it's connected
+To run it in a container, build a small image from the release binary:
 
-`sparrow-sinks` runs one HTTP server; each enabled sink gets a path:
-
-| Sink | Path |
-|------|------|
-| Email | `POST /sinks/email` |
-| S3 | `POST /sinks/s3` |
-| OTLP | `POST /sinks/otlp` |
-| Health | `GET /healthz` |
-
-Every inbound request is verified against the [Standard Webhooks](https://www.standardwebhooks.com) signature headers (`webhook-id`, `webhook-timestamp`, `webhook-signature`) using the webhook secret from your config. Bad signature → `401`.
-
-The sink itself is **stateless**: any downstream failure (SMTP down, S3 unreachable) returns `502`, and Sparrow's retry machinery redelivers with backoff until the webhook's `max_retries` is exhausted. There is no queue or persistence inside `sparrow-sinks` to operate.
-
-The full technical path of one delivery:
-
-```
-Sparrow webhook worker
-  → POST http://sinks-host:8788/sinks/email        (a normal webhook delivery)
-      1. read raw body (10 MB cap)
-      2. verify Standard Webhooks headers against webhook_secret:
-         HMAC-SHA256 over "{webhook-id}.{webhook-timestamp}.{body}"   → 401 on mismatch
-      3. parse the untransformed envelope (event_id/event_name required) → 422 if transformed
-      4. deliver downstream:
-           email: render subject/body templates, send via SMTP (STARTTLS)
-           s3:    PutObject {prefix}{event_name}/{YYYY}/{MM}/{DD}/{event_id}.json
-         → 502 on downstream failure (Sparrow retries with backoff)
-      5. 200 → Sparrow marks the delivery succeeded
+```dockerfile title="Dockerfile"
+FROM alpine:3.22
+RUN apk add --no-cache curl \
+ && curl -fsSL https://raw.githubusercontent.com/sarathsp06/sparrow/main/scripts/install.sh \
+    | sh -s -- -c sinks -b /usr/local/bin
+ENTRYPOINT ["sparrow-sinks", "--config", "/etc/sparrow/sinks.yaml"]
 ```
 
-To Sparrow this is indistinguishable from any customer endpoint — the
-connection is nothing more than a registered webhook whose URL points at the
-sink's path, which is why the delivery audit trail, health stats, and retry
-policy all apply unchanged.
-
-### Untransformed envelope required
-
-Sinks parse the standard Sparrow delivery envelope:
-
-```json
-{"version":"1","event_id":"...","event_name":"...","timestamp":"...","attempt":1,"payload":{...}}
+```sh
+docker build -t sparrow-sinks .
+docker run -v "$(pwd)/sinks.yaml:/etc/sparrow/sinks.yaml:ro" -p 8788:8788 sparrow-sinks
 ```
 
-The subscription pointing at a sink must have **transforms disabled** (`transform_enabled: false`, the default). A transform rewrites the body into an arbitrary shape the sink cannot interpret; when envelope fields are missing the sink returns `422` with an explanatory error (which Sparrow will not retry past its policy — fix the subscription instead).
+## Before you start
 
-## Configuration
+<Steps>
 
-```yaml
-listen: :8788
-webhook_secret: whsec_...   # secret returned when you registered the webhook
-                            # pointing at this sink; used to verify signatures.
-                            # Each sink may override it with its own webhook_secret.
-email:
-  smtp:
-    host: smtp.example.com
-    port: 587
-    username: sparrow
-    password: s3cret
-    starttls: true
-  from: sparrow@example.com
-  to: [ops@example.com]
-  subject_template: "[sparrow] {{.event_name}}"   # text/template over the envelope
-  body_template: ""    # empty → default: event name, id, timestamp, pretty payload
+1. **Register the event types** you want to forward. Sparrow rejects a push to
+   an unregistered type with `404`, so nothing would reach the sink:
 
-s3:
-  endpoint: ""          # empty → AWS; set for MinIO/R2
-  region: us-east-1
-  bucket: sparrow-events
-  prefix: events/
+   ```sh
+   curl -X POST http://localhost:8080/v1/event-types \
+     -H 'Content-Type: application/json' \
+     -d '{"name": "order.paid"}'
+   ```
 
-otlp:
-  endpoint: http://collector:4318   # bare host:port → /v1/logs appended
-  headers: {}                       # extra headers, e.g. Authorization: Bearer …
-  service_name: sparrow             # resource service.name
-```
+2. **Let Sparrow reach the sink.** Sparrow refuses delivery URLs on
+   `localhost` and private networks by default. If `sparrow-sinks` runs on a
+   private network, list that network in `SPARROW_ALLOWED_NETWORKS` on the
+   Sparrow server (for example `10.20.0.0/16`). If it runs on the same machine
+   (`localhost`), start the server with `SPARROW_ALLOW_PRIVATE_NETWORKS=true`,
+   which is meant for development.
 
-Templates render with Go `text/template` over the parsed envelope: `.version`, `.event_name`, `.event_id`, `.timestamp`, `.attempt`, `.payload` (decoded JSON, so `.payload.user_id` works), and `.payload_pretty` (indented JSON string).
-
-S3 credentials come from the standard AWS chain: `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars, shared config files, or instance metadata.
-
-## Walkthrough: email sink
-
-1. Register a webhook pointing at the sink. **Save the secret — it is shown only once.**
+3. **Register one webhook per sink**, pointing at the sink's path, with the
+   events it should receive:
 
    ```sh
    curl -X POST http://localhost:8080/v1/consumers/default/webhooks \
      -H 'Content-Type: application/json' \
-     -d '{"url": "http://sinks-host:8788/sinks/email", "events": ["order.paid"], "active": true}'
-   # → response includes http_config.webhook_secret: "whsec_..."
+     -d '{"url": "http://sinks-host:8788/sinks/email", "events": ["order.paid"]}'
    ```
 
-2. Put that secret and your SMTP details in `sinks.yaml` (see above), then start `sparrow-sinks`.
+   Copy `http_config.webhook_secret` (`whsec_...`) from the response. It's
+   shown only once, and the sink needs it to check signatures.
+
+4. **Leave transforms off** on that webhook's subscriptions (the default). A
+   sink reads Sparrow's standard event envelope; a transformed body is
+   rejected with `422`. Don't apply a recipe to a sink webhook.
+
+</Steps>
+
+## Configuration
+
+`sparrow-sinks` reads one YAML file, `sinks.yaml` by default (`--config` to
+change it). There are no environment-variable overrides, so keep the file
+readable only by the user that runs the sink: it holds the webhook secret and
+the SMTP password. Configure one or more sinks; a sink without a section is
+not served.
+
+| Field | Required | Default | Meaning |
+|-------|----------|---------|---------|
+| `listen` | no | `:8788` | Address to listen on. |
+| `webhook_secret` | yes, unless every sink sets its own | | The `whsec_...` secret of the webhook pointing at this server. |
+| `<sink>.webhook_secret` | no | the top-level secret | A different secret for one sink. You need this when you register a separate webhook per sink, since each webhook gets its own secret. |
+
+```yaml title="sinks.yaml"
+listen: :8788
+email:
+  webhook_secret: whsec_...      # from the webhook pointing at /sinks/email
+  smtp: {host: smtp.example.com, port: 587, username: sparrow, password: s3cret, starttls: true}
+  from: sparrow@example.com
+  to: [ops@example.com]
+s3:
+  webhook_secret: whsec_...      # from the webhook pointing at /sinks/s3
+  bucket: sparrow-events
+  region: us-east-1
+```
+
+### How a delivery is handled, and what Sparrow does with the answer
+
+For every request, the sink checks the [Standard Webhooks](https://www.standardwebhooks.com)
+signature against the raw body, parses the envelope, then forwards it. It
+keeps no queue: if forwarding fails it answers `502` and Sparrow retries.
+
+| Sink answers | When | Sparrow then |
+|--------------|------|--------------|
+| `200` | Forwarded to the destination. | Marks the delivery succeeded. |
+| `400` | The body is over 10 MB. | Fails it for good (no retry). |
+| `401` | Signature missing or wrong (wrong `webhook_secret`, or the two machines' clocks more than 5 minutes apart). | Fails it for good. Fix the secret, then retry the failed deliveries. |
+| `422` | The body isn't a Sparrow envelope (`event_id` or `event_name` missing), almost always because a transform is enabled. | Fails it for good. Turn the transform off, then retry. |
+| `502` | The destination failed: SMTP refused, S3 unreachable, OTLP endpoint returned non-2xx. | Retries with backoff, up to the webhook's `max_retries`. |
+
+A timeout or a stopped `sparrow-sinks` is also retried, so a restart loses
+nothing. Retry failed deliveries from the UI or with
+`POST /v1/consumers/{consumer}/deliveries:retry`.
+
+## email
+
+Sends each delivery as one plain-text email, to every address in `to`.
+
+**Before you start:** have an SMTP server that accepts mail from your `from`
+address, and its username and password (most providers: Mailgun, SES,
+Postmark, your own relay).
+
+| Field | Required | Default | Meaning |
+|-------|----------|---------|---------|
+| `smtp.host` | yes | | SMTP server host name. |
+| `smtp.port` | yes | | Usually `587`. Port 465 (TLS from the first byte) isn't supported; use 587 with `starttls`. |
+| `smtp.username` | no | | Login. No login is attempted when empty. |
+| `smtp.password` | no | | Password for `username`. |
+| `smtp.starttls` | no | `false` | Upgrade the connection with STARTTLS. Needed to log in to anything but `localhost`. |
+| `from` | yes | | Sender address. |
+| `to` | yes | | List of recipients. All of them get the same email. |
+| `subject_template` | no | `[sparrow] {{.event_name}}` | Subject, a Go template. |
+| `body_template` | no | event name, ID, time, attempt and the indented payload | Body, a Go template. |
+
+```yaml title="sinks.yaml"
+webhook_secret: whsec_...
+email:
+  smtp:
+    host: smtp.mailgun.org
+    port: 587
+    username: postmaster@mg.example.com
+    password: your-smtp-password
+    starttls: true
+  from: alerts@example.com
+  to: [ops@example.com]
+  subject_template: "Order {{.payload.order_id}} paid"
+```
+
+What arrives, with the default templates, for an `order.paid` event:
+
+```text
+Subject: [sparrow] order.paid
+
+Event:     order.paid
+Event ID:  9fab6d74-baa0-45cd-af80-7a63ccdc08a5
+Timestamp: 2026-10-08T14:13:05Z
+Attempt:   1
+
+Payload:
+{
+  "order_id": "ord_9",
+  "total": 12.5
+}
+```
+
+**Good to know:**
+
+- The templates see `.event_name`, `.event_id`, `.timestamp` (the delivery
+  time), `.attempt`, `.version`, `.payload` (so `.payload.order_id` works) and
+  `.payload_pretty` (the payload as indented JSON). They're plain Go templates:
+  the [helper functions](/sparrow/reference/template-functions/) of
+  subscription transforms aren't available, and a missing field renders as
+  `<no value>` instead of failing.
+- A template error is a `502`, so Sparrow retries a delivery that can never
+  succeed until its retries run out. Check templates with one test event first.
+- Retries can send the same email twice if the SMTP server accepted it but
+  the connection dropped before the sink saw the reply.
+
+## s3
+
+Writes each delivery as one object: the envelope exactly as Sparrow sent it,
+with content type `application/json`. Works with AWS S3 and any S3-compatible
+store (MinIO, Cloudflare R2).
+
+**Before you start:** create the bucket, and give the sink credentials that can
+`s3:PutObject` into it. Credentials come from the standard AWS chain:
+`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`, a shared profile, or an instance
+or pod role.
+
+| Field | Required | Default | Meaning |
+|-------|----------|---------|---------|
+| `bucket` | yes | | Bucket name. |
+| `region` | no | from the AWS chain (`AWS_REGION`) | Bucket region. |
+| `prefix` | no | none | Prepended to every key, e.g. `events/`. Include the trailing `/`. |
+| `endpoint` | no | AWS | Set it for MinIO or R2, e.g. `http://minio.internal:9000`. Turns on path-style addressing. |
+
+```yaml title="sinks.yaml"
+webhook_secret: whsec_...
+s3:
+  endpoint: http://minio.internal:9000   # omit for AWS
+  region: us-east-1
+  bucket: sparrow-events
+  prefix: events/
+```
+
+```sh
+export AWS_ACCESS_KEY_ID=minioadmin AWS_SECRET_ACCESS_KEY=minioadmin
+sparrow-sinks --config sinks.yaml
+```
+
+What arrives: an object at
+`{prefix}{event_name}/{YYYY}/{MM}/{DD}/{event_id}.json`, for example
+`events/order.paid/2026/10/08/9fab6d74-baa0-45cd-af80-7a63ccdc08a5.json`,
+holding the envelope:
+
+```json
+{"version":"1","event_id":"9fab6d74-baa0-45cd-af80-7a63ccdc08a5","event_name":"order.paid","timestamp":"2026-10-08T14:13:05Z","attempt":1,"payload":{"order_id":"ord_9","total":12.5}}
+```
+
+The layout partitions by event name and date, which suits Athena, DuckDB or
+ClickHouse queries over the bucket.
+
+**Good to know:** the date in the key is the **delivery** date, not when the
+event was pushed. A retry on the same day overwrites the object; a retry after
+midnight UTC writes a second object under the next date.
+
+## otlp
+
+Exports each delivery as one OpenTelemetry **log record** over OTLP/HTTP
+(JSON), so events show up in any OTel backend: Grafana Loki, Elastic, Datadog,
+Honeycomb, or a Collector that forwards to them. It sends logs, not traces.
+
+**Before you start:** have an OTLP/HTTP endpoint (port 4318 on a Collector), and
+any auth header your vendor requires.
+
+| Field | Required | Default | Meaning |
+|-------|----------|---------|---------|
+| `endpoint` | yes | | `http(s)://host:port`. With no path, `/v1/logs` is added. A vendor URL with its own path is used as-is. |
+| `headers` | no | none | Extra request headers, e.g. `Authorization: Bearer ...`. |
+| `service_name` | no | `sparrow` | The resource's `service.name`. |
+
+```yaml title="sinks.yaml"
+webhook_secret: whsec_...
+otlp:
+  endpoint: http://otel-collector:4318
+  headers:
+    Authorization: "Bearer your-token"
+  service_name: sparrow-events
+```
+
+What arrives: one log record per delivery. The body is the event payload as a
+JSON string; the event ID, name and attempt are attributes; severity is
+`INFO`; the record time is the delivery time.
+
+<details>
+<summary>Request body the OTLP endpoint receives</summary>
+
+```json
+{
+  "resourceLogs": [{
+    "resource": {"attributes": [{"key": "service.name", "value": {"stringValue": "sparrow"}}]},
+    "scopeLogs": [{
+      "scope": {"name": "sparrow-sinks"},
+      "logRecords": [{
+        "timeUnixNano": "1791468926000000000",
+        "severityNumber": 9,
+        "severityText": "INFO",
+        "body": {"stringValue": "{\"order_id\":\"ord_9\",\"total\":12.5}"},
+        "attributes": [
+          {"key": "sparrow.event_id", "value": {"stringValue": "7b95ffda-0c44-4b4a-94c1-79304f979fd9"}},
+          {"key": "sparrow.event_name", "value": {"stringValue": "order.created"}},
+          {"key": "sparrow.attempt", "value": {"intValue": "1"}}
+        ]
+      }]
+    }]
+  }]
+}
+```
+
+</details>
+
+**Good to know:** the request times out after 15 seconds, which counts as a
+`502`; Sparrow retries it, so a slow endpoint can receive the same record twice.
+
+## Worked example: email on every paid order
+
+<Steps>
+
+1. Register the event type and a webhook for the email sink (see
+   [Before you start](#before-you-start)), and copy its `webhook_secret`.
+
+2. Write `sinks.yaml` with that secret and the `email:` section from
+   [email](#email), then start the sink:
+
+   ```sh
+   sparrow-sinks --config sinks.yaml
+   ```
+
+   It logs `email sink enabled path=/sinks/email` and
+   `sparrow-sinks listening addr=:8788`.
 
 3. Push an event:
 
@@ -133,99 +335,8 @@ S3 credentials come from the standard AWS chain: `AWS_ACCESS_KEY_ID`/`AWS_SECRET
      -d '{"payload": {"order_id": "ord_9", "total": 12.5}}'
    ```
 
-   An email lands at `ops@example.com` with subject `[sparrow] order.paid` and the pretty-printed payload in the body.
+   The sink logs `delivered sink=email event_id=...` and the email reaches
+   every address in `to`. If it doesn't, the delivery in Sparrow shows the
+   sink's answer: `401`, `422` or `502` (see the [table above](#how-a-delivery-is-handled-and-what-sparrow-does-with-the-answer)).
 
-## Walkthrough: S3 archive
-
-Each delivery becomes one object — key `{prefix}{event_name}/{YYYY}/{MM}/{DD}/{event_id}.json`, body = the raw envelope JSON, content type `application/json`. That layout partitions naturally for Athena/DuckDB-style querying by event name and date.
-
-For AWS, leave `endpoint` empty and rely on the credential chain. For MinIO (or Cloudflare R2), point `endpoint` at the server:
-
-```yaml
-s3:
-  endpoint: http://minio.internal:9000   # path-style addressing is used automatically
-  region: us-east-1
-  bucket: sparrow-events
-  prefix: events/
-```
-
-```sh
-export AWS_ACCESS_KEY_ID=minioadmin
-export AWS_SECRET_ACCESS_KEY=minioadmin
-sparrow-sinks --config sinks.yaml
-```
-
-Register the webhook against `http://sinks-host:8788/sinks/s3` exactly as in the email walkthrough. If both sinks should receive the same events, register **two webhooks** (one per path) — each gets its own secret; put the overrides in each sink's `webhook_secret`.
-
-## Walkthrough: OTLP export
-
-Each delivery becomes one OTLP/HTTP JSON log record: the event payload as the
-body, `sparrow.event_id` / `sparrow.event_name` / `sparrow.attempt` as
-attributes, and the envelope timestamp as the record time. Point `endpoint` at
-an OpenTelemetry Collector (`http://collector:4318`) or a vendor's native OTLP
-endpoint, adding auth via `headers`. Register the webhook against
-`http://sinks-host:8788/sinks/otlp` exactly as in the email walkthrough — a
-non-2xx from the OTLP endpoint returns `502`, so Sparrow retries with backoff.
-
-## Retry semantics
-
-| Sink response | Meaning | Sparrow's reaction |
-|---------------|---------|--------------------|
-| `200` | forwarded downstream | delivery succeeded |
-| `401` | signature verification failed | retries (fix the secret) |
-| `422` | body is not an untransformed envelope | retries (disable the transform) |
-| `502` | downstream (SMTP/S3/OTLP) failure | retries with backoff |
-
-Because failure is signalled purely through status codes, a crashed or restarted `sparrow-sinks` loses nothing: Sparrow redelivers anything unacknowledged.
-
-## Real-World Use Cases
-
-`sparrow-sinks` extends Sparrow's delivery capabilities into non-HTTP protocols, file archives, and telemetry infrastructure.
-
-### Scenario 1: Long-Term Regulatory & Financial Audit Archiving (S3 / MinIO / R2)
-**Goal:** Store an exact, immutable JSON record of every payment, refund, and customer terms-acceptance event in an S3 bucket for compliance audits (SOC2, HIPAA, PCI-DSS).
-
-```yaml title="sinks.yaml"
-s3:
-  endpoint: "" # AWS S3
-  region: us-east-1
-  bucket: acme-compliance-audit-logs
-  prefix: webhook-events/
-```
-
-**How it works in practice:**
-1. A webhook delivery for `payment.succeeded` is sent to `http://sinks-host:8788/sinks/s3`.
-2. `sparrow-sinks` validates the Standard Webhooks signature.
-3. It writes an object to `s3://acme-compliance-audit-logs/webhook-events/payment.succeeded/2026/03/17/evt_0195c2a1.json`.
-4. The key path naturally partitions data for querying with Amazon Athena, AWS Glue, or DuckDB.
-
-### Scenario 2: Operational Stakeholder Notifications via SMTP Email
-**Goal:** Instantly send formatted email alerts to operations teams when high-value business events occur (e.g. enterprise customer churn or payment failure), without writing email-sending code in your backend services.
-
-```yaml title="sinks.yaml"
-email:
-  smtp:
-    host: smtp.mailgun.org
-    port: 587
-    username: postmaster@mg.acme.com
-    password: env_secret_password
-    starttls: true
-  from: alerts@acme.com
-  to: [vip-support@acme.com, ops-lead@acme.com]
-  subject_template: "[URGENT] Payment Failure for Account {{.payload.account_id}}"
-```
-
-**Why this helps:** Sparrow handles retries if Mailgun or SMTP experiences temporary network issues, while `sparrow-sinks` renders standard Go text templates over the event envelope.
-
-### Scenario 3: Centralized OpenTelemetry Log & Event Pipeline (OTLP)
-**Goal:** Route all outbound webhook event occurrences directly into your centralized observability stack (Grafana Loki, Datadog, New Relic, or Elastic Search) as structured OpenTelemetry log records.
-
-```yaml title="sinks.yaml"
-otlp:
-  endpoint: http://otel-collector.monitoring.svc.cluster.local:4318
-  headers:
-    Authorization: "Bearer otel_token_xyz"
-  service_name: sparrow-outbound-webhooks
-```
-
-**Why this helps:** Every webhook delivery becomes an OTLP log record containing `sparrow.event_id`, `sparrow.event_name`, and `sparrow.attempt` attributes. Ops teams can query logs, create alert thresholds on delivery failures, and correlate webhooks with APM traces.
+</Steps>

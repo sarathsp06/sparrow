@@ -1,22 +1,39 @@
 ---
 title: Recipes
-description: Adapters as config — turn Sparrow deliveries into Slack, Discord, PagerDuty, ntfy, ClickHouse, Twilio, SendGrid, or CloudEvents payloads with one command.
+description: "Ready-made destinations for Sparrow deliveries (Slack, Discord, ntfy, PagerDuty, SendGrid, ClickHouse, CloudEvents, Twilio): what each one needs, what it sends, and what to watch out for."
 ---
 
-:::tip[Interactive Studio Apps Available]
-Try the interactive workbench embedded directly in our documentation:
-- **[Satellite Recipe Workbench](/sparrow/tools/recipe-workbench/)**: Compose emails (plain text or rich HTML), SMS, and Slack messages with variable chips — the workbench generates the transform template — and preview all 8 satellite recipes (Slack, Discord, SendGrid, ntfy, PagerDuty, ClickHouse, Twilio, CloudEvents) in real time.
-:::
+import { Aside, Steps } from '@astrojs/starlight/components';
 
-Recipes are adapters as config. Each recipe is a small YAML file pairing a
-destination URL (plus headers) with a `transform_template` — a Go template
-that Sparrow renders **server-side, per delivery**, turning the generic event
-envelope into the destination's native payload. You get Sparrow's retries,
-signing, and delivery tracking for free; no glue service to run.
+A recipe connects a Sparrow webhook to a service that expects its own payload
+format, such as a Slack message or a SendGrid email. It fills in the destination URL and
+headers and a **transform template** that turns each event into the body that
+service accepts. Sparrow renders the template on every delivery, so you keep
+retries, signing and delivery history, and there is no extra service to run.
 
-Apply one from the dashboard — the webhook registration page has a **Start
-from a recipe** picker that prompts for the recipe's params and pre-fills the
-destination, headers, and transform template — or with the CLI:
+## Pick a recipe
+
+| Recipe | Sends each event as | You need from the service | Good for |
+|--------|---------------------|---------------------------|----------|
+| [slack](#slack) | A Block Kit message in one channel | An incoming webhook URL | Team visibility |
+| [discord](#discord) | An embed in one channel | A channel webhook URL | Team visibility |
+| [ntfy](#ntfy) | A push notification on your phone or desktop | A topic name (and a server, if self-hosted) | Personal or small-team alerts |
+| [pagerduty](#pagerduty) | A triggered alert that can page on-call | An Events API v2 integration key | Paging on critical events |
+| [sendgrid](#sendgrid) | An email | An API key and a verified sender | [Health alert emails](/sparrow/guides/webhook-health-alerts/), email notifications |
+| [clickhouse](#clickhouse) | A row in a table | An HTTP endpoint, a user and a table | An event archive for analytics |
+| [cloudevents](#cloudevents) | A CloudEvents 1.0 JSON event | A receiver URL | Knative, Argo Events, Dapr, or your own service |
+| [twilio](#twilio) | An SMS to one number | Account SID, Auth Token, a Twilio number | Text alerts |
+
+Every recipe is built into the `sparrow` CLI (`sparrow recipes` lists them).
+To preview what one sends before you apply it, use the
+[Recipe Workbench](/sparrow/tools/recipe-workbench/).
+
+## Apply a recipe
+
+**From the dashboard:** on **Register webhook**, open **Start from a recipe**,
+pick one, fill in its inputs, then choose the events.
+
+**From the CLI:**
 
 ```sh
 sparrow use slack \
@@ -25,55 +42,65 @@ sparrow use slack \
   --label env=prod
 ```
 
-`--event` (repeatable) picks which event types the recipe receives; `--label
-k=v` adds label filters. Both are apply-time choices, never baked into the
-recipe. `--param` supplies the values the recipe declares.
+| Flag | Meaning |
+|------|---------|
+| `--param name=value` | A recipe input (listed under each recipe below). The CLI prompts for any required input you leave out. |
+| `--event name` | An event type to deliver; at least one is required. Repeat it for several; each one gets its own subscription. |
+| `--label key=value` | Only deliver events carrying this label. |
+| `--consumer name` | The consumer to register the webhook under (a global flag; defaults to your CLI config). Use `_sparrow` for Sparrow's own alert events. |
+| `--file path` | Apply your own recipe file, or override a built-in one. |
 
-All shipped recipes are built into the `sparrow` binary — `sparrow recipes`
-lists them; no files needed. `--file` (or a `./recipes/<name>.yaml` /
-`$SPARROW_RECIPES_DIR` copy) applies your own or overrides a built-in.
+Applying a recipe only creates a webhook and its subscriptions through the
+API. Nothing runs on your machine afterwards.
 
-## How it's connected
+### What every recipe has in common
 
-A recipe never runs anywhere. Applying one is pure API configuration, and the
-rendering happens inside the Sparrow server on every delivery:
-
-```
-apply time (sparrow use <name>):
-  1. load the recipe YAML (built-in name or --file), prompt for params
-  2. POST /v1/consumers/{consumer}/webhooks
-       url + headers from the recipe, params substituted
-  3. PATCH /v1/consumers/{consumer}/subscriptions/{id}
-       transform_enabled: true, transform_template: <recipe template>,
-       events + label filters from --event/--label
-
-delivery time (inside the server, per delivery):
-  event matches subscription
-    → webhook worker renders transform_template against the event
-      (event_id, event_name, timestamp, attempt, payload)
-    → rendered output replaces the envelope as the HTTP body
-    → signed, delivered, retried, and audited like any other webhook
-```
-
-Two consequences worth knowing:
-
-- **Retries re-render.** A failed delivery retries with the same template;
-  `{{.attempt}}` reflects the retry count (PagerDuty's recipe uses the stable
-  `{{.event_id}}` as `dedup_key` so retries never open duplicate incidents).
-- **Template errors are visible.** If rendering fails at delivery time, the
-  delivery fails with error category `template_error` and nothing is sent
-  (set `on_transform_error: fallback` on the subscription to send the plain
-  envelope instead). A field the payload lacks counts as an error, so the
-  included recipes read optional fields with `dig` or `index`. Iterate with
-  `sparrow template test`, which renders the same way, before applying. See
+- **The destination only receives the transformed body.** Each recipe marks its
+  webhook as *requires a transform*. Sparrow refuses a subscription on it
+  without a template, and never sends the plain Sparrow envelope there.
+- **Template values.** Templates see `event_id`, `event_name`, `payload`,
+  `attempt` (1 on the first try) and `timestamp`. `timestamp` is when *this
+  delivery attempt* was rendered, not when the event was pushed, so a retry
+  carries a later time.
+- **Retries are re-rendered.** A retry renders the template again with the next
+  `attempt` number. Recipes that need retries to be recognized as the same
+  event use `event_id` (PagerDuty's `dedup_key`, CloudEvents' `id`).
+- **Template failures are visible.** If a template fails to render, the delivery
+  fails with `template_error` and nothing is sent. See
   [When a template fails](/sparrow/guides/payload-transformation/#when-a-template-fails).
+- **Secrets are encrypted.** Inputs that become `secret_headers` (API keys,
+  passwords) are encrypted at rest and masked when you read the webhook back.
+  Inputs that end up in the URL, in a plain header, or in the template are
+  stored as plain text, and each recipe below says where its inputs go.
 
-## Included recipes
+<Aside type="note">
+Sparrow rejects delivery URLs on private networks by default. To deliver to a
+local service (a ClickHouse on `localhost`, say) while developing, start the
+server with `SPARROW_ALLOW_PRIVATE_NETWORKS=true`.
+</Aside>
 
-### slack
+## slack
 
-Posts a Block Kit message to a Slack incoming webhook. Param: `webhook_url`.
-Delivered body:
+Posts each event to one Slack channel. The message shows the event name as a
+header, the event ID, time and attempt number, and the payload as a code block
+(cut off at about 2,900 characters to stay inside Slack's block limit).
+
+**Before you start:** in Slack, create an app with **Incoming Webhooks**
+turned on, add a webhook to the target channel, and copy its URL. One URL posts to one
+channel. For a second channel, apply the recipe again with that channel's URL.
+
+| Input | Required | What to enter |
+|-------|----------|---------------|
+| `webhook_url` | yes | The incoming webhook URL, `https://hooks.slack.com/services/...`. Stored as the webhook URL. |
+
+```sh
+sparrow use slack \
+  --param webhook_url=https://hooks.slack.com/services/T00/B00/X123 \
+  --event user.signup --event organization.upgraded
+```
+
+<details>
+<summary>Request body Slack receives</summary>
 
 ```json
 {
@@ -89,9 +116,33 @@ Delivered body:
 }
 ```
 
-### discord
+</details>
 
-Posts an embed to a Discord channel webhook. Param: `webhook_url`.
+**Good to know:** the webhook URL is the only credential, so anyone who has it
+can post to the channel. To show specific payload fields instead of the raw
+JSON, edit the subscription's template from the webhook page.
+
+## discord
+
+Posts each event to one Discord channel as an embed: the event name as the
+title, the payload as a JSON code block (cut off at about 4,000 characters),
+and the delivery time.
+
+**Before you start:** in Discord, open the channel's **Edit Channel →
+Integrations → Webhooks**, create a webhook, and copy its URL.
+
+| Input | Required | What to enter |
+|-------|----------|---------------|
+| `webhook_url` | yes | The channel webhook URL, `https://discord.com/api/webhooks/...`. Stored as the webhook URL. |
+
+```sh
+sparrow use discord \
+  --param webhook_url=https://discord.com/api/webhooks/123/abc \
+  --event deployment.completed
+```
+
+<details>
+<summary>Request body Discord receives</summary>
 
 ```json
 {
@@ -105,32 +156,79 @@ Posts an embed to a Discord channel webhook. Param: `webhook_url`.
 }
 ```
 
-### ntfy
+</details>
 
-Pushes a notification to an ntfy topic via the JSON publishing endpoint
-(`POST` to the server root). Params: `server_url` (default `https://ntfy.sh`),
-`topic`. Publishing as JSON — instead of the header-based endpoint — lets the
-title be rendered per delivery from the event name:
+## ntfy
+
+Sends each event as a push notification to an [ntfy](https://ntfy.sh) topic.
+Anyone subscribed to the topic in the ntfy app sees the event name as the title,
+then a line with the event ID, attempt and time, followed by the payload.
+
+**Before you start:** pick a topic name and subscribe to it in the ntfy app.
+On the public `ntfy.sh` server anyone who knows a topic name can read it, so
+choose one that's hard to guess, or use your own server.
+
+| Input | Required | What to enter |
+|-------|----------|---------------|
+| `server_url` | no | The ntfy server. Default `https://ntfy.sh`. |
+| `topic` | yes | The topic name, e.g. `acme-orders-7f3k`. Stored in the template. |
+
+```sh
+sparrow use ntfy --param topic=acme-orders-7f3k --event order.created
+```
+
+<details>
+<summary>Request body ntfy receives</summary>
 
 ```json
 {
-  "topic": "sparrow_alerts",
+  "topic": "acme-orders-7f3k",
   "title": "order.created",
   "message": "event evt_0195c2a1, attempt 1 at 2026-01-02T03:04:05Z\n\n{\"amount\":1999,\"order_id\":\"ord_42\"}",
   "tags": ["incoming_envelope"]
 }
 ```
 
-### pagerduty
+</details>
 
-Triggers an alert via the PagerDuty Events API v2 (`/v2/enqueue`). Params:
-`routing_key`, `severity` (fallback, default `error` — a `severity` field in
-the event payload wins). The event id becomes the `dedup_key`, so Sparrow's
-retries never open duplicate incidents:
+**Good to know:** the recipe sends no access token, so it can't publish to a
+protected topic on a server that requires login.
+
+## pagerduty
+
+Triggers a PagerDuty alert for each event through the Events API v2. Whether it
+pages someone is decided by the PagerDuty service's escalation policy.
+
+**Before you start:** in PagerDuty, open the service, go to **Integrations →
+Add an integration → Events API V2**, and copy the **Integration Key**.
+
+| Input | Required | What to enter |
+|-------|----------|---------------|
+| `routing_key` | yes | The 32-character integration key. Stored in the template, not encrypted. |
+| `severity` | no | Severity for events whose payload has no `severity` field: `critical`, `error`, `warning` or `info`. Default `error`. |
+
+```sh
+sparrow use pagerduty \
+  --param routing_key=R0UT1NGKEY0000000000000000000000 \
+  --event system.database_down --event payment.gateway_error \
+  --label env=production
+```
+
+What the alert contains:
+
+- **Summary:** `Sparrow event: <event name>`.
+- **Severity:** the payload's `severity` field if it has one, otherwise the
+  `severity` input.
+- **Details:** the whole payload, under *Custom Details*.
+- **Deduplication:** the event ID is the `dedup_key`, so retries of one event
+  update the same alert instead of opening new ones.
+
+<details>
+<summary>Request body PagerDuty receives</summary>
 
 ```json
 {
-  "routing_key": "R0UT1NGKEY...",
+  "routing_key": "R0UT1NGKEY0000000000000000000000",
   "event_action": "trigger",
   "dedup_key": "evt_0195c2a1",
   "payload": {
@@ -143,65 +241,243 @@ retries never open duplicate incidents:
 }
 ```
 
-### sendgrid
+</details>
 
-Sends an email via SendGrid's v3 Mail Send API. Params: `api_key`,
-`from_email`, `from_name`, `default_recipient`. Built for Sparrow's own
-[webhook health alerts](/sparrow/guides/webhook-health-alerts/): the
-transform ranges `payload.alert_recipients` into one `personalizations` entry
-per recipient, so a single delivery emails everyone opted in. Events without
-`alert_recipients` (custom events) go to `default_recipient` with a generic
-subject naming the event:
+**Good to know:**
+
+- The recipe only **triggers** alerts and never resolves them. Resolve them in
+  PagerDuty, or write a second subscription whose template sends
+  `"event_action": "resolve"` with the same `dedup_key`.
+- A payload `severity` other than the four allowed values is rejected by
+  PagerDuty, so the delivery fails. Send one of those values, or drop the field.
+- The integration key ends up in the subscription's template, which is stored
+  unencrypted. Treat access to Sparrow's API as access to the key.
+
+## sendgrid
+
+Sends an email through SendGrid's Mail Send API. It's built mainly for
+Sparrow's [health alert emails](/sparrow/guides/webhook-health-alerts/), and
+also works for your own events.
+
+**Before you start:**
+
+<Steps>
+
+1. In SendGrid, create an API key under **Settings → API Keys**. *Restricted
+   access* with only **Mail Send** turned on is enough.
+2. Verify the address you'll send from: **Settings → Sender Authentication**,
+   either as a single sender or by authenticating your domain. SendGrid
+   rejects mail from an unverified sender.
+
+</Steps>
+
+| Input | Required | What to enter |
+|-------|----------|---------------|
+| `api_key` | yes | The SendGrid API key, `SG....`. Sent as `Authorization: Bearer`, encrypted at rest. |
+| `from_email` | yes | The verified sender address. The default `alerts@example.com` is a placeholder and is rejected. |
+| `from_name` | no | Sender display name. Default `Sparrow`. Avoid double quotes: the value is placed in the template as-is. |
+| `default_recipient` | yes | Who gets an email when the event names no recipients. See the two uses below. |
+
+### Use 1: health alert emails
+
+Sparrow emits `sparrow.webhook.*` events under its internal `_sparrow`
+consumer. Each one carries `alert_recipients`, the addresses opted in through
+[alert configs](/sparrow/guides/webhook-health-alerts/#register-an-alert-config).
+Register the recipe under `_sparrow` and subscribe it to those events:
+
+```sh
+sparrow --consumer _sparrow use sendgrid \
+  --param api_key=$SENDGRID_API_KEY \
+  --param from_email=alerts@yourdomain.com \
+  --param from_name="Sparrow Alerts" \
+  --param default_recipient=ops@yourdomain.com \
+  --event sparrow.webhook.health_changed \
+  --event sparrow.webhook.delivery_failed \
+  --event sparrow.webhook.disabled
+```
+
+One delivery emails every opted-in recipient, each separately, so nobody sees
+the others' addresses. If no alert config matches, the email goes to
+`default_recipient`, which makes it a catch-all for your ops inbox. The emails
+are plain text:
+
+| Event | Subject | Body |
+|-------|---------|------|
+| `sparrow.webhook.health_changed` | `Sparrow: webhook for <consumer> is now degraded` (or `... recovered`) | Webhook ID and URL, old → new health |
+| `sparrow.webhook.delivery_failed` | `Sparrow: delivery to <consumer> failed permanently` | Webhook, delivery ID, attempts, error message and category |
+| `sparrow.webhook.disabled` | `Sparrow: webhook for <consumer> was auto-disabled` | Webhook and the reason it was paused |
+
+<Aside type="note">
+`sparrow.webhook.*` events can only be subscribed under `_sparrow`, and
+`_sparrow` can only subscribe to them. Sparrow rejects any other combination.
+</Aside>
+
+### Use 2: emails for your own events
+
+Register the recipe under your own consumer and pick your events. Every
+email goes to `default_recipient`, with the subject `Sparrow event:
+<event name>` and a body listing the event ID, attempt, time and the payload as
+JSON. To write your own subject and body, edit the subscription's template after
+applying.
+
+```sh
+sparrow use sendgrid \
+  --param api_key=$SENDGRID_API_KEY \
+  --param from_email=orders@yourdomain.com \
+  --param default_recipient=sales@yourdomain.com \
+  --event order.created
+```
+
+<details>
+<summary>Request body SendGrid receives (health alert, one recipient)</summary>
 
 ```json
 {
-  "personalizations": [
-    {"to": [{"email": "ops@acme.example.com"}]}
-  ],
+  "personalizations": [{"to": [{"email": "ops@acme.example.com"}]}],
   "from": {"email": "alerts@yourdomain.com", "name": "Sparrow Alerts"},
-  "subject": "Webhook health: degraded",
-  "content": [{"type": "text/plain", "value": "..."}]
+  "subject": "Sparrow: webhook for acme is now degraded",
+  "content": [{"type": "text/plain", "value": "Webhook 7c9e... (https://api.acme.example.com/hooks) health changed: healthy -> degraded"}]
 }
 ```
 
-### clickhouse
+</details>
 
-Inserts each delivery as a row via ClickHouse's HTTP interface
-(`INSERT ... FORMAT JSONEachRow`). Params: `base_url`, `table`, `user`,
-`password` (`user` is sent as the `X-ClickHouse-User` header; `password` as an
-envelope-encrypted `X-ClickHouse-Key` secret header). The
-target table needs `event_id`/`event_name`/`timestamp`/`payload` String
-columns:
+## clickhouse
+
+Inserts each event as one row into a ClickHouse table over the HTTP interface
+(`INSERT ... FORMAT JSONEachRow`).
+
+**Before you start:** create the table. The recipe writes four String columns:
+
+```sql
+CREATE TABLE sparrow_events
+(
+    event_id   String,
+    event_name String,
+    timestamp  String,  -- delivery time, RFC 3339
+    payload    String   -- the event payload as JSON text
+)
+ENGINE = ReplacingMergeTree
+ORDER BY event_id;
+```
+
+`ReplacingMergeTree` ordered by `event_id` collapses the duplicate row that
+appears if ClickHouse stored an insert but the response was lost and Sparrow
+retried it. Query with `FINAL`, or `argMax`, for exact counts. Read payload
+fields with `JSONExtractString(payload, 'order_id')` and similar.
+
+| Input | Required | What to enter |
+|-------|----------|---------------|
+| `base_url` | yes | The HTTP endpoint, e.g. `https://ch.example.com:8443`. |
+| `table` | yes | The table, e.g. `sparrow_events` or `analytics.sparrow_events`. Goes into the URL, so use plain names. |
+| `user` | yes | A ClickHouse user with `INSERT` on the table. Sent as the `X-ClickHouse-User` header. |
+| `password` | yes | That user's password. Sent as `X-ClickHouse-Key`, encrypted at rest. |
+
+```sh
+sparrow use clickhouse \
+  --param base_url=https://ch.example.com:8443 \
+  --param table=analytics.sparrow_events \
+  --param user=sparrow_ingest --param password=$CH_PASSWORD \
+  --event order.created --event payment.refunded
+```
+
+<details>
+<summary>Row ClickHouse receives</summary>
 
 ```json
 {"event_id": "evt_0195c2a1", "event_name": "order.created", "timestamp": "2026-01-02T03:04:05Z", "payload": "{\"amount\":1999,\"order_id\":\"ord_42\"}"}
 ```
 
-### cloudevents
+</details>
+
+**Good to know:** `timestamp` is when the row was delivered, not when the event
+happened. For the event's own time, include it in the payload.
+
+## cloudevents
 
 Delivers each event as a [CloudEvents 1.0](https://cloudevents.io) event in
-HTTP structured mode (`Content-Type: application/cloudevents+json`), so any
-CloudEvents receiver (a Knative broker, Argo Events, Dapr, or your own service)
-can consume Sparrow events without glue. Params: `target_url`, `source`
-(default `/sparrow`). `id` is the Sparrow event id, so retries of one event
-share an id and receivers can deduplicate them; `time` is the delivery time.
+structured mode (`Content-Type: application/cloudevents+json`), so any
+CloudEvents receiver can consume it: a Knative broker, Argo Events, Dapr, or
+your own service using a CloudEvents SDK.
+
+| Input | Required | What to enter |
+|-------|----------|---------------|
+| `target_url` | yes | The receiver's URL. |
+| `source` | no | The `source` attribute naming this producer, a URI reference. Default `/sparrow`. |
+
+```sh
+sparrow use cloudevents \
+  --param target_url=https://broker.example.com/default/events \
+  --event order.created
+```
+
+How Sparrow's fields map to CloudEvents attributes:
+
+| CloudEvents | Comes from |
+|-------------|------------|
+| `id` | The Sparrow event ID. Retries keep it, so receivers can deduplicate on `id` + `source`. |
+| `type` | The event name, e.g. `order.created`. |
+| `source` | The `source` input. |
+| `time` | The delivery time (later on retries). |
+| `data` | The event payload. |
+
+<details>
+<summary>Request body the receiver gets</summary>
 
 ```json
 {"specversion": "1.0", "id": "evt_0195c2a1", "source": "/sparrow", "type": "order.created", "time": "2026-01-02T03:04:05Z", "datacontenttype": "application/json", "data": {"amount": 1999, "order_id": "ord_42"}}
 ```
 
-### twilio
+</details>
 
-Sends each delivery as an SMS via the Twilio Messages API. Params:
-`account_sid`, `basic_auth`, `from_number`, `to_number`. Twilio uses HTTP Basic
-auth: `basic_auth` is `base64("<AccountSID>:<AuthToken>")`, stored as an
-envelope-encrypted `Authorization` secret header so the auth token is never
-persisted in plaintext. The body is `application/x-www-form-urlencoded`:
+## twilio
+
+Sends one SMS per event to a single phone number through the Twilio Messages
+API. The text is short and has **no payload**, for example:
+`Sparrow order.created (event evt_0195c2a1, attempt 1) at 2026-01-02T03:04:05Z`.
+
+**Before you start:**
+
+<Steps>
+
+1. From the Twilio Console, copy your **Account SID** (`AC...`) and **Auth Token**.
+2. Have a Twilio phone number to send from. Trial accounts can only text
+   numbers you have verified in Twilio.
+3. Build the `basic_auth` input from the two values:
+
+   ```sh
+   printf '%s:%s' "$TWILIO_ACCOUNT_SID" "$TWILIO_AUTH_TOKEN" | base64
+   ```
+
+</Steps>
+
+| Input | Required | What to enter |
+|-------|----------|---------------|
+| `account_sid` | yes | The Account SID. Goes into the URL. |
+| `basic_auth` | yes | The base64 value from step 3. Sent as `Authorization: Basic`, encrypted at rest. |
+| `from_number` | yes | Your Twilio number, country code first, **digits only, no `+`**: `15551230000`. |
+| `to_number` | yes | The recipient, in the same format. |
+
+```sh
+sparrow use twilio \
+  --param account_sid=$TWILIO_ACCOUNT_SID \
+  --param basic_auth=$(printf '%s:%s' "$TWILIO_ACCOUNT_SID" "$TWILIO_AUTH_TOKEN" | base64) \
+  --param from_number=15551230000 --param to_number=15559876543 \
+  --event system.database_down
+```
+
+**Good to know:** one webhook texts one number. To reach several people, apply
+the recipe once per number. To include payload fields in the text, edit the
+template's `Body=` part and keep it passed through `urlencode`.
+
+<details>
+<summary>Request body Twilio receives (form-encoded)</summary>
 
 ```text
 To=%2B15559876543&From=%2B15551230000&Body=Sparrow+order.created+%28event+evt_0195c2a1%2C+attempt+1%29+at+2026-01-02T03%3A04%3A05Z
 ```
 
+</details>
 
 ## Writing your own
 
@@ -236,11 +512,20 @@ Every shipped recipe sets `webhook.requires_transform: true`, so Sparrow
 refuses any subscription on that webhook without an enabled transform template
 and never sends the default envelope to the destination.
 
-Param fields beyond `name`, `prompt`, `required`, and `default`:
+Param fields beyond `name`, `prompt` (a short label), `required`, and `default`:
 
+- `help` -- one sentence on what the value is and where to find it.
+- `example` -- a sample value; the UI shows it as the input's placeholder.
+- `enum` -- the only accepted values; the UI renders a select. A `default` must be one of them.
+- `docs_url` -- the destination's documentation for this value.
 - `secret` -- hints that the value is sensitive (e.g. an API key).
 - `activation_required` -- the value must be obtained from the destination service before applying (e.g. a SendGrid API key or verified sender).
 - `must_override_default` -- the user must change the default value; applying with the original default is rejected.
+
+A recipe can also name the consumer it is meant for, with a `consumer` block
+(`name` and `note`). The UI shows the note and offers to switch to that
+consumer: the shipped `sendgrid` recipe uses it, because its alert emails only
+work under `_sparrow`.
 
 `{{param "x"}}` tokens in `webhook.url`, header values, `secret_headers` values,
 and the template are
@@ -259,61 +544,3 @@ Three rules keep templates robust:
 3. Iterate locally with `sparrow template test`, which renders the template
    entirely client-side (no API call) against a synthetic sample context,
    without creating anything.
-
-:::note
-Sparrow rejects private-network delivery URLs by default (SSRF guard). To
-deliver to a local receiver during development, start the server with
-`SPARROW_ALLOW_PRIVATE_NETWORKS=true`.
-:::
-
-## Real-World Use Cases
-
-Recipes turn Sparrow into a zero-code integration hub. Instead of building, deploying, and maintaining microservice proxies to adapt webhooks for third-party platforms, you declare the target and transform in a single recipe.
-
-### Scenario 1: Real-Time Incident Alerting with PagerDuty
-**Goal:** Page the on-call engineer immediately whenever a critical system error (`system.database_down` or `payment.gateway_error`) occurs in production.
-
-```bash
-sparrow use pagerduty \
-  --param routing_key=pd-key-prod-12345 \
-  --event system.database_down \
-  --event payment.gateway_error \
-  --label env=production
-```
-
-**Why this works in real scenarios:**
-- **Zero Alert Noise on Retries:** PagerDuty's recipe uses `.event_id` as the `dedup_key`. If the initial HTTP call experiences network jitter, Sparrow's exponential retries hit PagerDuty's API without opening duplicate incident tickets.
-- **Selective Targeting:** Using `--label env=production` guarantees test or staging failures never wake up on-call engineers.
-
-### Scenario 2: Operations & Release ChatOps with Slack & Discord
-**Goal:** Give engineering and product teams real-time visibility into customer onboarding and feature deployments directly in team chat channels.
-
-```bash
-# Post rich Block Kit cards to Slack #signups
-sparrow use slack \
-  --param webhook_url=https://hooks.slack.com/services/T00/B00/X123 \
-  --event user.signup \
-  --event organization.upgraded
-
-# Post embeds to Discord #release-log
-sparrow use discord \
-  --param webhook_url=https://discord.com/api/webhooks/123/abc \
-  --event deployment.completed
-```
-
-**Why this helps:** Slack and Discord require strict JSON structures (Block Kit arrays or embed cards). Sparrow renders these templates server-side with zero per-delivery JS VM allocation, delivering formatted cards in milliseconds.
-
-### Scenario 3: High-Throughput Event Archiving with ClickHouse
-**Goal:** Maintain a real-time append-only event ledger in ClickHouse for analytics, funnels, and fraud detection.
-
-```bash
-sparrow use clickhouse \
-  --param base_url=http://clickhouse.internal:8123 \
-  --param table=raw_webhook_events \
-  --param user=ingest_user \
-  --param password=secure_pass \
-  --event order.created \
-  --event payment.refunded
-```
-
-**Why this helps:** ClickHouse ingests rows via `JSONEachRow` HTTP POST requests. Sparrow's ClickHouse recipe formats each event into a valid single-line JSON string containing `event_id`, `event_name`, `timestamp`, and stringified `payload`. Sparrow retries failed database writes with exponential backoff if ClickHouse undergoes maintenance.

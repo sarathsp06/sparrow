@@ -30,8 +30,8 @@ Named, stored credentials that can be created, listed, and individually
 revoked. See [Access: Tokens and Invites](/sparrow/deployment/access/) for
 the operational guide; this section covers the implementation.
 
-- **Hashing.** Only a SHA-256 hash of the secret is stored. The plaintext is
-  returned once, in the creation response.
+- **Hashing.** Secrets carry 256 random bits; only a SHA-256 hash is stored.
+  The plaintext is returned once, in the creation response.
 - **Prefixes.** Sparrow tokens start with `sparrow_tk_`; invite secrets with
   `sparrow_inv_`. The prefixes make leaked secrets easy to spot in log scans
   and secret-scanning tools.
@@ -59,20 +59,17 @@ the operational guide; this section covers the implementation.
 
 ### Portal tokens
 
-The one scoped exception to Sparrow's instance-wide auth model: `POST
-/v1/tokens` with a `consumer` (admin key or tenant-wide token required) mints
-an expiring, revocable bearer token for one consumer — the credential behind
-the embeddable [consumer portal](/sparrow/deployment/security/#the-consumer-portal),
-returned together with a ready-made `portal_path`. It is an ordinary access
-token (see above): 256 random bits, stored only as a SHA-256 hash, listed by
-`GET /v1/tokens` and revoked with `DELETE /v1/tokens/{id}`. With
-`external_id` (consumer tokens only), a repeat call returns the
-still-valid token for that consumer and external id instead of minting one, so the
-secret of such a token is also stored, envelope-encrypted with the keyring
-(and deleted on revocation). Consumer tokens default to a 7-day / maximum
-30-day TTL, and travel in the `Authorization: Bearer` header — or the
-`/portal#token=...` URL *fragment*, which browsers never send to the server,
-so it stays out of access logs.
+A portal token is a consumer-scoped access token (see above), minted with
+`POST /v1/tokens` and a `consumer` by the master key or a tenant-wide token,
+and returned with a ready-made `portal_path` for the embeddable
+[consumer portal](/sparrow/deployment/security/#the-consumer-portal). Minting,
+`external_id` reuse and lifetimes are covered in
+[Access: Portal links](/sparrow/deployment/access/#portal-links-for-embedding).
+Two storage details differ from other tokens: a token minted with an
+`external_id` also keeps its secret, envelope-encrypted with the keyring and
+deleted on revocation, so the same link can be returned again; and the portal
+can carry the token in the `/portal#token=...` URL *fragment*, which browsers
+never send to the server, so it stays out of access logs.
 
 A portal token authorizes exactly: everything under its own consumer's routes
 **except** pushing events and minting further tokens, plus the read-only

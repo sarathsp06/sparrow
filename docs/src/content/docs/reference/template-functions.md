@@ -1,501 +1,290 @@
 ---
 title: Template Functions
-description: Complete reference for Go template functions available in payload transformation
+description: What a subscription's transform template can read, the 37 helper functions it can call, and an example of each that renders against a sample event.
 ---
 
-Sparrow provides 37 built-in template functions for transforming webhook payloads. These are available in subscription `transform_template` fields. They cover string manipulation, encoding, time formatting, arithmetic, and structural map/list building — enough to reshape a payload entirely without an embedded scripting runtime.
+A subscription's `transform_template` is a Go
+[`text/template`](https://pkg.go.dev/text/template) that Sparrow renders on
+every delivery. Its output replaces the default event envelope as the HTTP
+body. This page lists what the template can read and every helper function it
+can call. For how to turn a transform on, see
+[Payload transformation](/sparrow/guides/payload-transformation/).
 
-Templates use Go's `text/template` syntax. The template data context contains five fields: `.payload` (the event's JSON data), `.event_name`, `.event_id`, `.timestamp`, and `.attempt` (the delivery attempt number).
+## The context
 
-## Quick Reference
+A template sees exactly five top-level keys. Everything your producer pushed is
+under `.payload`, so a field called `email` is `.payload.email`, never `.email`.
 
-| Function | Description |
-|----------|-------------|
-| `json` | Convert value to JSON string |
-| `urlencode` | URL-encode a string |
-| `base64` | Base64-encode a string |
-| `base64decode` | Base64-decode a string |
-| `now` | Current time |
-| `formatTime` | Format a time value |
-| `parseTime` | Parse a time string |
-| `upper` | Uppercase string |
-| `lower` | Lowercase string |
-| `title` | Title case (capitalize first letter of each word) |
-| `trim` | Trim characters from both ends |
-| `trimSpace` | Trim whitespace |
-| `split` | Split string into slice |
-| `join` | Join slice with separator |
-| `default` | Default value for nil/empty |
-| `slice` | Substring by index |
-| `len` | Length of string/slice/map |
-| `truncate` | Truncate string (hard cut) |
-| `ellipsis` | Truncate with "..." suffix |
-| `repeat` | Repeat string N times |
-| `contains` | Check if string contains substring |
-| `hasPrefix` | Check string prefix |
-| `hasSuffix` | Check string suffix |
-| `replace` | Replace all occurrences |
-| `dict` | Build a map from key/value pairs |
-| `list` | Build a slice from arguments |
-| `append` | Append items to a slice |
-| `merge` | Merge maps (later keys win) |
-| `add` | Add two numbers |
-| `sub` | Subtract two numbers |
-| `mul` | Multiply two numbers |
-| `div` | Divide two numbers |
-| `mod` | Integer remainder |
-| `dig` | Safe nested map lookup with default |
-| `toString` | Convert any value to string |
-| `toInt` | Convert to integer |
-| `toFloat` | Convert to float |
+| Key | Type | Value |
+|-----|------|-------|
+| `.event_id` | string | The event's ID. The same on every retry. |
+| `.event_name` | string | The event type, e.g. `order.created`. |
+| `.timestamp` | string | When **this delivery attempt** was rendered, as RFC 3339 in UTC (`2026-01-02T03:04:05Z`). A retry gets a later time. It is not when the event was pushed: put that in the payload if you need it. |
+| `.attempt` | number | The attempt number, `1` on the first try. |
+| `.payload` | object | The event's JSON payload, as pushed. |
 
----
+The examples on this page render against this context:
 
-## json
+```json
+{
+  "event_id": "evt_sample",
+  "event_name": "order.created",
+  "timestamp": "2026-01-02T03:04:05Z",
+  "attempt": 1,
+  "payload": {
+    "order_id": "ord_42",
+    "amount": 1999,
+    "currency": "usd",
+    "status": "paid",
+    "created_at": "2026-01-02T03:04:05Z",
+    "note": "  Leave at the door\n",
+    "customer": {"name": "ada lovelace", "email": "ada+orders@example.com", "tier": "gold"},
+    "items": [{"sku": "SKU-1", "qty": 2, "price": 4.5}, {"sku": "SKU-2", "qty": 1, "price": 10.99}],
+    "tags": "gift,priority",
+    "image": "receipt.pdf",
+    "encoded_note": "aGVsbG8gd29ybGQ="
+  }
+}
+```
 
-Converts any value to a JSON string.
+### Try an example
+
+The CLI renders a template with the same engine the server uses, without
+calling the server. Save the `payload` object above as `payload.json`, put a
+template in a file, and run:
+
+```sh
+sparrow template test my.tmpl --event-name order.created --payload @payload.json
+```
+
+It sets `event_id` to `evt_sample`, `attempt` to `1` and `timestamp` to the
+current time, so outputs that show the time differ from the ones here.
+
+## Rules that save you a failed delivery
+
+1. **A missing key fails the render.** Subscriptions render strictly by default
+   (`template_missing_key: error`): reading `.payload.coupon` when the payload
+   has no `coupon` is an error, the delivery fails with `template_error`, and
+   nothing is sent. `default` doesn't help, because the lookup fails before
+   `default` runs. Read optional fields with [`dig`](#dig) or `index`:
+
+   ```go
+   {{ dig "coupon" "none" .payload }}               → none
+   {{ default "none" (index .payload "coupon") }}   → none
+   ```
+
+   Setting `template_missing_key: zero` on the subscription renders a missing
+   key as `<no value>` instead, which usually produces a wrong body rather than
+   a failed one.
+
+2. **Put strings through `json` when you build JSON.** `{{ .payload.order_id | json }}`
+   emits `"ord_42"` with the quotes and escapes any quote or newline inside the
+   value. Writing `"{{ .payload.order_id }}"` by hand breaks the body the day a
+   value contains a `"`. `json` also escapes `<`, `>` and `&` as `<`,
+   `>` and `&`, which every JSON parser reads back correctly.
+
+3. **Numbers are floats.** JSON numbers arrive as floating point. Small ones
+   print as you'd expect (`{{ .payload.amount }}` → `1999`), but a large one
+   printed directly comes out in exponent form: `{{ mul .payload.amount 1000 }}`
+   → `1.999e+06`. Use `json` (`1999000`), `toInt` (`1999000`), or
+   `printf "%.2f"` to control the format.
+
+4. **No output escaping.** Unlike `html/template`, nothing is escaped for you.
+   Use `json` for JSON bodies and `urlencode` for form-encoded ones.
+
+Rendering is also capped: output over 1 MB or a render taking more than 5
+seconds fails the delivery.
+
+## A complete template
+
+A JSON body that uses several helpers. Each line is safe against quotes in the
+data and against the optional `coupon` field being absent:
 
 ```go
-{{ .payload | json }}
-{{ json .payload.customer }}
+{
+  "text": {{ printf "New order %s from %s" .payload.order_id (title .payload.customer.name) | json }},
+  "total": {{ printf "%.2f %s" (div .payload.amount 100) (upper .payload.currency) | json }},
+  "tier": {{ dig "customer" "tier" "standard" .payload | json }},
+  "coupon": {{ dig "coupon" "none" .payload | json }},
+  "skus": {{ $skus := list }}{{ range .payload.items }}{{ $skus = append $skus .sku }}{{ end }}{{ $skus | json }},
+  "tags": {{ split "," .payload.tags | json }},
+  "attempt": {{ .attempt }},
+  "sent_at": {{ .timestamp | json }}
+}
 ```
 
-**Example:**
-```
-Input:  map[string]any{"name": "John", "age": 30}
-Output: {"name":"John","age":30}
-```
+Renders:
 
----
-
-## urlencode
-
-URL-encodes a string by escaping special characters.
-
-```go
-{{ .email | urlencode }}
-{{ urlencode "hello world" }}
+```json
+{
+  "text": "New order ord_42 from Ada Lovelace",
+  "total": "19.99 USD",
+  "tier": "gold",
+  "coupon": "none",
+  "skus": ["SKU-1","SKU-2"],
+  "tags": ["gift","priority"],
+  "attempt": 1,
+  "sent_at": "2026-01-02T03:04:05Z"
+}
 ```
 
-**Example:**
-```
-Input:  "hello world@example.com"
-Output: "hello+world%40example.com"
-```
+## Quick reference
+
+Go's built-in template functions are available too: `printf`, `index`, `eq`,
+`ne`, `lt`, `gt`, `and`, `or`, `not`, plus `if`, `range` and `with`. Sparrow
+replaces the built-in `len` and `slice` with its own versions (below).
+
+| Group | Functions |
+|-------|-----------|
+| [Encoding](#encoding) | `json`, `urlencode`, `base64`, `base64decode` |
+| [Time](#time) | `now`, `parseTime`, `formatTime` |
+| [Strings](#strings) | `upper`, `lower`, `title`, `trim`, `trimSpace`, `replace`, `repeat`, `slice`, `truncate`, `ellipsis` |
+| [Tests](#tests) | `contains`, `hasPrefix`, `hasSuffix` |
+| [Lists and splitting](#lists-and-splitting) | `split`, `join`, `len` |
+| [Missing values](#missing-values) | `dig`, `default` |
+| [Building JSON](#building-json) | `dict`, `list`, `append`, `merge` |
+| [Numbers](#numbers) | `add`, `sub`, `mul`, `div`, `mod`, `toInt`, `toFloat`, `toString` |
 
----
+Arguments come first and the value last, so every helper works at the end of a
+pipe: `{{ .payload.order_id | replace "_" "-" }}` is `replace "_" "-" .payload.order_id`.
+
+In the tables below, each example renders against the sample context.
+
+## Encoding
+
+| Function | Does | Example | Output |
+|----------|------|---------|--------|
+| `json` | Encodes any value as JSON: strings get quotes, objects and arrays are serialized. | `{{ .payload.customer \| json }}` | `{"email":"ada+orders@example.com","name":"ada lovelace","tier":"gold"}` |
+| | | `{{ json .payload.order_id }}` | `"ord_42"` |
+| `urlencode` | Escapes a string for a URL query or a form-encoded body (spaces become `+`). | `{{ .payload.customer.email \| urlencode }}` | `ada%2Borders%40example.com` |
+| `base64` | Standard base64 of a string. | `{{ .payload.order_id \| base64 }}` | `b3JkXzQy` |
+| `base64decode` | Decodes standard base64. Invalid input fails the render. | `{{ .payload.encoded_note \| base64decode }}` | `hello world` |
 
-## base64
+## Time
+
+`.timestamp` and time fields in a payload are **strings**. `formatTime` needs a
+time value, so parse the string first with `parseTime`. Layouts use Go's
+reference time, `Mon Jan 2 15:04:05 MST 2006`: RFC 3339 is
+`2006-01-02T15:04:05Z07:00`.
+
+| Function | Does | Example | Output |
+|----------|------|---------|--------|
+| `parseTime` | `parseTime layout string` parses a string into a time. A string that doesn't match the layout fails the render. | `{{ parseTime "2006-01-02" "2026-01-02" }}` | `2026-01-02 00:00:00 +0000 UTC` |
+| `formatTime` | `formatTime layout time` formats a time. | `{{ parseTime "2006-01-02T15:04:05Z07:00" .payload.created_at \| formatTime "January 2, 2006 at 3:04 PM" }}` | `January 2, 2026 at 3:04 AM` |
+| | | `{{ parseTime "2006-01-02T15:04:05Z07:00" .timestamp \| formatTime "15:04 MST" }}` | `03:04 UTC` |
+| `now` | The server's current time. Prefer `.timestamp`, which is the same moment as a string. | `{{ now \| formatTime "2006-01-02" }}` | today's date |
 
-Base64-encodes a string.
+`{{ .timestamp | formatTime "15:04" }}` does **not** work: it fails with
+`expected time.Time; got string`.
 
-```go
-{{ .secret | base64 }}
-{{ base64 "hello world" }}
-```
-
-**Example:**
-```
-Input:  "hello world"
-Output: "aGVsbG8gd29ybGQ="
-```
-
----
-
-## base64decode
-
-Base64-decodes a string back to its original form.
-
-```go
-{{ .encodedSecret | base64decode }}
-{{ base64decode "aGVsbG8gd29ybGQ=" }}
-```
-
-**Example:**
-```
-Input:  "aGVsbG8gd29ybGQ="
-Output: "hello world"
-```
-
----
-
-## now
-
-Returns the current time as a `time.Time` object.
-
-```go
-{{ now }}
-{{ now | formatTime "2006-01-02 15:04:05" }}
-```
-
-**Example:**
-```
-Output: 2023-11-21 14:30:45 +0000 UTC
-```
-
----
-
-## formatTime
-
-Formats a time value using Go's time layout format.
-
-```go
-{{ formatTime "2006-01-02" .createdAt }}
-{{ .timestamp | formatTime "15:04:05" }}
-```
-
-**Common layouts:**
-- RFC3339: `2006-01-02T15:04:05Z07:00`
-- Date only: `2006-01-02`
-- Time only: `15:04:05`
-- Human readable: `January 2, 2006 at 3:04 PM`
-
----
-
-## parseTime
-
-Parses a time string using Go's time layout format.
-
-```go
-{{ parseTime "2006-01-02" "2023-11-21" }}
-{{ parseTime "15:04:05" .timeString }}
-```
-
-**Example:**
-```
-Input:  "2006-01-02", "2023-11-21"
-Output: 2023-11-21 00:00:00 +0000 UTC
-```
-
----
-
-## upper
-
-Converts string to uppercase.
-
-```go
-{{ .name | upper }}
-{{ upper "hello world" }}
-```
-
-**Example:** `"hello world"` -> `"HELLO WORLD"`
-
----
-
-## lower
-
-Converts string to lowercase.
-
-```go
-{{ .name | lower }}
-{{ lower "HELLO WORLD" }}
-```
-
-**Example:** `"HELLO WORLD"` -> `"hello world"`
-
----
-
-## title
-
-Capitalizes the first letter of each word; other characters are left unchanged.
-
-```go
-{{ .name | title }}
-{{ title "hello world" }}
-```
-
-**Example:** `"hello world"` -> `"Hello World"`
-
----
-
-## trim
-
-Trims specified characters from both ends of a string.
-
-```go
-{{ trim " " .text }}
-{{ trim "." "...hello..." }}
-```
-
-**Example:**
-```
-Input:  " ", "  hello world  "
-Output: "hello world"
-```
-
----
-
-## trimSpace
-
-Trims whitespace (spaces, tabs, newlines) from both ends.
-
-```go
-{{ .userInput | trimSpace }}
-{{ trimSpace "  hello world  " }}
-```
-
-**Example:** `"  hello world  \n"` -> `"hello world"`
-
----
-
-## split
-
-Splits a string by separator into a slice.
-
-```go
-{{ split "," "apple,banana,cherry" }}
-{{ .tags | split "|" }}
-```
-
-Use with `range` to iterate:
-
-```go
-{{range split "," .tags}}
-- {{.}}
-{{end}}
-```
-
----
-
-## join
-
-Joins a string slice with a separator.
-
-```go
-{{ join ", " .tags }}
-{{ .items | join " | " }}
-```
-
-**Example:** `["apple", "banana", "cherry"]` -> `"apple, banana, cherry"`
-
----
-
-## default
-
-Returns a default value if the input is nil or empty string.
-
-```go
-{{ .optionalField | default "N/A" }}
-{{ default "Unknown" .name }}
-```
-
-Subscriptions render strictly by default (`template_missing_key: error`), so
-reading a key the payload does not have fails before `default` runs. For a
-field that may be absent, read it with `dig` or `index` first:
-`{{ dig "plan" "free" .payload }}` or `{{ default "free" (index .payload "plan") }}`.
-
-**Example:**
-```
-Input:  "N/A", ""      -> "N/A"
-Input:  "N/A", "John"  -> "John"
-```
-
----
-
-## slice
-
-Returns a substring from start to end index (end exclusive). Use `-1` for end of string.
-
-```go
-{{ slice 0 5 "hello world" }}
-{{ .text | slice 2 8 }}
-```
-
-**Example:**
-```
-Input:  0, 5, "hello world"  -> "hello"
-Input:  6, -1, "hello world" -> "world"
-```
-
----
-
-## len
-
-Returns the length of a string, slice, or map.
-
-```go
-{{ len .name }}
-{{ .items | len }}
-```
-
----
-
-## truncate
-
-Truncates a string to a maximum length (hard cut, no ellipsis).
-
-```go
-{{ truncate 10 .longText }}
-{{ .description | truncate 50 }}
-```
-
-**Example:** `truncate 10 "this is a very long string"` -> `"this is a "`
-
----
-
-## ellipsis
-
-Truncates a string to a maximum length and adds `...` if truncated.
-
-```go
-{{ ellipsis 20 .longText }}
-{{ .description | ellipsis 100 }}
-```
-
-**Example:**
-```
-ellipsis 20 "this is a very long string that needs truncation"
--> "this is a very lo..."
-
-ellipsis 10 "short"
--> "short"
-```
-
-If maxLen <= 3, no ellipsis is added.
-
----
-
-## repeat
-
-Repeats a string a specified number of times.
-
-```go
-{{ repeat 3 "*" }}
-{{ .pattern | repeat 5 }}
-```
-
-**Example:** `repeat 3 "*"` -> `"***"`
-
----
-
-## contains
-
-Checks if a string contains a substring (case-sensitive).
-
-```go
-{{ if contains "error" .message }}
-  Error found!
-{{ end }}
-```
-
----
-
-## hasPrefix
-
-Checks if a string starts with a prefix (case-sensitive).
-
-```go
-{{ if hasPrefix "http" .url }}
-  Valid URL
-{{ end }}
-```
-
----
-
-## hasSuffix
-
-Checks if a string ends with a suffix (case-sensitive).
-
-```go
-{{ if hasSuffix ".jpg" .filename }}
-  Image file
-{{ end }}
-```
-
----
-
-## replace
-
-Replaces all occurrences of a substring with another.
-
-```go
-{{ replace " " "_" .name }}
-{{ .text | replace "foo" "bar" }}
-```
-
-**Example:** `replace " " "_" "hello world test"` -> `"hello_world_test"`
-
----
-
-## dict
-
-Builds a map from alternating key/value pairs. Keys must be strings. Pipe through `json` to emit a structured object without hand-writing braces (which avoids quoting/escaping bugs).
-
-```go
-{{ dict "user" .payload.id "amount" .payload.amount | json }}
-```
-
-**Example:** `dict "a" 1 "b" 2 | json` -> `{"a":1,"b":2}`
-
----
-
-## list
-
-Builds a slice from its arguments. Pipe through `json` to emit an array.
-
-```go
-{{ list .payload.a .payload.b | json }}
-```
-
-**Example:** `list 1 2 3 | json` -> `[1,2,3]`
-
----
-
-## append
-
-Appends items to a slice, returning the new slice. Combine with `=` reassignment inside `range` to accumulate an array.
-
-```go
-{{ $out := list }}
-{{ range .payload.items }}{{ $out = append $out .id }}{{ end }}
-{{ $out | json }}
-```
-
----
-
-## merge
-
-Merges maps into a new map. Later keys overwrite earlier ones; inputs are not modified.
-
-```go
-{{ merge .payload (dict "source" "sparrow") | json }}
-```
-
----
-
-## add / sub / mul / div / mod
-
-Arithmetic on numbers. Values are coerced from JSON numbers or numeric strings. `add`, `sub`, `mul`, and `div` return floats; `mod` returns an integer. `div` and `mod` error on a zero divisor.
-
-```go
-{{ add .payload.subtotal .payload.tax }}
-{{ mul .payload.amount 100 }}
-{{ div .payload.amount_cents 100 }}
-{{ mod .payload.sequence 10 }}
-```
-
-**Example:** `mul 5.5 100` -> `550`
-
----
-
-## dig
-
-Safely reads a nested value from a map by a path of keys, returning the default if any key along the path is missing. Arguments are one or more keys, then a default value, then the map (last). Avoids template errors on optional fields.
-
-```go
-{{ dig "customer" "address" "city" "unknown" .payload }}
-```
-
-**Example:** on `{"customer":{"id":"c1"}}`, `dig "customer" "email" "none" .payload` -> `"none"`
-
----
-
-## toString / toInt / toFloat
-
-Type conversion. `toString` renders any value as a string; `toInt` and `toFloat` coerce JSON numbers or numeric strings (`toInt` truncates toward zero).
-
-```go
-{{ toString .payload.count }}
-{{ dict "count" (toInt .payload.count) | json }}
-{{ toFloat .payload.price }}
-```
+## Strings
+
+`slice`, `truncate` and `ellipsis` count bytes, not characters, so they can cut
+a multi-byte character (an accented letter or an emoji) in half.
+
+| Function | Does | Example | Output |
+|----------|------|---------|--------|
+| `upper` / `lower` | Changes case. | `{{ .payload.currency \| upper }}` | `USD` |
+| `title` | Capitalizes the first letter of each word, leaves the rest. | `{{ .payload.customer.name \| title }}` | `Ada Lovelace` |
+| `trim` | `trim chars string` removes any of `chars` from both ends. | `{{ trim "_" "__ord_42__" }}` | `ord_42` |
+| `trimSpace` | Removes spaces, tabs and newlines from both ends. | `{{ .payload.note \| trimSpace \| json }}` | `"Leave at the door"` |
+| `replace` | `replace old new string` replaces every occurrence. | `{{ replace "_" "-" .payload.order_id }}` | `ord-42` |
+| `repeat` | `repeat n string`, at most 1,000 times. | `{{ repeat 3 "*" }}` | `***` |
+| `slice` | `slice start end string`, end exclusive; `-1` means to the end. | `{{ slice 4 -1 .payload.order_id }}` | `42` |
+| `truncate` | `truncate n string` cuts to at most `n` bytes. | `{{ truncate 6 .payload.customer.name }}` | `ada lo` |
+| `ellipsis` | Like `truncate`, but ends a cut string with `...` (within the `n`). Strings that fit are unchanged; with `n` ≤ 3 it just cuts. | `{{ ellipsis 8 .payload.customer.name }}` | `ada l...` |
+
+## Tests
+
+Case-sensitive, and the string being tested comes last. Use them with `if`.
+
+| Function | Example | Output |
+|----------|---------|--------|
+| `contains` | `{{ if contains "priority" .payload.tags }}rush{{ else }}normal{{ end }}` | `rush` |
+| `hasPrefix` | `{{ if hasPrefix "ord_" .payload.order_id }}order{{ end }}` | `order` |
+| `hasSuffix` | `{{ if hasSuffix ".pdf" .payload.image }}pdf{{ end }}` | `pdf` |
+
+## Lists and splitting
+
+| Function | Does | Example | Output |
+|----------|------|---------|--------|
+| `split` | `split separator string` turns a string into a list of strings. | `{{ split "," .payload.tags \| json }}` | `["gift","priority"]` |
+| | | `{{ range split "," .payload.tags }}[{{ . }}]{{ end }}` | `[gift][priority]` |
+| `join` | `join separator list` joins a list of strings. | `{{ join ", " (split "," .payload.tags) }}` | `gift, priority` |
+| `len` | Length of a string (in bytes), a JSON array or a JSON object. | `{{ len .payload.items }}` | `2` |
+
+Two limits to know:
+
+- `join` only accepts the result of `split`. A JSON array from the payload
+  fails with `expected []string`. To join payload values, `range` over them:
+  `{{ range $i, $it := .payload.items }}{{ if $i }}, {{ end }}{{ $it.sku }}{{ end }}` → `SKU-1, SKU-2`.
+- `len` returns `0` for the result of `split`. It counts strings, JSON arrays
+  and JSON objects only.
+
+To read one element of an array, use `index`: `{{ index .payload.items 0 "sku" }}` → `SKU-1`.
+
+## Missing values
+
+### dig
+
+`dig key... default object` walks a path of keys and returns the default if
+any key along the way is missing (or isn't an object). It never fails on a
+missing key, so it's the way to read optional fields.
+
+| Example | Output |
+|---------|--------|
+| `{{ dig "customer" "tier" "standard" .payload }}` | `gold` |
+| `{{ dig "customer" "address" "city" "unknown" .payload }}` | `unknown` |
+| `{{ dig "coupon" "none" .payload }}` | `none` |
+
+`dig` can't step into arrays. Use `index` for those.
+
+### default
+
+`default fallback value` returns `fallback` when `value` is missing (`nil`) or
+an empty string. `0` and `false` are kept.
+
+| Example | Output |
+|---------|--------|
+| `{{ default "n/a" .payload.status }}` | `paid` |
+| `{{ default "n/a" "" }}` | `n/a` |
+| `{{ default "none" (index .payload "coupon") }}` | `none` |
+
+`{{ .payload.coupon | default "none" }}` fails under strict rendering: see
+[rule 1](#rules-that-save-you-a-failed-delivery).
+
+## Building JSON
+
+Build objects and arrays, then pipe them through `json`. It's safer than
+writing braces and quotes by hand.
+
+| Function | Does | Example | Output |
+|----------|------|---------|--------|
+| `dict` | Makes an object from key/value pairs. Keys must be strings. | `{{ dict "id" .payload.order_id "total" .payload.amount \| json }}` | `{"id":"ord_42","total":1999}` |
+| `list` | Makes an array from its arguments. | `{{ list .payload.order_id .payload.status \| json }}` | `["ord_42","paid"]` |
+| `append` | Returns the array with items added. Reassign with `=` inside `range` to collect values. | `{{ $skus := list }}{{ range .payload.items }}{{ $skus = append $skus .sku }}{{ end }}{{ $skus \| json }}` | `["SKU-1","SKU-2"]` |
+| `merge` | Combines objects into a new one; later keys win. | `{{ merge .payload.customer (dict "source" "sparrow") \| json }}` | `{"email":"ada+orders@example.com","name":"ada lovelace","source":"sparrow","tier":"gold"}` |
+
+Object keys come out sorted alphabetically.
+
+## Numbers
+
+Arguments can be JSON numbers or numeric strings. `add`, `sub`, `mul` and `div`
+return floats, `mod` and `toInt` return integers. Dividing by zero fails the
+render.
+
+| Function | Example | Output |
+|----------|---------|--------|
+| `add` | `{{ add 1 2 }}` | `3` |
+| `sub` | `{{ sub .payload.amount 999 }}` | `1000` |
+| `mul` | `{{ mul .payload.amount 1000 \| toInt }}` | `1999000` |
+| `div` | `{{ div .payload.amount 100 }}` | `19.99` |
+| `mod` | `{{ mod 17 5 }}` | `2` |
+| `toInt` | `{{ toInt "42" }}`, `{{ toInt 4.9 }}` | `42`, `4` (truncates) |
+| `toFloat` | `{{ toFloat "4.5" }}` | `4.5` |
+| `toString` | `{{ toString .payload.amount }}` | `1999` |
+
+For money and other fixed decimals, use `printf`:
+`{{ printf "%.2f" (div .payload.amount 100) }}` → `19.99`.
+`toString` prints large floats in exponent form (`1e+06`), so prefer `toInt`
+or `printf` for those.

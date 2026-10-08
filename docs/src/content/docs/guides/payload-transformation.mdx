@@ -30,8 +30,38 @@ each subscription reshapes it independently.
 
 ## Where the transform lives
 
-When you create or update a subscription, set its `transform_template` field.
-That's it — Sparrow handles the rest at delivery time.
+A transform is four fields on a **subscription** (the link between a webhook
+and one event type). Set them when you create the subscription, or later with a
+`PATCH`:
+
+```bash
+curl -X PATCH http://localhost:8080/v1/consumers/default/subscriptions/{subscription_id} \
+  -H 'Content-Type: application/json' \
+  -d @- <<'JSON'
+{
+  "transform_enabled": true,
+  "transform_template": "{{ dict \"text\" (printf \"Order %s: %v\" .payload.order_id .payload.total) | json }}",
+  "on_transform_error": "fail",
+  "template_missing_key": "error"
+}
+JSON
+```
+
+| Field | Meaning |
+|-------|---------|
+| `transform_enabled` | `true` to send the rendered template instead of the standard envelope. `false` keeps the template stored but unused. |
+| `transform_template` | The template. It's a JSON string, so quotes inside it are escaped as `\"`. The heredoc (`-d @- <<'JSON'`) keeps the shell from touching anything else. |
+| `on_transform_error` | `fail` (default) or `fallback`. See [When a template fails](#when-a-template-fails). |
+| `template_missing_key` | `error` (default) or `zero`. Same section. |
+
+The response is the updated subscription. With the template above, an event
+with payload `{"order_id": "ord_7", "total": 12.5}` is delivered as
+`{"text":"Order ord_7: 12.5"}`.
+
+Find the subscription ID with
+`GET /v1/consumers/{consumer}/subscriptions?webhook_id=...`, or edit the
+template in the UI: open the webhook, then the subscription's **Edit**, which
+opens a template editor with a live preview.
 
 ## The mental model (read this first)
 
@@ -43,7 +73,7 @@ becomes the delivered body. Your event is available through these fields:
 | `.payload` | Your event's data (the JSON you pushed) |
 | `.event_name` | The event type, e.g. `payment.succeeded` |
 | `.event_id` | Unique ID for this event |
-| `.timestamp` | When the event happened |
+| `.timestamp` | When this delivery attempt was rendered (RFC 3339 string), so a retry has a later time. For the event's own time, put it in the payload |
 | `.attempt` | Which delivery attempt this is |
 
 So `{{ .payload.customer.email }}` reads the `customer.email` field out of your
@@ -238,10 +268,11 @@ metadata.
 **Template:**
 
 ```go
-{{ merge .payload (dict "source" "sparrow" "delivered_at" (formatTime "2006-01-02T15:04:05Z07:00" now)) | json }}
+{{ merge .payload (dict "source" "sparrow" "delivered_at" .timestamp) | json }}
 ```
 
-**Delivered:** your original payload, plus `"source"` and `"delivered_at"`.
+**Delivered:** your original payload, plus `"source"` and `"delivered_at"`
+(the time of this delivery attempt, e.g. `"2026-10-08T14:21:05Z"`).
 
 `merge` combines maps; later keys win, and the originals are left untouched.
 
@@ -267,10 +298,8 @@ present but empty.
 - **A template that fails is visible.** See [When a template fails](#when-a-template-fails).
 - **There are limits.** Output is capped at **1 MB** and execution at **5
   seconds** per transform, so a runaway template can't stall a worker.
-- **Why Go templates and not JavaScript?** They're parsed once and cached, run
-  with almost no overhead, add zero dependencies, and are safe to share across
-  every delivery worker — a deliberate choice for a small memory footprint and
-  high throughput. See [Why Sparrow](/sparrow/getting-started/why-sparrow/).
+- **Why Go templates and not JavaScript?** See
+  [Why Sparrow](/sparrow/getting-started/why-sparrow/) for the trade-off.
 
 ## When a template fails
 
@@ -309,5 +338,5 @@ template against the new schema before the change is written; see
 
 - [Template Functions reference](/sparrow/reference/template-functions/) — the
   full list of all 37 helpers with signatures and examples.
-- [Recipes](/sparrow/satellites/recipes/) — ready-made source/sink configs that
-  use transforms.
+- [Recipes](/sparrow/satellites/recipes/) — one-command webhook + transform setups
+  for Slack, PagerDuty, SendGrid and more.

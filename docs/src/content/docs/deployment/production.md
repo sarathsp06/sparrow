@@ -64,7 +64,7 @@ spec:
     spec:
       containers:
         - name: sparrow
-          image: ghcr.io/sarathsp06/sparrow:vX.Y.Z   # pin a release tag, not latest
+          image: ghcr.io/sarathsp06/sparrow:X.Y.Z    # pin a release (no leading v), not latest
           ports:
             - containerPort: 8080
           envFrom:

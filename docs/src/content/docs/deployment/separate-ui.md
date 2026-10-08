@@ -3,7 +3,7 @@ title: Hosting the UI Separately
 description: Serve the Sparrow dashboard from its own static host and point it at a Sparrow server on another origin.
 ---
 
-By default the Sparrow server serves the dashboard itself (`SPARROW_SERVE_UI=true`), on the same origin as the API. That needs no extra configuration and is what the Docker images and Compose files do.
+The Sparrow server can serve the dashboard itself on the same origin as the API when `SPARROW_SERVE_UI=true` (the default is `false`). The local Compose file sets it; with the plain Docker image, set it yourself.
 
 This page covers the other layout: the dashboard is a static site (nginx, a CDN, object storage) on one origin, e.g. `https://sparrow.example.com`, and the Sparrow server runs on another, e.g. `https://sparrow-api.example.com`.
 

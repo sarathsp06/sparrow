@@ -15,22 +15,25 @@ sparrow use slack --param webhook_url=https://hooks.slack.com/services/T000/B000
 
 ## Included recipes
 
-1. `slack` — Slack incoming webhook (Block Kit message).
-   Params: `webhook_url`.
-2. `discord` — Discord channel webhook (embed).
-   Params: `webhook_url`.
-3. `ntfy` — ntfy topic (plain-text push notification).
-   Params: `topic_url`.
-4. `pagerduty` — PagerDuty Events API v2 (trigger alert).
-   Params: `routing_key`.
-5. `clickhouse` — ClickHouse HTTP interface (JSONEachRow insert).
-   Params: `base_url`, `table`, `user`, `password`.
-6. `twilio` — Twilio SMS (Messages API).
-   Params: `account_sid`, `basic_auth`, `from_number`, `to_number`.
-7. `sendgrid` — SendGrid v3 Mail Send (per-recipient personalizations).
-   Params: `api_key`, `from_email`, `from_name`.
-8. `cloudevents` — CloudEvents 1.0, HTTP structured mode (Knative, Argo Events, Dapr, …).
-   Params: `target_url`, `source`.
+Setup steps, what each recipe sends, and gotchas are in the
+[recipes guide](https://sarathsp06.github.io/sparrow/satellites/recipes/).
+Required params must be passed with `--param` when stdin is not a terminal.
+
+| Recipe | Sends to | Required params | Optional params (default) |
+|--------|----------|-----------------|---------------------------|
+| `slack` | Slack incoming webhook (Block Kit) | `webhook_url` | |
+| `discord` | Discord channel webhook (embed) | `webhook_url` | |
+| `ntfy` | ntfy topic (JSON publish) | `topic` | `server_url` (`https://ntfy.sh`) |
+| `pagerduty` | PagerDuty Events API v2 (trigger) | `routing_key` | `severity` (`error`) |
+| `sendgrid` | SendGrid v3 Mail Send | `api_key`, `from_email` (placeholder default must be changed), `default_recipient` | `from_name` (`Sparrow`) |
+| `clickhouse` | ClickHouse HTTP interface (JSONEachRow) | `base_url`, `table`, `user`, `password` | |
+| `cloudevents` | CloudEvents 1.0, structured mode | `target_url` | `source` (`/sparrow`) |
+| `twilio` | Twilio Messages API (SMS) | `account_sid`, `basic_auth`, `from_number`, `to_number` | |
+
+For Sparrow's own health alert emails, apply `sendgrid` under the `_sparrow`
+consumer with the `sparrow.webhook.*` events
+(`sparrow --consumer _sparrow use sendgrid ...`). Sparrow only accepts
+`sparrow.*` subscriptions under `_sparrow`, and `_sparrow` only accepts those.
 
 ## Schema (version 1)
 
@@ -40,12 +43,19 @@ name: slack                    # must match the filename
 description: One-line human description
 params:                        # values the user supplies at apply time
   - name: webhook_url          # substituted as {{param "webhook_url"}} in url/headers/template
-    prompt: "Slack incoming webhook URL"
+    prompt: "Slack webhook URL" # short label
+    help: "An Incoming Webhook URL from a Slack app." # one-line hint: what it is, where to find it
+    example: https://hooks.slack.com/services/T000/B000/XXXX # shown as the input placeholder
+    docs_url: https://api.slack.com/messaging/webhooks # destination docs for this value
     required: true
     default: ""                # optional fallback used by CLIs/UIs
+    enum: []                   # optional: the only accepted values (UIs render a select)
     secret: false              # UIs may mask input for tokens/passwords
     activation_required: false # missing value blocks enabling an auto-provisioned recipe
     must_override_default: false # placeholder defaults must be replaced before activation
+consumer:                      # optional: the consumer the recipe is meant for
+  name: _sparrow
+  note: "Why, and what happens under any other consumer."
 webhook:
   requires_transform: true     # receiver only accepts the transformed payload (see below)
   url: '{{param "webhook_url"}}'
@@ -99,9 +109,9 @@ baked into a recipe.
    in payloads can't break the output.
 3. Run `go test ./satellites/recipes/` — it validates every recipe: schema fields,
    param-token references, and that the rendered template output is valid
-   JSON (ntfy, being plain text, is exempt).
-4. Iterate on templates against a live server with
-   `POST /v1/subscriptions:testTemplate` or `sparrow template test`.
+   JSON (twilio, being form-encoded, is exempt).
+4. Iterate on templates with `sparrow template test` (renders locally, no
+   server needed) or against a server with `POST /v1/subscriptions:testTemplate`.
 
 Local tip: Sparrow rejects private-network delivery URLs by default (SSRF
 guard). To deliver to a local receiver during development, start the server

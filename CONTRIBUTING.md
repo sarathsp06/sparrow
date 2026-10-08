@@ -12,6 +12,12 @@ make test
 make lint
 ```
 
+## Documenting the API
+
+The REST API reference is generated from the handler structs in `internal/rest`.
+See [docs/api-documentation.md](docs/api-documentation.md) before changing a
+handler's fields or descriptions, and run `make generate` afterwards.
+
 ## Commit Style
 
 Use Conventional Commits when possible:

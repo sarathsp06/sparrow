@@ -67,14 +67,22 @@ tells you how many there are and when the pause began:
 { "subscription_id": "…", "paused": false, "paused_since": "2026-09-30T10:00:00Z", "paused_deliveries": 42 }
 ```
 
-To send them, snapshot them with the delivery list and start a batch retry:
+To send them, snapshot them with the delivery list and start a batch retry.
+The list returns the snapshot as `retry_id`; the batch retry endpoint takes
+that same value in a field called `repush_id` (both endpoints share one
+snapshot format):
 
 ```bash
 curl "http://localhost:8080/v1/consumers/acme/deliveries?status=paused&subscription_id={subscription_id}&created_after=2026-09-30T10:00:00Z&prepare_retry=true"
-# -> {"retry_id": "…", …}
+# -> {"items": [...], "retry_id": "3f2a9c1e-…", ...}
+
 curl -X POST http://localhost:8080/v1/consumers/acme/deliveries:retryBatch \
-  -H 'Content-Type: application/json' -d '{"repush_id": "…"}'
+  -H 'Content-Type: application/json' -d '{"repush_id": "3f2a9c1e-…"}'
 ```
+
+The retry runs in the background. The response is the job, whose `id` is that
+same snapshot ID; follow its `status`, `processed` and `failed` counts with
+`GET /v1/consumers/acme/retry-jobs/3f2a9c1e-…`.
 
 Narrow `created_after` (or add `created_before`) to replay only part of the
 window. In the UI, resuming a subscription that held deliveries offers

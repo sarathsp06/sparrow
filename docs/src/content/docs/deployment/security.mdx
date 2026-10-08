@@ -9,11 +9,14 @@ import portalSliceDark from '../../../assets/diagrams/security-portal-slice-dark
 import authProxyLight from '../../../assets/diagrams/security-auth-proxy-light.svg';
 import authProxyDark from '../../../assets/diagrams/security-auth-proxy-dark.svg';
 
-Sparrow's built-in authentication is deliberately minimal: one shared secret
-(`SPARROW_API_KEY`) checked on every API request — optional in development,
-required when `ENVIRONMENT=production` (the server refuses to start without
-it). Everything beyond that — per-user logins, SSO, MFA, audit of *who* did
-what — is a deployment concern, solved by putting an identity-aware proxy in
+Sparrow's built-in authentication is deliberately minimal: a master key
+(`SPARROW_API_KEY`, optional in development, required when
+`ENVIRONMENT=production`) plus named, revocable
+[access tokens](/sparrow/deployment/access/) minted from it. A token is either
+tenant-wide (the same power as the master key) or scoped to one consumer's
+portal. All of them are bearer secrets: Sparrow knows *which credential* made a
+request, not *who* holds it. Per-user logins, SSO, MFA and an audit of who did
+what are a deployment concern, solved by putting an identity-aware proxy in
 front of Sparrow rather than by building an identity provider into it.
 
 This page covers what Sparrow does natively, what it assumes about your
@@ -38,7 +41,9 @@ What it does **not** provide:
 
 - **User accounts.** [Access tokens](/sparrow/deployment/access/) give each person and machine their own credential, but identity is possession-based — there are no accounts, passwords, or MFA.
 - **Tenant isolation via consumers.** Consumers organize resources; they are
-  *not* a security boundary. Any valid API key can read and write every consumer.
+  *not* a security boundary for the admin API. The master key and every
+  tenant-wide token can read and write every consumer. Only consumer-scoped
+  (portal) tokens are limited to one consumer, and only through `/portal/api`.
 - **Rate limiting on the API.** Put a reverse proxy in front if you need it.
 
 ## Data retention and compliance posture

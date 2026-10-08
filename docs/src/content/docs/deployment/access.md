@@ -11,8 +11,7 @@ pasting secrets into chat.
 
 ## First run
 
-When `SPARROW_API_KEY` is set (always the case with the production Docker
-Compose), the embedded UI shows a **Sign in to Sparrow** prompt on the first
+When `SPARROW_API_KEY` is set, the embedded UI shows a **Sign in to Sparrow** prompt on the first
 `401`. You can paste the master key there -- the UI exchanges it for a browser
 token behind the scenes, so the master key is never stored in the browser. An
 access token or invite link also works.
@@ -168,22 +167,16 @@ Outside `/v1`, no auth required (the invite is the credential):
 
 ## Security notes
 
-- **Possession-based identity.** Tokens prove you have the secret, not who you
-  are. There are no accounts, passwords, or MFA. A leaked token is valid until
-  revoked.
-- **SHA-256 hashing.** Only the hash is stored; the plaintext secret is shown
-  once at creation. Prefixes (`sparrow_tk_`, `sparrow_inv_`) make leaked
-  secrets easy to spot in logs and secret scanners.
-- **503, not 401, on DB outage.** If the token store is unreachable, the
-  server returns `503 Service Unavailable` with `Retry-After`, not `401`.
-  Browsers keep their credential and retry. The master key still works without
-  the database.
-- **30-second revocation window.** Successful token lookups are cached for 30
-  seconds. Revocation is immediate on the revoking instance; other instances
-  honour it within 30 seconds.
-- **XSS risk.** The browser token lives in `localStorage`. An XSS attack on
-  the Sparrow UI domain could exfiltrate it. Set a tight CSP and keep the UI
-  on a dedicated origin.
-- **No inbound rate limiting.** Brute-forcing token secrets is bounded by
-  SHA-256 cost and network round-trip, not by explicit throttling. Rate-limit
-  at the proxy if the API is internet-facing.
+- **Possession-based identity.** A token proves you hold the secret, not who
+  you are. There are no accounts, passwords, or MFA, and a leaked token works
+  until it expires or is revoked. For per-user login, put an
+  [identity-aware proxy](/sparrow/deployment/security/#recommended-sso-via-an-identity-aware-proxy)
+  in front.
+- **Browser tokens live in `localStorage`.** An XSS bug on the UI's origin
+  could read them. Keep the UI on a dedicated origin.
+- **No inbound rate limiting.** Rate-limit at the proxy if the API is
+  internet-facing.
+
+How tokens are stored, cached and checked (hashing, the 30-second cache,
+`401` reasons, `503` when the database is down) is in the
+[Security Model reference](/sparrow/reference/security/#access-tokens).

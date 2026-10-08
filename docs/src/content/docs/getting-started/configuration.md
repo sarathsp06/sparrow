@@ -2,47 +2,112 @@
 title: Configuration
 description: Environment variables and configuration options.
 sidebar:
-  order: 3
+  order: 5
 ---
 
-All configuration is done via environment variables. No config files needed.
+Sparrow is configured entirely with environment variables. There's no config
+file.
 
-## Environment Variables
+## Minimum to start
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `DATABASE_URL` | Yes | `postgres://localhost/riverqueue?sslmode=disable` (dev-only fallback) | PostgreSQL connection string |
-| `SPARROW_SERVE_UI` | No | `false` | Serve the embedded web dashboard on the HTTP port |
-| `SPARROW_API_KEY` | No | -- | Require this key in `X-API-Key` header for all API requests. Must be at least 32 characters when `ENVIRONMENT=production` (the server refuses to start otherwise); shorter keys log a warning in other environments. Generate with `openssl rand -hex 32`. |
-| `SPARROW_ENCRYPTION_KEYS` | Yes | -- | Keyring entries as comma-separated `<key-id>=<64-char-hex-key>` pairs where each value is a cryptographically random 32-byte (256-bit) key hex-encoded to 64 chars (`key-id` chars: `A-Z`, `a-z`, `0-9`, `_`, `-`) |
-| `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` | Yes | -- | Which configured key ID is primary for new encryption |
-| `SPARROW_HTTP_PORT` | No | `8080` | HTTP listen port for the REST/OpenAPI API (also serves the web UI) |
-| `SPARROW_TOKEN_DEFAULT_TTL` | No | `2160h` (90 days) | Lifetime of a tenant-wide access token created without `ttl_seconds` or `never_expires` (including browser sign-ins and invites). Go duration. `0` means such tokens never expire (the pre-upgrade behaviour). |
-| `SPARROW_MAX_CAPTURED_RESPONSE_BYTES` | No | `1048576` (1 MiB) | Stored response body limit for webhooks with `capture_response_body` enabled (others store 1 KiB). Minimum 1024. |
-| `SPARROW_ALLOWED_NETWORKS` | No | -- | Comma-separated CIDRs or bare IPs (e.g. `10.20.0.0/16,fd12::/48`). Webhook deliveries may reach these networks in addition to public addresses; loopback, cloud metadata, and the rest of private space stay blocked. This is the recommended way to deliver to internal services on a VPN. Invalid entries fail startup. When an allowlist is set, `.internal` and `.local` hostnames are no longer blocked by name; their resolved addresses are checked instead. |
-| `SPARROW_ALLOW_PRIVATE_NETWORKS` | No | `false` | Allow all private IP addresses as webhook URLs (for local development and testing). Cloud metadata endpoints are still blocked; use `SPARROW_ALLOWED_NETWORKS` for targeted access in production. |
-| `ENVIRONMENT` | No | -- | Deployment tag; any value is accepted. Set to `production` to block cross-origin requests by default (see `CORS_ALLOWED_ORIGINS`) and tag logs/OTel; any other value behaves as development. |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP collector URL for traces, metrics, and logs (e.g. `http://collector:4318`; `https://` for TLS). Export is off when unset. See [Observability](#observability). |
-| `OTEL_EXPORTER_OTLP_PROTOCOL` | No | `http/protobuf` (effective; env var is unset by default) | OTLP transport: `http/protobuf` or `grpc`. Any other value prevents export from starting (the server logs a warning and continues without OTel). |
-| `SPARROW_OTLP_SIGNALS` | No | `traces,metrics,logs` | Which signals go to the OTLP endpoint. Set `traces` for a traces-only backend such as Jaeger or Tempo. `/metrics` is unaffected. |
-| `CORS_ALLOWED_ORIGINS` | No | -- | Comma-separated list of exact browser origins allowed to call the API (e.g. `https://ui.example.com,https://admin.example.com`; trailing slashes are ignored). Required when the UI is [hosted separately](/sparrow/deployment/separate-ui/). When unset: with `ENVIRONMENT=production` every cross-origin request is rejected; otherwise every origin is allowed (local development only). |
-| `SPARROW_MAX_BODY_BYTES` | No | `5242880` (5 MiB) | Maximum request body size in bytes. Minimum 1 MiB; larger bodies get `413`. |
-| `SPARROW_EVENT_RETENTION_DAYS` | No | `0` (keep forever) | Purge events — and, via cascade, their deliveries — older than this many days. Runs hourly in the background. |
-| `SPARROW_AUTO_DISABLE_AFTER` | No | `120h` (5 days) | Pause a webhook automatically once its receiver has failed every attempt for this long (and at least `SPARROW_AUTO_DISABLE_MIN_FAILURES` attempts in a row). Like a manual pause, deliveries are then held as `paused` until retried. Go duration; `0` turns automatic disabling off. See [Automatic disabling](/sparrow/guides/webhook-health-alerts/#automatic-disabling). |
-| `SPARROW_AUTO_DISABLE_MIN_FAILURES` | No | `10` | Minimum run of consecutive failed attempts before a webhook can be auto-disabled, so a receiver whose only failure was long ago is not paused by the next one. |
-| `SPARROW_EVENT_WORKERS` | No | `20` | Concurrent event fan-out jobs (one job per pushed event resolves its subscriptions and enqueues deliveries). |
-| `SPARROW_WEBHOOK_WORKERS` | No | `20` | Concurrent webhook deliveries; also sizes the outbound connection pool per receiver host. Raise it when receivers are slow: with 20 workers and receivers that take 100 ms end to end, delivery tops out around 200/s. |
-| `SPARROW_HEALTH_EVAL_INTERVAL` | No | `1m` | How often delivery outcomes are folded into webhook health. The health label, `sparrow.webhook.health_changed` alerts and automatic disabling lag outcomes by at most this much. The evaluation is incremental (only outcomes since the previous run, rolled up per minute), so a webhook receiving thousands of events a minute does not make it more expensive. Metrics remain the real-time signal. Go duration. |
-| `SPARROW_QUEUE_FETCH_COOLDOWN` | No | `20ms` | Minimum interval between two job fetches on a queue. Each fetch takes as many jobs as there are idle workers, so `workers / cooldown` is a queue's hard throughput ceiling: 20 workers at `20ms` is about 1,000 jobs/s; River's own default of `100ms` would cap it at 200/s. Lower values query Postgres more often under load only; idle queues are unaffected. Go duration. |
-| `SPARROW_METRICS_ENABLED` | No | `true` | Serve every OpenTelemetry metric in Prometheus format at `GET /metrics` (no API key, like `/health`), with or without OTLP export. |
-| `SPARROW_AUTO_REGISTER_EVENTS` | No | `false` | When `true`, pushing an event whose type is not registered creates a schema-less event type instead of returning `404`. Meant for local development (`make run` turns it on); event types are never deleted, so in production a producer typo would become a permanent name. See [Event Type Versions](/sparrow/guides/event-type-versioning/#unregistered-event-names). Pair it with the UI's **Infer schema** to [generate a schema from the pushed events](/sparrow/guides/event-type-versioning/#inferring-a-schema-from-real-events). |
-| `SPARROW_AI_PROVIDER` | No | `anthropic` | With no AI variables set at all, the editor still offers **Copy prompt for AI** (`POST /v1/subscriptions:draftTemplatePrompt`): the same grounded prompt, for pasting into any chat assistant. Configuring a provider upgrades that to in-place drafting with render verification.  Chat API behind AI drafting. `anthropic` uses the Anthropic API (set `SPARROW_AI_API_KEY`). `openai` uses any OpenAI-compatible `/v1/chat/completions` server, local or hosted: Ollama, vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI (set `SPARROW_AI_BASE_URL` and `SPARROW_AI_MODEL`; the key is optional for local servers). Drafts are short and render-verified with up to three repair rounds, so a light model is usually enough. |
-| `SPARROW_AI_API_KEY` | No | -- | Provider API key. With `anthropic`, setting it enables drafting; with `openai` it is sent as a Bearer token when present. When drafting is enabled the subscription editor shows a **Draft with AI** panel and `POST /v1/subscriptions:draftTemplate` is enabled: describe the body the receiver should get and Sparrow drafts the `transform_template`, grounded in the event type's JSON Schema and sample payload, the template helper catalog, and optionally a shipped recipe's destination format or an example body you paste. Every draft is rendered against the sample payload (the same dry-run as the preview) and repaired until it renders. The request can also carry a sample payload to draft against, a description or example of what the receiver expects, and a documentation URL that Sparrow fetches under the same network policy as deliveries (private and cloud-metadata addresses refused unless allowed). Only the schema, that sample payload, and the request's own text are sent to the model — never stored events, headers, or secrets. Unset disables the feature; `GET /v1/capabilities` tells clients which. |
-| `SPARROW_AI_MODEL` | `openai`: yes | `claude-haiku-4-5` for `anthropic` | Model used for drafting. Raise it if drafts regularly need more than a couple of repair rounds. For `openai` name the model the server serves, e.g. `llama3.2`, `qwen2.5-coder:7b`, `gpt-4o-mini`. |
-| `SPARROW_AI_BASE_URL` | `openai`: yes | -- | API base URL. `openai`: the server's OpenAI-compatible root, e.g. `http://localhost:11434/v1` (Ollama), `http://vllm:8000/v1`, `https://openrouter.ai/api/v1`. `anthropic`: optional override for an internal gateway or proxy. |
-For a single-key deployment, still use the keyring format: `SPARROW_ENCRYPTION_KEYS=main=<64-char-hex-key>` with `SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main`.
+Three variables are required. The server refuses to start without the two
+encryption ones:
 
-### Web UI Variables
+```bash
+DATABASE_URL="postgres://sparrow:secret@db:5432/sparrow?sslmode=require"
+SPARROW_ENCRYPTION_KEYS="main=$(openssl rand -hex 32)"   # generate once, keep in a secret manager
+SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main
+```
+
+| Variable | What to set |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL 15+ connection string. Migrations run on startup. (If unset, it falls back to `postgres://localhost/riverqueue?sslmode=disable`, which only suits a local experiment.) |
+| `SPARROW_ENCRYPTION_KEYS` | The keyring: comma-separated `<key-id>=<64 hex chars>` pairs, each a random 32-byte key. Key IDs use `A-Z a-z 0-9 _ -`. See [Encryption](#encryption). |
+| `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` | Which key ID encrypts new data. Must be one of the IDs in the keyring. |
+
+For anything reachable by more than you, also set `SPARROW_API_KEY` and
+`ENVIRONMENT=production`. The [production guide](/sparrow/deployment/production/)
+lists the rest. To serve the web UI from the same server, set
+`SPARROW_SERVE_UI=true`.
+
+## All variables
+
+Grouped by what they control. Durations use Go syntax: `90s`, `20ms`, `1m`,
+`120h`.
+
+### Server and UI
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SPARROW_HTTP_PORT` | `8080` | Port for the REST API, health endpoints, `/metrics` and (if enabled) the UI. |
+| `SPARROW_SERVE_UI` | `false` | Serve the embedded web dashboard on the same port. |
+| `ENVIRONMENT` | unset | Set `production` to reject cross-origin requests unless `CORS_ALLOWED_ORIGINS` allows them, to require a 32+ character `SPARROW_API_KEY`, and to tag logs and telemetry. Any other value behaves as development. |
+| `CORS_ALLOWED_ORIGINS` | unset | Comma-separated browser origins allowed to call the API, e.g. `https://ui.example.com`. Needed when the UI is [hosted separately](/sparrow/deployment/separate-ui/). Unset: every origin is allowed, except with `ENVIRONMENT=production`, where none is. |
+| `SPARROW_MAX_BODY_BYTES` | `5242880` (5 MiB) | Largest accepted request body; larger ones get `413`. Minimum 1 MiB. |
+
+### Access
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SPARROW_API_KEY` | unset (API open) | The master key. When set, every `/v1` request needs it or an access token, in `X-API-Key` or `Authorization: Bearer`. Required, and at least 32 characters, with `ENVIRONMENT=production` (the server won't start otherwise). Generate with `openssl rand -hex 32`. See [Access tokens and invites](/sparrow/deployment/access/). |
+| `SPARROW_TOKEN_DEFAULT_TTL` | `2160h` (90 days) | Lifetime of a tenant-wide access token created without `ttl_seconds` or `never_expires`, including browser sign-ins and invites. `0` means such tokens never expire. |
+
+### Outbound network
+
+Sparrow refuses to deliver to loopback, private, link-local and cloud metadata
+addresses unless you allow them.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SPARROW_ALLOWED_NETWORKS` | unset | Comma-separated CIDRs or IPs, e.g. `10.20.0.0/16,fd12::/48`, that deliveries may reach in addition to public addresses. Loopback, cloud metadata and the rest of private space stay blocked. The recommended way to deliver to internal services. Invalid entries stop startup. When set, `.internal` and `.local` host names are checked by their resolved address instead of being blocked by name. |
+| `SPARROW_ALLOW_PRIVATE_NETWORKS` | `false` | Allow every private and loopback address. For local development and tests. Cloud metadata stays blocked. |
+
+### Events
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SPARROW_AUTO_REGISTER_EVENTS` | `false` | Pushing an unregistered event type creates a schema-less type instead of returning `404`. For local development (`make run` turns it on): event types are never deleted, so in production a typo becomes a permanent name. See [Unregistered event names](/sparrow/guides/event-type-versioning/#unregistered-event-names). |
+| `SPARROW_EVENT_RETENTION_DAYS` | `0` (keep forever) | Delete events older than this many days, and their deliveries with them. Runs hourly. |
+
+### Deliveries and webhook health
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SPARROW_MAX_CAPTURED_RESPONSE_BYTES` | `1048576` (1 MiB) | How much of a receiver's response body is stored for webhooks with `capture_response_body` on (others store 1 KiB). Minimum 1024. |
+| `SPARROW_HEALTH_EVAL_INTERVAL` | `1m` | How often delivery outcomes are folded into each webhook's health. The health label, `sparrow.webhook.health_changed` alerts and automatic disabling lag by at most this much. Each run only reads outcomes since the last one, so busy webhooks don't make it slower. |
+| `SPARROW_AUTO_DISABLE_AFTER` | `120h` (5 days) | Pause a webhook once its receiver has failed every attempt for this long (and at least `SPARROW_AUTO_DISABLE_MIN_FAILURES` in a row). Its deliveries are then held as `paused`. `0` turns it off. See [Automatic disabling](/sparrow/guides/webhook-health-alerts/#automatic-disabling). |
+| `SPARROW_AUTO_DISABLE_MIN_FAILURES` | `10` | Minimum run of consecutive failed attempts before a webhook can be auto-disabled. |
+
+### Throughput
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SPARROW_EVENT_WORKERS` | `20` | Concurrent fan-out jobs. Each pushed event is one job that finds its subscriptions and creates the deliveries. |
+| `SPARROW_WEBHOOK_WORKERS` | `20` | Concurrent deliveries; also sizes the connection pool per receiver host. Raise it when receivers are slow: 20 workers against receivers taking 100 ms top out around 200 deliveries/s. |
+| `SPARROW_QUEUE_FETCH_COOLDOWN` | `20ms` | Minimum gap between two job fetches on a queue. `workers / cooldown` caps each queue: 20 workers at `20ms` is about 1,000 jobs/s. Lower values query Postgres more often, under load only. |
+
+### Observability
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | unset (export off) | OTLP collector URL for traces, metrics and logs, e.g. `http://collector:4318`. See [Observability](#observability). |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` | `http/protobuf` or `grpc`. Any other value disables export (with a warning). |
+| `SPARROW_OTLP_SIGNALS` | `traces,metrics,logs` | Which signals are exported. `traces` for a traces-only backend such as Jaeger or Tempo. |
+| `SPARROW_METRICS_ENABLED` | `true` | Serve all metrics in Prometheus format at `GET /metrics` (no API key). |
+
+### AI drafting
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SPARROW_AI_PROVIDER` | `anthropic` | `anthropic` or `openai` (any OpenAI-compatible server). |
+| `SPARROW_AI_API_KEY` | unset | Provider API key. Required for `anthropic`; optional for a local `openai` server. |
+| `SPARROW_AI_MODEL` | `claude-haiku-4-5` for `anthropic` | Model name. Required for `openai`. |
+| `SPARROW_AI_BASE_URL` | unset | API root. Required for `openai`; optional proxy override for `anthropic`. |
+
+See [AI template drafting](#ai-template-drafting) below for what each setup
+does.
+
+## Web UI settings
 
 These configure the web UI, not the Go server. They matter only when the UI is **not** served by Sparrow itself, i.e. under `npm run dev` or when you [host the UI separately](/sparrow/deployment/separate-ui/). With `SPARROW_SERVE_UI=true` the embedded UI uses the same origin; when `SPARROW_API_KEY` is set it shows a sign-in prompt on the first `401`.
 
@@ -150,6 +215,52 @@ scrape_configs:
 
 HTTP server and client metrics (`http_server_*`, `http_client_*`) and database
 pool metrics (`db_sql_*`) come from the OpenTelemetry instrumentation.
+
+## AI template drafting
+
+The subscription template editor can help write a `transform_template`. It
+works at two levels:
+
+- **With no AI variables set**, the editor offers **Copy prompt for AI**
+  (`POST /v1/subscriptions:draftTemplatePrompt`): a prompt grounded in the event
+  type's schema and sample payload and in Sparrow's template helpers, to paste
+  into any chat assistant.
+- **With a provider configured**, it adds **Draft with AI**
+  (`POST /v1/subscriptions:draftTemplate`). You describe the body the receiver
+  should get (optionally with an example body, a sample payload, a shipped
+  recipe's format, or a documentation URL), and Sparrow drafts the template,
+  renders it against the sample payload, and asks the model to repair it, up to
+  three rounds, until it renders. Drafts are short, so a small model is usually
+  enough.
+
+`GET /v1/capabilities` tells clients which of the two is available.
+
+**What leaves your server:** the event type's schema, the sample payload, and
+the text of the request. Stored events, headers and secrets are never sent.
+A documentation URL is fetched by Sparrow under the same network rules as
+deliveries, so private and cloud metadata addresses are refused unless allowed.
+
+### Anthropic
+
+```bash
+SPARROW_AI_API_KEY=sk-ant-...
+# SPARROW_AI_MODEL=claude-haiku-4-5   # the default; raise it if drafts often need repairs
+# SPARROW_AI_BASE_URL=https://llm-gateway.internal   # only for a gateway or proxy
+```
+
+### An OpenAI-compatible server
+
+Ollama, vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI and others:
+
+```bash
+SPARROW_AI_PROVIDER=openai
+SPARROW_AI_BASE_URL=http://localhost:11434/v1   # Ollama; e.g. http://vllm:8000/v1, https://openrouter.ai/api/v1
+SPARROW_AI_MODEL=qwen2.5-coder:7b               # the name the server serves
+# SPARROW_AI_API_KEY=...                        # sent as a Bearer token when set
+```
+
+With `openai`, setting a key without `SPARROW_AI_BASE_URL` stops the server at
+startup.
 
 ## Default Tenant
 

@@ -208,5 +208,9 @@ events.
 ## Reserved names
 
 Names starting with `sparrow.` (in any case) belong to Sparrow's own system
-events, such as `sparrow.webhook.health_changed`. You can subscribe to them,
-but you cannot register, change, import, export or push them.
+events, such as `sparrow.webhook.health_changed`. You can subscribe to them
+only under the `_sparrow` consumer (see
+[Webhook Health Alerts](/sparrow/guides/webhook-health-alerts/)), and you
+cannot register, change, import, export or push them.
+`GET /v1/event-types?consumer=<name>` lists only the event types that consumer
+can subscribe to.

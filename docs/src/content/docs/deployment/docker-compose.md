@@ -51,10 +51,10 @@ Latest Docker release: [`ghcr.io/sarathsp06/sparrow:latest`](https://github.com/
 docker pull ghcr.io/sarathsp06/sparrow:latest
 ```
 
-You can also pin to a specific version:
+You can also pin to a specific version (image tags have no leading `v`; see the [releases](https://github.com/sarathsp06/sparrow/releases) for the latest):
 
 ```bash
-docker pull ghcr.io/sarathsp06/sparrow:0.5.6
+docker pull ghcr.io/sarathsp06/sparrow:0.9.0
 ```
 
 ## Development (Build from Source)
@@ -74,11 +74,10 @@ make build-with-ui
 export DATABASE_URL=postgres://sparrow:sparrow@localhost:5432/sparrow?sslmode=disable
 export SPARROW_ENCRYPTION_KEYS="main=$(openssl rand -hex 32)"
 export SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main
-make migrate
 SPARROW_SERVE_UI=true ./build/server-*
 ```
 
-Without a `.env`, `make run` and `make migrate` default to the `make dev-db` database and a dev-only all-zeros keyring, so the exports above are only needed when running the binary directly.
+The server runs migrations on startup, so there is no separate migrate step. Without a `.env`, `make run` and `make migrate` default to the `make dev-db` database and a dev-only all-zeros keyring, so the exports above are only needed when running the binary directly.
 
 ## Observability
 
