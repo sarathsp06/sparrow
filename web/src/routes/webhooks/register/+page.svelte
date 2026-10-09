@@ -11,7 +11,7 @@
   import TransformSettings from '$lib/components/TransformSettings.svelte';
   import type { TemplateSaveMeta } from '$lib/components/TemplateEditor.svelte';
   import SigningSecretReveal from '$lib/components/SigningSecretReveal.svelte';
-  import { ALERT_EVENT_TYPES, ALERT_SETUP_HREF, ALERTS_GUIDE_URL, SYSTEM_CONSUMER, isEmail, isSystemConsumer, listAllEventTypes } from '$lib/system';
+  import { ALERT_EVENT_TYPES, ALERTS_GUIDE_URL, SYSTEM_CONSUMER, isEmail, isSystemConsumer, listAllEventTypes } from '$lib/system';
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
 
@@ -549,7 +549,7 @@
                 {#if alertDeliveryConfigured === false}
                   <p class="text-xs mt-1" style="color:var(--color-warn)" data-testid="alert-delivery-missing">
                     Alert email is not set up on this server yet: the recipient is saved, but nothing is sent until an operator adds an alert-delivery webhook under <span class="mono">{SYSTEM_CONSUMER}</span>.
-                    <a href={ALERTS_GUIDE_URL} target="_blank" rel="noreferrer" class="underline">Guide</a> · <a href={ALERT_SETUP_HREF} class="underline" data-sveltekit-reload>Set it up</a>
+                    <a href={ALERTS_GUIDE_URL} target="_blank" rel="noreferrer" class="underline">Guide</a>
                   </p>
                 {/if}
               </div>

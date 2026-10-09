@@ -6,7 +6,7 @@
   import { formatAPIError } from "$lib/utils";
   import type { components } from "$lib/api-types";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
-  import { ALERT_EVENT_TYPES, ALERT_SETUP_HREF, ALERTS_GUIDE_URL, isEmail } from "$lib/system";
+  import { ALERT_EVENT_TYPES, ALERTS_GUIDE_URL, isEmail } from "$lib/system";
 
   type AlertConfigItem = components["schemas"]["AlertConfigItem"];
 
@@ -98,7 +98,6 @@
   {#if deliveryConfigured === false}
     <p class="text-xs mb-3 px-3 py-2 rounded-md" style="color:var(--color-warn);background:color-mix(in srgb,var(--color-warn) 10%,transparent)" data-testid="alert-delivery-missing">
       Alert email is not set up on this server: recipients below are stored, but nothing is sent until an operator adds an alert-delivery webhook.
-      <a href={ALERT_SETUP_HREF} class="underline">Set it up</a>
     </p>
   {/if}
 
