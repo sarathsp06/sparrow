@@ -2,18 +2,10 @@
 // the small client-side type and param substitution helper.
 export interface RecipeParam {
   name: string;
-  /** Short label. */
   prompt?: string;
   required?: boolean;
   default?: string;
   secret?: boolean;
-  /** One-line hint: what the value is and where to find it. */
-  help?: string;
-  /** Sample value, shown as the placeholder. */
-  example?: string;
-  /** The only accepted values; rendered as a select. */
-  enum?: string[] | null;
-  docs_url?: string;
   activation_required?: boolean;
   must_override_default?: boolean;
 }
@@ -22,8 +14,6 @@ export interface Recipe {
   name: string;
   description: string;
   params?: RecipeParam[] | null;
-  /** The consumer the recipe is meant for, when it matters. */
-  consumer?: { name: string; note: string } | null;
   webhook: {
     url: string;
     headers?: Record<string, string>;

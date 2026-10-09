@@ -208,6 +208,7 @@ type ClientResults struct {
 	PeakGoroutines  int            `json:"peak_goroutines"`
 	FirstError      string         `json:"first_error,omitempty"`
 	ServerConnsSeen int64          `json:"server_connections_seen"`
+	ResourceUsage   *ResourceUsage `json:"resource_usage,omitempty"`
 }
 
 type clientTester struct {
@@ -377,6 +378,17 @@ func (t *clientTester) close() {
 // Print writes the client-mode report.
 func (r *ClientResults) Print() {
 	fmt.Printf("\n=== Client Load Test Results ===\n\n")
+	if r.ResourceUsage != nil {
+		fmt.Printf("Resource Utilization:\n")
+		if r.ResourceUsage.SparrowPID > 0 {
+			fmt.Printf("  Sparrow CPU:    avg %.1f%%, peak %.1f%%\n", r.ResourceUsage.SparrowCPUAvg, r.ResourceUsage.SparrowCPUPeak)
+			fmt.Printf("  Sparrow RSS:    peak %.2f MB\n", r.ResourceUsage.SparrowPeakRSS)
+		}
+		if r.ResourceUsage.CPUMsPerDelivery > 0 {
+			fmt.Printf("  Efficiency:     %.2f CPU-ms / delivery\n", r.ResourceUsage.CPUMsPerDelivery)
+		}
+		fmt.Println()
+	}
 	fmt.Printf("Duration: %v   target %d rps, %d workers, %d KB payload\n\n", r.Duration.Round(time.Millisecond), r.Config.TargetRPS, r.Config.Concurrency, r.Config.PayloadSizeKB)
 	fmt.Printf("Requests:\n")
 	fmt.Printf("  Total:           %d\n", r.TotalRequests)
@@ -417,6 +429,11 @@ func main() {
 	// client mode
 	targetURL := flag.String("url", "", "client mode: target URL (empty = in-process test server)")
 
+	// resource sampling flags
+	sparrowPID := flag.Int("sparrow-pid", 0, "PID of target Sparrow process to sample CPU % and RSS")
+	postgresPID := flag.Int("postgres-pid", 0, "PID of Postgres process to sample CPU %")
+	postgresDSN := flag.String("postgres-dsn", "", "Postgres DSN connection string to sample WAL bytes")
+
 	// e2e mode
 	sparrowURL := flag.String("sparrow-url", "http://localhost:8080", "e2e mode: base URL of the running Sparrow")
 	apiKey := flag.String("api-key", os.Getenv("SPARROW_API_KEY"), "e2e mode: X-API-Key for Sparrow (default $SPARROW_API_KEY)")
@@ -443,13 +460,25 @@ func main() {
 	}()
 
 	var report any
+	resCfg := ResourceConfig{
+		SparrowPID:  *sparrowPID,
+		PostgresPID: *postgresPID,
+		PostgresDSN: *postgresDSN,
+	}
+
 	switch *mode {
 	case "client":
 		cfg := ClientConfig{Duration: *duration, TargetRPS: *rps, PayloadSizeKB: *payloadKB, Concurrency: *concurrency, TargetURL: *targetURL}
 		fmt.Printf("Client mode: %v at %d rps, %d workers, %d KB payload, target=%q\n", cfg.Duration, cfg.TargetRPS, cfg.Concurrency, cfg.PayloadSizeKB, cfg.TargetURL)
+		sampler, err := NewResourceSampler(resCfg)
+		if err != nil {
+			log.Printf("resource sampler init: %v", err)
+		}
+		sampler.Start(ctx)
 		t := newClientTester(cfg)
 		res := t.run(ctx)
 		t.close()
+		res.ResourceUsage = sampler.Stop(res.SuccessfulReqs)
 		res.Print()
 		report = res
 	case "e2e":
@@ -457,7 +486,7 @@ func main() {
 			SparrowURL: *sparrowURL, APIKey: *apiKey, Consumer: *consumer, EventName: *eventName, Webhooks: *webhooks, Subscribers: *subscribers, Burst: *burst,
 			ReceiverAddr: *receiverAddr, ReceiverURL: *receiverURL, ReceiverDelay: *receiverDelay,
 			Duration: *duration, TargetRPS: *rps, Publishers: *concurrency, PayloadSizeKB: *payloadKB,
-			DrainTimeout: *drainTimeout, KeepWebhook: *keepWebhook,
+			DrainTimeout: *drainTimeout, KeepWebhook: *keepWebhook, ResourceConfig: resCfg,
 		}
 		res, err := NewE2ERunner(cfg).Run(ctx)
 		if err != nil {

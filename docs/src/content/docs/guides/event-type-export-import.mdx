@@ -4,6 +4,9 @@ description: Export event type definitions from one Sparrow environment and impo
 ---
 
 import { Aside, Steps } from '@astrojs/starlight/components';
+import ThemeDiagram from '../../../components/ThemeDiagram.astro';
+import importFlowLight from '../../../assets/diagrams/event-type-import-flow-light.svg';
+import importFlowDark from '../../../assets/diagrams/event-type-import-flow-dark.svg';
 
 An event type is usually designed and tested in development, then promoted
 through staging to production. Sparrow moves definitions between environments
@@ -82,22 +85,11 @@ deletes anything; there is no prune option.
 
 The whole file is applied in one transaction: every entry, or none.
 
-```mermaid
-flowchart LR
-    accTitle: Import flow
-    accDescr: Import flow: validate every item, check the stamp, apply every item in one transaction, render affected templates for new versions, then either roll back and return the result (dry run, unacknowledged warning or unapproved breaking change) or optionally pause failing subscriptions and commit.
-    F["bundle file"] --> V["validate every item:<br>names, duplicates, sparrow.*,<br>schemas compile, 500 items"]
-    V --> ST["check the stamp:<br>version, format, sha256"]
-    ST --> TX["one transaction,<br>items locked by name"]
-    TX --> W["save each item<br>(usual version rules)"]
-    W --> CK["new versions: render every affected<br>template strictly, full and<br>required-only payloads"]
-    CK --> G{"dry run, unacknowledged<br>stamp warning, or breaking<br>without allow_breaking?"}
-    G -- yes --> RB["roll back; return the full<br>result and blocked_by"]
-    G -- no --> P{"subscription_policy = pause?"}
-    P -- yes --> PA["pause subscriptions whose<br>template failed"]
-    P -- no --> CM["commit; return results<br>and imported_at"]
-    PA --> CM
-```
+<ThemeDiagram
+  light={importFlowLight}
+  dark={importFlowDark}
+  alt="Import flow: validate every item, check the stamp, apply every item in one transaction, render affected templates for new versions, then either roll back and return the result (dry run, unacknowledged warning or unapproved breaking change) or optionally pause failing subscriptions and commit."
+/>
 
 ### The preview
 

@@ -1,220 +1,97 @@
 ---
 title: Quickstart
-description: Register an event type and a webhook, push an event, and watch it arrive, in about five minutes with curl.
+description: Get up and running with Sparrow in 5 minutes.
 sidebar:
-  order: 3
+  order: 2
 ---
 
-import { Aside, Steps } from '@astrojs/starlight/components';
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
-You'll register an event type, point a webhook at a URL you can watch, push one
-event, and confirm it was delivered. Every step is a `curl` command and shows
-the response you should get back.
+This guide walks you through registering a webhook, pushing an event, and verifying delivery -- all using `curl`.
 
-## Before you start
+:::note
+All examples use `http://localhost:8080` (REST/HTTP API). Replace with your server URL in production.
+:::
 
-- **Sparrow is running** on `http://localhost:8080`. The quickest way is the
-  [Docker Compose file](/sparrow/getting-started/installation/#docker-compose-recommended):
-  `docker compose up -d`.
-- **No API key needed.** The local Compose file runs with an open API. If you
-  started the server with `SPARROW_API_KEY`, add `-H "X-API-Key: <your key>"`
-  to every command below; without it you get `401`.
-- **`jq` is optional.** The responses below are pretty-printed; add `| jq` to
-  get the same.
+:::tip
+Running from source instead of a pre-built image? See [Build from Source](/sparrow/getting-started/installation/#build-from-source) for `make run` / `make docker-dev`.
+:::
 
-All URLs use the `default` consumer. A consumer is a namespace for webhooks and
-events, usually one per customer; any name works.
+:::note
+The `X-API-Key` header is only needed when the server was started with
+`SPARROW_API_KEY` set -- add `-H "X-API-Key: <your-key>"` if you have one,
+or omit it on the default local Compose (which runs without a key). All
+URLs use the `default` consumer; swap the
+`default` path segment for any other name to isolate a different
+set of webhooks and events.
+:::
 
 <Steps>
 
 1. **Register an event type**
 
-    Sparrow only accepts events whose type is registered, so define
-    `order.created` first:
-
     ```bash
     curl -X POST http://localhost:8080/v1/event-types \
       -H "Content-Type: application/json" \
-      -d '{"name": "order.created", "description": "Fires when a new order is placed"}'
+      -H "X-API-Key: sk_live_..." \
+      -d '{
+        "name": "order.created",
+        "description": "Fires when a new order is placed",
+        "active": true
+      }'
     ```
 
-    You get the event type back, active and at version 1:
-
-    ```json
-    {
-      "name": "order.created",
-      "description": "Fires when a new order is placed",
-      "active": true,
-      "version": 1,
-      "created_at": "2026-10-08T14:12:44.679012Z",
-      "updated_at": "2026-10-08T14:12:44.679012Z"
-    }
-    ```
-
-2. **Get a URL you can watch**
-
-    Open [webhook.site](https://webhook.site) in a browser and copy **Your
-    unique URL**. Every request sent there shows up on that page, headers and
-    body included.
-
-    <Aside type="tip" title="Rather keep it local?">
-    Install the [`sparrow` CLI](/sparrow/satellites/cli/) and run
-    `sparrow listen --event order.created`. It starts a receiver on your
-    machine, registers a temporary webhook for it (so skip step 3), checks each
-    delivery's signature and prints it. The webhook is deleted when you press
-    Ctrl-C.
-    </Aside>
-
-3. **Register a webhook**
-
-    Replace the URL with yours. Listing `events` also creates a subscription to
-    each one, so this single call is all the setup the webhook needs:
+2. **Register a webhook**
 
     ```bash
     curl -X POST http://localhost:8080/v1/consumers/default/webhooks \
       -H "Content-Type: application/json" \
+      -H "X-API-Key: sk_live_..." \
       -d '{
-        "url": "https://webhook.site/your-unique-id",
-        "events": ["order.created"]
+        "url": "https://testhooks.sarathsadasivan.com/hooks",
+        "events": ["order.created"],
+        "active": true
       }'
     ```
 
-    The response (trimmed):
+    Save the `webhook_id` from the response for later use.
 
-    ```json
-    {
-      "webhook_id": "431b2e95-ac8a-4127-b3f5-601a0110afae",
-      "consumer": "default",
-      "events": ["order.created"],
-      "url": "https://webhook.site/your-unique-id",
-      "active": true,
-      "health": "unknown",
-      "signature_type": "hmac",
-      "http_config": {
-        "max_retries": 3,
-        "webhook_secret": "whsec_7P18FjmjRrTO9n2JcFKsyHAIItGvgqY4",
-        ...
-      }
-    }
-    ```
-
-    Save two values:
-
-    - **`webhook_id`**, to look up deliveries in step 6.
-    - **`http_config.webhook_secret`**, which the receiver uses to
-      [verify signatures](/sparrow/guides/verify-signatures/). It's shown
-      **only in this response**. Reading the webhook later returns it masked
-      (`whsec_••••`); if you lose it, rotate it from the webhook page.
-
-4. **Push an event**
+3. **Push an event**
 
     ```bash
     curl -X POST "http://localhost:8080/v1/consumers/default/events?event=order.created" \
       -H "Content-Type: application/json" \
+      -H "X-API-Key: sk_live_..." \
       -d '{
         "payload": {
           "order_id": "ord_123",
           "customer": "alice@example.com",
           "total": 49.99
-        }
+        },
+        "idempotency_key": "idem_ord_123",
+        "ttl_seconds": 3600
       }'
     ```
 
-    Sparrow accepts the event and returns at once (`201`). Delivery happens in
-    the background:
-
-    ```json
-    {
-      "event_id": "9fab6d74-baa0-45cd-af80-7a63ccdc08a5",
-      "duplicate": false,
-      "schema_valid": true
-    }
-    ```
-
-5. **See it arrive**
-
-    Within a second or two, a `POST` appears on your webhook.site page. The body
-    is the event envelope, with your payload inside:
-
-    ```json
-    {
-      "version": "1",
-      "event_id": "9fab6d74-baa0-45cd-af80-7a63ccdc08a5",
-      "event_name": "order.created",
-      "timestamp": "2026-10-08T14:13:05Z",
-      "attempt": 1,
-      "payload": {
-        "customer": "alice@example.com",
-        "order_id": "ord_123",
-        "total": 49.99
-      }
-    }
-    ```
-
-    Among the headers are `webhook-id`, `webhook-timestamp` and
-    `webhook-signature` (the [Standard Webhooks](https://www.standardwebhooks.com)
-    signature, made with your `webhook_secret`), and `x-sparrow-event-id`,
-    `x-sparrow-webhook-id`, `x-sparrow-delivery-id`.
-
-6. **Check the delivery**
+4. **Check delivery status**
 
     ```bash
-    curl "http://localhost:8080/v1/consumers/default/deliveries?webhook_id=YOUR_WEBHOOK_ID&limit=10"
+    curl "http://localhost:8080/v1/consumers/default/deliveries?webhook_id=YOUR_WEBHOOK_ID&limit=10" \
+      -H "X-API-Key: sk_live_..."
     ```
-
-    One delivery, delivered on the first attempt:
-
-    ```json
-    {
-      "items": [
-        {
-          "delivery_id": "5fcf5267-6288-443e-b8b9-691037818c80",
-          "webhook_id": "431b2e95-ac8a-4127-b3f5-601a0110afae",
-          "event_id": "9fab6d74-baa0-45cd-af80-7a63ccdc08a5",
-          "status": "success",
-          "attempt_count": 1,
-          "max_attempts": 4,
-          "response_code": 200,
-          "error_category": "success"
-        }
-      ],
-      "pagination": {"limit": 10, "offset": 0, "total_count": 1, "has_more": false}
-    }
-    ```
-
-    `max_attempts` is 4: the first try plus the webhook's 3 retries. The web UI
-    at `http://localhost:8080` shows the same delivery under **Deliveries**.
 
 </Steps>
 
-## If you see something else
+## What Just Happened?
 
-| You see | What it means | What to do |
-|---------|---------------|------------|
-| `404` with `event type "order.created" is not registered` when pushing | The event type doesn't exist (step 1 was skipped, or the name differs). | Register it, then push again. |
-| `401 Unauthorized` on any call | The server was started with `SPARROW_API_KEY`. | Add `-H "X-API-Key: <your key>"`. |
-| `400` with `... addresses are not allowed` when registering | The URL points at `localhost` or a private network, which Sparrow blocks by default. | Use a public URL, or start the server with `SPARROW_ALLOW_PRIVATE_NETWORKS=true` (the local Compose file already does). From inside Docker, reach your machine as `host.docker.internal`, not `localhost`. |
-| `"status": "failed"` with `"error_category": "dns_error"` | The webhook's host name doesn't resolve. Sparrow doesn't retry this. | Fix the URL (`PATCH` the webhook), then retry with `POST /v1/consumers/default/deliveries/{delivery_id}:retry`. |
-| `"status": "retrying"` with `connection_refused`, `timeout` or a `5xx` `response_code` | The receiver is down or erroring. Sparrow tries again with backoff (`retry_backoff_seconds`, 60 by default) up to `max_retries` times. | Bring the receiver back; the next attempt goes through on its own. |
-| `"status": "paused"`, `Held: webhook is paused` | The webhook is paused (you set `"active": false`, or Sparrow [auto-disabled](/sparrow/guides/webhook-health-alerts/) it after repeated failures). Paused deliveries are held, not dropped. | Resume it with `POST /v1/consumers/default/webhooks/{webhook_id}:resume`, then retry the held deliveries. See [Pausing subscriptions](/sparrow/guides/subscription-pause/). |
-| No deliveries at all | No active subscription matches the event: a different consumer, a different event name, or a label filter that doesn't match. | Compare the consumer in both URLs and the webhook's `events`. |
+1. Sparrow stored the event and enqueued it for async processing
+2. The event worker found the matching subscription (created automatically when you registered the webhook with `events`)
+3. A delivery job was created and the webhook worker sent an HTTP POST to your URL
+4. The delivery status, response code, and response body were recorded
 
-[Error classification](/sparrow/reference/error-classification/) lists every
-`error_category` and whether Sparrow retries it.
+## Next Steps
 
-## What happened
-
-1. Sparrow stored the event and queued it.
-2. A fan-out worker found the subscription created in step 3 and created one
-   delivery for it.
-3. A delivery worker signed the envelope with the webhook's secret and sent it
-   as a `POST`.
-4. The response code and timing were recorded on the delivery. A failure would
-   have been retried with backoff.
-
-## Next steps
-
-- [How it works](/sparrow/getting-started/how-it-works/): events, subscriptions and deliveries in more detail
-- [Verify webhook signatures](/sparrow/guides/verify-signatures/) on the receiving side
-- [Payload transformation](/sparrow/guides/payload-transformation/): send a different body, such as a Slack message
-- [Recipes](/sparrow/satellites/recipes/): ready-made Slack, PagerDuty, email and other destinations
+- [Learn how events, webhooks, and deliveries fit together](/sparrow/getting-started/how-it-works/)
+- [Configure webhook secrets](/sparrow/reference/architecture/#verifying-webhook-signatures) for HMAC signature verification
+- [Add payload transforms](/sparrow/reference/template-functions/) using Go templates
+- Generate a client from the OpenAPI spec — see [Client Libraries](/sparrow/reference/client-libraries/)

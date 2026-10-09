@@ -198,12 +198,12 @@ func (s *WebhookService) ExportEventTypes(ctx context.Context, sel EventTypeExpo
 		}
 	} else {
 		for offset := 0; ; offset += maxPageLimit {
-			page, _, err := s.webhookRepo.ListEventsPaginated(ctx, tenantID, store.EventTypeFilter{System: new(bool)}, maxPageLimit, offset)
+			page, _, err := s.webhookRepo.ListEventsPaginated(ctx, tenantID, false, maxPageLimit, offset)
 			if err != nil {
 				return nil, BundleStamp{}, fmt.Errorf("failed to list event types: %w", err)
 			}
 			for _, reg := range page {
-				if !strings.HasPrefix(reg.Name, sel.Prefix) {
+				if IsReservedEventName(reg.Name) || !strings.HasPrefix(reg.Name, sel.Prefix) {
 					continue
 				}
 				regs = append(regs, reg)

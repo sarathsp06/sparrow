@@ -7,65 +7,33 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/sarathsp06/sparrow/internal/webhooks"
-	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
 type webhookHealthOutput struct {
 	Body struct {
-		WebhookID              string      `json:"webhook_id" doc:"Webhook id (UUID)."`
-		Health                 string      `json:"health" enum:"healthy,degraded,unhealthy,unknown" doc:"Computed rolling health status."`
-		TotalDeliveries        int         `json:"total_deliveries" doc:"Total deliveries recorded for this webhook."`
-		SuccessfulDeliveries   int         `json:"successful_deliveries" doc:"Deliveries that succeeded."`
-		FailedDeliveries       int         `json:"failed_deliveries" doc:"Deliveries that failed."`
-		ConsecutiveFailures    int         `json:"consecutive_failures" doc:"Current streak of consecutive failed deliveries; resets on success."`
-		SuccessRate            float64     `json:"success_rate" doc:"Rolling success rate, 0.0 to 1.0."`
-		AvgResponseTime        int         `json:"avg_response_time" doc:"Average endpoint response time, in milliseconds."`
-		ClientErrors           int         `json:"client_errors" doc:"Count of 4xx failures."`
-		ServerErrors           int         `json:"server_errors" doc:"Count of 5xx failures."`
-		TimeoutErrors          int         `json:"timeout_errors" doc:"Count of request/connection timeout failures."`
-		NetworkErrors          int         `json:"network_errors" doc:"Count of other network-level failures (DNS, TLS, connection refused, reset)."`
-		UnexpectedStatusErrors int         `json:"unexpected_status_errors" doc:"Count of responses outside the webhook's configured expected_status_codes."`
-		Rules                  HealthRules `json:"rules" doc:"Thresholds the health status is derived from."`
-	}
-}
-
-// HealthRules are the thresholds behind the healthy/degraded/unhealthy
-// labels, served so clients can explain them without copying the numbers.
-type HealthRules struct {
-	WindowHours                  int     `json:"window_hours" doc:"Lookback window, in hours, of the attempt counts and success rate."`
-	UnhealthyConsecutiveFailures int     `json:"unhealthy_consecutive_failures" doc:"Failed attempts in a row that make a webhook unhealthy whatever its success rate."`
-	UnhealthySuccessRate         float64 `json:"unhealthy_success_rate" doc:"A success rate below this (0.0 to 1.0), over at least unhealthy_min_attempts attempts, is unhealthy."`
-	UnhealthyMinAttempts         int     `json:"unhealthy_min_attempts" doc:"Attempts in the window needed before a low success rate counts as unhealthy."`
-	DegradedSuccessRate          float64 `json:"degraded_success_rate" doc:"A success rate below this (0.0 to 1.0), over at least degraded_min_attempts attempts, is degraded."`
-	DegradedMinAttempts          int     `json:"degraded_min_attempts" doc:"Attempts in the window needed before a low success rate counts as degraded."`
-	HealthyMinAttempts           int     `json:"healthy_min_attempts" doc:"Attempts at or above degraded_success_rate needed to call a webhook healthy; with fewer it stays unknown."`
-}
-
-func healthRules() HealthRules {
-	r := store.DefaultHealthRules
-	return HealthRules{
-		WindowHours:                  r.WindowHours,
-		UnhealthyConsecutiveFailures: r.UnhealthyConsecutiveFailures,
-		UnhealthySuccessRate:         r.UnhealthySuccessRate,
-		UnhealthyMinAttempts:         r.UnhealthyMinAttempts,
-		DegradedSuccessRate:          r.DegradedSuccessRate,
-		DegradedMinAttempts:          r.DegradedMinAttempts,
-		HealthyMinAttempts:           r.HealthyMinAttempts,
+		WebhookID              string  `json:"webhook_id" doc:"Webhook id (UUID)."`
+		Health                 string  `json:"health" enum:"healthy,degraded,unhealthy,unknown" doc:"Computed rolling health status."`
+		TotalDeliveries        int     `json:"total_deliveries" doc:"Total deliveries recorded for this webhook."`
+		SuccessfulDeliveries   int     `json:"successful_deliveries" doc:"Deliveries that succeeded."`
+		FailedDeliveries       int     `json:"failed_deliveries" doc:"Deliveries that failed."`
+		ConsecutiveFailures    int     `json:"consecutive_failures" doc:"Current streak of consecutive failed deliveries; resets on success."`
+		SuccessRate            float64 `json:"success_rate" doc:"Rolling success rate, 0.0 to 1.0."`
+		AvgResponseTime        int     `json:"avg_response_time" doc:"Average endpoint response time, in milliseconds."`
+		ClientErrors           int     `json:"client_errors" doc:"Count of 4xx failures."`
+		ServerErrors           int     `json:"server_errors" doc:"Count of 5xx failures."`
+		TimeoutErrors          int     `json:"timeout_errors" doc:"Count of request/connection timeout failures."`
+		NetworkErrors          int     `json:"network_errors" doc:"Count of other network-level failures (DNS, TLS, connection refused, reset)."`
+		UnexpectedStatusErrors int     `json:"unexpected_status_errors" doc:"Count of responses outside the webhook's configured expected_status_codes."`
 	}
 }
 
 type healthSummaryOutput struct {
 	Body struct {
-		HealthyCount   int         `json:"healthy_count" doc:"Webhooks currently healthy."`
-		DegradedCount  int         `json:"degraded_count" doc:"Webhooks currently degraded."`
-		UnhealthyCount int         `json:"unhealthy_count" doc:"Webhooks currently unhealthy."`
-		UnknownCount   int         `json:"unknown_count" doc:"Webhooks with no recent delivery attempts."`
-		Rules          HealthRules `json:"rules" doc:"Thresholds the health statuses are derived from."`
+		HealthyCount   int `json:"healthy_count" doc:"Webhooks currently healthy, across all consumers."`
+		DegradedCount  int `json:"degraded_count" doc:"Webhooks currently degraded, across all consumers."`
+		UnhealthyCount int `json:"unhealthy_count" doc:"Webhooks currently unhealthy, across all consumers."`
+		UnknownCount   int `json:"unknown_count" doc:"Webhooks with no recent delivery attempts, across all consumers."`
 	}
-}
-
-type healthSummaryInput struct {
-	Consumer string `query:"consumer,omitempty" doc:"Count one consumer's webhooks; omit to count across all consumers."`
 }
 
 // listWebhooksGlobalInput is global (no consumer) — used both for
@@ -117,7 +85,6 @@ func registerHealthRoutes(api huma.API, svc healthRouteService) {
 		out.Body.TimeoutErrors = h.TimeoutErrors
 		out.Body.NetworkErrors = h.NetworkErrors
 		out.Body.UnexpectedStatusErrors = h.UnexpectedStatusErrors
-		out.Body.Rules = healthRules()
 		return out, nil
 	})
 
@@ -125,11 +92,11 @@ func registerHealthRoutes(api huma.API, svc healthRouteService) {
 		OperationID: "getHealthSummary",
 		Method:      http.MethodGet,
 		Path:        "/v1/health-summary",
-		Summary:     "Get aggregate webhook health counts",
-		Description: "Returns how many webhooks are currently healthy, degraded, unhealthy, or unknown, in one consumer or across every consumer — for a top-level dashboard tile — plus the thresholds behind those statuses.",
+		Summary:     "Get aggregate webhook health counts across all consumers",
+		Description: "Returns how many webhooks are currently healthy, degraded, unhealthy, or unknown, across every consumer — for a top-level dashboard tile.",
 		Tags:        []string{"Health"},
-	}, func(ctx context.Context, in *healthSummaryInput) (*healthSummaryOutput, error) {
-		s, err := svc.GetHealthSummary(ctx, in.Consumer)
+	}, func(ctx context.Context, in *struct{}) (*healthSummaryOutput, error) {
+		s, err := svc.GetHealthSummary(ctx)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get health summary")
 		}
@@ -138,7 +105,6 @@ func registerHealthRoutes(api huma.API, svc healthRouteService) {
 		out.Body.DegradedCount = s.DegradedCount
 		out.Body.UnhealthyCount = s.UnhealthyCount
 		out.Body.UnknownCount = s.UnknownCount
-		out.Body.Rules = healthRules()
 		return out, nil
 	})
 

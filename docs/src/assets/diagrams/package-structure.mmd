@@ -1,0 +1,21 @@
+flowchart TD
+    Main["cmd/server/main.go<br>composition root — wires everything"]
+    Main --> Tenant["internal/tenant"]
+    Main --> Webhooks["internal/webhooks"]
+    Main --> Rest["internal/rest<br>transport layer"]
+    Tenant --> Storage[pkg/storage]
+    Webhooks --> Storage
+    Webhooks --> Errors[pkg/errors]
+    Webhooks --> Store["store/"]
+    Webhooks --> Queue["queue/"]
+    Webhooks --> Client["client/"]
+    Store --> Storage
+    Store --> Types[pkg/types]
+    Queue --> Store
+    Queue --> Client
+    Queue --> Errors
+    Queue --> Obs[internal/observability]
+    Client --> Store
+    Client --> Errors
+    Rest --> Webhooks
+    Rest --> Tenant

@@ -3,6 +3,9 @@ title: Satellites
 description: Companion tools that orbit the Sparrow core — CLI, recipes, sources, and sinks — built entirely on the public REST API.
 ---
 
+import ThemeDiagram from '../../../components/ThemeDiagram.astro';
+import satelliteTopologyLight from '../../../assets/diagrams/satellite-topology-light.svg';
+import satelliteTopologyDark from '../../../assets/diagrams/satellite-topology-dark.svg';
 
 Satellites are companion tools that **orbit the core** — they use Sparrow, they
 never reach inside it. Every satellite talks to the same public REST API and
@@ -10,28 +13,11 @@ signed-webhook contract you do, so the delivery pipeline (matching, retries,
 signing, audit trail) stays one small, boring server. Delete every satellite
 and Sparrow still works; add your own and it is a first-class citizen.
 
-```mermaid
-graph LR
-    accTitle: Satellite topology
-    accDescr: Satellite topology: the outside world (cron schedules, Stripe and GitHub webhooks) flows through inbound Sources, which verify signatures and publish typed events into the Sparrow core (match, retry, sign, audit). The core sends signed deliveries out to Recipes (Slack, Discord, ntfy, PagerDuty, ClickHouse), Sinks (email, S3, OTLP), and your own HTTP endpoints. The CLI talks to the core over REST and local webhooks for push, tail, and listen.
-    World[World<br>cron · Stripe · GitHub]
-    World -->|verify signature| Sources[Sources]
-
-    Sources -->|publish typed events<br>POST /v1/.../events| Core
-
-    subgraph Core[Sparrow core]
-        Sparrow[match · retry · sign · audit]
-    end
-
-    Sparrow -->|signed delivery| Recipes[Recipes]
-    Sparrow -->|signed delivery| Sinks[Sinks]
-    Sparrow -->|signed delivery| Yours[Your HTTP endpoint]
-
-    Recipes --> Chat[Slack · Discord · ntfy · PagerDuty · ClickHouse]
-    Sinks --> Out[Email · S3 · OTLP]
-
-    CLI[CLI<br>push · tail · listen] <-->|REST + local webhooks| Sparrow
-```
+<ThemeDiagram
+  light={satelliteTopologyLight}
+  dark={satelliteTopologyDark}
+  alt="Satellite topology: the outside world (cron schedules, Stripe and GitHub webhooks) flows through inbound Sources, which verify signatures and publish typed events into the Sparrow core (match, retry, sign, audit). The core sends signed deliveries out to Recipes (Slack, Discord, ntfy, PagerDuty, ClickHouse), Sinks (email, S3, OTLP), and your own HTTP endpoints. The CLI talks to the core over REST and local webhooks for push, tail, and listen."
+/>
 
 ## The satellites
 
@@ -40,30 +26,28 @@ graph LR
 | [CLI](/sparrow/satellites/cli/) | Push events, tail deliveries, receive webhooks locally, apply recipes, debug templates — the terminal loop | both |
 | [Recipes](/sparrow/satellites/recipes/) | Adapters as config: one YAML file turns deliveries into Slack, Discord, ntfy, PagerDuty, ClickHouse, Twilio, SendGrid, or CloudEvents payloads — rendered server-side, nothing extra runs | out |
 | [Sources](/sparrow/satellites/sources/) | Cron schedules plus webhook receivers that verify the provider's signature and re-publish as typed Sparrow events — see the Sources page for the current provider list | in |
-| [Sinks](/sparrow/satellites/sinks/) | A signed-delivery receiver that forwards to destinations that don't take webhooks: SMTP email, S3/MinIO archives, and OpenTelemetry log records | out |
+| [Sinks](/sparrow/satellites/sinks/) | A signed-delivery receiver that forwards out of HTTP land: SMTP email, S3/MinIO archives, and OTLP log export | out |
 
 Each page explains the satellite's technical path — exactly which API calls it
 makes, how signatures are verified, and what happens per delivery.
 
-## Example: Stripe payments, end to end
+## Real-World Architecture & Use Cases
 
-One flow that uses three satellites, none of which needs code:
+Satellites allow you to orchestrate end-to-end event flows across cloud providers, SaaS vendors, databases, and notification channels without writing glue microservices.
 
-1. **Source:** `sparrow-sources` receives Stripe's `payment_intent.succeeded`
-   webhook, checks the `Stripe-Signature`, and pushes
-   `stripe.payment_intent.succeeded` into Sparrow with labels `source=stripe`
-   and `livemode=true`. See [Sources](/sparrow/satellites/sources/#stripe).
-2. **Recipe:** a webhook created with `sparrow use slack --event stripe.payment_intent.succeeded`
-   posts each payment to a Slack channel. Sparrow renders the message itself;
-   nothing else runs. See [Recipes](/sparrow/satellites/recipes/#slack).
-3. **Sink:** a second webhook points at `sparrow-sinks`, whose S3 sink writes
-   each delivery's envelope to
-   `events/stripe.payment_intent.succeeded/2026/10/08/<event_id>.json` for
-   later audit queries. See [Sinks](/sparrow/satellites/sinks/#s3).
+### Scenario 1: E-Commerce Payment & Order Fulfillment Pipeline
+When a customer purchases an item on your web store:
+1. **Source (`sparrow-sources`)**: Listens to incoming Stripe webhooks (`payment_intent.succeeded`), validates Stripe's signature, and re-publishes a clean `stripe.payment_intent.succeeded` event to Sparrow.
+2. **Core (Sparrow)**: Deduplicates the event using the idempotency key, matches subscriptions, and signs outbound requests with HMAC-SHA256 / Ed25519.
+3. **Recipe (`slack`)**: Instantly renders a Block Kit card to `#sales-notifications` showing order totals and customer metadata.
+4. **Sink (`sparrow-sinks` / S3)**: Streams raw delivery payloads to an Amazon S3 bucket (`s3://acme-audit-logs/events/2026/03/17/`) for long-term financial audit compliance.
 
-Sparrow signs, retries and records each of the two deliveries on its own, so a
-Slack outage doesn't hold up the archive. Stripe may deliver the same event
-twice; deduplicate downstream on the payload's `id`.
+### Scenario 2: Developer Operations & Infrastructure Alerting
+When an automated deployment job or infrastructure monitor detects a failure:
+1. **Source (`sparrow-sources` / Cron)**: Fires a `health.check` tick every 60 seconds to evaluate upstream service status.
+2. **CLI (`sparrow push`)**: CI/CD pipelines in GitHub Actions push deployment failure events (`deploy.failed`) directly to Sparrow.
+3. **Recipe (`pagerduty`)**: Formats and triggers a high-severity incident in PagerDuty using the stable `event_id` as the deduplication key to prevent alert noise during retries.
+4. **Sink (`sparrow-sinks` / OTLP)**: Forwards delivery execution traces and logs to an OpenTelemetry Collector for Grafana / Datadog dashboards.
 
 ## The contract
 
@@ -74,8 +58,7 @@ Anything you build against the same three rules inherits the whole pipeline:
 3. **Fail loudly, stay stateless** — return non-2xx and let Sparrow's retries do the work.
 
 :::note
-Sparrow blocks private-network delivery URLs by default (SSRF guard). For a
-local receiver (`sparrow listen`, a dev sink, a laptop endpoint), start the
-**server** with `SPARROW_ALLOW_PRIVATE_NETWORKS=true`. For a sink on an
-internal network, list that network in `SPARROW_ALLOWED_NETWORKS` instead.
+Sparrow blocks private-network delivery URLs by default (SSRF guard). For any
+local receiver — `sparrow listen`, a dev sink, a laptop endpoint — start the
+**server** with `SPARROW_ALLOW_PRIVATE_NETWORKS=true`.
 :::

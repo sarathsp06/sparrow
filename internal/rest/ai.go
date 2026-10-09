@@ -40,9 +40,6 @@ type capabilitiesOutput struct {
 			PromptOnly bool   `json:"prompt_only" doc:"True when no provider is configured: POST /v1/subscriptions:draftTemplatePrompt still builds the prompt for pasting into any chat assistant, while :draftTemplate answers 503."`
 			Provider   string `json:"provider,omitempty" enum:"anthropic,openai" doc:"Chat API behind drafting: anthropic, or openai for any OpenAI-compatible server (Ollama, vLLM, OpenRouter, OpenAI)."`
 		} `json:"ai_drafting" doc:"AI-assisted transform template drafting."`
-		AlertDelivery struct {
-			Configured bool `json:"configured" doc:"True when an active webhook under the _sparrow consumer has an unpaused subscription to Sparrow's system events, so alert configs actually send email. When false, alert configs are stored but nothing is sent."`
-		} `json:"alert_delivery" doc:"Delivery of Sparrow's own alert emails (see the alert-configs endpoints)."`
 	}
 }
 
@@ -85,7 +82,7 @@ func registerAIRoutes(api huma.API, svc webhooks.WebhookServiceInterface, deps A
 		Method:      http.MethodGet,
 		Path:        "/v1/capabilities",
 		Summary:     "List optional server features",
-		Description: "Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, and whether alert email delivery is set up.",
+		Description: "Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI. Currently: AI-assisted transform template drafting, with the provider and model in use.",
 		Tags:        []string{"Server"},
 	}, func(ctx context.Context, _ *struct{}) (*capabilitiesOutput, error) {
 		out := &capabilitiesOutput{}
@@ -95,11 +92,6 @@ func registerAIRoutes(api huma.API, svc webhooks.WebhookServiceInterface, deps A
 			out.Body.AIDrafting.Model = deps.Drafter.Model()
 			out.Body.AIDrafting.Provider = deps.Drafter.Provider()
 		}
-		configured, err := svc.AlertDeliveryConfigured(ctx)
-		if err != nil {
-			return nil, mapError(ctx, err, "failed to check alert delivery")
-		}
-		out.Body.AlertDelivery.Configured = configured
 		return out, nil
 	})
 

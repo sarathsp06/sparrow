@@ -17,7 +17,7 @@ type HealthRepository interface {
 	GetWebhookHealthSummary(ctx context.Context, webhookID uuid.UUID, hours int) (*WebhookHealthSummary, error)
 	GetWebhookHealthTimeSeries(ctx context.Context, webhookID uuid.UUID, hours int, bucketSize string) ([]*WebhookHealthEvent, error)
 	AggregateHealthSummaries(ctx context.Context) (int, error)
-	GetHealthSummary(ctx context.Context, tenantID uuid.UUID, consumer string) (map[WebhookHealth]int, error)
+	GetHealthSummary(ctx context.Context, tenantID uuid.UUID) (map[WebhookHealth]int, error)
 	GetConsumerStats(ctx context.Context, tenantID uuid.UUID, consumer string) (*ConsumerStats, error)
 	AutoDisableWebhook(ctx context.Context, webhookID uuid.UUID, minFailures int, failingFor time.Duration) (*AutoDisableResult, error)
 	CountWebhooksByState(ctx context.Context, tenantID uuid.UUID) ([]WebhookStateCount, error)
@@ -66,54 +66,19 @@ func (r *Repository) AutoDisableWebhook(ctx context.Context, webhookID uuid.UUID
 	return &result, nil
 }
 
-// HealthRules are the thresholds a webhook's health label is derived from.
-// The API serves them so clients describe the labels without copying the
-// numbers.
-type HealthRules struct {
-	// WindowHours is the lookback window the attempt counts and success rate
-	// cover.
-	WindowHours int
-	// UnhealthyConsecutiveFailures failed attempts in a row make a webhook
-	// unhealthy regardless of its success rate.
-	UnhealthyConsecutiveFailures int
-	// A success rate below UnhealthySuccessRate over at least
-	// UnhealthyMinAttempts attempts is unhealthy.
-	UnhealthySuccessRate float64
-	UnhealthyMinAttempts int
-	// A success rate below DegradedSuccessRate over at least
-	// DegradedMinAttempts attempts is degraded.
-	DegradedSuccessRate float64
-	DegradedMinAttempts int
-	// HealthyMinAttempts attempts at or above DegradedSuccessRate are needed
-	// to call a webhook healthy; fewer leave it unknown.
-	HealthyMinAttempts int
-}
-
-// DefaultHealthRules are the rules the health evaluator applies.
-var DefaultHealthRules = HealthRules{
-	WindowHours:                  24,
-	UnhealthyConsecutiveFailures: 5,
-	UnhealthySuccessRate:         0.8,
-	UnhealthyMinAttempts:         10,
-	DegradedSuccessRate:          0.9,
-	DegradedMinAttempts:          5,
-	HealthyMinAttempts:           3,
-}
-
-// healthLabel is the health classification: attempts in the lookback
-// window, their success rate, and the current run of failures.
+// healthLabel is the health classification: recent distinct deliveries in
+// the lookback window, their success rate, and the current run of failures.
 func healthLabel(recentEvents int, successRate float64, consecutiveFailures int) string {
-	rules := DefaultHealthRules
 	switch {
 	case recentEvents == 0:
 		return "unknown"
-	case consecutiveFailures >= rules.UnhealthyConsecutiveFailures:
+	case consecutiveFailures >= 5:
 		return "unhealthy"
-	case successRate < rules.UnhealthySuccessRate && recentEvents >= rules.UnhealthyMinAttempts:
+	case successRate < 0.8 && recentEvents >= 10:
 		return "unhealthy"
-	case successRate < rules.DegradedSuccessRate && recentEvents >= rules.DegradedMinAttempts:
+	case successRate < 0.9 && recentEvents >= 5:
 		return "degraded"
-	case successRate >= rules.DegradedSuccessRate && recentEvents >= rules.HealthyMinAttempts:
+	case successRate >= 0.9 && recentEvents >= 3:
 		return "healthy"
 	default:
 		return "unknown"
@@ -366,18 +331,12 @@ func (r *Repository) CountWebhooksByState(ctx context.Context, tenantID uuid.UUI
 	return counts, nil
 }
 
-// GetHealthSummary counts a consumer's webhooks by health, or every
-// consumer's when consumer is empty.
-func (r *Repository) GetHealthSummary(ctx context.Context, tenantID uuid.UUID, consumer string) (map[WebhookHealth]int, error) {
-	var ns any
-	if consumer != "" {
-		ns = consumer
-	}
+// GetHealthSummary returns a summary of webhook health within a tenant
+func (r *Repository) GetHealthSummary(ctx context.Context, tenantID uuid.UUID) (map[WebhookHealth]int, error) {
 	query := `
 		SELECT health, COUNT(*) as count
 		FROM webhook_registrations
 		WHERE tenant_id = $1
-		  AND ($2::text IS NULL OR consumer = $2)
 		GROUP BY health
 	`
 
@@ -387,7 +346,7 @@ func (r *Repository) GetHealthSummary(ctx context.Context, tenantID uuid.UUID, c
 	}
 
 	var results []healthCount
-	err := r.conn.SelectContext(ctx, &results, query, tenantID, ns)
+	err := r.conn.SelectContext(ctx, &results, query, tenantID)
 	if err != nil {
 		return nil, storage.Error(err)
 	}

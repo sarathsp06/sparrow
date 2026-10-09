@@ -374,7 +374,7 @@ func (r *Repository) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.U
 	}
 
 	query := fmt.Sprintf(`
-		SELECT %s, wr.consumer
+		SELECT %s
 		FROM webhook_deliveries wd
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
 		WHERE wr.tenant_id = $1

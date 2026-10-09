@@ -93,12 +93,9 @@ func InviteTTL(requested time.Duration) (time.Duration, error) {
 // ValidateConsumer checks a consumer name for a consumer-scoped token or
 // invite. Consumers are addressed as one URL path segment
 // (/v1/consumers/{consumer}/...), which the portal gateway builds from the
-// token's scope, so a scope must be a single, literal segment. The reserved
-// system consumer is refused: only tenant-wide credentials may reach it.
+// token's scope, so a scope must be a single, literal segment.
 func ValidateConsumer(consumer string) error {
 	switch {
-	case consumer == tenant.SystemConsumer:
-		return fmt.Errorf("consumer %q is reserved for Sparrow's system events and needs a tenant-wide credential", consumer)
 	case strings.TrimSpace(consumer) != consumer || consumer == "":
 		return errors.New("consumer must be non-empty with no leading or trailing spaces")
 	case len(consumer) > 255:

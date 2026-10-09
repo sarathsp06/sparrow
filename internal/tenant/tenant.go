@@ -13,10 +13,6 @@ import (
 
 var DefaultTenantID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
 
-// SystemConsumer is the reserved consumer Sparrow's own sparrow.* system
-// events are scoped to. Only tenant-wide credentials may act on it.
-const SystemConsumer = "_sparrow"
-
 func Bootstrap(ctx context.Context, db *sqlx.DB) error {
 	var id string
 	err := db.GetContext(ctx, &id, `SELECT id FROM tenants WHERE id = $1`, DefaultTenantID)

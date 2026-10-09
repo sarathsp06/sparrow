@@ -27,24 +27,16 @@ flow through:
 | `sparrow.webhook.delivery_failed` | A delivery exhausts all of its retries and is marked permanently failed. |
 | `sparrow.webhook.disabled` | Sparrow paused a webhook automatically because its receiver kept failing (see [Automatic disabling](#automatic-disabling)). The payload carries the `reason`, `consecutive_failures` and `failing_since`. |
 
-<Aside type="note" title="`_sparrow` is a reserved consumer">
-Sparrow enforces the split: under `_sparrow` you can only subscribe to
-`sparrow.*` events (or the catch-all `*`), and `sparrow.*` events can only be
-subscribed under `_sparrow`. Anything else is rejected with `400`.
-`GET /v1/event-types?consumer=_sparrow` lists exactly what you can subscribe to
-there. Webhooks under `_sparrow` never generate these events themselves (the
-feedback-loop guard).
+<Aside type="note" title="`_sparrow` is a reserved namespace">
+`_sparrow` is a Sparrow-owned consumer (namespace) reserved by convention for
+these internal health events. Sparrow scopes its own events here and, in the
+other direction, skips re-emitting on any webhook you register under it (the
+feedback-loop guard). Keep your own webhooks in your own consumers; use
+`_sparrow` solely to wire where health alerts get delivered.
 </Aside>
 
-Two pieces work together:
-
-- **Who gets emailed:** an **alert config** per email address, scoped to a
-  consumer or one webhook.
-- **How the email is sent:** one webhook under `_sparrow`, subscribed to the
-  `sparrow.webhook.*` events, usually the SendGrid recipe (see
-  [below](#set-up-the-email-delivery-channel)). Without it, nothing is sent.
-
-You register an **alert config** naming an email address; Sparrow embeds every matching
+You never subscribe to these events directly. Instead, you register an
+**alert config** naming an email address; Sparrow embeds every matching
 recipient into the event's payload (`payload.alert_recipients`) at the moment
 it's pushed, and a mail-sending recipe (see below) fans that out to a real
 email via SendGrid.
@@ -99,7 +91,6 @@ sparrow --consumer _sparrow use sendgrid \
   --param api_key=$SENDGRID_API_KEY \
   --param from_email=alerts@yourdomain.com \
   --param from_name="Sparrow Alerts" \
-  --param default_recipient=ops@yourdomain.com \
   --event sparrow.webhook.health_changed \
   --event sparrow.webhook.delivery_failed \
   --event sparrow.webhook.disabled
@@ -117,18 +108,6 @@ what the SendGrid webhook, subscription, and rendered request body look like
 before you apply it. See [Recipes](/sparrow/satellites/recipes/) for how
 recipes are applied and parameterized.
 </Aside>
-
-## Check that alerts are being sent
-
-- `GET /v1/capabilities` returns `"alert_delivery": {"configured": true}` once an
-  active webhook under `_sparrow` is subscribed to the system events. Until
-  then, the dashboard and the portal say alert emails aren't set up, and alert
-  configs are stored but nothing is sent.
-- In the dashboard, set the consumer filter on **Webhooks** or **Deliveries** to
-  `_sparrow`. You'll see the alert-delivery webhook with its health, and every alert
-  email it sent, failed or retried, like any other webhook's deliveries.
-- Each webhook's page has an **Alerts** section listing the addresses alerted
-  about it, where you can add or remove them.
 
 ## Automatic disabling
 

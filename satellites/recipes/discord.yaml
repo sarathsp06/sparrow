@@ -3,10 +3,7 @@ name: discord
 description: Post events to a Discord channel as embeds via a channel webhook
 params:
   - name: webhook_url
-    prompt: "Discord webhook URL"
-    help: "Create one under Server Settings > Integrations > Webhooks, then Copy Webhook URL."
-    example: https://discord.com/api/webhooks/123456789/abcdef
-    docs_url: https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks
+    prompt: "Discord webhook URL (https://discord.com/api/webhooks/...)"
     required: true
 webhook:
   # The receiver only accepts the transformed payload below.

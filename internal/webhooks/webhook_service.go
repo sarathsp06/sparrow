@@ -38,17 +38,15 @@ type WebhookManager interface {
 	UnregisterWebhook(ctx context.Context, webhookID string, consumer string) error
 	ListWebhooks(ctx context.Context, consumer string, webhookID string, event string, activeOnly bool, health string, limit, offset int32) ([]*store.WebhookRegistration, int32, error)
 	UpdateWebhookConfig(ctx context.Context, webhookID string, consumer string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, requiresTransform bool, updateMask []string) error
-	RotateWebhookSecret(ctx context.Context, webhookID string, consumer string) (string, error)
 	PauseWebhook(ctx context.Context, webhookID string, consumer string, reason string) error
 	ResumeWebhook(ctx context.Context, webhookID string, consumer string) (*WebhookResumeResult, error)
 	GetConsumerStats(ctx context.Context, consumer string) (*ConsumerStatsData, error)
-	ListConsumers(ctx context.Context, query string, limit int32) ([]string, error)
 }
 
 // EventManager manages event type registrations and event publishing.
 type EventManager interface {
 	RegisterEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (string, time.Time, error)
-	ListEvents(ctx context.Context, activeOnly bool, consumer string, limit, offset int32) ([]*store.EventRegistration, int32, error)
+	ListEvents(ctx context.Context, activeOnly bool, limit, offset int32) ([]*store.EventRegistration, int32, error)
 	UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool, allowBreaking bool) (*EventTypeSaveResult, error)
 	GetEvent(ctx context.Context, name string) (*store.EventRegistration, error)
 	ListEventTypeVersions(ctx context.Context, name string) ([]*store.EventRegistrationVersion, error)
@@ -92,7 +90,7 @@ type DeliveryManager interface {
 // HealthManager exposes per-webhook and aggregate health.
 type HealthManager interface {
 	GetWebhookHealth(ctx context.Context, webhookID string, consumer string) (*WebhookHealthData, error)
-	GetHealthSummary(ctx context.Context, consumer string) (*HealthSummaryData, error)
+	GetHealthSummary(ctx context.Context) (*HealthSummaryData, error)
 }
 
 // BatchManager runs prepared bulk re-push and bulk retry jobs.
@@ -111,7 +109,6 @@ type AlertConfigManager interface {
 	CreateAlertConfig(ctx context.Context, consumer, webhookID, email string, eventTypes []string) (*store.AlertConfig, error)
 	ListAlertConfigs(ctx context.Context, consumer string, webhookID string) ([]*store.AlertConfig, error)
 	DeleteAlertConfig(ctx context.Context, consumer, id string) error
-	AlertDeliveryConfigured(ctx context.Context) (bool, error)
 }
 
 // SecretRevealer decrypts stored webhook secrets for masking and exposes the

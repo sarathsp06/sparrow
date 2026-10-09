@@ -199,6 +199,25 @@ pre {
   padding: 0.08rem 0.35rem;
 }
 
+/* ─── Theme diagrams: pick variant per theme ─────────────────── */
+.theme-diagram {
+  margin: 1.6rem 0;
+}
+
+.theme-diagram img {
+  width: 100%;
+  height: auto;
+  border-radius: var(--sp-radius-lg);
+}
+
+:root:not([data-theme='dark']) .theme-diagram-dark {
+  display: none;
+}
+
+:root[data-theme='dark'] .theme-diagram-light {
+  display: none;
+}
+
 .api-endpoint {
   margin: 0.9rem 0 1.4rem;
 }
@@ -272,135 +291,4 @@ pre {
 }
 .sl-markdown-content p:has(> img) {
   margin-block: 1rem;
-}
-
-/* ─── Mermaid diagrams (astro-mermaid) and the click-to-zoom viewer ─── */
-pre.mermaid {
-  margin: 1.6rem 0;
-  background: transparent;
-  border: 1px solid var(--sl-color-hairline);
-  border-radius: 0.6rem;
-  padding: 1rem;
-  overflow-x: auto;
-}
-
-pre.mermaid[data-processed] {
-  cursor: zoom-in;
-  position: relative;
-}
-
-pre.mermaid[data-processed]::after {
-  content: 'Click to enlarge';
-  position: absolute;
-  top: 0.5rem;
-  right: 0.6rem;
-  font: 500 0.7rem/1 var(--sl-font);
-  color: var(--sl-color-gray-3);
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-pre.mermaid[data-processed]:hover::after,
-pre.mermaid[data-processed]:focus-visible::after {
-  opacity: 1;
-}
-
-pre.mermaid[data-processed]:focus-visible {
-  outline: 2px solid var(--sl-color-accent);
-  outline-offset: 2px;
-}
-
-.diagram-viewer {
-  /* Starlight's reset zeroes dialog margins; center the modal explicitly. */
-  position: fixed;
-  inset: 0;
-  margin: auto;
-  width: min(96vw, 1600px);
-  height: min(92vh, 1100px);
-  max-width: none;
-  max-height: none;
-  padding: 0;
-  border: 1px solid var(--sl-color-hairline);
-  border-radius: 0.75rem;
-  background: var(--sl-color-bg);
-  color: var(--sl-color-text);
-  overflow: hidden;
-}
-
-.diagram-viewer[open] {
-  display: flex;
-  flex-direction: column;
-}
-
-.diagram-viewer::backdrop {
-  background: rgb(0 0 0 / 0.55);
-}
-
-.diagram-viewer-bar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.4rem;
-  padding: 0.5rem 0.6rem;
-  border-bottom: 1px solid var(--sl-color-hairline);
-}
-
-.diagram-viewer-bar button {
-  min-width: 2.2rem;
-  height: 2rem;
-  padding: 0 0.6rem;
-  border: 1px solid var(--sl-color-hairline);
-  border-radius: 0.4rem;
-  background: var(--sl-color-bg-nav);
-  color: var(--sl-color-text);
-  font: 500 0.85rem/1 var(--sl-font);
-  cursor: pointer;
-}
-
-.diagram-viewer-bar button:hover {
-  border-color: var(--sl-color-gray-4);
-}
-
-.diagram-viewer-bar button:focus-visible {
-  outline: 2px solid var(--sl-color-accent);
-  outline-offset: 1px;
-}
-
-.diagram-viewer-zoom {
-  min-width: 3.2rem;
-  text-align: center;
-  font: 500 0.8rem/1 var(--sl-font-mono);
-  font-variant-numeric: tabular-nums;
-  color: var(--sl-color-gray-2);
-}
-
-.diagram-viewer-stage {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  cursor: grab;
-  touch-action: none;
-}
-
-.diagram-viewer-stage:active {
-  cursor: grabbing;
-}
-
-.diagram-viewer-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  transform-origin: 0 0;
-}
-
-.diagram-viewer-canvas svg {
-  display: block;
-  max-width: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  pre.mermaid[data-processed]::after {
-    transition: none;
-  }
 }

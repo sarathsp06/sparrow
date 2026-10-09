@@ -128,9 +128,6 @@ type WebhookDelivery struct {
 	// TemplateError is the last payload transform error, empty when the
 	// transform rendered (or the subscription has none).
 	TemplateError string `json:"template_error" db:"template_error"`
-	// Consumer of the delivery's webhook. Filled by the delivery listings
-	// only.
-	Consumer string `json:"consumer,omitempty" db:"consumer"`
 }
 
 // WebhookDeliveryStatus represents the status of a webhook delivery

@@ -3,26 +3,17 @@ name: twilio
 description: Send events as SMS via the Twilio Messages API
 params:
   - name: account_sid
-    prompt: "Account SID"
-    help: "Found on the Twilio Console home page; starts with AC."
-    example: ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-    docs_url: https://console.twilio.com/
+    prompt: "Twilio Account SID (starts with AC...)"
     required: true
   - name: basic_auth
-    prompt: "Basic auth token"
-    help: "Base64 of AccountSID:AuthToken, e.g. the output of printf '%s:%s' <AccountSID> <AuthToken> | base64. Stored encrypted."
-    docs_url: https://www.twilio.com/docs/usage/requests-to-twilio#authenticate-with-http
+    prompt: "Twilio Basic auth token — run: printf '%s:%s' <AccountSID> <AuthToken> | base64"
     required: true
     secret: true
   - name: from_number
-    prompt: "Sender number"
-    help: "A Twilio number you own, in E.164 without the +: digits only."
-    example: "15551230000"
+    prompt: "Sender number in E.164 without '+', digits only (e.g. 15551230000)"
     required: true
   - name: to_number
-    prompt: "Recipient number"
-    help: "The phone that receives the SMS, in E.164 without the +: digits only."
-    example: "15559876543"
+    prompt: "Recipient number in E.164 without '+', digits only (e.g. 15559876543)"
     required: true
 webhook:
   # The receiver only accepts the transformed payload below.

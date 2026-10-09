@@ -36,6 +36,7 @@ type E2EConfig struct {
 	DrainTimeout    time.Duration
 	KeepWebhook     bool
 	SamplingPercent float64
+	ResourceConfig  ResourceConfig
 }
 
 // eventRecord matches a publish to its delivery. Either side may arrive
@@ -73,6 +74,8 @@ type E2EResults struct {
 	PeakBacklog int64            `json:"peak_backlog"`
 	Backlog     []BacklogSample  `json:"backlog_timeline"`
 	StatusCodes map[string]int64 `json:"publish_status_codes"`
+
+	ResourceUsage *ResourceUsage `json:"resource_usage,omitempty"`
 }
 
 // BacklogSample is one second of the accepted-vs-delivered timeline.
@@ -177,7 +180,13 @@ func (r *E2ERunner) Run(ctx context.Context) (*E2EResults, error) {
 	start := time.Now()
 	timeline := make([]BacklogSample, 0, int(r.cfg.Duration.Seconds())+int(r.cfg.DrainTimeout.Seconds())+2)
 	var timelineMu sync.Mutex
-	sampler := r.startBacklogSampler(start, &timeline, &timelineMu)
+	backlogSampler := r.startBacklogSampler(start, &timeline, &timelineMu)
+
+	resSampler, err := NewResourceSampler(r.cfg.ResourceConfig)
+	if err != nil {
+		log.Printf("resource sampler init: %v", err)
+	}
+	resSampler.Start(ctx)
 
 	window := r.cfg.Duration
 	if r.cfg.Burst > 0 {
@@ -193,7 +202,8 @@ func (r *E2ERunner) Run(ctx context.Context) (*E2EResults, error) {
 
 	drained := r.waitForDrain(ctx)
 	end := time.Now()
-	sampler()
+	backlogSampler()
+	resUsage := resSampler.Stop(r.delivered.Load())
 
 	r.mu.Lock()
 	for _, rec := range r.records {
@@ -226,6 +236,7 @@ func (r *E2ERunner) Run(ctx context.Context) (*E2EResults, error) {
 		PublishRPS:        float64(r.accepted.Load()) / publishEnd.Sub(start).Seconds(),
 		DeliveryRPS:       float64(r.delivered.Load()) / end.Sub(start).Seconds(),
 		SteadyDeliveryRPS: float64(steadyDelivered) / publishEnd.Sub(start).Seconds(),
+		ResourceUsage:     resUsage,
 	}
 	for _, s := range tl {
 		if s.Backlog > res.PeakBacklog {
@@ -596,6 +607,24 @@ func (res *E2EResults) Print() {
 
 	printLatency("Ingest latency (POST /events → 201)", res.Ingest)
 	printLatency("End-to-end latency (POST sent → receiver got it)", res.E2E)
+
+	if res.ResourceUsage != nil {
+		fmt.Printf("Resource Utilization:\n")
+		if res.ResourceUsage.SparrowPID > 0 {
+			fmt.Printf("  Sparrow CPU:    avg %.1f%%, peak %.1f%%\n", res.ResourceUsage.SparrowCPUAvg, res.ResourceUsage.SparrowCPUPeak)
+			fmt.Printf("  Sparrow RSS:    peak %.2f MB\n", res.ResourceUsage.SparrowPeakRSS)
+		}
+		if res.ResourceUsage.PostgresPID > 0 {
+			fmt.Printf("  Postgres CPU:   avg %.1f%%, peak %.1f%%\n", res.ResourceUsage.PostgresCPUAvg, res.ResourceUsage.PostgresCPUPeak)
+		}
+		if res.ResourceUsage.WALBytesWritten > 0 {
+			fmt.Printf("  WAL written:    %.2f MB (%.2f MB/s)\n", float64(res.ResourceUsage.WALBytesWritten)/1024/1024, res.ResourceUsage.WALMBPerSec)
+		}
+		if res.ResourceUsage.CPUMsPerDelivery > 0 {
+			fmt.Printf("  Efficiency:     %.2f CPU-ms / delivery\n", res.ResourceUsage.CPUMsPerDelivery)
+		}
+		fmt.Println()
+	}
 
 	if len(res.Backlog) > 0 {
 		fmt.Printf("Backlog timeline (sec: accepted/delivered/backlog):\n  ")

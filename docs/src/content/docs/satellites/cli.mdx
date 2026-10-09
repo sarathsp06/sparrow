@@ -62,7 +62,7 @@ sparrow init --url http://localhost:8080
 sparrow listen --event order.created
 
 # 3. In another terminal: push an event
-#    (the event type is registered first if it doesn't exist yet)
+#    (the event type is auto-created if it doesn't exist yet)
 sparrow push order.created -d '{"order_id":"ord_1","amount":42}'
 ```
 
@@ -85,8 +85,8 @@ endpoints:
 | Command | API calls |
 | --- | --- |
 | `init` | `GET /health` (probe), then writes `~/.sparrow/config.yaml` locally |
-| `push` | `POST /v1/consumers/{consumer}/events?event=<name>`; on `404` or `422`, `POST /v1/event-types` and one retry |
-| `events` | `GET /v1/event-types?consumer=<consumer>` (list) or `GET /v1/event-types/{name}` (detail) |
+| `push` | `POST /v1/consumers/{consumer}/events?event=<name>` — auto-creates the event type on `404`/`422` and retries once |
+| `events` | `GET /v1/event-types` (list) or `GET /v1/event-types/{name}` (detail) |
 | `events export/import` | `POST /v1/event-types:export` / `POST /v1/event-types:import` |
 | `webhooks` | `GET /v1/consumers/{consumer}/webhooks` (list or detail) plus subscriptions |
 | `tail deliveries` | `GET /v1/consumers/{consumer}/deliveries` every 2 s, printing rows not seen before |
@@ -157,12 +157,9 @@ sparrow init --url https://sparrow.example.com --api-key $KEY --consumer payment
 
 ### `sparrow push <event-name>`
 
-Pushes one event occurrence and prints its event ID. If the server answers
-`404` or `422` (the event type isn't registered), the CLI registers the type,
-prints `event type "<name>" auto-created`, and retries the push once.
-Registering needs the master key or a tenant-wide token; if it fails, the CLI
-prints both errors. Names starting with `sparrow.` are reserved and can't be
-pushed.
+Pushes one event occurrence and prints its event ID. If the event type isn't
+registered yet (the server answers `404`), the CLI registers it and retries
+the push once.
 
 ```bash
 sparrow push order.created -d '{"order_id":"ord_1"}'          # inline JSON
@@ -175,12 +172,6 @@ sparrow push order.created --idempotency-key ord_1-created     # dedup: same key
 
 Lists event types with their current version, or shows one type's schema and
 sample payload.
-
-The list shows the event types your consumer can subscribe to. Sparrow's own
-`sparrow.webhook.*` event types appear only with `--consumer _sparrow`, the one
-consumer that can subscribe to them (and that can't subscribe to anything
-else): `sparrow --consumer _sparrow events`. See
-[Webhook health alerts](/sparrow/guides/webhook-health-alerts/).
 
 ```bash
 sparrow events                  # every event type
@@ -239,11 +230,8 @@ Polls the deliveries API every 2 seconds and prints each new row:
 
 ```
 TIME                  EVENT                                 STATUS     CODE  ATTEMPTS  URL
-2026-09-12 14:03:21   9f0c1a2b-...                          success     200  1/4       https://hooks.example/x
+2026-09-12 14:03:21   9f0c1a2b-...                          success     200  1/3       https://hooks.example/x
 ```
-
-`ATTEMPTS` is attempts made out of the maximum: the first try plus the
-webhook's `max_retries` (3 by default).
 
 ```bash
 sparrow tail deliveries                    # follow everything in the consumer
@@ -308,8 +296,7 @@ override a built-in of the same name), then the built-in catalog.
 
 ```bash
 sparrow use slack --event order.created --param webhook_url=https://hooks.slack.com/services/T00/B00/xxx
-sparrow use slack --event order.created --label env=prod \
-  --param webhook_url=https://hooks.slack.com/services/T00/B00/xxx   # only prod-labelled events
+sparrow use slack --event order.created --label env=prod        # only prod-labelled events
 sparrow use myrecipe --file ./my-recipe.yaml --event user.signup
 ```
 
@@ -337,65 +324,19 @@ render it as `<no value>` instead. The template context is
 `{{.payload}}`, with helper functions like `json` and `upper`
 (`GET /v1/template-functions` lists them all).
 
-#### From a template to a recipe
-
-Start from a built-in recipe's template, or write your own:
+A typical recipe-authoring loop:
 
 ```bash
-# copy the built-in Slack template into a file you can edit
-sparrow recipes -o json | jq -r '.[] | select(.name == "slack") | .subscription.transform_template' > slack.tmpl
+# 1. iterate locally until the output is destination-shaped
+sparrow template test satellites/recipes/slack.tmpl --payload @sample.json
 
-# or write one from scratch
-cat > partner.tmpl <<'EOF'
-{{ dict "partner_id" "acme" "order" .payload.order_id "total" (div .payload.amount_cents 100) | json }}
-EOF
+# 2. apply the recipe
+sparrow use slack --event order.created --param webhook_url=$SLACK_URL
 
-# iterate until the output is what the destination expects
-sparrow template test partner.tmpl --event-name order.completed \
-  --payload '{"order_id": "ord_9988", "amount_cents": 4995}'
-# {"order":"ord_9988","partner_id":"acme","total":49.95}
-```
-
-Then put the template in a recipe file under `subscription.transform_template`
-(a YAML block scalar, `|`, keeps it verbatim) and declare the values that
-differ per install as `params`. The file name must match `name`:
-
-```yaml title="partner.yaml"
-version: 1
-name: partner
-description: Order summary for Acme's partner API
-params:
-  - name: endpoint
-    prompt: "Partner endpoint URL"
-    required: true
-  - name: api_token
-    prompt: "Partner API token"
-    required: true
-    secret: true
-webhook:
-  requires_transform: true
-  url: '{{param "endpoint"}}'
-  headers: {Content-Type: application/json}
-  secret_headers:
-    Authorization: 'Bearer {{param "api_token"}}'
-subscription:
-  transform_template: |
-    {{ dict "partner_id" "acme" "order" .payload.order_id "total" (div .payload.amount_cents 100) | json }}
-```
-
-```bash
-sparrow use partner --file ./partner.yaml --event order.completed \
-  --param endpoint=https://partner.example.com/orders --param api_token=$PARTNER_TOKEN
-# webhook 0e37f464-... -> https://partner.example.com/orders
-# subscription a2edd100-... (order.completed): transform true, label filters map[]
-# recipe "partner" applied in consumer "default"
-
-sparrow push order.completed -d '{"order_id": "ord_9988", "amount_cents": 4995}'
+# 3. push a test event and watch it land
+sparrow push order.created -d @sample.json
 sparrow tail deliveries
 ```
-
-[Recipes → Writing your own](/sparrow/satellites/recipes/#writing-your-own)
-lists every recipe field.
 
 ### `sparrow tokens`
 
@@ -500,31 +441,58 @@ sparrow functions -o json       # machine-readable output
 Prints the CLI version (set at build time via
 `-ldflags "-X main.version=..."`).
 
-## Worked example: develop a receiver on your laptop
+## Real-World Use Cases
 
-You're building the endpoint that handles `user.signup` in an app running on
-`http://localhost:3000`, against a Sparrow server in Docker on the same machine.
+The `sparrow` CLI isn't just an administrative tool — it accelerates developer productivity across local development, testing, CI/CD automation, and template engineering.
+
+### Scenario 1: Zero-Config Local Webhook Receiver & Debugging
+**Goal:** Develop a feature on your local machine (`http://localhost:3000/api/webhooks`) that reacts to `user.signup` events without deploying to a public server or using third-party tunnels.
 
 ```bash
+# Register a temporary local receiver and forward events to your app
 sparrow listen --event user.signup --forward http://localhost:3000/api/webhooks
-# listening on [::]:53021, registered webhook 6c1f... -> http://host.docker.internal:53021 (events: [user.signup])
-# press Ctrl-C to stop and delete the webhook
 ```
 
-In a second terminal, push a test event:
+**How it works:** `sparrow listen` binds a local port, registers a temporary webhook on the Sparrow server pointing to your machine, verifies incoming Standard Webhooks signatures on the fly (unsigned requests are rejected with `401` and never forwarded), proxies the body to your app, and cleans up the temporary webhook when you hit `Ctrl-C`. Use `--bind 127.0.0.1` to restrict the listener to loopback only.
+
+### Scenario 2: CI/CD Pipeline Automation & Deployment Notifications
+**Goal:** Trigger downstream workflows or notify monitoring systems whenever a continuous integration build or production release succeeds.
+
+In your GitHub Actions workflow (`.github/workflows/deploy.yml`):
+
+```yaml
+- name: Notify Sparrow of Successful Deployment
+  env:
+    SPARROW_URL: ${{ secrets.SPARROW_URL }}
+    SPARROW_API_KEY: ${{ secrets.SPARROW_API_KEY }}
+  run: |
+    sparrow push deploy.success \
+      -d '{"app": "checkout-service", "commit": "'"$GITHUB_SHA"'", "environment": "production"}' \
+      -l env=prod \
+      --idempotency-key "deploy-prod-${{ github.run_id }}"
+```
+
+**Why this helps:** Sparrow deduplicates identical idempotency keys, registers the `deploy.success` event type automatically if it doesn't exist, and fans out notifications to Slack, PagerDuty, or audit logs based on your subscription label filters.
+
+### Scenario 3: Offline Transform Template Prototyping
+**Goal:** Draft a complex Go template transform for a partner's custom webhook schema before applying it to production subscriptions.
 
 ```bash
-sparrow push user.signup -d '{"user_id": "u_1", "email": "ada@example.com"}'
+# 1. Write your Go template (e.g., custom_partner.tmpl)
+cat << 'EOF' > custom_partner.tmpl
+{{ dict "partner_id" "acme" "transaction" (dict "id" .payload.order_id "total_dollars" (div .payload.amount_cents 100)) | json }}
+EOF
+
+# 2. Render and debug locally against sample payload data
+sparrow template test custom_partner.tmpl --payload '{"order_id": "ord_9988", "amount_cents": 4995}'
 ```
 
-The `listen` terminal prints the delivery (`signature: verified`), its headers
-and body, then `forward: http://localhost:3000/api/webhooks -> 200`. Your app's
-status code goes back to Sparrow, so a `500` from your app shows up as a
-retrying delivery in `sparrow tail deliveries`, and you can watch the retries
-arrive. Ctrl-C deletes the temporary webhook.
+**Output:**
+```json
+{"partner_id":"acme","transaction":{"id":"ord_9988","total_dollars":49.95}}
+```
 
-`listen` checks signatures itself, with the temporary webhook's secret, which
-it doesn't print. If your app verifies signatures too, it rejects these
-forwarded requests. Skip verification in development, or register a webhook
-of your own to get a secret
-([Testing your receiver](/sparrow/guides/verify-signatures/#testing-your-receiver)).
+**Next step:** Once verified, attach it directly using a single command:
+```bash
+sparrow use partner_recipe --file ./partner-recipe.yaml --event order.completed
+```

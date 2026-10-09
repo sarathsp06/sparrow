@@ -103,7 +103,7 @@ Nothing in actual operation uses a model: receiving events, matching subscriptio
 What "AI-friendly" means in practice:
 
 - **The documentation ships an `llms.txt`**, so your own AI assistants and coding tools can read it accurately.
-- **One optional convenience: drafting a payload transform from a plain-language description.** It is off until you configure a provider, and it works with the Anthropic API or any OpenAI-compatible server, including a model you run inside your own network. Every draft is checked against a sample event before it is shown, and a person still reviews and saves it.
+- **One optional convenience: drafting a payload transform from a plain-language description.** It is off until you configure a provider, and it speaks the OpenAI-compatible interface, so it works with a hosted provider or a model you run inside your own network. Every draft is checked against a sample event before it is shown, and a person still reviews and saves it.
 
 Leave it unconfigured and nothing else changes.
 
