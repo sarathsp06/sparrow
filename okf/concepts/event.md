@@ -25,7 +25,7 @@ Defines an event type with an optional JSON schema. Schema validation is **soft*
   PATCH, import and auto-register, under a row lock.
 - A breaking schema change (subscriber-side rules in `schema_compat.go`) to a
   type any subscription receives needs `allow_breaking`.
-- `sparrow.*` names are reserved for system events, pushed only under `_sparrow` and subscribable only there (see [Consumer](/concepts/consumer.md)).
+- `sparrow.*` names are reserved for system events.
 - Unknown names on push return 404 unless `SPARROW_AUTO_REGISTER_EVENTS=true`.
 - Schema inference (UI only, no API): the schema editor generates a schema
   from stored events of the type (`GET /v1/events?event=`), merging several

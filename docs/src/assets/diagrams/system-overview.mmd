@@ -1,0 +1,25 @@
+graph TD
+    App[Your Application] -->|POST /v1/.../events<br>HTTP / JSON| API
+
+    subgraph Sparrow
+        API[REST API<br>HTTP :8080]
+        DB[(PostgreSQL)]
+        EQ[Events Queue]
+        WQ[Webhooks Queue]
+        EW[EventWorker]
+        WW[WebhookWorker]
+        Health[Health Tracker]
+
+        API -->|Store event| DB
+        API -->|Enqueue| EQ
+        EQ --> EW
+        EW -->|Find matching<br>subscriptions| DB
+        EW -->|Fan-out jobs| WQ
+        WQ --> WW
+        WW -->|Load config +<br>transform payload| DB
+        WW -->|Record outcome| DB
+        WW -->|Update| Health
+    end
+
+    WW -->|HTTP POST<br>HMAC-signed| Endpoint[External Endpoints]
+    UI[Embedded SvelteKit UI] -->|REST / JSON| API

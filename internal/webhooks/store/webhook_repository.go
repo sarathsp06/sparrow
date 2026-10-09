@@ -22,7 +22,6 @@ type WebhookRepository interface {
 	ListWebhooksPaginated(ctx context.Context, tenantID uuid.UUID, consumer string, event string, activeOnly bool, health WebhookHealth, limit, offset int) ([]*WebhookRegistration, int, error)
 	GetWebhookByID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string) (*WebhookRegistration, error)
 	UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webhook *WebhookRegistration) error
-	ListConsumers(ctx context.Context, tenantID uuid.UUID, query string, limit int) ([]string, error)
 }
 
 // RateLimitRepository defines operations for per-webhook rate limiting.

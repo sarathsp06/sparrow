@@ -163,14 +163,11 @@ func (c *apiClient) createEventType(ctx context.Context, name, description strin
 	}, nil)
 }
 
-func (c *apiClient) listEventTypes(ctx context.Context, consumer string, activeOnly bool) ([]eventTypeItem, error) {
+func (c *apiClient) listEventTypes(ctx context.Context, activeOnly bool) ([]eventTypeItem, error) {
 	var out struct {
 		Items []eventTypeItem `json:"items"`
 	}
 	q := url.Values{"limit": {"200"}}
-	if consumer != "" {
-		q.Set("consumer", consumer)
-	}
 	if activeOnly {
 		q.Set("active_only", "true")
 	}

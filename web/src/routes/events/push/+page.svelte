@@ -8,17 +8,14 @@
 
   import { api, unwrap } from "$lib/services";
   import { formatAPIError, safeAjvValidator } from '$lib/utils';
-  import { page } from '$app/state';
-  import ConsumerPicker from '$lib/components/ConsumerPicker.svelte';
-  import { isSystemEvent, listAllEventTypes } from '$lib/system';
+  import { consumerStore } from '$lib/consumer.svelte';
   import { onMount } from "svelte";
   import type { components } from "$lib/api-types";
   import ExpandableEditor from "$lib/components/ExpandableEditor.svelte";
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
 
-  // No consumer is assumed: it comes from the link (?consumer=) or is picked here.
-  let consumer = $state(page.url.searchParams.get('consumer') ?? '');
+  let consumer = $state(consumerStore.value || "default");
   let event = $state("");
   let payload = $state({ json: {} } as Content);
   let labels = $state<Record<string, string>>({});
@@ -56,9 +53,8 @@
   async function fetchEvents() {
     loadingEvents = true;
     try {
-      // Sparrow's own sparrow.* events are emitted by the server and can never
-      // be pushed by hand, whatever the consumer.
-      availableEvents = (await listAllEventTypes({ active_only: true })).filter((e) => !isSystemEvent(e.name));
+      const res = unwrap(await api.GET('/v1/event-types', { params: { query: { active_only: true } } }));
+      availableEvents = res.items || [];
       if (availableEvents.length > 0) {
         event = availableEvents[0].name;
       }
@@ -192,7 +188,7 @@
         <div class="space-y-5">
           <div>
             <label for="consumer" class="field-label">Consumer</label>
-            <ConsumerPicker id="consumer" bind:value={consumer} live required placeholder="Search or type a consumer" />
+            <input id="consumer" type="text" bind:value={consumer} required class="input" />
           </div>
 
           <div>

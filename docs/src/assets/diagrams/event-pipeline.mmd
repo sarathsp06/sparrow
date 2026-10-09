@@ -1,0 +1,7 @@
+flowchart LR
+    P[Push Event] --> EW[Event Worker]
+    EW --> FS[Find Subscriptions]
+    FS --> CD[Create Deliveries]
+    CD --> WW[Webhook Worker]
+    WW -->|Success| R[Record result]
+    WW -->|Failure| RB[Retry with backoff]

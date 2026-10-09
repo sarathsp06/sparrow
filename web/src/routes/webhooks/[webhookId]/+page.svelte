@@ -15,10 +15,6 @@
   import HeldDeliveriesNotice from '$lib/components/HeldDeliveriesNotice.svelte';
   import SubscriptionManager from '$lib/components/SubscriptionManager.svelte';
   import BatchProgress from '$lib/components/BatchProgress.svelte';
-  import SigningSecretReveal from '$lib/components/SigningSecretReveal.svelte';
-  import AlertConfigs from '$lib/components/AlertConfigs.svelte';
-  import { consumerLabel } from '$lib/consumer.svelte';
-  import { ALERTS_GUIDE_URL, isSystemConsumer, successRateTone } from '$lib/system';
 
   type WebhookOut = components["schemas"]["WebhookOut"];
   type DeliveryItem = components["schemas"]["DeliveryItem"];
@@ -55,6 +51,7 @@
     followRedirects: true,
     verifySsl: true,
     expectedStatusCodes: '200, 201, 202, 204',
+    webhookSecret: '',
     userAgent: 'Sparrow-Webhook/1.0',
     contentType: 'application/json',
     headers: {} as Record<string, string>,
@@ -69,12 +66,6 @@
   let newSecretHeaders = $state<Record<string, string>>({});
 
   let confirmUnregister = $state(false);
-
-  // Secret rotation: the new secret is only in the rotate response, so it is
-  // held here until the user dismisses it.
-  let confirmRotate = $state(false);
-  let rotatingSecret = $state(false);
-  let rotatedSecret = $state('');
 
   // Pagination
   let limit = $state(25);
@@ -195,22 +186,6 @@
     }
   }
 
-  async function executeRotateSecret() {
-    if (!webhook) return;
-    confirmRotate = false;
-    rotatingSecret = true;
-    try {
-      const res = unwrap(await api.POST('/v1/consumers/{consumer}/webhooks/{webhook_id}:rotateSecret', {
-        params: { path: { consumer: webhook.consumer, webhook_id: webhookId } },
-      }));
-      rotatedSecret = res.webhook_secret;
-    } catch (e: any) {
-      error = formatAPIError(e, 'Failed to rotate signing secret');
-    } finally {
-      rotatingSecret = false;
-    }
-  }
-
   async function executeUnregister() {
     if (!webhook) return;
     try {
@@ -283,6 +258,7 @@
       followRedirects: webhook.http_config?.follow_redirects ?? true,
       verifySsl: webhook.http_config?.verify_ssl ?? true,
       expectedStatusCodes: (webhook.http_config?.expected_status_codes || [200, 201, 202, 204]).join(', '),
+      webhookSecret: '',
       userAgent: webhook.http_config?.user_agent || 'Sparrow-Webhook/1.0',
       contentType: webhook.http_config?.content_type || 'application/json',
       headers: { ...(webhook.headers || {}) },
@@ -393,6 +369,7 @@
             follow_redirects: configForm.followRedirects,
             verify_ssl: configForm.verifySsl,
             expected_status_codes: statusCodes,
+            ...(configForm.webhookSecret ? { webhook_secret: configForm.webhookSecret } : {}),
             user_agent: configForm.userAgent,
             content_type: configForm.contentType,
           },
@@ -557,9 +534,12 @@
   }
 
   let successRatePercent = $derived(healthMetrics ? (healthMetrics.success_rate * 100).toFixed(1) : '0');
-  // Same cutoffs as the health labels, served by the API.
-  let successRateTint = $derived(healthMetrics ? successRateTone(healthMetrics.success_rate, healthMetrics.rules) : undefined);
-  let successRateColor = $derived(`var(--color-${successRateTint ?? 'faint'})`);
+  let successRateColor = $derived.by(() => {
+    if (!healthMetrics) return 'text-faint';
+    if (healthMetrics.success_rate >= 0.95) return 'text-ok';
+    if (healthMetrics.success_rate >= 0.8) return 'text-warn';
+    return 'text-bad';
+  });
 </script>
 
 <svelte:head>
@@ -677,7 +657,7 @@
             {/if}
 
             <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted">
-              <span>Consumer: <span class="chip">{consumerLabel(webhook.consumer)}</span></span>
+              <span>Consumer: <span class="chip">{webhook.consumer}</span></span>
               <span>Created: <span class="mono tnum text-text">{formatTimestamp(webhook.created_at)}</span></span>
               <span class="mono text-xs text-faint">ID: {webhookId}</span>
             </div>
@@ -716,12 +696,12 @@
         <div class="panel p-5 mb-6">
           <div class="flex items-baseline justify-between mb-4">
             <h2 class="eyebrow">Health Metrics</h2>
-            <span class="text-[10px] text-faint mono">Last {healthMetrics.rules?.window_hours ?? 24} hours</span>
+            <span class="text-[10px] text-faint mono">Last 24 hours</span>
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
             <div class="panel-2 p-3">
               <p class="text-xs text-muted mb-0.5">Success Rate</p>
-              <p class="text-xl font-semibold tnum" style="color:{successRateColor}">{successRatePercent}%</p>
+              <p class="text-xl font-semibold tnum {successRateColor}">{successRatePercent}%</p>
             </div>
             <div class="panel-2 p-3">
               <p class="text-xs text-muted mb-0.5">Deliveries</p>
@@ -749,8 +729,8 @@
             <div class="mt-4">
               <div class="w-full bg-panel-2 border border-line rounded-full h-2 overflow-hidden">
                 <div
-                  class="h-full rounded-full transition-all duration-500"
-                  style="width: {healthMetrics.success_rate * 100}%;background:{successRateColor}"
+                  class="h-full rounded-full transition-all duration-500 {healthMetrics.success_rate >= 0.95 ? 'bg-ok' : healthMetrics.success_rate >= 0.8 ? 'bg-warn' : 'bg-bad'}"
+                  style="width: {healthMetrics.success_rate * 100}%"
                 ></div>
               </div>
             </div>
@@ -810,16 +790,6 @@
             </div>
           {/if}
         </div>
-      {/if}
-
-      {#if isSystemConsumer(webhook.consumer)}
-        <div class="panel-2 px-4 py-3 mb-6 text-sm text-muted" data-testid="system-webhook-note">
-          <span class="chip mr-1.5">System</span>
-          This webhook delivers Sparrow's own alert emails. It never raises alerts about itself.
-          <a href={ALERTS_GUIDE_URL} target="_blank" rel="noreferrer" class="link-beacon">Guide</a>
-        </div>
-      {:else}
-        <AlertConfigs consumer={webhook.consumer} {webhookId} />
       {/if}
 
       <div class="border-b border-line mb-6">
@@ -1078,6 +1048,12 @@
                   </div>
                 </div>
 
+                <div>
+                  <label for="config-secret" class="field-label">Webhook Secret</label>
+                  <input id="config-secret" type="password" bind:value={configForm.webhookSecret} placeholder="Leave empty to keep existing…" class="input" />
+                  <p class="text-[10px] text-faint mt-0.5">Used for HMAC signature verification</p>
+                </div>
+
                 <div class="border-t border-line pt-4">
                   <h4 class="eyebrow mb-3">Options</h4>
                   <div class="space-y-3">
@@ -1260,25 +1236,6 @@
               {:else}
                 <p class="text-sm text-muted">Using default HTTP configuration.</p>
               {/if}
-              <div class="mt-4 pt-4 border-t border-line">
-                <div class="flex items-start justify-between gap-3 mb-2">
-                  <div>
-                    <h4 class="eyebrow mb-1">Signing Secret</h4>
-                    <p class="text-[10px] text-faint">HMAC-SHA256 key for the v1, signature. Masked after it is first shown; rotate it to get a new one.</p>
-                  </div>
-                  {#if !rotatedSecret}
-                    <button onclick={() => { confirmRotate = true; }} disabled={rotatingSecret} class="btn btn-ghost !px-3 !py-1 !text-xs shrink-0">{rotatingSecret ? 'Rotating…' : 'Rotate secret'}</button>
-                  {/if}
-                </div>
-                {#if rotatedSecret}
-                  <SigningSecretReveal secret={rotatedSecret} />
-                  <div class="flex justify-end mt-3">
-                    <button onclick={() => { rotatedSecret = ''; }} class="btn btn-beacon !px-3 !py-1 !text-xs">I've saved it</button>
-                  </div>
-                {:else if webhook.http_config?.webhook_secret}
-                  <span class="text-xs mono panel-2 px-2 py-1.5 rounded text-muted inline-block">{webhook.http_config.webhook_secret}</span>
-                {/if}
-              </div>
               {#if webhook.signing_public_key}
                 <div class="mt-4 pt-4 border-t border-line">
                   <h4 class="eyebrow mb-1">Ed25519 Signing Public Key</h4>
@@ -1346,16 +1303,6 @@
   variant="danger"
   onconfirm={executeUnregister}
   oncancel={() => { confirmUnregister = false; }}
-/>
-
-<ConfirmDialog
-  open={confirmRotate}
-  title="Rotate signing secret"
-  message="Sparrow generates a new signing secret and starts signing every delivery with it right away; the current secret stops working. Update the receiver with the new secret, or it will reject deliveries. The new secret is shown once."
-  confirmLabel="Rotate secret"
-  variant="warning"
-  onconfirm={executeRotateSecret}
-  oncancel={() => { confirmRotate = false; }}
 />
 
 <ConfirmDialog

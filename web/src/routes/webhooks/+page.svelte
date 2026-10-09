@@ -9,10 +9,8 @@
   import EmptyState from '$lib/components/EmptyState.svelte';
   import FloatingAction from '$lib/components/FloatingAction.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
-  import ConsumerPicker from '$lib/components/ConsumerPicker.svelte';
   import { formatAPIError } from '$lib/utils';
-  import { consumerFilter, consumerLabel, withConsumer } from '$lib/consumer.svelte';
-  import { ALERT_SETUP_HREF, ALERTS_GUIDE_URL, SYSTEM_CONSUMER, isSystemConsumer } from '$lib/system';
+  import { consumerStore } from '$lib/consumer.svelte';
 
   type WebhookOut = components["schemas"]["WebhookOut"];
 
@@ -66,13 +64,14 @@
       // Single global endpoint; consumer and health are both optional filters.
       const res = unwrap(await api.GET('/v1/webhooks', {
         params: { query: {
-          consumer: consumerFilter.value || undefined,
+          consumer: consumerStore.value || undefined,
           health: (healthFilter as any) || undefined,
           limit, offset,
         } },
       }));
       webhooks = res.items || [];
       totalCount = res.pagination?.total_count || 0;
+      consumerStore.remember(...webhooks.map((w) => w.consumer));
 
       stats = {
         total: totalCount,
@@ -89,7 +88,7 @@
   }
 
   $effect(() => {
-    consumerFilter.value; // refetch when the active consumer changes
+    consumerStore.value; // refetch when the active consumer changes
     offset = 0;
     fetchWebhooks();
   });
@@ -160,7 +159,7 @@
       <h1 class="text-2xl">Webhooks</h1>
       <p class="text-sm text-muted mt-1">Endpoints receiving your dispatched events</p>
     </div>
-    <a id="header-register-btn" href={withConsumer('/webhooks/register', consumerFilter.value)} class="btn btn-beacon">
+    <a id="header-register-btn" href="/webhooks/register" class="btn btn-beacon">
       <span class="text-lg leading-none">+</span>
       Register Webhook
     </a>
@@ -173,15 +172,6 @@
       filter={{ webhook_id: held.webhookId }}
       onclose={() => (held = null)}
     />
-  {/if}
-
-  {#if isSystemConsumer(consumerFilter.value)}
-    <div class="panel-2 px-4 py-3 mb-4 text-sm text-muted" data-testid="system-consumer-note">
-      <span class="chip mr-1.5">System</span>
-      Webhooks under <span class="mono text-text">{SYSTEM_CONSUMER}</span> deliver Sparrow's own alert emails, not tenant events.
-      <a href={ALERT_SETUP_HREF} class="link-beacon">Add one with the SendGrid recipe</a>
-      · <a href={ALERTS_GUIDE_URL} target="_blank" rel="noreferrer" class="link-beacon">Guide</a>
-    </div>
   {/if}
 
   {#if !loading && !error}
@@ -205,9 +195,8 @@
     </div>
   {/if}
 
-  <div class="flex flex-col sm:flex-row sm:flex-wrap gap-3 mb-4">
-    <ConsumerPicker id="webhooks-consumer" label="Filter by consumer" value={consumerFilter.value} onchange={(c) => (consumerFilter.value = c)} class="sm:w-60" />
-    <input type="text" placeholder="Search URL, description, or ID…" bind:value={urlSearch} class="input flex-1 sm:min-w-[14rem]" />
+  <div class="flex flex-col sm:flex-row gap-3 mb-4">
+    <input type="text" placeholder="Search URL, description, or ID…" bind:value={urlSearch} class="input flex-1" />
     <div class="flex gap-1">
       {#each healthFilters as f}
         <button
@@ -233,7 +222,7 @@
     <div class="panel p-4 mb-6" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
       <p class="text-sm" style="color:var(--color-bad)">{error}</p>
     </div>
-  {:else if webhooks.length === 0 && healthFilter === null && !urlSearch.trim() && !consumerFilter.value}
+  {:else if webhooks.length === 0 && healthFilter === null && !urlSearch.trim()}
     <div class="panel p-8">
       <div class="text-center mb-8">
         <p class="eyebrow mb-2">How it works</p>
@@ -323,9 +312,8 @@
         <div class="panel-2 p-5 text-sm text-muted">
           <p class="mb-2">
             Sparrow watches every webhook's health and emits its own events —
-            <span class="mono text-text">sparrow.webhook.health_changed</span>,
-            <span class="mono text-text">sparrow.webhook.delivery_failed</span> and
-            <span class="mono text-text">sparrow.webhook.disabled</span> —
+            <span class="mono text-text">sparrow.webhook.health_changed</span> and
+            <span class="mono text-text">sparrow.webhook.delivery_failed</span> —
             into a reserved internal consumer named <span class="mono text-text">_sparrow</span>.
           </p>
           <p class="mb-3">
@@ -334,10 +322,7 @@
             under <span class="mono text-text">_sparrow</span> never generate these events themselves
             &mdash; no feedback loop.
           </p>
-          <div class="flex flex-wrap gap-x-5 gap-y-1">
-            <a href={ALERT_SETUP_HREF} class="inline-flex items-center gap-1 text-xs link-beacon" data-testid="alert-setup-link">Set up alert emails with SendGrid <span class="text-[10px]">&rarr;</span></a>
-            <a href={ALERTS_GUIDE_URL} target="_blank" rel="noreferrer" class="inline-flex items-center gap-1 text-xs link-beacon">Read the guide <span class="text-[10px]">&rarr;</span></a>
-          </div>
+          <a href="https://sarathsp06.github.io/sparrow/guides/webhook-health-alerts/" target="_blank" rel="noreferrer" class="inline-flex items-center gap-1 text-xs link-beacon">Set up health alert emails <span class="text-[10px]">&rarr;</span></a>
         </div>
       </div>
 
@@ -351,14 +336,10 @@
     </div>
   {:else if filteredWebhooks.length === 0}
     <div class="panel">
-      <EmptyState icon="filter_alt" title="No webhooks match" description={healthFilter ? `No ${healthFilter} webhooks in this view.` : isSystemConsumer(consumerFilter.value) && !urlSearch.trim() ? 'No alert-delivery webhook yet: alert configs are stored, but no email is sent.' : 'Try a different search or consumer.'}>
+      <EmptyState icon="filter_alt" title="No webhooks match" description={healthFilter ? `No ${healthFilter} webhooks in this view.` : 'Try a different search or consumer.'}>
         {#snippet action()}
           {#if healthFilter !== null}
             <button class="btn btn-ghost" onclick={() => handleHealthFilterChange(null)}>Clear filter</button>
-          {:else if isSystemConsumer(consumerFilter.value)}
-            <a href={ALERT_SETUP_HREF} class="btn btn-beacon">Set up alert delivery</a>
-          {:else if consumerFilter.value}
-            <button class="btn btn-ghost" onclick={() => (consumerFilter.value = '')}>Show all consumers</button>
           {/if}
         {/snippet}
       </EmptyState>
@@ -384,7 +365,7 @@
                   <div class="mt-0.5"><CopyableId id={wh.webhook_id} truncate={12} /></div>
                 </td>
                 <td class="td hidden sm:table-cell">
-                  <span class="chip" title={isSystemConsumer(wh.consumer) ? "Sparrow's own alert delivery" : undefined}>{consumerLabel(wh.consumer)}</span>
+                  <span class="chip">{wh.consumer}</span>
                 </td>
                 <td class="td"><HealthBadge health={wh.health} /></td>
                 <td class="td">
@@ -422,7 +403,7 @@
   oncancel={() => { confirmUnregister = false; webhookToUnregister = null; }}
 />
 
-<FloatingAction href={withConsumer('/webhooks/register', consumerFilter.value)} label="Register Webhook" targetSelector="#header-register-btn" />
+<FloatingAction href="/webhooks/register" label="Register Webhook" targetSelector="#header-register-btn" />
 
 <style>
   .unregister-btn { color: var(--color-faint); }

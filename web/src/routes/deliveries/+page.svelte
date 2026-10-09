@@ -2,15 +2,13 @@
     import { page } from '$app/state';
     import { api, unwrap } from '$lib/services';
     import { getCategoryBadge, ERROR_CATEGORIES, formatAPIError, timeAgo } from '$lib/utils';
-    import { consumerFilter, consumerLabel, withConsumer } from '$lib/consumer.svelte';
-    import { SYSTEM_CONSUMER, isSystemConsumer } from '$lib/system';
+    import { consumerStore } from '$lib/consumer.svelte';
     import { pulseStore } from '$lib/pulse.svelte';
     import { onDestroy } from 'svelte';
     import type { components } from '$lib/api-types';
     import StatusBadge from '$lib/components/StatusBadge.svelte';
     import CopyableId from '$lib/components/CopyableId.svelte';
     import Pagination from '$lib/components/Pagination.svelte';
-    import ConsumerPicker from '$lib/components/ConsumerPicker.svelte';
     import EmptyState from '$lib/components/EmptyState.svelte';
     import BatchProgress from '$lib/components/BatchProgress.svelte';
     import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
@@ -34,12 +32,6 @@
     let errorCategoryFilter = $state(initial.get('error_category') ?? '');
     let createdAfterFilter = $state(initial.get('created_after') ?? '');
     let createdBeforeFilter = $state(initial.get('created_before') ?? '');
-    let allConsumers = $derived(!consumerFilter.value);
-    // A batch re-delivery that can reach _sparrow re-sends alert emails.
-    let alertsInScope = $derived(
-        isSystemConsumer(consumerFilter.value) ||
-        (allConsumers && deliveries.some((d) => isSystemConsumer(d.consumer)))
-    );
 
     // Batch retry state
     let retryId = $state('');
@@ -77,7 +69,7 @@
         loading = !prepareRetry && !silent;
         if (!prepareRetry) error = '';
 
-        const ns = consumerFilter.value;
+        const ns = consumerStore.value;
         const offset = (pageNum - 1) * pageSize;
 
         try {
@@ -179,7 +171,7 @@
         if (!retryId) return;
         // Retry-job routes ignore the path consumer (jobs are id-scoped);
         // "default" is a placeholder when scope is all-consumers.
-        const ns = consumerFilter.value || 'default';
+        const ns = consumerStore.value || 'default';
         try {
             const res = unwrap(await api.POST('/v1/consumers/{consumer}/deliveries:retryBatch', {
                 params: { path: { consumer: ns } },
@@ -194,7 +186,7 @@
 
     function startPolling() {
         if (pollingTimer) clearInterval(pollingTimer);
-        const ns = consumerFilter.value || 'default';
+        const ns = consumerStore.value || 'default';
         pollingTimer = setInterval(async () => {
             if (!retryId) { stopPolling(); return; }
             try {
@@ -217,7 +209,7 @@
 
     async function cancelRetryBatch() {
         if (!retryId) return;
-        const ns = consumerFilter.value || 'default';
+        const ns = consumerStore.value || 'default';
         try {
             await api.POST('/v1/consumers/{consumer}/retry-jobs/{job_id}:cancel', {
                 params: { path: { consumer: ns, job_id: retryId } },
@@ -235,7 +227,7 @@
         retryId = '';
         if (!id) return;
         api.POST('/v1/consumers/{consumer}/retry-jobs/{job_id}:cancel', {
-            params: { path: { consumer: consumerFilter.value || 'default', job_id: id } },
+            params: { path: { consumer: consumerStore.value || 'default', job_id: id } },
         }).catch(() => {});
     }
 
@@ -250,7 +242,7 @@
     }
 
     $effect(() => {
-        consumerFilter.value; // refetch when the active consumer changes
+        consumerStore.value; // refetch when the active consumer changes
         fetchDeliveries(1);
     });
 </script>
@@ -264,7 +256,7 @@
         <div>
             <p class="eyebrow mb-1.5">Traffic / Deliveries</p>
             <h1 class="text-2xl">Deliveries</h1>
-            <p class="text-sm text-muted mt-1">All webhook deliveries in <span class="mono text-text">{consumerFilter.label}</span></p>
+            <p class="text-sm text-muted mt-1">All webhook deliveries in <span class="mono text-text">{consumerStore.label}</span></p>
         </div>
         <div class="flex items-center gap-3">
             <button onclick={toggleLive} aria-pressed={live} class="btn btn-ghost !px-3 !py-1.5 !text-xs" title="Auto-refresh every 5s">
@@ -290,7 +282,6 @@
     <div class="panel p-4 mb-4">
         <div class="flex flex-col gap-3">
             <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
-                <ConsumerPicker id="deliveries-consumer" label="Filter by consumer" value={consumerFilter.value} onchange={(c) => (consumerFilter.value = c)} class="sm:w-60" />
                 <input type="text" placeholder="Webhook ID" aria-label="Filter by webhook ID" bind:value={webhookIdFilter} class="input flex-1" />
                 <input type="text" placeholder="Event ID" aria-label="Filter by event ID" bind:value={eventIdFilter} class="input flex-1" />
                 <select bind:value={statusFilter} aria-label="Filter by status" class="select sm:w-44">
@@ -320,6 +311,7 @@
                     <input type="date" bind:value={createdBeforeFilter} aria-label="Filter deliveries created before" class="input sm:w-44" />
                 </label>
                 <div class="flex items-center gap-3 sm:ml-auto">
+                    <span class="text-xs text-muted">Scope: <span class="chip">{consumerStore.label}</span></span>
                     <button onclick={applyFilters} class="btn btn-beacon">Apply</button>
                     {#if hasActiveFilters}
                         <button onclick={clearFilters} class="btn btn-ghost">Clear</button>
@@ -365,7 +357,6 @@
                         <tr class="border-b border-line">
                             <th class="th">Delivery</th>
                             <th class="th hidden sm:table-cell">Webhook</th>
-                            {#if allConsumers}<th class="th hidden md:table-cell">Consumer</th>{/if}
                             <th class="th">Status</th>
                             <th class="th hidden sm:table-cell">Response</th>
                             <th class="th hidden md:table-cell">Attempts</th>
@@ -378,11 +369,6 @@
                             <tr class="row-line row-hover transition">
                                 <td class="td"><CopyableId id={d.delivery_id} href="/deliveries/{d.delivery_id}" truncate={12} /></td>
                                 <td class="td hidden sm:table-cell"><CopyableId id={d.webhook_id} href="/webhooks/{d.webhook_id}" truncate={12} /></td>
-                                {#if allConsumers}
-                                    <td class="td hidden md:table-cell">
-                                        {#if d.consumer}<span class="chip" title={isSystemConsumer(d.consumer) ? "Sparrow's own alert delivery" : undefined}>{consumerLabel(d.consumer)}</span>{/if}
-                                    </td>
-                                {/if}
                                 <td class="td">
                                     <div class="flex items-center gap-1.5">
                                         <StatusBadge status={d.status} />
@@ -433,7 +419,7 @@
 <ConfirmDialog
     open={confirmRetry}
     title="Re-deliver Matching Deliveries"
-    message="This will retry {retryTotal} matching deliver{retryTotal !== 1 ? 'ies' : 'y'}. Sparrow re-sends each stored delivery to the same webhook; it does not create new events.{alertsInScope ? ` This scope includes ${SYSTEM_CONSUMER}'s alert deliveries: their alert emails are sent again.` : ''} Continue?"
+    message="This will retry {retryTotal} matching deliver{retryTotal !== 1 ? 'ies' : 'y'}. Sparrow re-sends each stored delivery to the same webhook; it does not create new events. Continue?"
     confirmLabel="Re-deliver"
     variant="warning"
     onconfirm={executeRetry}

@@ -36,15 +36,12 @@
   // Retry
   let retryingDeliveries: Set<string> = $state(new Set());
   let repushing = $state(false);
-  let repushError = $state('');
 
   const eventId = page.params.eventId ?? '';
   let consumer = $state('');
 
   onMount(async () => {
-    // Deliveries are listed under the event's own consumer, so load it first.
-    await fetchEvent();
-    await fetchDeliveries();
+    await Promise.all([fetchEvent(), fetchDeliveries()]);
   });
 
   async function fetchEvent() {
@@ -118,7 +115,6 @@
 
   async function rePushEvent() {
     repushing = true;
-    repushError = '';
     try {
       const res = unwrap(await api.POST('/v1/events/{event_id}:repush', {
         params: { path: { event_id: eventId } },
@@ -127,7 +123,7 @@
         window.location.href = `/events/instances/${res.event_id}`;
       }
     } catch (e: any) {
-      repushError = formatAPIError(e, 'Failed to re-push event');
+      console.error('Failed to re-push event:', e);
     } finally {
       repushing = false;
     }
@@ -204,7 +200,6 @@
         <div class="mt-1"><CopyableId id={event.event_id} truncate={0} /></div>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-      <!-- Sparrow's own sparrow.* events can't be pushed, so neither re-push nor schema samples apply. -->
       {#if !event.event.toLowerCase().startsWith('sparrow.')}
         <a
           href={`/events/${encodeURIComponent(event.event)}/update?sample=${event.event_id}`}
@@ -213,6 +208,7 @@
         >
           Use as schema sample
         </a>
+      {/if}
       <button
         onclick={rePushEvent}
         disabled={repushing}
@@ -228,10 +224,8 @@
           Re-push
         {/if}
       </button>
-      {/if}
       </div>
     </div>
-    {#if repushError}<p class="text-xs mb-4" style="color:var(--color-bad)">{repushError}</p>{/if}
 
     <div class="panel divide-y divide-line mb-8">
       <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-line">

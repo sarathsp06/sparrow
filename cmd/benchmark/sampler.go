@@ -47,10 +47,6 @@ type ResourceSampler struct {
 	sparrowRSSSamples  []uint64
 	postgresCPUSamples []float64
 
-	prevSparrowCPU  float64
-	prevPostgresCPU float64
-	prevSampleAt    time.Time
-
 	startCPUTime float64
 	endCPUTime   float64
 
@@ -82,6 +78,8 @@ func NewResourceSampler(cfg ResourceConfig) (*ResourceSampler, error) {
 			return nil, fmt.Errorf("attach sparrow pid %d: %w", cfg.SparrowPID, err)
 		}
 		s.sparrowProc = proc
+		// Prime CPUPercent calculation
+		_, _ = proc.CPUPercent()
 	}
 
 	if cfg.PostgresPID > 0 {
@@ -90,6 +88,8 @@ func NewResourceSampler(cfg ResourceConfig) (*ResourceSampler, error) {
 			return nil, fmt.Errorf("attach postgres pid %d: %w", cfg.PostgresPID, err)
 		}
 		s.postgresProc = proc
+		// Prime CPUPercent calculation
+		_, _ = proc.CPUPercent()
 	}
 
 	if cfg.PostgresDSN != "" {
@@ -126,25 +126,6 @@ func getCPUTime(proc *process.Process) float64 {
 	return times.User + times.System
 }
 
-// cpuTimeWithChildren sums user+system CPU seconds of proc and its direct
-// children. Postgres does its work in per-connection backend children, so
-// sampling the postmaster alone reads ~0%.
-// ponytail: direct children only; grandchildren (none in postgres) ignored.
-func cpuTimeWithChildren(proc *process.Process) float64 {
-	if proc == nil {
-		return 0
-	}
-	total := getCPUTime(proc)
-	children, err := proc.Children()
-	if err != nil {
-		return total
-	}
-	for _, c := range children {
-		total += getCPUTime(c)
-	}
-	return total
-}
-
 // Start begins periodic background sampling.
 func (s *ResourceSampler) Start(ctx context.Context) {
 	if s == nil {
@@ -155,9 +136,6 @@ func (s *ResourceSampler) Start(ctx context.Context) {
 	if s.sparrowProc != nil {
 		s.startCPUTime = getCPUTime(s.sparrowProc)
 	}
-	s.prevSparrowCPU = s.startCPUTime
-	s.prevPostgresCPU = cpuTimeWithChildren(s.postgresProc)
-	s.prevSampleAt = s.startTime
 
 	if s.db != nil {
 		wal, err := queryWALBytes(ctx, s.db)
@@ -187,41 +165,24 @@ func (s *ResourceSampler) Start(ctx context.Context) {
 	}()
 }
 
-// sample records one CPU/RSS observation. CPU % is computed from Times()
-// deltas between ticks rather than gopsutil's CPUPercent, which can return
-// NaN (poisoning averages and breaking JSON encoding) and, for Postgres,
-// would only see the idle postmaster instead of its backend children.
 func (s *ResourceSampler) sample() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	now := time.Now()
-	dt := now.Sub(s.prevSampleAt).Seconds()
-	if dt <= 0 {
-		return
-	}
-
 	if s.sparrowProc != nil {
-		cur := getCPUTime(s.sparrowProc)
-		if d := cur - s.prevSparrowCPU; d >= 0 {
-			s.sparrowCPUSamples = append(s.sparrowCPUSamples, d/dt*100)
+		if cpu, err := s.sparrowProc.CPUPercent(); err == nil {
+			s.sparrowCPUSamples = append(s.sparrowCPUSamples, cpu)
 		}
-		s.prevSparrowCPU = cur
 		if mem, err := s.sparrowProc.MemoryInfo(); err == nil && mem != nil {
 			s.sparrowRSSSamples = append(s.sparrowRSSSamples, mem.RSS)
 		}
 	}
 
 	if s.postgresProc != nil {
-		cur := cpuTimeWithChildren(s.postgresProc)
-		// ponytail: backend churn between ticks skews one sample; skip negatives.
-		if d := cur - s.prevPostgresCPU; d >= 0 {
-			s.postgresCPUSamples = append(s.postgresCPUSamples, d/dt*100)
+		if cpu, err := s.postgresProc.CPUPercent(); err == nil {
+			s.postgresCPUSamples = append(s.postgresCPUSamples, cpu)
 		}
-		s.prevPostgresCPU = cur
 	}
-
-	s.prevSampleAt = now
 }
 
 // Stop finishes background sampling and calculates final metrics.

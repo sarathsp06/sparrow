@@ -1,0 +1,19 @@
+stateDiagram-v2
+    [*] --> unknown
+
+    unknown --> healthy : >=90% success rate\n(3+ events)
+    unknown --> degraded : <90% success rate\n(5+ events)
+    unknown --> unhealthy : 5+ consecutive failures\nOR <80% rate (10+ events)
+
+    healthy --> degraded : Success rate drops <90%
+    healthy --> unhealthy : 5+ consecutive failures
+
+    degraded --> healthy : Success rate recovers >=90%
+    degraded --> unhealthy : 5+ consecutive failures\nOR <80% rate (10+ events)
+
+    unhealthy --> degraded : Partial recovery
+    unhealthy --> healthy : Full recovery >=90%
+
+    healthy --> unknown : No events in 24h
+    degraded --> unknown : No events in 24h
+    unhealthy --> unknown : No events in 24h

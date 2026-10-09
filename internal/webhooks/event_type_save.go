@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/sarathsp06/sparrow/internal/tenant"
-	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
 	"github.com/sarathsp06/sparrow/pkg/storage"
@@ -21,7 +20,7 @@ import (
 // ReservedEventPrefix is the event name prefix reserved for Sparrow's own
 // system events (e.g. sparrow.webhook.health_changed). Users can subscribe to
 // these events but cannot register, change, import or push them.
-const ReservedEventPrefix = store.SystemEventPrefix
+const ReservedEventPrefix = "sparrow."
 
 // IsReservedEventName reports whether name uses the reserved prefix. The match
 // is case-insensitive so "Sparrow.x" cannot slip past it.
@@ -192,32 +191,6 @@ func validateEventTypeName(name string) error {
 func reservedEventNameError(name string) error {
 	return svcerrors.Errorf(svcerrors.InvalidArgument,
 		"event name %q uses the reserved prefix %q, which is for Sparrow's own events", name, ReservedEventPrefix)
-}
-
-// checkEventForConsumer keeps Sparrow's system events and tenant events
-// apart. Sparrow emits sparrow.* events only under the _sparrow consumer, and
-// _sparrow never receives tenant events, so a subscription crossing that line
-// would never fire. A catch-all subscription fits any consumer.
-func checkEventForConsumer(consumer, event string) error {
-	isSystemConsumer := consumer == queue.SystemEventConsumer
-	if event == store.CatchAllEventName || isSystemConsumer == IsReservedEventName(event) {
-		return nil
-	}
-	if isSystemConsumer {
-		return svcerrors.Errorf(svcerrors.InvalidArgument,
-			"consumer %q only receives Sparrow's own %s* events, not %q", consumer, ReservedEventPrefix, event)
-	}
-	return svcerrors.Errorf(svcerrors.InvalidArgument,
-		"%q is a Sparrow system event, delivered only under the %q consumer", event, queue.SystemEventConsumer)
-}
-
-// eventTypesForConsumer returns the filter for the event types consumer can
-// subscribe to (see checkEventForConsumer). Sparrow's own events are listed
-// only for the system consumer, so no consumer (all consumers) gets tenant
-// event types.
-func eventTypesForConsumer(consumer string) *bool {
-	system := consumer == queue.SystemEventConsumer
-	return &system
 }
 
 // saveEventType validates def and saves it in its own transaction.

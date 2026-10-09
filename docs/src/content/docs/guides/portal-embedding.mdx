@@ -3,6 +3,11 @@ title: Embedding the Consumer Portal
 description: Give external consumers a self-service webhook portal while Sparrow stays on a private network — full walkthrough of the proxy-the-slice topology with nginx and Express examples, plus the security analysis.
 ---
 
+import ThemeDiagram from '../../../components/ThemeDiagram.astro';
+import portalFlowLight from '../../../assets/diagrams/portal-embedding-flow-light.svg';
+import portalFlowDark from '../../../assets/diagrams/portal-embedding-flow-dark.svg';
+import portalTraceLight from '../../../assets/diagrams/portal-embedding-trace-light.svg';
+import portalTraceDark from '../../../assets/diagrams/portal-embedding-trace-dark.svg';
 
 Sparrow's consumer portal (`/portal`) lets each consumer manage their own
 webhooks, subscriptions, and deliveries with a scoped, expiring **portal
@@ -17,26 +22,11 @@ browser is a token that can touch one consumer and nothing more.
 
 ## How it works, end to end
 
-```mermaid
-sequenceDiagram
-    accTitle: Sequence diagram
-    accDescr: Sequence diagram: the consumer's browser logs in to yourapp.com; yourapp mints a consumer token (POST /v1/tokens) from sparrow:8080 over the private network with the admin API key; the token link is handed back to the browser; the browser loads the portal HTML and SPA bundle proxied from Sparrow; then the browser calls the API with a bearer token, which the proxy forwards and Sparrow verifies and scopes to the consumer.
-    actor U as Consumer browser
-    participant A as yourapp.com (public proxy)
-    participant S as sparrow:8080 (private / VPN)
-    U->>A: 1. Log in with your own auth
-    A->>S: 2. POST /v1/tokens with consumer (X-API-Key: admin key)
-    S-->>A: token + link /portal#35;token=sparrow_tk_...
-    A-->>U: 3. Hand over link or iframe
-    U->>A: 4. GET /portal and /_app/*.js
-    A->>S: forward (no admin key)
-    S-->>A: portal HTML + SPA bundle
-    A-->>U: portal HTML + SPA bundle
-    U->>A: 5. GET /portal/api/webhooks (Bearer token)
-    A->>S: forward over VPN
-    S-->>A: gateway derives consumer from token, 200 JSON
-    A-->>U: 200 JSON
-```
+<ThemeDiagram
+  light={portalFlowLight}
+  dark={portalFlowDark}
+  alt="Sequence diagram: the consumer's browser logs in to yourapp.com; yourapp mints a consumer token (POST /v1/tokens) from sparrow:8080 over the private network with the admin API key; the token link is handed back to the browser; the browser loads the portal HTML and SPA bundle proxied from Sparrow; then the browser calls the API with a bearer token, which the proxy forwards and Sparrow verifies and scopes to the consumer."
+/>
 
 1. **Your app authenticates the user** with whatever login it already has.
    Sparrow plays no part in identity — it never needs user accounts.
@@ -94,20 +84,11 @@ the VPN/private network. For every incoming request it does four things:
 
 Trace one real request through it:
 
-```mermaid
-sequenceDiagram
-    accTitle: Sequence diagram tracing one request
-    accDescr: Sequence diagram tracing one request: the browser sends a bearer-authenticated GET to the proxy under /portal/api; the proxy matches the single /portal/api allowlist and forwards to Sparrow over the VPN; Sparrow's portal gateway checks the token is active (a cached lookup by its hash), derives the consumer from the token, maps the call to that consumer's route, then returns 200 and JSON; the proxy streams the response back to the browser unchanged.
-    actor U as Browser
-    participant P as Proxy
-    participant S as Sparrow
-    U->>P: GET /portal/api/webhooks (Bearer sparrow_tk_...)
-    Note over P: path starts with /portal/api/ -> allowed
-    P->>S: GET /portal/api/webhooks (over VPN)
-    Note over S: verify token, derive consumer acme,<br>map to /v1/consumers/acme/webhooks
-    S-->>P: 200 + JSON
-    P-->>U: stream 200 back unchanged
-```
+<ThemeDiagram
+  light={portalTraceLight}
+  dark={portalTraceDark}
+  alt="Sequence diagram tracing one request: the browser sends a bearer-authenticated GET to the proxy under /portal/api; the proxy matches the single /portal/api allowlist and forwards to Sparrow over the VPN; Sparrow's portal gateway checks the token is active (a cached lookup by its hash), derives the consumer from the token, maps the call to that consumer's route, then returns 200 and JSON; the proxy streams the response back to the browser unchanged."
+/>
 
 The browser never learns Sparrow's address, never joins the VPN, and never
 holds anything but the scoped token. To the browser the portal simply *is*
@@ -124,13 +105,10 @@ origin, no CORS configuration is needed anywhere.
 - Sparrow reachable from that machine as `sparrow:8080` (substitute your
   real host/IP), with `SPARROW_API_KEY`, `SPARROW_ENCRYPTION_KEYS`, and
   `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` set.
-- `SPARROW_SERVE_UI=true` on a server built with the UI (the Docker image, or
-  `make build-with-ui`). Without it `/portal` and `/_app/*` return 404 and only
-  `/portal/api/*` works.
 
 ## The route allowlist
 
-Forward exactly these routes (three required, the favicon optional), deny everything else:
+Forward exactly these three prefixes, deny everything else:
 
 | Route | Why the portal needs it |
 |---|---|
@@ -174,14 +152,13 @@ is live at `https://hooks.yourapp.com/portal#token=...`.
 
 ```nginx
 # hooks.yourapp.com — public vhost, forwards only the portal slice.
-# Rate-limit the API slice (Sparrow does not rate-limit itself).
-# limit_req_zone is only allowed in the http {} context.
-limit_req_zone $binary_remote_addr zone=portal:10m rate=20r/s;
-
 server {
     listen 443 ssl;
     server_name hooks.yourapp.com;
     # ... ssl_certificate, etc.
+
+    # Rate-limit the API slice (Sparrow does not rate-limit itself).
+    limit_req_zone $binary_remote_addr zone=portal:10m rate=20r/s;
 
     location = /portal          { proxy_pass http://sparrow:8080; }
     location /_app/             { proxy_pass http://sparrow:8080; }
@@ -282,7 +259,6 @@ Checklist before going live:
       disabled and the forwarded slice would be wide open.
 - [ ] `SPARROW_ENCRYPTION_KEYS` and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` configured and stored in a
       secret manager.
-- [ ] `SPARROW_SERVE_UI=true`, so `/portal` is served.
 - [ ] Proxy forwards **only** the allowlist; default route denies.
 - [ ] No `X-API-Key` injection anywhere on the public vhost.
 - [ ] Short `ttl_seconds` (e.g. 3600; the default is 7 days), minted behind your

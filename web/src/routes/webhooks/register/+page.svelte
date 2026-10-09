@@ -1,26 +1,20 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { page } from '$app/state';
   import { api, unwrap } from '$lib/services';
   import { formatAPIError } from '$lib/utils';
-  import ConsumerPicker from '$lib/components/ConsumerPicker.svelte';
+  import { consumerStore } from '$lib/consumer.svelte';
   import { onMount } from 'svelte';
   import type { components } from '$lib/api-types';
   import { substituteParams, type Recipe, type RecipeParam } from '$lib/recipes';
   import Disclosure from '$lib/components/Disclosure.svelte';
   import TransformSettings from '$lib/components/TransformSettings.svelte';
   import type { TemplateSaveMeta } from '$lib/components/TemplateEditor.svelte';
-  import SigningSecretReveal from '$lib/components/SigningSecretReveal.svelte';
-  import { ALERT_EVENT_TYPES, ALERT_SETUP_HREF, ALERTS_GUIDE_URL, SYSTEM_CONSUMER, isEmail, isSystemConsumer, listAllEventTypes } from '$lib/system';
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
+  const ALERT_EVENT_TYPES = ["sparrow.webhook.health_changed", "sparrow.webhook.delivery_failed"];
 
-  // ?recipe=sendgrid&consumer=_sparrow opens the form pre-set, e.g. from the
-  // alert setup links.
-  const query = page.url.searchParams;
-  // A tenant can have hundreds of consumers, so none is assumed: the consumer
-  // comes from the link (?consumer=) or is picked here.
-  let consumer = $state(query.get('consumer') ?? '');
+
+  let consumer = $state(consumerStore.value || 'default');
   let events: string[] = $state([]);
   let url = $state('');
   let description = $state('');
@@ -30,16 +24,6 @@
   let submitting = $state(false);
   let eventSearch = $state('');
   let alertEmail = $state('');
-  // Set once registration succeeds: the server returns the signing secret in
-  // full only in that response, so the page shows it before moving on.
-  let created: components["schemas"]["WebhookOut"] | null = $state(null);
-  let alertError = $state('');
-  let alertEmailError = $state('');
-  // Whether alert emails are actually sent (a _sparrow alert-delivery
-  // webhook exists); unknown until /v1/capabilities answers.
-  let alertDeliveryConfigured: boolean | undefined = $state();
-  // _sparrow's own webhooks never raise alerts about themselves.
-  let alertsApply = $derived(!isSystemConsumer(consumer.trim()));
 
 
   // HTTP Configuration
@@ -51,6 +35,7 @@
   let verifySSL = $state(true);
   let requestTimeoutSeconds = $state(30);
   let expectedStatusCodes = $state('200,201,202,204');
+  let webhookSecret = $state('');
   let userAgent = $state('Sparrow-Webhook/1.0');
   let contentType = $state('application/json');
 
@@ -102,41 +87,15 @@
 
   onMount(async () => {
     try {
-      recipes = unwrap(await api.GET('/v1/recipes')).items || [];
-      const wanted = recipes.find((r) => r.name === query.get('recipe'));
-      if (wanted) {
-        recipesOpen = true;
-        pickRecipe(wanted);
-      }
+      const [eventRes, recipeRes] = await Promise.all([
+        api.GET('/v1/event-types', { params: { query: { active_only: true } } }),
+        api.GET('/v1/recipes'),
+      ]);
+      allEvents = unwrap(eventRes).items || [];
+      recipes = unwrap(recipeRes).items || [];
     } catch (e: any) {
       error = formatAPIError(e, 'Failed to load form data');
     }
-    try {
-      alertDeliveryConfigured = unwrap(await api.GET('/v1/capabilities')).alert_delivery.configured;
-    } catch {
-      // Leave unknown: the alert copy then stays neutral.
-    }
-  });
-
-  // The server lists only the events this consumer can subscribe to: _sparrow
-  // gets Sparrow's own sparrow.* events, every other consumer the rest.
-  // Reloaded as the consumer is typed; picks the new consumer cannot have are
-  // dropped.
-  $effect(() => {
-    const c = consumer.trim();
-    let stale = false;
-    const timer = setTimeout(async () => {
-      try {
-        const items = await listAllEventTypes({ active_only: true, consumer: c || undefined });
-        if (stale) return;
-        allEvents = items;
-        const names = new Set(allEvents.map((e) => e.name));
-        events = events.filter((e) => names.has(e));
-      } catch (e: any) {
-        if (!stale) error = formatAPIError(e, 'Failed to load event types');
-      }
-    }, 250);
-    return () => { stale = true; clearTimeout(timer); };
   });
 
   function addHeader() {
@@ -157,10 +116,8 @@
 
   function pickRecipe(r: Recipe) {
     selectedRecipe = r;
-    // Inputs start empty and fall back to the default (shown as a hint);
-    // a select starts on its default.
     recipeParams = Object.fromEntries(
-      (r.params ?? []).map((p) => [p.name, p.enum?.length && !p.must_override_default ? p.default ?? '' : ''])
+      (r.params ?? []).map((p) => [p.name, p.default && !p.must_override_default ? p.default : ''])
     );
     recipeError = '';
   }
@@ -168,7 +125,6 @@
   function recipeParamError(p: RecipeParam, value: string): string {
     if ((p.required || p.activation_required) && !value) return `${p.prompt || p.name} is required`;
     if (p.must_override_default && p.default && value === p.default) return `${p.prompt || p.name} must be changed from ${p.default}`;
-    if (p.enum?.length && value && !p.enum.includes(value)) return `${p.prompt || p.name} must be one of ${p.enum.join(', ')}`;
     return '';
   }
 
@@ -229,11 +185,7 @@
     const urlValid = validateUrl(url);
     const nsValid = validateConsumer(consumer);
     eventsError = events.length === 0 ? 'Select at least one event' : '';
-    // Checked up front: once the webhook exists, a bad address could only
-    // fail half way through.
-    const wantsAlert = alertsApply && !!alertEmail.trim();
-    alertEmailError = wantsAlert && !isEmail(alertEmail) ? 'Enter an email address like ops@example.com.' : '';
-    if (!urlValid || !nsValid || eventsError || alertEmailError) return;
+    if (!urlValid || !nsValid || eventsError) return;
     const applyTransform = !transformLocked && (transformEnabled || requiresTransform) && !!transformTemplate.trim();
     if (requiresTransform && !applyTransform) {
       error = 'This receiver only accepts a transformed payload: write a template, or turn off "Requires a transform".';
@@ -280,7 +232,7 @@
         .map(code => parseInt(code.trim()))
         .filter(code => !isNaN(code) && code >= 100 && code < 600);
 
-      const reg = unwrap(await api.POST('/v1/consumers/{consumer}/webhooks', {
+      const created = unwrap(await api.POST('/v1/consumers/{consumer}/webhooks', {
         params: { path: { consumer } },
         body: {
           events,
@@ -309,22 +261,18 @@
         },
       }));
 
-      created = reg;
-      if (wantsAlert) {
-        // The webhook exists now; a failed alert must not hide its secret.
-        try {
-          unwrap(await api.POST('/v1/consumers/{consumer}/alert-configs', {
-            params: { path: { consumer } },
-            body: {
-              webhook_id: reg.webhook_id,
-              email: alertEmail.trim(),
-              event_types: ALERT_EVENT_TYPES,
-            },
-          }));
-        } catch (e: any) {
-          alertError = formatAPIError(e, 'Failed to set up the failure alert');
-        }
+      if (alertEmail.trim()) {
+        unwrap(await api.POST('/v1/consumers/{consumer}/alert-configs', {
+          params: { path: { consumer } },
+          body: {
+            webhook_id: created.webhook_id,
+            email: alertEmail.trim(),
+            event_types: ALERT_EVENT_TYPES,
+          },
+        }));
       }
+
+      goto('/webhooks');
     } catch (e: any) {
       error = formatAPIError(e, 'Failed to register webhook');
     } finally {
@@ -341,22 +289,6 @@
   <nav class="text-xs text-muted mb-3"><a href="/webhooks" class="hover:text-text">Webhooks</a> / Register</nav>
   <h1 class="text-xl font-semibold text-text mb-4">Register webhook</h1>
 
-  {#if created}
-    <section class="panel p-5 space-y-4 max-w-2xl">
-      <div>
-        <h2 class="text-base font-semibold text-text">Webhook registered</h2>
-        <p class="text-sm text-muted mt-1">Deliveries to <span class="mono break-all">{created.url}</span> are signed with this secret. The receiver needs it to verify them.</p>
-      </div>
-      <SigningSecretReveal secret={created.http_config.webhook_secret ?? ''} publicKey={created.signing_public_key} />
-      {#if alertError}
-        <p class="text-sm" style="color:var(--color-bad)">The webhook was registered, but the failure alert was not: {alertError}. Add it from the webhook page.</p>
-      {/if}
-      <div class="flex items-center justify-end gap-2">
-        <a href="/webhooks" class="btn btn-ghost">Back to webhooks</a>
-        <button type="button" onclick={() => goto(`/webhooks/${created?.webhook_id}`)} class="btn btn-beacon">I've saved it, open the webhook</button>
-      </div>
-    </section>
-  {:else}
   <form onsubmit={registerWebhook} class="space-y-4">
     <section class="panel p-5">
       {#if appliedRecipe}
@@ -380,36 +312,11 @@
                 <p class="text-sm font-medium text-text capitalize">{selectedRecipe.name}</p>
                 <p class="text-xs text-muted mt-0.5">{selectedRecipe.description}</p>
               </div>
-              {#if selectedRecipe.consumer}
-                {@const hint = selectedRecipe.consumer}
-                <div class="panel-2 px-3 py-2 text-xs text-muted" data-testid="recipe-consumer-hint">
-                  <p>{hint.note}</p>
-                  {#if consumer.trim() === hint.name}
-                    <p class="mt-1 text-text">Registering under <span class="mono">{hint.name}</span>.</p>
-                  {:else}
-                    <button type="button" class="link-beacon mt-1" onclick={() => (consumer = hint.name)}>Register under <span class="mono">{hint.name}</span> instead of <span class="mono">{consumer.trim() || '…'}</span></button>
-                  {/if}
-                </div>
-              {/if}
               {#each selectedRecipe.params ?? [] as p}
-                {@const optional = !(p.required || p.activation_required)}
                 <div>
-                  <label for={`recipe-param-${p.name}`} class="field-label">{p.prompt || p.name}{optional ? ' (optional)' : ''}</label>
-                  {#if p.enum?.length}
-                    <select id={`recipe-param-${p.name}`} bind:value={recipeParams[p.name]} class="select w-full">
-                      {#if optional && !p.default}<option value="">None</option>{/if}
-                      {#each p.enum as v}<option value={v}>{v}</option>{/each}
-                    </select>
-                  {:else}
-                    <input id={`recipe-param-${p.name}`} type={p.secret ? 'password' : 'text'} bind:value={recipeParams[p.name]} placeholder={p.example ?? ''} autocomplete="off" class="input w-full" />
-                  {/if}
-                  {#if p.help || (p.default && !p.must_override_default && !p.enum?.length) || p.docs_url}
-                    <p class="text-xs text-muted mt-1">
-                      {p.help ?? ''}
-                      {#if p.default && !p.must_override_default && !p.enum?.length}<span class="text-faint">Default: <span class="mono">{p.default}</span>.</span>{/if}
-                      {#if p.docs_url}<a href={p.docs_url} target="_blank" rel="noreferrer" class="link-beacon whitespace-nowrap">Docs ↗</a>{/if}
-                    </p>
-                  {/if}
+                  <label for={`recipe-param-${p.name}`} class="field-label">{p.prompt || p.name}{p.required || p.activation_required ? '' : ' (optional)'}</label>
+                  <input id={`recipe-param-${p.name}`} type={p.secret ? 'password' : 'text'} bind:value={recipeParams[p.name]} placeholder={p.default ?? ''} class="input w-full" />
+                  {#if p.activation_required}<p class="text-xs text-faint mt-1">Required before this recipe can be enabled.</p>{/if}
                 </div>
               {/each}
               {#if recipeError}<p class="text-xs" style="color:var(--color-bad)">{recipeError}</p>{/if}
@@ -444,9 +351,8 @@
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label for="consumer" class="field-label">Consumer</label>
-              <ConsumerPicker id="consumer" bind:value={consumer} live required placeholder="Search or type a consumer" />
-              {#if consumerError}<p class="text-xs mt-1" style="color:var(--color-bad)">{consumerError}</p>
-              {:else if consumer.trim() === '_sparrow'}<p class="text-xs text-faint mt-1">Sparrow's internal consumer: only its own <code>sparrow.*</code> alert events can be subscribed here.</p>{/if}
+              <input id="consumer" type="text" bind:value={consumer} class="input w-full" style={consumerError ? 'border-color:color-mix(in srgb,var(--color-bad) 55%,transparent)' : ''} />
+              {#if consumerError}<p class="text-xs mt-1" style="color:var(--color-bad)">{consumerError}</p>{/if}
             </div>
             <div>
               <label for="description" class="field-label">Description</label>
@@ -539,22 +445,13 @@
             </div>
           </Disclosure>
 
-          {#if alertsApply}
-            <Disclosure label="Health alerts" summary={alertEmail.trim() || 'Off'} open={!!alertEmailError}>
-              <div>
-                <label for="alert-email" class="field-label">Alert email</label>
-                <input id="alert-email" type="email" bind:value={alertEmail} oninput={() => (alertEmailError = '')} placeholder="ops@example.com" class="input w-full" style={alertEmailError ? 'border-color:color-mix(in srgb,var(--color-bad) 55%,transparent)' : ''} />
-                {#if alertEmailError}<p class="text-xs mt-1" style="color:var(--color-bad)">{alertEmailError}</p>{/if}
-                <p class="text-xs text-faint mt-1">Emails when this webhook's health changes, a delivery fails permanently, or Sparrow pauses it.</p>
-                {#if alertDeliveryConfigured === false}
-                  <p class="text-xs mt-1" style="color:var(--color-warn)" data-testid="alert-delivery-missing">
-                    Alert email is not set up on this server yet: the recipient is saved, but nothing is sent until an operator adds an alert-delivery webhook under <span class="mono">{SYSTEM_CONSUMER}</span>.
-                    <a href={ALERTS_GUIDE_URL} target="_blank" rel="noreferrer" class="underline">Guide</a> · <a href={ALERT_SETUP_HREF} class="underline" data-sveltekit-reload>Set it up</a>
-                  </p>
-                {/if}
-              </div>
-            </Disclosure>
-          {/if}
+          <Disclosure label="Health alerts" summary={alertEmail.trim() || 'Off'}>
+            <div>
+              <label for="alert-email" class="field-label">Alert email</label>
+              <input id="alert-email" type="email" bind:value={alertEmail} placeholder="ops@example.com" class="input w-full" />
+              <p class="text-xs text-faint mt-1">Emails when this webhook's health changes or a delivery fails permanently.</p>
+            </div>
+          </Disclosure>
 
           <Disclosure label="HTTP settings" summary={showAdvanced ? `${maxRetries} retries · ${requestTimeoutSeconds}s timeout` : 'Defaults'} bind:open={showAdvanced}>
             <div class="grid grid-cols-2 gap-3">
@@ -583,6 +480,10 @@
                 <input id="contentType" type="text" bind:value={contentType} class="input w-full" />
               </div>
             </div>
+            <div>
+              <label for="secret" class="field-label">Signing secret (HMAC)</label>
+              <input id="secret" type="password" bind:value={webhookSecret} placeholder="Leave blank to generate one" class="input w-full" />
+            </div>
             <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
               <label class="flex items-center gap-2 text-sm text-text cursor-pointer"><input type="checkbox" bind:checked={captureResponseBody} class="accent-[color:var(--color-beacon)]" /> Capture response body</label>
               <label class="flex items-center gap-2 text-sm text-text cursor-pointer"><input type="checkbox" bind:checked={followRedirects} class="accent-[color:var(--color-beacon)]" /> Follow redirects</label>
@@ -604,5 +505,4 @@
       <button type="submit" disabled={submitting} class="btn btn-beacon">{submitting ? 'Registering…' : 'Register webhook'}</button>
     </div>
   </form>
-  {/if}
 </main>

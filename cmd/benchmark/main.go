@@ -385,7 +385,7 @@ func (r *ClientResults) Print() {
 			fmt.Printf("  Sparrow RSS:    peak %.2f MB\n", r.ResourceUsage.SparrowPeakRSS)
 		}
 		if r.ResourceUsage.CPUMsPerDelivery > 0 {
-			fmt.Printf("  Efficiency:     %.2f CPU-ms / request\n", r.ResourceUsage.CPUMsPerDelivery)
+			fmt.Printf("  Efficiency:     %.2f CPU-ms / delivery\n", r.ResourceUsage.CPUMsPerDelivery)
 		}
 		fmt.Println()
 	}

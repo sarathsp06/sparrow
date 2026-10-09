@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -137,16 +136,10 @@ func runUse(ctx context.Context, out io.Writer, client *apiClient, consumer, rec
 		if promptText == "" {
 			promptText = p.Name
 		}
-		if len(p.Enum) > 0 {
-			promptText += " (" + strings.Join(p.Enum, "|") + ")"
-		}
 		if p.Default != "" && !p.MustOverrideDefault {
 			promptText += " [" + p.Default + "]"
 		}
 		if isTerminal(os.Stdin) {
-			if p.Help != "" {
-				_, _ = fmt.Fprintf(out, "%s\n", p.Help)
-			}
 			_, _ = fmt.Fprintf(out, "%s: ", promptText)
 			if stdin.Scan() {
 				if v := strings.TrimSpace(stdin.Text()); v != "" {
@@ -167,9 +160,6 @@ func runUse(ctx context.Context, out io.Writer, client *apiClient, consumer, rec
 	for _, p := range r.Params {
 		if p.MustOverrideDefault && p.Default != "" && strings.TrimSpace(params[p.Name]) == p.Default {
 			return fmt.Errorf("param %q must be changed from its default %q", p.Name, p.Default)
-		}
-		if v := params[p.Name]; len(p.Enum) > 0 && v != "" && !slices.Contains(p.Enum, v) {
-			return fmt.Errorf("param %q must be one of %s, not %q", p.Name, strings.Join(p.Enum, ", "), v)
 		}
 	}
 

@@ -1,0 +1,5 @@
+flowchart TD
+    IN["POST /v1/consumers/{consumer}/events"] --> H
+    H["Push (internal/webhooks)<br>1. Reject unknown event types (404) unless auto-register is on<br>2. Dedup on idempotency key<br>3. Validate payload against the current schema (soft)<br>4. Insert event_record with event_version<br>5. Enqueue EventArgs (River, events queue)"] --> EW
+    EW["EventProcessingWorker<br>1. Load event<br>2. Match subscriptions (consumer + event name or * + labels)<br>3. Batch-insert deliveries: paused for paused subscriptions or webhooks<br>4. Batch-enqueue WebhookArgs for the rest"] --> WW
+    WW["WebhookWorker<br>1. Load webhook, event, subscription; hold as paused if either is paused<br>2. Render the transform (strict by default); on failure fail with template_error or fall back<br>3. Rate limit (leaky bucket in PostgreSQL)<br>4. HTTP request with Standard Webhooks signing<br>5. Update delivery; record health for receiver outcomes only<br>6. Retryable failure: re-enqueue with backoff; auto-disable a webhook failing too long"] --> T[Target URL receives the webhook]

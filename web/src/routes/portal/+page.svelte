@@ -11,12 +11,12 @@
   import HeldDeliveriesNotice from "$lib/components/HeldDeliveriesNotice.svelte";
   import SubscriptionManager from "$lib/components/SubscriptionManager.svelte";
   import type { components } from "$lib/api-types";
-  import { ALERT_EVENT_TYPES, ALERTS_GUIDE_URL, isEmail, listAllEventTypes } from "$lib/system";
 
   type WebhookOut = components["schemas"]["WebhookOut"];
   type DeliveryItem = components["schemas"]["DeliveryItem"];
   type SubscriptionItem = components["schemas"]["SubscriptionItem"];
   type EventTypeItem = components["schemas"]["EventTypeItem"];
+  const ALERT_EVENT_TYPES = ["sparrow.webhook.health_changed", "sparrow.webhook.delivery_failed"];
   const SPARROW_URL = "https://github.com/sarathsp06/sparrow";
   const VERIFY_WEBHOOK_URL = "https://sarathsp06.github.io/sparrow/reference/architecture/#verifying-webhook-signatures";
   const LLMS_URL = "https://sarathsp06.github.io/sparrow/llms.txt";
@@ -63,9 +63,6 @@
   let regEvents = $state<string[]>([]);
   let regBusy = $state(false);
   let regAlertEmail = $state("");
-  let regAlertError = $state("");
-  // Whether this server actually sends alert emails; unknown until loaded.
-  let alertDeliveryConfigured: boolean | undefined = $state();
 
 
   // Delete confirmation
@@ -167,13 +164,7 @@
 
   async function registerWebhook(e: SubmitEvent) {
     e.preventDefault();
-    const wantsAlert = alertDeliveryConfigured !== false && !!regAlertEmail.trim();
-    // Checked before anything is created, so the alert step cannot fail on it
-    // after the endpoint exists.
-    regAlertError = wantsAlert && !isEmail(regAlertEmail) ? "Enter an email address like ops@example.com." : "";
-    if (regAlertError) return;
     regBusy = true;
-    let createdUrl = "";
     try {
       const created = unwrap(
         await api.POST("/v1/consumers/{consumer}/webhooks", {
@@ -181,8 +172,7 @@
           body: { url: regUrl, description: regDescription || undefined, events: regEvents.length ? regEvents : undefined },
         }),
       );
-      createdUrl = created.url;
-      if (wantsAlert) {
+      if (regAlertEmail.trim()) {
         unwrap(
           await api.POST("/v1/consumers/{consumer}/alert-configs", {
             params: { path: { consumer } },
@@ -201,19 +191,7 @@
       registerOpen = false;
       await refresh();
     } catch (err) {
-      if (createdUrl) {
-        // The endpoint exists; only the alert recipient is missing. Close the
-        // form so it is not submitted again as a duplicate.
-        error = `The endpoint ${createdUrl} was added, but its alert email was not: ${formatAPIError(err, "request failed")}.`;
-        regUrl = "";
-        regDescription = "";
-        regEvents = [];
-        regAlertEmail = "";
-        registerOpen = false;
-        await refresh();
-      } else {
-        error = formatAPIError(err, "Failed to add endpoint");
-      }
+      error = formatAPIError(err, "Failed to add endpoint");
     } finally {
       regBusy = false;
     }
@@ -238,15 +216,10 @@
       return;
     }
     refresh();
-    listAllEventTypes({ active_only: true })
-      .then((items) => {
-        eventTypes = items;
-      })
-      .catch(() => {});
     api
-      .GET("/v1/capabilities")
+      .GET("/v1/event-types", { params: { query: { active_only: true } } })
       .then((res) => {
-        alertDeliveryConfigured = unwrap(res).alert_delivery.configured;
+        eventTypes = unwrap(res).items || [];
       })
       .catch(() => {});
   });
@@ -350,17 +323,9 @@
               <input id="portal-reg-desc" class="input" type="text" placeholder="What is this endpoint for?" bind:value={regDescription} />
             </div>
             <div>
-              <span class="field-label">Health alert email (optional)</span>
-              {#if alertDeliveryConfigured === false}
-                <p class="text-xs text-muted" data-testid="alert-delivery-missing">
-                  Alert emails are not set up on this server.
-                  <a href={ALERTS_GUIDE_URL} target="_blank" rel="noreferrer" class="link-beacon">How they work</a>
-                </p>
-              {:else}
-                <input id="portal-reg-alert-email" aria-label="Health alert email" class="input" type="email" placeholder="ops@example.com" bind:value={regAlertEmail} oninput={() => (regAlertError = "")} />
-                {#if regAlertError}<p class="text-xs mt-1" style="color:var(--color-bad)">{regAlertError}</p>{/if}
-                <p class="text-xs text-faint mt-2">Emails when this endpoint's health changes, a delivery fails permanently, or it is paused automatically.</p>
-              {/if}
+              <label class="field-label" for="portal-reg-alert-email">Health alert email (optional)</label>
+              <input id="portal-reg-alert-email" class="input" type="email" placeholder="ops@example.com" bind:value={regAlertEmail} />
+              <p class="text-xs text-faint mt-2">Sends health-change and permanent-failure alerts for this endpoint.</p>
             </div>
             {#if eventTypes.length > 0}
               <fieldset>

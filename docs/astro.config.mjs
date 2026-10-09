@@ -2,7 +2,6 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import sitemap from '@astrojs/sitemap';
 import svelte from '@astrojs/svelte';
-import mermaid from 'astro-mermaid';
 import starlightLlmsTxt from './src/lib/llms/starlight-llms-txt/index.mjs';
 import { llmsBasePrompt, llmsRootDetails } from './src/lib/llms/prompts.mjs';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -31,17 +30,6 @@ export default defineConfig({
     server: { fs: { allow: ['..'] } },
   },
   integrations: [
-    // Must come before starlight. Diagrams render in the browser from ```mermaid
-    // blocks and follow the site's light/dark theme; public/diagram-viewer.js
-    // opens one in a zoomable dialog on click.
-    mermaid({
-      autoTheme: true,
-      enableLog: false,
-      mermaidConfig: {
-        fontFamily: "'Space Grotesk', ui-sans-serif, system-ui, sans-serif",
-        flowchart: { htmlLabels: true, curve: 'basis', padding: 16, nodeSpacing: 50, rankSpacing: 60 },
-      },
-    }),
     starlight({
       title: 'Sparrow',
       logo: {
@@ -139,7 +127,6 @@ export default defineConfig({
         Footer: './src/components/Footer.astro',
       },
       head: [
-        { tag: 'script', attrs: { src: '/sparrow/diagram-viewer.js', defer: true } },
         {
           tag: 'link',
           attrs: {

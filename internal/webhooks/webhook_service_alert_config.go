@@ -108,29 +108,3 @@ func (s *WebhookService) DeleteAlertConfig(ctx context.Context, consumer, id str
 	}
 	return s.webhookRepo.DeleteAlertConfig(ctx, tenantID, parsedID)
 }
-
-// AlertDeliveryConfigured reports whether alert emails can actually go out:
-// an active webhook under the _sparrow consumer with an unpaused subscription
-// to Sparrow's system events. Without one, alert configs are recorded but
-// nothing is sent.
-func (s *WebhookService) AlertDeliveryConfigured(ctx context.Context) (bool, error) {
-	tenantID := tenant.DefaultTenantID
-	hooks, err := s.webhookRepo.ListWebhooks(ctx, tenantID, tenant.SystemConsumer, "", true)
-	if err != nil {
-		return false, err
-	}
-	ids := make([]uuid.UUID, 0, len(hooks))
-	for _, h := range hooks {
-		ids = append(ids, h.ID)
-	}
-	subs, err := s.webhookRepo.ListSubscriptionsByWebhookIDs(ctx, tenantID, ids)
-	if err != nil {
-		return false, err
-	}
-	for _, sub := range subs {
-		if sub.PausedAt == nil && (sub.EventName == store.CatchAllEventName || systemEventTypes[sub.EventName]) {
-			return true, nil
-		}
-	}
-	return false, nil
-}

@@ -3,286 +3,201 @@ title: Sources
 description: Turn cron schedules and provider webhooks (Stripe, GitHub) into Sparrow events with the sparrow-sources binary.
 ---
 
-import { Aside, Steps } from '@astrojs/starlight/components';
+`sparrow-sources` is a small companion binary that pushes events **into** Sparrow from the outside world. It ships two source types:
 
-`sparrow-sources` is a small server that pushes events **into** Sparrow. It
-can emit an event on a schedule, and it can receive Stripe and GitHub webhooks,
-check their signatures, and republish them as Sparrow events. From there,
-Sparrow fans them out to your subscribers with its usual retries, label
-filters, transforms and delivery history.
+- **Cron** — emit a fixed event on a schedule (`report.tick` every 5 minutes).
+- **Webhooks** — receive a provider's webhooks, verify their signature, and re-publish them as Sparrow events. Supported providers today: **Stripe** and **GitHub**.
 
-## Pick a source
+More webhook providers will be added over time. Each follows the same shape — an HTTP path you choose, a signing secret, and the Sparrow event prefix it publishes under — so Stripe and GitHub are the starting set, not a fixed list.
 
-| Source | Produces | You need |
-|--------|----------|----------|
-| [cron](#cron) | A fixed event on a schedule, e.g. `report.tick` every 5 minutes | Nothing beyond Sparrow |
-| [stripe](#stripe) | `stripe.<type>` for each Stripe webhook, e.g. `stripe.payment_intent.succeeded` | A Stripe webhook endpoint and its signing secret |
-| [github](#github) | `github.<event>[.<action>]` for each GitHub webhook, e.g. `github.pull_request.opened` | A repository or organization webhook and its secret |
+Once an external event is inside Sparrow, everything Sparrow offers applies: fan-out to multiple consumers, retries with backoff, label filtering, payload transforms, delivery observability.
 
-One process can run all three. The webhook providers share one HTTP server
-(`:8787` by default), each on its own path.
+## How it's connected
+
+`sparrow-sources` sits *in front of* Sparrow and talks to it exclusively
+through the public event-push API, authenticated with `X-API-Key` when
+configured. Two independent loops share one pusher:
+
+```
+cron loop (per schedule entry):
+  tick → POST /v1/consumers/{consumer}/events?event=<name>
+           {payload, labels}
+         on 404 unknown event type
+           → POST /v1/event-types {name, active: true}
+           → retry the push once
+
+webhook server (:8787):
+  POST <stripe path>                       POST <github path>
+  (default /webhooks/stripe)               (default /webhooks/github)
+    1. read raw body (before parsing)      1. read raw body
+    2. verify Stripe-Signature:            2. verify X-Hub-Signature-256:
+       HMAC-SHA256(secret,                    HMAC-SHA256(secret, body),
+       "{t}.{body}"), 5-min                   constant-time compare
+       timestamp tolerance
+    3. map to event name:                  3. map from X-GitHub-Event +
+       stripe.<type>                          action: github.pull_request.opened
+    4. push into Sparrow (same path        4. same
+       as cron, auto-creates the type)
+    5. respond 200 only after Sparrow accepted — 401 bad signature,
+       404 unknown provider path, 502 push failure (provider retries)
+```
+
+The provider's signature is verified against the **raw** request body before
+anything is parsed, and the full provider payload becomes the Sparrow event
+payload, so nothing is lost in translation — consumers can read every Stripe
+or GitHub field downstream.
 
 ## Install and run
 
-Install the release binary (macOS and Linux) with the install script:
-
 ```sh
-curl -fsSL https://raw.githubusercontent.com/sarathsp06/sparrow/main/scripts/install.sh | sh -s -- -c sources
+go install github.com/sarathsp06/sparrow/satellites/sparrow-sources@latest
 sparrow-sources --config sources.yaml
 ```
 
-Or download the `sparrow-sources-*` archive for your platform from the
-[releases page](https://github.com/sarathsp06/sparrow/releases/latest), or
-build it from a checkout with `go build ./satellites/sparrow-sources`.
-
-To run it in a container, build a small image from the release binary:
-
-```dockerfile title="Dockerfile"
-FROM alpine:3.22
-RUN apk add --no-cache curl \
- && curl -fsSL https://raw.githubusercontent.com/sarathsp06/sparrow/main/scripts/install.sh \
-    | sh -s -- -c sources -b /usr/local/bin
-ENTRYPOINT ["sparrow-sources", "--config", "/etc/sparrow/sources.yaml"]
-```
+Or in Docker, mounting your config:
 
 ```sh
-docker build -t sparrow-sources .
-docker run -v "$(pwd)/sources.yaml:/etc/sparrow/sources.yaml:ro" \
-  -e SPARROW_URL=http://sparrow:8080 -p 8787:8787 sparrow-sources
+docker run -v $(pwd)/sources.yaml:/sources.yaml \
+  -e SPARROW_URL=http://sparrow:8080 \
+  -p 8787:8787 \
+  golang:1.26 sh -c 'go install github.com/sarathsp06/sparrow/satellites/sparrow-sources@latest && sparrow-sources --config /sources.yaml'
 ```
 
-## Before you start
-
-<Steps>
-
-1. **Decide how event types get registered.** Sparrow rejects a push to an
-   unregistered event type with `404`. When that happens, `sparrow-sources`
-   registers the type (`POST /v1/event-types`) and pushes again, so the first
-   `stripe.charge.refunded` creates its own type. That needs an API key allowed
-   to register event types: the master key or a tenant-wide access token. If
-   you'd rather control the definitions (with a schema, say), register or
-   [import](/sparrow/guides/event-type-export-import/) them first.
-
-2. **Get an API key** if the Sparrow server runs with `SPARROW_API_KEY`, and put
-   it in `sparrow.api_key` or `SPARROW_API_KEY`. Without it every push gets
-   `401`.
-
-3. **Make the webhook server reachable** by Stripe or GitHub: a public HTTPS URL
-   in front of port 8787 (a load balancer, ingress, or a tunnel such as
-   `cloudflared` while testing). Only the provider paths are served; everything
-   else gets `404`.
-
-4. **Subscribe to the events** in Sparrow (register a webhook with
-   `events: ["stripe.payment_intent.succeeded"]`, for example). An event with no
-   matching subscription is stored but delivered nowhere.
-
-</Steps>
+:::note
+Sparrow blocks private-network delivery URLs by default (SSRF guard). If your webhook consumers run on localhost or a private network during development, start the Sparrow **server** with `SPARROW_ALLOW_PRIVATE_NETWORKS=true`.
+:::
 
 ## Configuration
 
-One YAML file, `sources.yaml` by default (`--config` to change it). The
-`sparrow:` section says where to push:
+One YAML file (default `sources.yaml`, override with `--config`):
 
-| Field | Required | Default | Env override | Meaning |
-|-------|----------|---------|--------------|---------|
-| `sparrow.url` | yes | | `SPARROW_URL` | Sparrow's base URL, e.g. `http://sparrow:8080`. |
-| `sparrow.api_key` | when the server has `SPARROW_API_KEY` | none | `SPARROW_API_KEY` | Sent as `X-API-Key`. |
-| `sparrow.consumer` | no | `default` | `SPARROW_CONSUMER` | The consumer every event is pushed into. |
-| `webhook.listen` | no | `:8787` | | Address of the webhook server. Only started when a provider is configured. |
+```yaml
+sparrow:
+  url: http://localhost:8080   # Sparrow server base URL (required)
+  api_key: ""                  # optional, sent as X-API-Key
+  consumer: default           # consumer events are pushed into
 
-Environment variables win over the file. The provider secrets have no env
-override, so keep the file readable only by the user that runs it.
+cron:
+  - schedule: "*/5 * * * *"    # 5-field cron: min hour dom mon dow
+    event: report.tick         # Sparrow event name to push
+    payload: {kind: hourly}    # arbitrary JSON payload
+    labels: {source: cron}     # labels for subscription filtering
+
+webhook:
+  listen: :8787                # HTTP listen address for the webhook server
+  providers:                   # Stripe and GitHub today; more added over time
+    stripe:
+      path: /webhooks/stripe        # you choose this path (default shown);
+                                    # register the matching URL with Stripe
+      signing_secret: whsec_...     # from the Stripe dashboard
+      sparrow_event_prefix: stripe  # prefix of the OUTBOUND Sparrow event name
+    github:
+      path: /webhooks/github        # you choose this path (default shown);
+                                    # set it as the GitHub webhook Payload URL
+      secret: your-webhook-secret   # the secret you set on the GitHub webhook
+      sparrow_event_prefix: github  # prefix of the OUTBOUND Sparrow event name
+```
+
+The `path` is yours to set — point the provider's dashboard at whatever URL you register. `sparrow_event_prefix` names the event Sparrow receives (the **outbound** event), not the incoming provider event; it is prefixed to the provider's own event name.
+
+Environment variables override the `sparrow:` section: `SPARROW_URL`, `SPARROW_API_KEY`, `SPARROW_CONSUMER`.
+
+Cron schedules support numbers, ranges (`1-5`), steps (`*/10`, `0-30/5`), lists (`0,15,30,45`), and `*` in each of the five fields (minute, hour, day-of-month, month, day-of-week; `0` and `7` both mean Sunday). Resolution is one minute, jitterless.
+
+Event types are **auto-created**: the first push of an unknown event name registers it inline before the push completes, so you don't need to pre-register `stripe.payment_intent.succeeded` and friends.
+
+## Event naming
+
+Each incoming provider event is republished to Sparrow under a name built from that provider's `sparrow_event_prefix` and the provider's own event — `<sparrow_event_prefix>.<provider event>`:
+
+| Provider | Incoming | Sparrow event |
+|----------|----------|---------------|
+| Stripe | `type: payment_intent.succeeded` | `stripe.payment_intent.succeeded` |
+| GitHub | `X-GitHub-Event: pull_request`, `action: opened` | `github.pull_request.opened` |
+| GitHub | `X-GitHub-Event: push` (no action) | `github.push` |
+
+The full provider payload becomes the Sparrow event payload. Labels are attached for subscription filtering:
+
+- Stripe: `source=stripe`, `livemode=true|false`
+- GitHub: `source=github`, `repo=<repository.full_name>` (when present)
+
+## Provider setup
+
+### Stripe
+
+1. In the Stripe dashboard, go to **Developers → Webhooks → Add endpoint** and set the URL to `https://<your-sources-host>/webhooks/stripe`.
+2. Select the event types you want (or all).
+3. After creating the endpoint, reveal its **Signing secret** (`whsec_...`) and put it in `webhook.providers.stripe.signing_secret`.
+
+Signatures are verified from the `Stripe-Signature` header (HMAC-SHA256 over `{timestamp}.{body}`) with a 5-minute timestamp tolerance.
+
+### GitHub
+
+1. In your repo or org, go to **Settings → Webhooks → Add webhook**.
+2. Payload URL: `https://<your-sources-host>/webhooks/github`. Content type: `application/json`.
+3. Set a **Secret** and put the same value in `webhook.providers.github.secret`.
+
+Signatures are verified from the `X-Hub-Signature-256` header (HMAC-SHA256 over the raw body, constant-time compare).
+
+## Delivery semantics
+
+Ingest is **at-least-once**: `sparrow-sources` responds `200` only *after* the event is successfully pushed into Sparrow.
+
+- Bad signature → `401` (no body).
+- Unknown provider path → `404`.
+- Sparrow push failure → `502`, so Stripe/GitHub retry the webhook.
+
+A provider retry after a successful-but-slow push can therefore produce a duplicate Sparrow event — consumers should treat events idempotently (Stripe's `id` / GitHub's delivery GUID are in the payload and headers respectively).
+
+## Real-World Use Cases
+
+`sparrow-sources` bridges third-party webhook providers and scheduled cron tasks into Sparrow's unified event-driven pipeline.
+
+### Scenario 1: Unifying Stripe & GitHub Ingestion Across Internal Microservices
+**Goal:** Ingest webhooks from Stripe and GitHub securely at the edge of your network, verify their signatures immediately, and fan them out to multiple internal subscribers (Billing, Fulfillment, Audit, Discord notifications) without giving every service access to provider secrets.
 
 ```yaml title="sources.yaml"
 sparrow:
-  url: http://sparrow:8080
-  api_key: ""
-  consumer: default
-
-cron:
-  - schedule: "*/5 * * * *"
-    event: report.tick
-    payload: {kind: five_minutely}
+  url: http://sparrow.internal:8080
+  api_key: sk_live_internal_secret
 
 webhook:
   listen: :8787
   providers:
     stripe:
-      signing_secret: whsec_...
+      path: /webhooks/stripe
+      signing_secret: whsec_live_stripe_key_123
+      sparrow_event_prefix: stripe
     github:
-      secret: your-github-webhook-secret
+      path: /webhooks/github
+      secret: gh_webhook_secret_456
+      sparrow_event_prefix: github
 ```
 
-### What the webhook server answers
+**How it works in practice:**
+1. Stripe sends a `payment_intent.succeeded` webhook to `https://sources.acme.com/webhooks/stripe`.
+2. `sparrow-sources` verifies the `Stripe-Signature` header (HMAC-SHA256 with 5-minute timestamp tolerance).
+3. `sparrow-sources` automatically publishes `stripe.payment_intent.succeeded` to Sparrow with label `livemode=true`.
+4. Sparrow fans out the event asynchronously:
+   - **Billing Service** receives the raw payload.
+   - **Slack Recipe** posts a notification to `#revenue`.
+   - **S3 Sink** archives the raw transaction for bookkeeping.
 
-The provider decides whether to redeliver based on this status, and
-`sparrow-sources` answers `200` only after Sparrow accepted the event, so a
-failed push is retried by Stripe or GitHub.
-
-| Status | When |
-|--------|------|
-| `200` | The event was pushed into Sparrow. |
-| `400` | The body isn't valid JSON, a Stripe body has no `type`, or a GitHub request has no `X-GitHub-Event` header. The response says which. |
-| `401` | The signature is missing or doesn't match. Also returned for a body over **1 MiB**: only the first 1 MiB is read, so the signature can't match. No response body. |
-| `404` | No provider is configured on that path. |
-| `405` | Anything but `POST`. |
-| `502` | The push to Sparrow failed: Sparrow down, `401` (bad API key), `409` (event type inactive), or auto-registration refused. Check the `sparrow-sources` log. |
-
-## cron
-
-Pushes a fixed event on a schedule.
-
-| Field | Required | Default | Meaning |
-|-------|----------|---------|---------|
-| `schedule` | yes | | Five fields: minute, hour, day of month, month, day of week. Each takes a number, `*`, a range (`1-5`), a step (`*/10`, `0-30/5`) or a list (`0,15,30,45`). Day of week `0` and `7` are both Sunday. Names like `MON` aren't supported. |
-| `event` | yes | | The Sparrow event name to push. |
-| `payload` | no | `{}` | The event payload, the same every time. |
-| `labels` | no | none | Labels for subscription filtering. |
+### Scenario 2: Automated Scheduled Ticks for System Maintenance
+**Goal:** Periodically trigger automated background maintenance jobs (e.g., subscription renewal checks, invoice generation, or database vacuuming) without building custom cron daemons in every microservice.
 
 ```yaml title="sources.yaml"
 cron:
-  - schedule: "0 0 * * *"          # every day at midnight
+  # Fulfill billing renewals every midnight
+  - schedule: "0 0 * * *"
     event: billing.daily_renewal
-    payload: {job: process_renewals}
-    labels: {source: cron}
-  - schedule: "*/5 9-17 * * 1-5"   # every 5 minutes, 9:00-17:55, Monday to Friday
+    payload: { job: "process_renewals" }
+    labels: { tier: "production" }
+
+  # Trigger database health metrics collection every 5 minutes
+  - schedule: "*/5 * * * *"
     event: telemetry.health_tick
+    payload: { check: "db_connections" }
 ```
 
-What arrives in Sparrow: an event named `billing.daily_renewal` with payload
-`{"job": "process_renewals"}` and label `source=cron`, at the start of each
-matching minute.
-
-**Good to know:**
-
-- Schedules run in the time zone of the `sparrow-sources` process: `TZ` on the
-  host, UTC in most containers.
-- A tick is pushed once. If Sparrow is down at that moment, the push fails,
-  is logged, and is not retried: that tick is lost. Ticks missed while
-  `sparrow-sources` itself was stopped aren't caught up either.
-- When both day of month and day of week are set (neither is `*`), a day
-  matching either one fires, as in standard cron.
-- Running two copies pushes every tick twice. Run one.
-
-## stripe
-
-Receives Stripe webhooks, checks the `Stripe-Signature` header, and pushes each
-one as `<prefix>.<type>`.
-
-**Before you start:** in the Stripe dashboard, open **Developers → Webhooks →
-Add endpoint**, set the URL to `https://<your-sources-host>/webhooks/stripe`,
-pick the event types, and after saving, reveal the endpoint's **Signing secret**.
-
-| Field | Required | Default | Meaning |
-|-------|----------|---------|---------|
-| `signing_secret` | yes | | The endpoint's signing secret, `whsec_...`. Test mode and live mode endpoints have different secrets. |
-| `path` | no | `/webhooks/stripe` | The path on this server. Must match the URL you gave Stripe. |
-| `sparrow_event_prefix` | no | `stripe` | Prefix of the Sparrow event name. Can't be `sparrow`, which is reserved. |
-
-What arrives in Sparrow for Stripe's `payment_intent.succeeded`:
-
-| | |
-|-|-|
-| Event name | `stripe.payment_intent.succeeded` |
-| Labels | `source=stripe`, `livemode=true` or `false` |
-| Payload | Stripe's event object, unchanged: `{"id": "evt_...", "type": "payment_intent.succeeded", "livemode": false, "data": {"object": {...}}, ...}` |
-
-**Good to know:**
-
-- The signature must be at most 5 minutes old, so the host's clock has to be
-  right. Replaying an old event from the Stripe dashboard works, because
-  Stripe signs each attempt afresh.
-- Stripe retries a failed delivery for up to three days, and may deliver the
-  same event twice. Deduplicate downstream on the payload's `id`.
-- Filter test traffic out with a `livemode=true` label filter on the
-  subscription.
-
-## github
-
-Receives GitHub webhooks, checks the `X-Hub-Signature-256` header, and pushes
-each one as `<prefix>.<X-GitHub-Event>`, plus `.<action>` when the payload has
-an `action`.
-
-**Before you start:** in the repository or organization, open **Settings →
-Webhooks → Add webhook**. Set **Payload URL** to
-`https://<your-sources-host>/webhooks/github`, **Content type** to
-`application/json` (the form-encoded type is rejected with `400`), and a
-**Secret**. Choose which events to send.
-
-| Field | Required | Default | Meaning |
-|-------|----------|---------|---------|
-| `secret` | yes | | The secret you set on the GitHub webhook. |
-| `path` | no | `/webhooks/github` | The path on this server. Must match the Payload URL. |
-| `sparrow_event_prefix` | no | `github` | Prefix of the Sparrow event name. |
-
-What arrives in Sparrow:
-
-| GitHub sends | Sparrow event | Labels |
-|--------------|---------------|--------|
-| `X-GitHub-Event: pull_request`, `"action": "opened"` | `github.pull_request.opened` | `source=github`, `repo=acme/api` |
-| `X-GitHub-Event: push` (no action) | `github.push` | `source=github`, `repo=acme/api` |
-| `X-GitHub-Event: ping` (sent when you create the webhook) | `github.ping` | `source=github`, `repo=acme/api` (for a repository webhook) |
-
-The payload is GitHub's JSON body, unchanged. `repo` is the payload's
-`repository.full_name`, so you can route one repository's events with a label
-filter.
-
-**Good to know:**
-
-- Creating the webhook immediately sends a `ping`, which registers a
-  `github.ping` event type in Sparrow. That's harmless; ignore it or subscribe
-  to it to check the wiring.
-- GitHub doesn't retry failed deliveries on its own. Redeliver from the
-  webhook's **Recent Deliveries** tab.
-- The delivery GUID is in GitHub's `X-GitHub-Delivery` header, which isn't
-  forwarded; deduplicate on fields in the payload instead.
-
-## Worked example: Stripe payments to your billing service
-
-<Steps>
-
-1. Configure the Stripe provider and start `sparrow-sources`:
-
-   ```yaml title="sources.yaml"
-   sparrow:
-     url: http://sparrow.internal:8080
-     api_key: your-sparrow-api-key
-   webhook:
-     providers:
-       stripe:
-         signing_secret: whsec_...
-   ```
-
-   ```sh
-   sparrow-sources --config sources.yaml
-   ```
-
-   It logs `webhook listening addr=:8787`.
-
-2. In Stripe, add the endpoint `https://sources.example.com/webhooks/stripe`
-   for `payment_intent.succeeded`, then trigger one (with the Stripe CLI:
-   `stripe trigger payment_intent.succeeded`).
-   `sparrow-sources` logs
-   `webhook event pushed provider=stripe event=stripe.payment_intent.succeeded`,
-   and the event type now exists in Sparrow.
-
-3. Register your billing service as a webhook, then subscribe it to live
-   payments only (label filters are set on the subscription):
-
-   ```sh
-   curl -X POST http://sparrow.internal:8080/v1/consumers/default/webhooks \
-     -H 'Content-Type: application/json' -H 'X-API-Key: your-sparrow-api-key' \
-     -d '{"url": "https://billing.internal/hooks/payments"}'
-   # → note webhook_id and http_config.webhook_secret
-
-   curl -X POST http://sparrow.internal:8080/v1/consumers/default/subscriptions \
-     -H 'Content-Type: application/json' -H 'X-API-Key: your-sparrow-api-key' \
-     -d '{"webhook_id": "WEBHOOK_ID",
-          "event_name": "stripe.payment_intent.succeeded",
-          "label_filters": {"livemode": "true"}}'
-   ```
-
-   Each live payment is now delivered to the billing service, signed with that
-   webhook's own secret, so the service never needs Stripe's.
-
-</Steps>
+**Why this helps:** The cron engine inside `sparrow-sources` publishes standard Sparrow events on schedule. Subscribers benefit from Sparrow's queueing, retry mechanisms, and delivery state tracking — ensuring that if a subscriber is temporarily down during a cron tick, Sparrow retries delivery until it succeeds.

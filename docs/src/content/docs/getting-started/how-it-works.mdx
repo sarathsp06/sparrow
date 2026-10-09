@@ -2,10 +2,13 @@
 title: How It Works
 description: Understand Sparrow's core concepts — events, webhooks, subscriptions, and deliveries.
 sidebar:
-  order: 4
+  order: 3
 ---
 
 import { Steps } from '@astrojs/starlight/components';
+import ThemeDiagram from '../../../components/ThemeDiagram.astro';
+import eventPipelineLight from '../../../assets/diagrams/event-pipeline-light.svg';
+import eventPipelineDark from '../../../assets/diagrams/event-pipeline-dark.svg';
 
 Sparrow accepts webhook registrations and event definitions, fans out events to matching subscribers, and delivers them reliably with retries and health tracking.
 
@@ -22,31 +25,26 @@ Sparrow accepts webhook registrations and event definitions, fans out events to 
     ```bash
     curl -X POST "http://localhost:8080/v1/consumers/default/events?event=order.created" \
       -H "Content-Type: application/json" \
+      -H "X-API-Key: sk_live_..." \
       -d '{
         "payload": {"order_id": "ord_123", "total": 49.99},
         "idempotency_key": "idem_ord_123"
       }'
     ```
 
-4. **Sparrow fans out** — the event worker finds all active subscriptions matching the event name, consumer, and **label filters**, and creates a delivery for each.
+4. **Sparrow fans out** — the event worker finds all active subscriptions matching the event name, consumer, and **label filters**, applies any payload transforms, and creates a delivery job for each.
 
-5. **Webhook delivery** — the webhook worker renders the subscription's payload transform, if it has one, and sends an HTTP POST to the URL with the body, **Standard Webhooks signatures** (HMAC and/or Ed25519), and Sparrow headers. Failed deliveries are retried with exponential backoff.
+5. **Webhook delivery** — the webhook worker sends an HTTP POST to each URL with the payload, **Standard Webhooks signatures** (HMAC and/or Ed25519), and Sparrow headers. Failed deliveries are retried with exponential backoff.
 
 6. **Track results** — query delivery status, health metrics, and error categories through the API or the web UI.
 
 </Steps>
 
-```mermaid
-flowchart LR
-    accTitle: Flow
-    accDescr: Flow: Push Event goes to the Event Worker, which finds subscriptions and creates deliveries; the Webhook Worker then either records the result on success or retries with backoff on failure.
-    P[Push Event] --> EW[Event Worker]
-    EW --> FS[Find Subscriptions]
-    FS --> CD[Create Deliveries]
-    CD --> WW[Webhook Worker]
-    WW -->|Success| R[Record result]
-    WW -->|Failure| RB[Retry with backoff]
-```
+<ThemeDiagram
+  light={eventPipelineLight}
+  dark={eventPipelineDark}
+  alt="Flow: Push Event goes to the Event Worker, which finds subscriptions and creates deliveries; the Webhook Worker then either records the result on success or retries with backoff on failure."
+/>
 
 ## Core Concepts
 
@@ -57,6 +55,7 @@ An **event** represents something that happened in your system — `order.create
 ```bash
 curl -X POST http://localhost:8080/v1/event-types \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_..." \
   -d '{"name": "order.created", "description": "Fires when a new order is placed", "active": true}'
 ```
 
@@ -64,11 +63,12 @@ Event registrations act as a versioned schema registry. Pushing an unregistered 
 
 ### Webhooks
 
-A **webhook** is a registered HTTP endpoint that receives event notifications. When you register a webhook, you provide its URL; Sparrow generates the signing secret and returns it as `http_config.webhook_secret`, in full only in the registration response, so save it then:
+A **webhook** is a registered HTTP endpoint that receives event notifications. When you register a webhook, you provide a URL and optionally a secret for HMAC signature verification:
 
 ```bash
 curl -X POST http://localhost:8080/v1/consumers/default/webhooks \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_..." \
   -d '{
     "url": "https://your-app.com/webhooks",
     "events": ["order.created"],
@@ -87,6 +87,7 @@ Subscriptions are created automatically when you register a webhook with `events
 ```bash
 curl -X POST http://localhost:8080/v1/consumers/default/subscriptions \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_..." \
   -d '{
     "webhook_id": "YOUR_WEBHOOK_ID",
     "event_name": "order.created"
@@ -107,38 +108,33 @@ A **delivery** is a single attempt (or series of retry attempts) to send an even
 ## Key Design Decisions
 
 - **Async by default** — the push-event endpoint (`POST /v1/consumers/{consumer}/events`) returns immediately. Processing and delivery happen in background workers via a persistent job queue (River).
-- **At-least-once delivery** — retryable failures (server errors, timeouts, connection issues, `429` rate limiting) are automatically retried. Non-retryable failures (DNS errors, TLS errors, other 4xx responses, template errors) are recorded and not retried. A receiver can see the same delivery twice, so deduplicate on the `webhook-id` header or `event_id`.
+- **At-least-once delivery** — retryable failures (server errors, timeouts, connection issues, rate limiting) are automatically retried. Non-retryable failures (DNS errors, TLS errors, 4xx responses) are recorded and not retried.
 - **Per-webhook health tracking** — Sparrow monitors consecutive failures, success rates, and response times for each webhook independently, with a state machine (healthy → degraded → unhealthy). A receiver that keeps failing for days (default 5) is [auto-disabled](/sparrow/guides/webhook-health-alerts/#automatic-disabling).
 - **Pauses hold, never drop** — while a webhook or subscription is paused (or auto-disabled), its deliveries are recorded as `paused`; after resuming you retry exactly what was held.
 - **Cryptographic signing** — every delivery is signed in the [Standard Webhooks](https://www.standardwebhooks.com/) format: HMAC-SHA256 by default, or Ed25519 per webhook (Ed25519 webhooks carry both signatures, so consumers verify with a shared secret or a public key).
-- **Error classification** — every failed attempt gets a [category](/sparrow/reference/error-classification/) (DNS, TLS, timeout, connection refused, rate limited, client error, server error, template error, and so on) that decides whether it's retried, so you know *why* a delivery failed.
+- **10-category error classification** — failures are classified into specific categories (DNS, TLS, timeout, connection refused, rate limited, client error, server error, etc.) with retryability flags, so you know *why* a delivery failed.
 - **PostgreSQL only** — no Redis, no message broker. The River job queue runs inside PostgreSQL, keeping the operational footprint to a single database.
-- **Consumers** — webhooks and events are organized into consumers for logical separation (e.g., `billing`, `notifications`). A `default` consumer is always available. `_sparrow` is reserved for Sparrow's own `sparrow.*` system events, and only those can be subscribed there (see [Webhook Health Alerts](/sparrow/guides/webhook-health-alerts/)).
+- **Consumers** — webhooks and events are organized into consumers for logical separation (e.g., `billing`, `notifications`). A `default` consumer is always available.
 - **Soft schema validation** — event schemas produce warnings, not errors. Events are always accepted and stored, with a `schema_valid` flag for filtering.
 
-## Example: one event, two receivers
+## Common Real-World Use Cases
 
-A shop pushes `order.created` once. The billing service needs the full event;
-the sales team wants a line in Slack.
+Sparrow simplifies architecture across multiple common software patterns:
 
-<Steps>
+### 1. Reliable Outbound Webhooks for B2B SaaS Platforms
+If you build a SaaS platform (like Stripe, GitHub, or Shopify) that sends customer-configured webhooks, Sparrow acts as your dedicated outbound gateway:
+- Customers register their endpoints and HMAC secrets.
+- Your backend pushes events to Sparrow with `idempotency_key` guarantees.
+- Sparrow signs each HTTP request with Standard Webhooks signatures, retries failures with exponential backoff, tracks endpoint health (healthy/degraded/unhealthy), and provides full delivery visibility.
 
-1. Register the billing service as a webhook with `"events": ["order.created"]`.
-   It receives the standard envelope and verifies it with its own secret.
+### 2. Internal Microservice Event Bus & Fan-Out
+Instead of building heavy Kafka or RabbitMQ integrations just to notify internal microservices:
+- Services emit domain events (e.g., `user.signup`) to Sparrow via simple REST calls.
+- Internal subscribers (Billing, Email Marketing, Analytics, Security Audit) register webhooks.
+- Subscriptions use label filters (`env=prod`) and payload transforms to ensure services only receive relevant, cleanly shaped data.
 
-2. Apply the Slack recipe for the same event:
-
-    ```bash
-    sparrow use slack \
-      --param webhook_url=https://hooks.slack.com/services/T000/B000/XXX \
-      --event order.created
-    ```
-
-    That's a second webhook whose subscription has a transform template, so
-    Slack receives a Block Kit message instead of the envelope.
-
-3. Push the event once. Sparrow creates two deliveries, signs, sends and
-   retries each one independently, and records both. If Slack is down, billing
-   isn't held up, and the Slack delivery is retried on its own.
-
-</Steps>
+### 3. Automated Third-Party Integration Gateway
+With Sparrow's [recipes](/sparrow/satellites/recipes/) and [satellites](/sparrow/satellites/), you can integrate core business events with Slack, PagerDuty, Discord, ClickHouse, any CloudEvents receiver, or S3 with zero custom code:
+- Firing an event automatically creates PagerDuty incidents on critical errors.
+- Posts rich Block Kit cards into Slack channels on sales conversions.
+- Streams full transaction streams into S3/MinIO for audit compliance.

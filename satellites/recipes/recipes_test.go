@@ -211,67 +211,6 @@ func TestPagerdutyRecipe_Severity(t *testing.T) {
 // so a template must read optional payload fields with index or dig.
 var strictRender = template.ExecOptions{StrictMissingKeys: true}
 
-// Every shipped param carries the guidance the UI renders: a short label and
-// a hint.
-func TestRecipes_ParamGuidance(t *testing.T) {
-	all, err := recipes.All()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, r := range all {
-		for _, p := range r.Params {
-			if p.Prompt == "" || p.Help == "" {
-				t.Errorf("%s.%s: needs both prompt and help", r.Name, p.Name)
-			}
-			if len(p.Prompt) > 40 {
-				t.Errorf("%s.%s: prompt %q is a label, keep it short; details go in help", r.Name, p.Name, p.Prompt)
-			}
-		}
-	}
-}
-
-func TestSendgridRecipe_ConsumerHint(t *testing.T) {
-	all, err := recipes.All()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, r := range all {
-		if r.Name == "sendgrid" {
-			if r.Consumer == nil || r.Consumer.Name != "_sparrow" || r.Consumer.Note == "" {
-				t.Fatalf("sendgrid must point at the _sparrow consumer: %+v", r.Consumer)
-			}
-			return
-		}
-	}
-	t.Fatal("sendgrid recipe not found")
-}
-
-func TestValidate_ParamGuidance(t *testing.T) {
-	base := func() recipes.Recipe {
-		return recipes.Recipe{Name: "x", Webhook: recipes.Webhook{URL: "https://example.com"},
-			Params: []recipes.Param{{Name: "sev", Enum: []string{"info", "error"}, Default: "error", DocsURL: "https://example.com/docs"}}}
-	}
-	r := base()
-	if err := r.Validate(); err != nil {
-		t.Fatal(err)
-	}
-	r = base()
-	r.Params[0].Default = "fatal"
-	if err := r.Validate(); err == nil {
-		t.Error("a default outside enum must not validate")
-	}
-	r = base()
-	r.Params[0].DocsURL = "javascript:alert(1)"
-	if err := r.Validate(); err == nil {
-		t.Error("a non-http docs_url must not validate")
-	}
-	r = base()
-	r.Consumer = &recipes.ConsumerHint{Note: "no name"}
-	if err := r.Validate(); err == nil {
-		t.Error("a consumer hint without a name must not validate")
-	}
-}
-
 func TestValidate_RequiresTransformNeedsTemplate(t *testing.T) {
 	r := recipes.Recipe{Name: "x", Webhook: recipes.Webhook{URL: "https://example.com", RequiresTransform: true}}
 	if err := r.Validate(); err == nil {

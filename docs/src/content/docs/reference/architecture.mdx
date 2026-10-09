@@ -3,38 +3,23 @@ title: Architecture
 description: System design, event pipeline, and internal architecture.
 ---
 
+import ThemeDiagram from '../../../components/ThemeDiagram.astro';
+import systemOverviewDark from '../../../assets/diagrams/system-overview-dark.svg';
+import systemOverviewLight from '../../../assets/diagrams/system-overview-light.svg';
+import healthStateMachineDark from '../../../assets/diagrams/health-state-machine-dark.svg';
+import healthStateMachineLight from '../../../assets/diagrams/health-state-machine-light.svg';
+import eventProcessingLight from '../../../assets/diagrams/event-processing-pipeline-light.svg';
+import eventProcessingDark from '../../../assets/diagrams/event-processing-pipeline-dark.svg';
+import packageStructureLight from '../../../assets/diagrams/package-structure-light.svg';
+import packageStructureDark from '../../../assets/diagrams/package-structure-dark.svg';
 
 ## Overview
 
-```mermaid
-graph TD
-    accTitle: System overview diagram showing the Sparrow architecture
-    accDescr: System overview diagram showing the Sparrow architecture: your application pushes events via HTTP REST to the API, which stores events in PostgreSQL and enqueues them. EventWorker fans out to matching subscriptions, WebhookWorker delivers via HTTP POST with HMAC signing, and the embedded SvelteKit UI reads and writes through the same REST API.
-    App[Your Application] -->|POST /v1/.../events<br>HTTP / JSON| API
-
-    subgraph Sparrow
-        API[REST API<br>HTTP :8080]
-        DB[(PostgreSQL)]
-        EQ[Events Queue]
-        WQ[Webhooks Queue]
-        EW[EventWorker]
-        WW[WebhookWorker]
-        Health[Health Tracker]
-
-        API -->|Store event| DB
-        API -->|Enqueue| EQ
-        EQ --> EW
-        EW -->|Find matching<br>subscriptions| DB
-        EW -->|Fan-out jobs| WQ
-        WQ --> WW
-        WW -->|Load config +<br>transform payload| DB
-        WW -->|Record outcome| DB
-        WW -->|Update| Health
-    end
-
-    WW -->|HTTP POST<br>HMAC-signed| Endpoint[External Endpoints]
-    UI[Embedded SvelteKit UI] -->|REST / JSON| API
-```
+<ThemeDiagram
+  light={systemOverviewLight}
+  dark={systemOverviewDark}
+  alt="System overview diagram showing the Sparrow architecture: your application pushes events via HTTP REST to the API, which stores events in PostgreSQL and enqueues them. EventWorker fans out to matching subscriptions, WebhookWorker delivers via HTTP POST with HMAC signing, and the embedded SvelteKit UI reads and writes through the same REST API."
+/>
 
 See the [Layered Architecture](/sparrow/reference/layered-architecture/)
 page for an interactive diagram of the request path through middleware,
@@ -64,15 +49,11 @@ See the [API Reference](/sparrow/reference/api/) for the full endpoint list.
 
 ## Event Processing Pipeline
 
-```mermaid
-flowchart TD
-    accTitle: Event processing pipeline
-    accDescr: Event processing pipeline: a push rejects unknown event types unless auto-register is on, dedups, validates softly, stores the event with its event_version and enqueues it; EventProcessingWorker matches subscriptions and batch-inserts deliveries, paused ones for paused subscriptions or paused/auto-disabled webhooks, and enqueues jobs for the rest; WebhookWorker renders the transform strictly (failing with template_error or falling back), applies the rate limit, sends the signed request, updates the delivery, records health for receiver outcomes only, and retries retryable failures with backoff.
-    IN["POST /v1/consumers/{consumer}/events"] --> H
-    H["Push (internal/webhooks)<br>1. Reject unknown event types (404) unless auto-register is on<br>2. Dedup on idempotency key<br>3. Validate payload against the current schema (soft)<br>4. Insert event_record with event_version<br>5. Enqueue EventArgs (River, events queue)"] --> EW
-    EW["EventProcessingWorker<br>1. Load event<br>2. Match subscriptions (consumer + event name or * + labels)<br>3. Batch-insert deliveries: paused for paused subscriptions or webhooks<br>4. Batch-enqueue WebhookArgs for the rest"] --> WW
-    WW["WebhookWorker<br>1. Load webhook, event, subscription; hold as paused if either is paused<br>2. Render the transform (strict by default); on failure fail with template_error or fall back<br>3. Rate limit (leaky bucket in PostgreSQL)<br>4. HTTP request with Standard Webhooks signing<br>5. Update delivery; record health for receiver outcomes only<br>6. Retryable failure: re-enqueue with backoff; auto-disable a webhook failing too long"] --> T[Target URL receives the webhook]
-```
+<ThemeDiagram
+  light={eventProcessingLight}
+  dark={eventProcessingDark}
+  alt="Event processing pipeline: a push rejects unknown event types unless auto-register is on, dedups, validates softly, stores the event with its event_version and enqueues it; EventProcessingWorker matches subscriptions and batch-inserts deliveries, paused ones for paused subscriptions or paused/auto-disabled webhooks, and enqueues jobs for the rest; WebhookWorker renders the transform strictly (failing with template_error or falling back), applies the rate limit, sends the signed request, updates the delivery, records health for receiver outcomes only, and retries retryable failures with backoff."
+/>
 
 ---
 
@@ -80,29 +61,11 @@ flowchart TD
 
 Event-sourced health calculation with a 24-hour lookback window:
 
-```mermaid
-stateDiagram-v2
-    accTitle: Health state machine diagram showing transitions between unknown, healthy, degraded, and unhealthy states based on success rates and consecutive failures, with a 24-hour inactivity timeout back to unknown.
-    accDescr: Health state machine diagram showing transitions between unknown, healthy, degraded, and unhealthy states based on success rates and consecutive failures, with a 24-hour inactivity timeout back to unknown.
-    [*] --> unknown
-
-    unknown --> healthy : >=90% success rate\n(3+ events)
-    unknown --> degraded : <90% success rate\n(5+ events)
-    unknown --> unhealthy : 5+ consecutive failures\nOR <80% rate (10+ events)
-
-    healthy --> degraded : Success rate drops <90%
-    healthy --> unhealthy : 5+ consecutive failures
-
-    degraded --> healthy : Success rate recovers >=90%
-    degraded --> unhealthy : 5+ consecutive failures\nOR <80% rate (10+ events)
-
-    unhealthy --> degraded : Partial recovery
-    unhealthy --> healthy : Full recovery >=90%
-
-    healthy --> unknown : No events in 24h
-    degraded --> unknown : No events in 24h
-    unhealthy --> unknown : No events in 24h
-```
+<ThemeDiagram
+  light={healthStateMachineLight}
+  dark={healthStateMachineDark}
+  alt="Health state machine diagram showing transitions between unknown, healthy, degraded, and unhealthy states based on success rates and consecutive failures, with a 24-hour inactivity timeout back to unknown."
+/>
 
 **How it works:**
 1. Each delivery outcome is recorded as a health event
@@ -230,31 +193,11 @@ isolation.
 
 ## Package Structure
 
-```mermaid
-flowchart TD
-    accTitle: Package structure
-    accDescr: Package structure: cmd/server/main.go is the composition root wiring internal/tenant, internal/webhooks, and internal/rest. tenant depends on pkg/storage; webhooks depends on pkg/storage and pkg/errors and contains store/ (pkg/storage, pkg/types), queue/ (store, client, pkg/errors, internal/observability), and client/ (store models, pkg/errors); internal/rest is the transport layer over both domain packages. tenant and webhooks never import each other.
-    Main["cmd/server/main.go<br>composition root — wires everything"]
-    Main --> Tenant["internal/tenant"]
-    Main --> Webhooks["internal/webhooks"]
-    Main --> Rest["internal/rest<br>transport layer"]
-    Tenant --> Storage[pkg/storage]
-    Webhooks --> Storage
-    Webhooks --> Errors[pkg/errors]
-    Webhooks --> Store["store/"]
-    Webhooks --> Queue["queue/"]
-    Webhooks --> Client["client/"]
-    Store --> Storage
-    Store --> Types[pkg/types]
-    Queue --> Store
-    Queue --> Client
-    Queue --> Errors
-    Queue --> Obs[internal/observability]
-    Client --> Store
-    Client --> Errors
-    Rest --> Webhooks
-    Rest --> Tenant
-```
+<ThemeDiagram
+  light={packageStructureLight}
+  dark={packageStructureDark}
+  alt="Package structure: cmd/server/main.go is the composition root wiring internal/tenant, internal/webhooks, and internal/rest. tenant depends on pkg/storage; webhooks depends on pkg/storage and pkg/errors and contains store/ (pkg/storage, pkg/types), queue/ (store, client, pkg/errors, internal/observability), and client/ (store models, pkg/errors); internal/rest is the transport layer over both domain packages. tenant and webhooks never import each other."
+/>
 
 `tenant` and `webhooks` never import each other. Zero cycles.
 

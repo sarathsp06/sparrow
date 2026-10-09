@@ -1,12 +1,10 @@
 <script lang="ts">
   import { api, unwrap } from "$lib/services";
   import { formatAPIError } from "$lib/utils";
+  import { onMount } from "svelte";
   import type { components } from "$lib/api-types";
   import HealthBadge from "$lib/components/HealthBadge.svelte";
   import CopyableId from "$lib/components/CopyableId.svelte";
-  import ConsumerPicker from "$lib/components/ConsumerPicker.svelte";
-  import { consumerFilter, consumerLabel } from "$lib/consumer.svelte";
-  import { describeHealthRules, isSystemConsumer, successRateTone } from "$lib/system";
 
   type HealthSummary = components["schemas"]["HealthSummaryOutputBody"];
   type ConsumerStats = components["schemas"]["ConsumerStatsOutputBody"];
@@ -21,22 +19,15 @@
   let loading = $state(true);
   let error = $state("");
 
-  let scope = $derived(consumerFilter.value);
-  let rules = $derived(healthSummary?.rules);
-  let ruleText = $derived(rules ? describeHealthRules(rules) : undefined);
-
   async function fetchData() {
-    const consumer = scope || undefined;
     loading = true;
     error = "";
     try {
       const [summary, stats, unhealthyRes, degradedRes] = await Promise.all([
-        api.GET('/v1/health-summary', { params: { query: { consumer } } }),
-        consumer
-          ? api.GET('/v1/consumers/{consumer}/stats', { params: { path: { consumer } } })
-          : api.GET('/v1/stats'),
-        api.GET('/v1/webhooks', { params: { query: { consumer, health: 'unhealthy', limit: 20, offset: 0 } } }),
-        api.GET('/v1/webhooks', { params: { query: { consumer, health: 'degraded', limit: 20, offset: 0 } } }),
+        api.GET('/v1/health-summary'),
+        api.GET('/v1/stats'),
+        api.GET('/v1/webhooks', { params: { query: { health: 'unhealthy', limit: 20, offset: 0 } } }),
+        api.GET('/v1/webhooks', { params: { query: { health: 'degraded', limit: 20, offset: 0 } } }),
       ]);
       healthSummary = unwrap(summary);
       consumerStats = unwrap(stats);
@@ -65,11 +56,7 @@
     }
   }
 
-  // Loads on mount and again whenever the consumer switcher changes.
-  $effect(() => {
-    scope;
-    fetchData();
-  });
+  onMount(fetchData);
 </script>
 
 <svelte:head>
@@ -81,19 +68,14 @@
     <div>
       <p class="eyebrow mb-1.5">System / Health</p>
       <h1 class="text-2xl">Health Dashboard</h1>
-      <p class="text-sm text-muted mt-1">
-        {#if !scope}Fleet health across all consumers{:else}Health of <span class="mono text-text">{consumerLabel(scope)}</span>{/if}
-      </p>
+      <p class="text-sm text-muted mt-1">Fleet health and consumer statistics</p>
     </div>
-    <div class="flex flex-col sm:flex-row gap-3 sm:items-center">
-    <ConsumerPicker id="health-consumer" label="Filter by consumer" value={consumerFilter.value} onchange={(c) => (consumerFilter.value = c)} class="sm:w-60" />
     <button onclick={() => fetchData()} disabled={loading} class="btn btn-ghost" aria-label="Refresh health data">
       <svg class="w-4 h-4 {loading ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
       </svg>
       {loading ? 'Refreshing…' : 'Refresh'}
     </button>
-    </div>
   </div>
 
   {#if loading}
@@ -126,11 +108,6 @@
       {#if healthSummary}
         <div>
           <h2 class="eyebrow mb-3">Overall Health</h2>
-          {#if ruleText}
-            <p class="text-xs text-muted mb-3" data-testid="health-rules">
-              Unhealthy: {ruleText.unhealthy}. Degraded: {ruleText.degraded}. Healthy: {ruleText.healthy}.
-            </p>
-          {/if}
           <div class="panel readout">
             <div class="cell"><div class="val" style="color:var(--color-ok)">{healthSummary.healthy_count}</div><div class="key">Healthy</div></div>
             <div class="cell"><div class="val" style="color:var(--color-warn)">{healthSummary.degraded_count}</div><div class="key">Degraded</div></div>
@@ -142,7 +119,7 @@
 
       {#if consumerStats}
         <div>
-          <h2 class="eyebrow mb-3">Statistics · {scope ? consumerLabel(scope) : 'All consumers'}</h2>
+          <h2 class="eyebrow mb-3">Statistics · All Consumers</h2>
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div class="panel px-4 py-4">
               <p class="key">Total Webhooks</p>
@@ -154,7 +131,7 @@
             </div>
             <div class="panel px-4 py-4">
               <p class="key">Success Rate</p>
-              <p class="text-2xl font-semibold tnum mt-1" style="color:var(--color-{successRateTone(consumerStats.success_rate, rules)})">
+              <p class="text-2xl font-semibold tnum mt-1" style="color:var(--color-{consumerStats.success_rate >= 0.95 ? 'ok' : consumerStats.success_rate >= 0.8 ? 'warn' : 'bad'})">
                 {(consumerStats.success_rate * 100).toFixed(1)}%
               </p>
             </div>
@@ -181,14 +158,14 @@
             <div class="flex items-center gap-2 min-w-0">
               <span class="text-sm font-medium text-text truncate">{wh.description || 'Webhook'}</span>
               <HealthBadge health={wh.health} size="sm" />
-              <span class="chip" title={isSystemConsumer(wh.consumer) ? "Sparrow's own alert delivery" : undefined}>{consumerLabel(wh.consumer)}</span>
+              <span class="chip">{wh.consumer}</span>
             </div>
             <CopyableId id={wh.webhook_id} />
           </div>
 
           {#if metrics}
             <div class="flex items-center gap-4 text-xs text-muted mb-2">
-              <span>Success rate: <span class="mono tnum font-medium" style="color:var(--color-{successRateTone(metrics.success_rate, rules)})">{(metrics.success_rate * 100).toFixed(1)}%</span></span>
+              <span>Success rate: <span class="mono tnum font-medium" style="color:var(--color-{metrics.success_rate >= 0.8 ? 'warn' : 'bad'})">{(metrics.success_rate * 100).toFixed(1)}%</span></span>
               <span>Failed: <span class="mono tnum font-medium" style="color:var(--color-bad)">{metrics.failed_deliveries}</span></span>
               <span>Consecutive: <span class="mono tnum font-medium" style="color:var(--color-bad)">{metrics.consecutive_failures}</span></span>
             </div>
@@ -222,7 +199,7 @@
       {#if unhealthyWebhooks.length > 0}
         <div>
           <h2 class="eyebrow mb-1" style="color:var(--color-bad)">Unhealthy Webhooks</h2>
-          {#if ruleText}<p class="text-sm text-muted mb-4">{ruleText.unhealthy}</p>{/if}
+          <p class="text-sm text-muted mb-4">Critical: &lt;50% success rate or 10+ consecutive failures</p>
           <div class="space-y-3">
             {#each unhealthyWebhooks as wh}{@render webhookCard(wh)}{/each}
           </div>
@@ -232,7 +209,7 @@
       {#if degradedWebhooks.length > 0}
         <div>
           <h2 class="eyebrow mb-1" style="color:var(--color-warn)">Degraded Webhooks</h2>
-          {#if ruleText}<p class="text-sm text-muted mb-4">{ruleText.degraded}</p>{/if}
+          <p class="text-sm text-muted mb-4">Warning: 50–90% success rate or 3–9 consecutive failures</p>
           <div class="space-y-3">
             {#each degradedWebhooks as wh}{@render webhookCard(wh)}{/each}
           </div>
@@ -244,11 +221,10 @@
           <svg class="w-10 h-10 mx-auto mb-3" style="color:var(--color-ok)" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p class="text-sm font-medium text-text">No webhooks need attention</p>
+          <p class="text-sm font-medium text-text">All webhooks are healthy</p>
           <p class="text-xs text-muted mt-1">No webhooks require attention right now</p>
         </div>
       {/if}
-
     </div>
   {/if}
 </main>
