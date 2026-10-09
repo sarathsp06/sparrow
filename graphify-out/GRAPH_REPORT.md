@@ -1,7 +1,7 @@
 # Graph Report - webhook-delivery-retry-34227b  (2026-10-09)
 
 ## Corpus Check
-- 506 files · ~457,870 words
+- 506 files · ~457,926 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `3f86cd76`
+- Built from commit: `8e05877b`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -262,13 +262,13 @@
 - SecurityHeaders
 - rest/ai_test.go
 - @playwright/test
+- svelte-check
 - palette
 - @sveltejs/adapter-static
 - ValidateHeaders
 - signature_test.go
 - .ListSubscriptionsByWebhookIDs
 - TestE2E_SlackRecipeTransform
-- typescript
 - Documenting the REST API
 
 ## God Nodes (most connected - your core abstractions)
@@ -528,7 +528,7 @@ Nodes (10): Context, logsURL(), newOTLPSink(), otlpPayload(), T, TestLogsURL(), 
 
 ### Community 62 - "devDependencies"
 Cohesion: 0.15
-Nodes (13): svelte-check, @tailwindcss/forms, @tailwindcss/typography, @tailwindcss/vite, @types/node, vite, devDependencies, svelte-check (+5 more)
+Nodes (13): @tailwindcss/forms, @tailwindcss/typography, @tailwindcss/vite, @types/node, typescript, vite, devDependencies, @tailwindcss/forms (+5 more)
 
 ### Community 63 - "newPalette"
 Cohesion: 0.16
@@ -579,8 +579,8 @@ Cohesion: 0.18
 Nodes (10): Before you start, Configuration, email, How a delivery is handled, and what Sparrow does with the answer, Install and run, otlp, Pick a sink, s3 (+2 more)
 
 ### Community 75 - "parseUUID"
-Cohesion: 0.15
-Nodes (13): checkEventForConsumer(), stringHeaders(), validateHeaders(), ValidateWebhookURL(), generateWebhookSecret(), Context, WebhookService, UUID (+5 more)
+Cohesion: 0.20
+Nodes (11): checkEventForConsumer(), stringHeaders(), validateHeaders(), ValidateWebhookURL(), generateWebhookSecret(), UUID, parseUUID(), Context (+3 more)
 
 ### Community 76 - "payload-transformation.mdx"
 Cohesion: 0.12
@@ -875,8 +875,8 @@ Cohesion: 0.33
 Nodes (7): Time, parseDateFilter(), parseLabelFilter(), T, TestParseDateFilter(), TestParseDateFilter_AcceptsRFC3339(), TestParseLabelFilter()
 
 ### Community 154 - "Errorf"
-Cohesion: 0.14
-Nodes (11): NetworkPolicy, embeddedIPv4(), IPNet, isMetadataIP(), mustCIDRs(), ValidateIP(), WebhookService, IP (+3 more)
+Cohesion: 0.11
+Nodes (13): NetworkPolicy, embeddedIPv4(), IPNet, isMetadataIP(), mustCIDRs(), ValidateIP(), WebhookService, Context (+5 more)
 
 ### Community 155 - "NewWebhookTemplateContext"
 Cohesion: 0.36

@@ -2415,13 +2415,13 @@
     "semantic_hash": ""
   },
   "internal/ai/provider_openai.go": {
-    "mtime": 1790892958.5309289,
-    "ast_hash": "8628d43a38c51997612ecb2c9806481f",
+    "mtime": 1791533473.2865098,
+    "ast_hash": "89de0a200119be2b7a5fbc91d428274d",
     "semantic_hash": ""
   },
   "internal/ai/provider_openai_test.go": {
-    "mtime": 1790892958.531035,
-    "ast_hash": "22223dda300a3b72bf63c1d8c1014ff1",
+    "mtime": 1791533485.7461815,
+    "ast_hash": "97737a9a37f47e06f7b6a48cd2894afe",
     "semantic_hash": ""
   },
   "internal/integration/requires_transform_test.go": {
