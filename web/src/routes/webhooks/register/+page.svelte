@@ -11,7 +11,7 @@
   import TransformSettings from '$lib/components/TransformSettings.svelte';
   import type { TemplateSaveMeta } from '$lib/components/TemplateEditor.svelte';
   import SigningSecretReveal from '$lib/components/SigningSecretReveal.svelte';
-  import { ALERT_EVENT_TYPES, ALERTS_GUIDE_URL, SYSTEM_CONSUMER, isEmail, isSystemConsumer, listAllEventTypes } from '$lib/system';
+  import { ALERT_EVENT_TYPES, ALERTS_GUIDE_URL, SYSTEM_CONSUMER, VERIFY_SIGNATURES_GUIDE_URL, isEmail, isSystemConsumer, listAllEventTypes } from '$lib/system';
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
 
@@ -41,6 +41,10 @@
   // _sparrow's own webhooks never raise alerts about themselves.
   let alertsApply = $derived(!isSystemConsumer(consumer.trim()));
 
+
+  // Every delivery is HMAC-signed (v1,); ed25519 adds a v1a, signature
+  // receivers can verify with a public key alone.
+  let signatureType = $state<'hmac' | 'ed25519'>('hmac');
 
   // HTTP Configuration
   let showAdvanced = $state(false);
@@ -290,6 +294,7 @@
           headers: headersMap,
           secret_headers: Object.keys(secretHeadersMap).length > 0 ? secretHeadersMap : undefined,
           requires_transform: requiresTransform || undefined,
+          signature_type: signatureType,
           transform_template: applyTransform ? transformTemplate : undefined,
           on_transform_error: applyTransform ? onTransformError : undefined,
           template_missing_key: applyTransform ? templateMissingKey : undefined,
@@ -555,6 +560,22 @@
               </div>
             </Disclosure>
           {/if}
+
+          <Disclosure label="Signing" summary={signatureType === 'ed25519' ? 'HMAC + Ed25519' : 'HMAC'}>
+            <div class="space-y-2" role="radiogroup" aria-label="Signature scheme">
+              <label class="flex items-start gap-2 text-sm text-text cursor-pointer">
+                <input type="radio" name="signature-type" value="hmac" bind:group={signatureType} class="mt-1 accent-[color:var(--color-beacon)]" />
+                <span>HMAC-SHA256 <span class="mono text-xs text-muted">v1,</span>
+                  <span class="block text-xs text-faint">The receiver verifies with the shared signing secret, shown once after you register.</span></span>
+              </label>
+              <label class="flex items-start gap-2 text-sm text-text cursor-pointer">
+                <input type="radio" name="signature-type" value="ed25519" bind:group={signatureType} class="mt-1 accent-[color:var(--color-beacon)]" />
+                <span>HMAC + Ed25519 <span class="mono text-xs text-muted">v1, v1a,</span>
+                  <span class="block text-xs text-faint">Adds an Ed25519 signature, so the receiver can verify with a public key and never hold a secret.</span></span>
+              </label>
+              <a href={VERIFY_SIGNATURES_GUIDE_URL} target="_blank" rel="noreferrer" class="text-xs link-beacon inline-block">How receivers verify signatures ↗</a>
+            </div>
+          </Disclosure>
 
           <Disclosure label="HTTP settings" summary={showAdvanced ? `${maxRetries} retries · ${requestTimeoutSeconds}s timeout` : 'Defaults'} bind:open={showAdvanced}>
             <div class="grid grid-cols-2 gap-3">

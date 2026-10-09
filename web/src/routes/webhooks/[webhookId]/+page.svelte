@@ -18,7 +18,7 @@
   import SigningSecretReveal from '$lib/components/SigningSecretReveal.svelte';
   import AlertConfigs from '$lib/components/AlertConfigs.svelte';
   import { consumerLabel } from '$lib/consumer.svelte';
-  import { ALERTS_GUIDE_URL, isSystemConsumer, successRateTone } from '$lib/system';
+  import { ALERTS_GUIDE_URL, VERIFY_SIGNATURES_GUIDE_URL, isSystemConsumer, successRateTone } from '$lib/system';
 
   type WebhookOut = components["schemas"]["WebhookOut"];
   type DeliveryItem = components["schemas"]["DeliveryItem"];
@@ -75,6 +75,11 @@
   let confirmRotate = $state(false);
   let rotatingSecret = $state(false);
   let rotatedSecret = $state('');
+
+  // Signature scheme: ed25519 adds a v1a, signature next to the HMAC one.
+  // Turning it off drops the keypair, so turning it on again makes a new one.
+  let confirmSignatureType: 'hmac' | 'ed25519' | null = $state(null);
+  let changingSignature = $state(false);
 
   // Pagination
   let limit = $state(25);
@@ -208,6 +213,25 @@
       error = formatAPIError(e, 'Failed to rotate signing secret');
     } finally {
       rotatingSecret = false;
+    }
+  }
+
+  async function executeSignatureType() {
+    if (!webhook || !confirmSignatureType) return;
+    const next = confirmSignatureType;
+    confirmSignatureType = null;
+    changingSignature = true;
+    error = '';
+    try {
+      unwrap(await api.PATCH('/v1/consumers/{consumer}/webhooks/{webhook_id}', {
+        params: { path: { consumer: webhook.consumer, webhook_id: webhookId } },
+        body: { signature_type: next },
+      }));
+      await fetchData();
+    } catch (e: any) {
+      error = formatAPIError(e, 'Failed to change the signature scheme');
+    } finally {
+      changingSignature = false;
     }
   }
 
@@ -1264,7 +1288,8 @@
                 <div class="flex items-start justify-between gap-3 mb-2">
                   <div>
                     <h4 class="eyebrow mb-1">Signing Secret</h4>
-                    <p class="text-[10px] text-faint">HMAC-SHA256 key for the v1, signature. Masked after it is first shown; rotate it to get a new one.</p>
+                    <p class="text-[10px] text-faint">HMAC-SHA256 key for the v1, signature. Masked after it is first shown; rotate it to get a new one.
+                      <a href={VERIFY_SIGNATURES_GUIDE_URL} target="_blank" rel="noreferrer" class="link-beacon whitespace-nowrap">How receivers verify ↗</a></p>
                   </div>
                   {#if !rotatedSecret}
                     <button onclick={() => { confirmRotate = true; }} disabled={rotatingSecret} class="btn btn-ghost !px-3 !py-1 !text-xs shrink-0">{rotatingSecret ? 'Rotating…' : 'Rotate secret'}</button>
@@ -1279,16 +1304,25 @@
                   <span class="text-xs mono panel-2 px-2 py-1.5 rounded text-muted inline-block">{webhook.http_config.webhook_secret}</span>
                 {/if}
               </div>
-              {#if webhook.signing_public_key}
-                <div class="mt-4 pt-4 border-t border-line">
-                  <h4 class="eyebrow mb-1">Ed25519 Signing Public Key</h4>
-                  <p class="text-[10px] text-faint mb-2">Verifies the v1a, delivery signature — no shared secret needed. Safe to share with the receiver.</p>
+              <div class="mt-4 pt-4 border-t border-line">
+                <div class="flex items-start justify-between gap-3 mb-2">
+                  <div>
+                    <h4 class="eyebrow mb-1">Ed25519 Signature</h4>
+                    <p class="text-[10px] text-faint">{webhook.signature_type === 'ed25519'
+                      ? 'On: deliveries also carry a v1a, signature, verified with this public key. No shared secret needed; safe to share with the receiver.'
+                      : 'Off: deliveries carry only the HMAC v1, signature. Turn it on to add a v1a, signature receivers verify with a public key.'}</p>
+                  </div>
+                  <button onclick={() => { confirmSignatureType = webhook?.signature_type === 'ed25519' ? 'hmac' : 'ed25519'; }} disabled={changingSignature} class="btn btn-ghost !px-3 !py-1 !text-xs shrink-0" data-testid="signature-type-toggle">
+                    {changingSignature ? 'Saving…' : webhook.signature_type === 'ed25519' ? 'Turn off' : 'Turn on'}
+                  </button>
+                </div>
+                {#if webhook.signing_public_key}
                   <div class="flex items-center gap-2">
                     <span class="text-xs mono panel-2 px-2 py-1.5 rounded break-all text-text">{webhook.signing_public_key}</span>
                     <button onclick={() => navigator.clipboard.writeText(webhook?.signing_public_key || '')} class="btn btn-ghost !px-2 !py-1 !text-xs shrink-0" title="Copy public key">Copy</button>
                   </div>
-                </div>
-              {/if}
+                {/if}
+              </div>
             </div>
 
             <div class="panel p-5">
@@ -1346,6 +1380,18 @@
   variant="danger"
   onconfirm={executeUnregister}
   oncancel={() => { confirmUnregister = false; }}
+/>
+
+<ConfirmDialog
+  open={confirmSignatureType !== null}
+  title={confirmSignatureType === 'ed25519' ? 'Turn on Ed25519 signatures' : 'Turn off Ed25519 signatures'}
+  message={confirmSignatureType === 'ed25519'
+    ? 'Sparrow generates a signing keypair and adds a v1a, signature to every delivery from now on. The HMAC v1, signature and secret are unchanged, so receivers that ignore v1a, keep working. Give the receiver the public key shown here.'
+    : 'Deliveries stop carrying the v1a, signature right away and the keypair is deleted; a receiver that only verifies v1a, will reject them. Turning it on again makes a new keypair with a new public key.'}
+  confirmLabel={confirmSignatureType === 'ed25519' ? 'Turn on' : 'Turn off'}
+  variant="warning"
+  onconfirm={executeSignatureType}
+  oncancel={() => { confirmSignatureType = null; }}
 />
 
 <ConfirmDialog
