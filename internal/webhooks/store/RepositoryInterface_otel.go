@@ -40,14 +40,14 @@ func NewRepositoryInterfaceWithTracing(base RepositoryInterface, instance string
 }
 
 // AcquireDeliverySlot implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUID) (t1 time.Time, f1 float64, err error) {
+func (_d RepositoryInterfaceWithTracing) AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUID) (d1 time.Duration, f1 float64, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.AcquireDeliverySlot")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
 				"ctx":       ctx,
 				"webhookID": webhookID}, map[string]interface{}{
-				"t1":  t1,
+				"d1":  d1,
 				"f1":  f1,
 				"err": err})
 		} else if err != nil {

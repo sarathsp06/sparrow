@@ -278,30 +278,25 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	}
 
 	// Rate limiting: check leaky bucket before sending.
-	// AcquireDeliverySlot atomically advances the bucket and returns the slot
-	// assigned to this delivery. If the slot is in the future, snooze the job.
+	// AcquireDeliverySlot either claims a slot (zero wait) or, without
+	// consuming anything, returns how long until the bucket frees up; the
+	// wait is measured on the database clock, so worker clock skew cannot
+	// burn a granted slot. A non-zero wait snoozes the job.
 	if webhook.RateLimitRPS != nil && *webhook.RateLimitRPS > 0 {
-		nextDeliveryAt, rateLimitRPS, err := w.rateLimitRepo.AcquireDeliverySlot(ctx, webhookID)
+		delay, rateLimitRPS, err := w.rateLimitRepo.AcquireDeliverySlot(ctx, webhookID)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to acquire delivery slot", "error", err, "webhook_id", args.WebhookID)
 			// Non-fatal: proceed without rate limiting rather than failing delivery
-		} else if rateLimitRPS > 0 {
-			// Our slot = nextDeliveryAt - (1/rateLimitRPS)
-			interval := time.Duration(float64(time.Second) / rateLimitRPS)
-			mySlot := nextDeliveryAt.Add(-interval)
-			delay := time.Until(mySlot)
-			if delay > 0 {
-				log.InfoContext(ctx, "Rate limited, snoozing delivery",
-					"webhook_id", args.WebhookID,
-					"delivery_id", args.DeliveryID,
-					"snooze_until", mySlot,
-					"delay", delay,
-					"rate_limit_rps", rateLimitRPS,
-				)
-				span.SetAttributes(attribute.Float64("rate_limit_rps", rateLimitRPS))
-				span.SetAttributes(attribute.String("rate_limit_action", "snoozed"))
-				return river.JobSnooze(delay)
-			}
+		} else if rateLimitRPS > 0 && delay > 0 {
+			log.InfoContext(ctx, "Rate limited, snoozing delivery",
+				"webhook_id", args.WebhookID,
+				"delivery_id", args.DeliveryID,
+				"delay", delay,
+				"rate_limit_rps", rateLimitRPS,
+			)
+			span.SetAttributes(attribute.Float64("rate_limit_rps", rateLimitRPS))
+			span.SetAttributes(attribute.String("rate_limit_action", "snoozed"))
+			return river.JobSnooze(delay)
 		}
 	}
 

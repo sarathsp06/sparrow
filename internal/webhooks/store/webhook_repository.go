@@ -27,7 +27,7 @@ type WebhookRepository interface {
 
 // RateLimitRepository defines operations for per-webhook rate limiting.
 type RateLimitRepository interface {
-	AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUID) (time.Time, float64, error)
+	AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUID) (time.Duration, float64, error)
 	UpsertRateLimitState(ctx context.Context, webhookID uuid.UUID) error
 	DeleteRateLimitState(ctx context.Context, webhookID uuid.UUID) error
 }
@@ -483,17 +483,21 @@ func insertSubscription(ctx context.Context, conn storage.DBTX, tenantID uuid.UU
 }
 
 // AcquireDeliverySlot implements a leaky bucket for a webhook. When the
-// bucket is free (next_delivery_at <= NOW()), it atomically claims the slot
-// and advances the bucket; the returned time minus one interval is in the
-// past, meaning "send now". When the bucket is busy, NOTHING is consumed:
-// the current tail plus one interval is returned so the caller can wait
-// until the tail and try again — a retry after the wait does not burn slots.
-// If the webhook has no rate limit state row, returns (zero time, 0, nil)
-// meaning "no rate limit configured — send immediately".
+// bucket is free (next_delivery_at <= NOW()), it atomically claims the slot,
+// advances the bucket by one interval and returns a zero wait: "send now".
+// When the bucket is busy, NOTHING is consumed: the wait until the current
+// tail is returned so the caller can sleep and try again — a retry after the
+// wait does not burn slots.
+// The wait is computed on the database clock, never compared against the
+// caller's clock: a worker whose clock is behind or ahead of Postgres would
+// otherwise snooze a slot it was just granted (burning it) or send while the
+// bucket is busy.
+// If the webhook has no rate limit state row, returns (0, 0, nil) meaning
+// "no rate limit configured — send immediately".
 // ponytail: under READ COMMITTED a concurrent waiter can read a stale tail in
 // the SELECT branch and send one extra delivery; bounded by worker concurrency.
 // Upgrade path: SELECT ... FOR UPDATE in a transaction if strict RPS matters.
-func (r *Repository) AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUID) (time.Time, float64, error) {
+func (r *Repository) AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUID) (time.Duration, float64, error) {
 	query := `
 		WITH granted AS (
 			UPDATE webhook_rate_limit_state rls
@@ -502,11 +506,11 @@ func (r *Repository) AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUI
 			WHERE rls.webhook_id = wr.id AND rls.webhook_id = $1
 			  AND wr.rate_limit_rps > 0
 			  AND rls.next_delivery_at <= NOW()
-			RETURNING rls.next_delivery_at, wr.rate_limit_rps
+			RETURNING wr.rate_limit_rps
 		)
-		SELECT next_delivery_at, rate_limit_rps FROM granted
+		SELECT 0::float8 AS wait_seconds, rate_limit_rps FROM granted
 		UNION ALL
-		SELECT rls.next_delivery_at + (interval '1 second' / wr.rate_limit_rps), wr.rate_limit_rps
+		SELECT GREATEST(EXTRACT(EPOCH FROM rls.next_delivery_at - NOW()), 0)::float8, wr.rate_limit_rps
 		FROM webhook_rate_limit_state rls
 		JOIN webhook_registrations wr ON rls.webhook_id = wr.id
 		WHERE rls.webhook_id = $1
@@ -515,20 +519,20 @@ func (r *Repository) AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUI
 	`
 
 	var result struct {
-		NextDeliveryAt time.Time `db:"next_delivery_at"`
-		RateLimitRPS   float64   `db:"rate_limit_rps"`
+		WaitSeconds  float64 `db:"wait_seconds"`
+		RateLimitRPS float64 `db:"rate_limit_rps"`
 	}
 	err := r.conn.GetContext(ctx, &result, query, webhookID)
 	if err != nil {
 		err = storage.Error(err)
 		// No rate limit state row — no limit configured.
 		if storage.IsNotFound(err) {
-			return time.Time{}, 0, nil
+			return 0, 0, nil
 		}
-		return time.Time{}, 0, err
+		return 0, 0, err
 	}
 
-	return result.NextDeliveryAt, result.RateLimitRPS, nil
+	return time.Duration(result.WaitSeconds * float64(time.Second)), result.RateLimitRPS, nil
 }
 
 // UpsertRateLimitState creates the rate limit state row for a webhook if
