@@ -46,3 +46,13 @@ export async function mintPortalToken(api: APIRequestContext, consumer: string, 
   const body = (await res.json()) as { secret: string; portal_path: string; token: { expires_at: string } };
   return { token: body.secret, path: body.portal_path, expires_at: body.token.expires_at };
 }
+
+// Alert emails only count as set up once a webhook under the reserved _sparrow
+// consumer subscribes to Sparrow's alert events; until then the portal hides
+// its alert email field. Registers one (a dummy receiver) if none exists.
+export async function ensureAlertDelivery(api: APIRequestContext) {
+  const caps = await api.get('/v1/capabilities');
+  expect(caps.ok(), await caps.text()).toBeTruthy();
+  if ((await caps.json()).alert_delivery?.configured) return;
+  await registerWebhook(api, '_sparrow', 'https://example.com/pw-alert-mailer', ['sparrow.webhook.delivery_failed']);
+}

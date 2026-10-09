@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { mintPortalToken, newConsumer, registerWebhook } from './api';
+import { ensureAlertDelivery, mintPortalToken, newConsumer, registerWebhook } from './api';
 
 // The consumer portal authenticates purely from the URL fragment (#token=...),
 // so every test mints a link via the admin API and visits its path
@@ -26,6 +26,8 @@ test('a consumer can add and pause an endpoint from the portal', async ({ page, 
   const { path } = await mintPortalToken(request, consumer);
   const url = `https://example.com/pw-portal-${Date.now()}`;
   const alertEmail = `alerts-${Date.now()}@example.com`;
+  // The portal offers the alert email field only when alert delivery is set up.
+  await ensureAlertDelivery(request);
 
   await page.goto(path);
   await page.getByRole('button', { name: 'Add Endpoint' }).click();
