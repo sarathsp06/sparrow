@@ -184,6 +184,31 @@ func (_d RepositoryInterfaceWithTracing) CleanupExpiredBatchJobs(ctx context.Con
 	return _d.RepositoryInterface.CleanupExpiredBatchJobs(ctx)
 }
 
+// CountDeliveries implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) CountDeliveries(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) (i1 int, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.CountDeliveries")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":      ctx,
+				"tenantID": tenantID,
+				"filter":   filter}, map[string]interface{}{
+				"i1":  i1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.CountDeliveries(ctx, tenantID, filter)
+}
+
 // CountWebhooksByState implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) CountWebhooksByState(ctx context.Context, tenantID uuid.UUID) (wa1 []WebhookStateCount, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.CountWebhooksByState")
@@ -1169,7 +1194,7 @@ func (_d RepositoryInterfaceWithTracing) ListConsumers(ctx context.Context, tena
 }
 
 // ListDeliveriesFiltered implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) (wpa1 []*WebhookDelivery, i1 int, err error) {
+func (_d RepositoryInterfaceWithTracing) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) (wpa1 []*WebhookDelivery, b1 bool, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ListDeliveriesFiltered")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -1178,7 +1203,7 @@ func (_d RepositoryInterfaceWithTracing) ListDeliveriesFiltered(ctx context.Cont
 				"tenantID": tenantID,
 				"filter":   filter}, map[string]interface{}{
 				"wpa1": wpa1,
-				"i1":   i1,
+				"b1":   b1,
 				"err":  err})
 		} else if err != nil {
 			_span.RecordError(err)
@@ -1252,7 +1277,7 @@ func (_d RepositoryInterfaceWithTracing) ListEventReports(ctx context.Context, t
 }
 
 // ListEventReportsFiltered implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) ListEventReportsFiltered(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) (epa1 []*EventReportWithStats, i1 int, err error) {
+func (_d RepositoryInterfaceWithTracing) ListEventReportsFiltered(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) (epa1 []*EventReportWithStats, b1 bool, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ListEventReportsFiltered")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -1261,7 +1286,7 @@ func (_d RepositoryInterfaceWithTracing) ListEventReportsFiltered(ctx context.Co
 				"tenantID": tenantID,
 				"filter":   filter}, map[string]interface{}{
 				"epa1": epa1,
-				"i1":   i1,
+				"b1":   b1,
 				"err":  err})
 		} else if err != nil {
 			_span.RecordError(err)
@@ -1774,6 +1799,29 @@ func (_d RepositoryInterfaceWithTracing) ReplaceWebhookSubscriptions(ctx context
 		_span.End()
 	}()
 	return _d.RepositoryInterface.ReplaceWebhookSubscriptions(ctx, tenantID, webhookID, consumer, newSubscriptions)
+}
+
+// ResetDeliveriesForRetry implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uuid.UUID) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ResetDeliveriesForRetry")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":         ctx,
+				"deliveryIDs": deliveryIDs}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.ResetDeliveriesForRetry(ctx, deliveryIDs)
 }
 
 // ResetDeliveryForRetry implements RepositoryInterface

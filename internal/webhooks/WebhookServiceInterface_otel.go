@@ -616,17 +616,15 @@ func (_d WebhookServiceInterfaceWithTracing) ListConsumers(ctx context.Context, 
 }
 
 // ListDeliveries implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) ListDeliveries(ctx context.Context, filter store.DeliveryFilter) (wpa1 []*store.WebhookDelivery, i1 int32, s1 string, err error) {
+func (_d WebhookServiceInterfaceWithTracing) ListDeliveries(ctx context.Context, filter store.DeliveryFilter) (dp1 *DeliveryPage, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.ListDeliveries")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
 				"ctx":    ctx,
 				"filter": filter}, map[string]interface{}{
-				"wpa1": wpa1,
-				"i1":   i1,
-				"s1":   s1,
-				"err":  err})
+				"dp1": dp1,
+				"err": err})
 		} else if err != nil {
 			_span.RecordError(err)
 			_span.SetStatus(_codes.Error, err.Error())
@@ -642,17 +640,15 @@ func (_d WebhookServiceInterfaceWithTracing) ListDeliveries(ctx context.Context,
 }
 
 // ListEventReports implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) ListEventReports(ctx context.Context, filter store.EventReportFilter) (epa1 []*store.EventReportWithStats, i1 int32, s1 string, err error) {
+func (_d WebhookServiceInterfaceWithTracing) ListEventReports(ctx context.Context, filter store.EventReportFilter) (ep1 *EventReportPage, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.ListEventReports")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
 				"ctx":    ctx,
 				"filter": filter}, map[string]interface{}{
-				"epa1": epa1,
-				"i1":   i1,
-				"s1":   s1,
-				"err":  err})
+				"ep1": ep1,
+				"err": err})
 		} else if err != nil {
 			_span.RecordError(err)
 			_span.SetStatus(_codes.Error, err.Error())

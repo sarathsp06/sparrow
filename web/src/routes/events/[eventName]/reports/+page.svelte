@@ -1,8 +1,10 @@
 <script lang="ts">
     import { page } from '$app/state';
-    import { EventReportsTable, Pagination } from '$lib';
+    import { EventReportsTable } from '$lib';
+    import CursorPager from '$lib/components/CursorPager.svelte';
+    import { CursorPages } from '$lib/cursor-pages.svelte';
     import { api, unwrap } from '$lib/services';
-    import { onDestroy } from 'svelte';
+    import { onDestroy, untrack } from 'svelte';
     import { consumerFilter } from '$lib/consumer.svelte';
     import ConsumerPicker from '$lib/components/ConsumerPicker.svelte';
     import type { components } from '$lib/api-types';
@@ -17,10 +19,8 @@
     let currentEvent: EventTypeItem | undefined = $state();
     let loading = $state(true);
     let error = $state('');
-    let currentPage = $state(1);
-    let totalCount = $state(0);
     let pageSize = $state(20);
-    let totalPages = $derived(Math.max(1, Math.ceil(totalCount / pageSize)));
+    const pages = new CursorPages();
 
     // Filters
     let schemaValidFilter = $state<'all' | 'valid' | 'invalid'>('all');
@@ -51,7 +51,7 @@
         }
     }
 
-    async function fetchEventReports(pageNum: number = 1, prepareRepush: boolean = false) {
+    async function fetchEventReports(prepareRepush: boolean = false) {
         loading = !prepareRepush;
         if (!prepareRepush) error = '';
 
@@ -60,7 +60,6 @@
             if (!currentEvent) { loading = false; return; }
         }
 
-        const offset = (pageNum - 1) * pageSize;
         const ns = consumerFilter.value;
 
         try {
@@ -75,14 +74,14 @@
                         created_before: createdBeforeFilter || undefined,
                         prepare_repush: prepareRepush,
                         limit: pageSize,
-                        offset,
+                        cursor: prepareRepush ? undefined : pages.cursor || undefined,
                     },
                 },
             }));
             if (prepareRepush) {
                 if (res.repush_id) {
                     repushId = res.repush_id;
-                    repushTotal = res.pagination?.total_count || 0;
+                    repushTotal = res.repush_total || 0;
                     confirmRepush = true;
                 } else {
                     error = 'No matching events to re-push.';
@@ -90,8 +89,7 @@
                 return;
             }
             eventReports = res.items || [];
-            totalCount = res.pagination?.total_count || 0;
-            currentPage = pageNum;
+            pages.update(res.pagination);
         } catch (e: any) {
             console.error('Failed to fetch event reports:', e);
             error = formatAPIError(e, 'Failed to load event reports');
@@ -100,15 +98,9 @@
         }
     }
 
-    function handlePageChange(pageNum: number) {
-        if (pageNum >= 1 && pageNum <= totalPages) {
-            fetchEventReports(pageNum);
-        }
-    }
-
     function applyFilters() {
-        currentPage = 1;
-        fetchEventReports(1);
+        pages.reset();
+        fetchEventReports();
     }
 
     function clearFilters() {
@@ -130,7 +122,7 @@
         if (!currentEvent) return;
         preparingRepush = true;
         try {
-            await fetchEventReports(1, true);
+            await fetchEventReports(true);
         } finally {
             preparingRepush = false;
         }
@@ -190,12 +182,15 @@
     }
 
     function onBatchDone() {
-        fetchEventReports(currentPage);
+        fetchEventReports();
     }
 
     $effect(() => {
         consumerFilter.value; // refetch when the active consumer changes
-        fetchEventReports(1);
+        untrack(() => {
+            pages.reset();
+            fetchEventReports();
+        });
     });
 </script>
 
@@ -221,10 +216,7 @@
             </div>
             {#if !loading}
                 <div class="flex items-center gap-3">
-                    <span class="text-sm text-muted mono tnum">
-                        {totalCount} report{totalCount !== 1 ? 's' : ''}
-                    </span>
-                    {#if totalCount > 0}
+                    {#if eventReports.length > 0}
                         <button
                             onclick={prepareRepush}
                             disabled={preparingRepush}
@@ -298,13 +290,7 @@
             currentEventName={currentEvent?.name}
         />
 
-        <Pagination
-            {currentPage}
-            {totalPages}
-            {totalCount}
-            {pageSize}
-            onPageChange={handlePageChange}
-        />
+        <CursorPager {pages} shown={eventReports.length} itemLabel="events" onchange={() => fetchEventReports()} />
     {/if}
 </main>
 

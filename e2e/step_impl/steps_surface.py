@@ -212,10 +212,10 @@ def list_deliveries_page(limit, offset, count):
     data_store.scenario["last_delivery_page"] = body
 
 
-@step("Last delivery page should have total_count <total> and has_more <has_more>")
-def assert_delivery_page_meta(total, has_more):
+@step("Last delivery page should have has_more <has_more>")
+def assert_delivery_page_meta(has_more):
     p = data_store.scenario["last_delivery_page"]["pagination"]
-    assert p["total_count"] == int(total), f"Expected total_count {total}, got {p['total_count']}"
+    assert "total_count" not in p, "delivery lists no longer count every match"
     expected = has_more.lower() == "true"
     assert p["has_more"] is expected, f"Expected has_more {expected}, got {p['has_more']}"
 
@@ -223,18 +223,15 @@ def assert_delivery_page_meta(total, has_more):
 @step("Paging through deliveries with limit <limit> should yield <count> unique deliveries")
 def page_all_deliveries(limit, count):
     seen = set()
-    offset = 0
+    params = {"limit": limit}
     while True:
-        resp = requests.get(
-            f"{_base()}/v1/consumers/{_ns()}/deliveries",
-            params={"limit": limit, "offset": offset},
-        )
+        resp = requests.get(f"{_base()}/v1/consumers/{_ns()}/deliveries", params=params)
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
         body = resp.json()
         seen.update(d["delivery_id"] for d in body["items"])
         if not body["pagination"]["has_more"]:
             break
-        offset += int(limit)
+        params = {"limit": limit, "cursor": body["pagination"]["next_cursor"]}
     assert len(seen) == int(count), f"Expected {count} unique deliveries, got {len(seen)}"
 
 

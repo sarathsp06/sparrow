@@ -9,7 +9,8 @@
   import HealthBadge from '$lib/components/HealthBadge.svelte';
   import CopyableId from '$lib/components/CopyableId.svelte';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
-  import Pagination from '$lib/components/Pagination.svelte';
+  import CursorPager from '$lib/components/CursorPager.svelte';
+  import { CursorPages } from '$lib/cursor-pages.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import HeldDeliveriesNotice from '$lib/components/HeldDeliveriesNotice.svelte';
@@ -35,6 +36,11 @@
   let deliveryDetails: Map<string, DeliveryItem> = $state(new Map());
   const initialTab = (page.url.searchParams.get('tab') as 'deliveries' | 'config' | 'subscriptions' | null) ?? 'deliveries';
   let activeTab = $state<'deliveries' | 'config' | 'subscriptions'>(['deliveries', 'config', 'subscriptions'].includes(initialTab) ? initialTab : 'deliveries');
+
+  // Inline name editing: the name shown in the title is the description.
+  let editingName = $state(false);
+  let editedName = $state('');
+  let savingName = $state(false);
 
   // Inline URL editing
   let editingUrl = $state(false);
@@ -83,11 +89,13 @@
 
   // Pagination
   let limit = $state(25);
-  let offset = $state(0);
-  let totalCount = $state(0);
+  const deliveryPages = new CursorPages();
 
   // Delivery filters
   let deliveryStatusFilter = $state('');
+  // Event type, matched on the delivery's event (so deliveries from a
+  // replaced subscription still match).
+  let deliveryEventFilter = $state('');
   let deliveryErrorCategoryFilter = $state('');
   let deliveryCreatedAfterFilter = $state('');
   let deliveryCreatedBeforeFilter = $state('');
@@ -102,10 +110,12 @@
 
   const webhookId = page.params.webhookId ?? '';
 
-  let currentPage = $derived(Math.floor(offset / limit) + 1);
-  let totalPages = $derived(Math.max(1, Math.ceil(totalCount / limit)));
+
+  // The events this webhook is subscribed to, for the Event filter.
+  let subscribedEvents = $derived([...new Set(subscriptions.map((s) => s.event_name))].sort());
 
   let hasDeliveryFilters = $derived(
+    deliveryEventFilter !== '' ||
     deliveryStatusFilter !== '' ||
     deliveryErrorCategoryFilter !== '' ||
     deliveryCreatedAfterFilter !== '' ||
@@ -148,12 +158,13 @@
             path: { consumer: ns },
             query: {
               webhook_id: webhookId,
+              event_name: deliveryEventFilter || undefined,
               status: deliveryStatusFilter || undefined,
               error_category: deliveryErrorCategoryFilter || undefined,
               created_after: deliveryCreatedAfterFilter || undefined,
               created_before: deliveryCreatedBeforeFilter || undefined,
               limit,
-              offset,
+              cursor: deliveryPages.cursor || undefined,
             },
           },
         }),
@@ -166,7 +177,7 @@
       ]);
 
       deliveries = unwrap(deliveriesRes).items || [];
-      totalCount = unwrap(deliveriesRes).pagination?.total_count || 0;
+      deliveryPages.update(unwrap(deliveriesRes).pagination);
       healthMetrics = unwrap(healthRes);
       subscriptions = unwrap(subscriptionsRes).items || [];
     } catch (e: any) {
@@ -257,6 +268,33 @@
       await fetchData();
     } catch (e: any) {
       error = formatAPIError(e, 'Failed to resend delivery');
+    }
+  }
+
+  function startEditName() {
+    if (!webhook) return;
+    editedName = webhook.description || '';
+    editingName = true;
+    error = '';
+  }
+
+  async function saveWebhookName() {
+    if (!webhook) return;
+    const name = editedName.trim();
+    if (name === (webhook.description || '')) { editingName = false; return; }
+    savingName = true;
+    error = '';
+    try {
+      unwrap(await api.PATCH('/v1/consumers/{consumer}/webhooks/{webhook_id}', {
+        params: { path: { consumer: webhook.consumer, webhook_id: webhookId } },
+        body: { description: name },
+      }));
+      editingName = false;
+      await fetchData();
+    } catch (e: any) {
+      error = formatAPIError(e, 'Failed to rename webhook');
+    } finally {
+      savingName = false;
     }
   }
 
@@ -465,17 +503,13 @@
     }
   }
 
-  function handlePageChange(pageNum: number) {
-    offset = (pageNum - 1) * limit;
-    fetchData();
-  }
-
   function applyDeliveryFilters() {
-    offset = 0;
+    deliveryPages.reset();
     fetchData();
   }
 
   function clearDeliveryFilters() {
+    deliveryEventFilter = '';
     deliveryStatusFilter = '';
     deliveryErrorCategoryFilter = '';
     deliveryCreatedAfterFilter = '';
@@ -492,19 +526,19 @@
           path: { consumer: webhook.consumer },
           query: {
             webhook_id: webhookId,
+            event_name: deliveryEventFilter || undefined,
             status: deliveryStatusFilter || undefined,
             error_category: deliveryErrorCategoryFilter || undefined,
             created_after: deliveryCreatedAfterFilter || undefined,
             created_before: deliveryCreatedBeforeFilter || undefined,
             prepare_retry: true,
             limit: 1,
-            offset: 0,
           },
         },
       }));
       if (res.retry_id) {
         retryId = res.retry_id;
-        retryTotal = res.pagination?.total_count || 0;
+        retryTotal = res.retry_total || 0;
         confirmRetry = true;
       } else {
         error = 'No matching deliveries to retry.';
@@ -639,9 +673,31 @@
           <div class="flex-1 min-w-0">
             <p class="eyebrow mb-1.5">Fleet / Webhook</p>
             <div class="flex items-center gap-3 mb-2 flex-wrap">
-              <h1 class="text-2xl truncate">
-                {webhook.description || 'Webhook'}
-              </h1>
+              {#if editingName}
+                <form class="flex items-center gap-2 flex-1 min-w-0" onsubmit={(e) => { e.preventDefault(); saveWebhookName(); }}>
+                  <!-- svelte-ignore a11y_autofocus -->
+                  <input
+                    type="text"
+                    bind:value={editedName}
+                    onkeydown={(e) => { if (e.key === 'Escape') editingName = false; }}
+                    class="input flex-1 min-w-0 !text-lg"
+                    placeholder="Name this webhook, e.g. Billing service"
+                    aria-label="Webhook name"
+                    autofocus
+                  />
+                  <button type="submit" disabled={savingName} class="btn btn-beacon !px-3 !py-1.5">{savingName ? 'Saving…' : 'Save'}</button>
+                  <button type="button" onclick={() => (editingName = false)} disabled={savingName} class="btn btn-ghost !px-3 !py-1.5">Cancel</button>
+                </form>
+              {:else}
+                <button onclick={startEditName} class="group flex items-center gap-2 min-w-0 text-left" title="Click to rename" aria-label="Rename webhook" data-testid="webhook-name-edit">
+                  <h1 class="text-2xl truncate {webhook.description ? '' : 'text-muted'}">
+                    {webhook.description || 'Webhook'}
+                  </h1>
+                  <svg class="w-4 h-4 text-faint opacity-0 group-hover:opacity-100 transition shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+              {/if}
               <HealthBadge health={webhook.health} size="md" />
               {#if webhook.requires_transform}
                 <span class="chip" style="color:var(--color-beacon)" title="Every subscription must have a transform template; the receiver never gets Sparrow's default envelope." data-testid="requires-transform-badge">Transform required</span>
@@ -853,7 +909,6 @@
             onclick={() => (activeTab = 'deliveries')}
           >
             Deliveries
-            <span class="ml-1 chip tnum">{totalCount}</span>
           </button>
           <button
             class="pb-3 text-sm font-medium border-b-2 -mb-px transition {activeTab === 'config' ? 'border-beacon text-text' : 'border-transparent text-muted hover:text-text hover:border-line-strong'}"
@@ -874,6 +929,16 @@
       {#if activeTab === 'deliveries'}
         <div class="panel p-4 mb-4">
           <div class="flex flex-wrap items-end gap-3">
+            {#if subscribedEvents.length > 1 || deliveryEventFilter}
+              <div class="w-full sm:w-56">
+                <label for="del-event" class="field-label">Event</label>
+                <select id="del-event" bind:value={deliveryEventFilter} onchange={applyDeliveryFilters} class="select" data-testid="delivery-event-filter">
+                  <option value="">All</option>
+                  {#each subscribedEvents as name}<option value={name}>{name}</option>{/each}
+                  {#if deliveryEventFilter && !subscribedEvents.includes(deliveryEventFilter)}<option value={deliveryEventFilter}>{deliveryEventFilter}</option>{/if}
+                </select>
+              </div>
+            {/if}
             <div class="w-full sm:w-32">
               <label for="del-status" class="field-label">Status</label>
               <select id="del-status" bind:value={deliveryStatusFilter} onchange={applyDeliveryFilters} class="select">
@@ -908,7 +973,7 @@
               {#if hasDeliveryFilters}
                 <button onclick={clearDeliveryFilters} class="btn btn-ghost !px-3 !py-1.5">Clear</button>
               {/if}
-              {#if totalCount > 0}
+              {#if deliveries.length > 0}
                 <button onclick={prepareRetryBatch} disabled={preparingRetry} class="btn btn-beacon !px-3 !py-1.5">
                   {preparingRetry ? 'Preparing…' : 'Re-deliver matching'}
                 </button>
@@ -936,7 +1001,7 @@
                 <thead>
                   <tr class="border-b border-line">
                     <th class="th">Delivery ID</th>
-                    <th class="th hidden sm:table-cell">Event ID</th>
+                    <th class="th hidden sm:table-cell">Event</th>
                     <th class="th">Status</th>
                     <th class="th hidden md:table-cell">Attempts</th>
                     <th class="th hidden lg:table-cell">Last Attempt</th>
@@ -948,9 +1013,17 @@
                     <tr class="row-line row-hover transition">
                       <td class="td">
                         <CopyableId id={delivery.delivery_id} href="/deliveries/{delivery.delivery_id}" truncate={12} />
-                        <span class="block sm:hidden mt-0.5"><CopyableId id={delivery.event_id} href="/events/instances/{delivery.event_id}" truncate={12} /></span>
+                        <span class="block sm:hidden mt-0.5">
+                          {#if delivery.event_name}<span class="block text-xs mono text-text truncate max-w-[14rem]" title={delivery.event_name}>{delivery.event_name}</span>{/if}
+                          <CopyableId id={delivery.event_id} href="/events/instances/{delivery.event_id}" truncate={12} />
+                        </span>
                       </td>
-                      <td class="td hidden sm:table-cell"><CopyableId id={delivery.event_id} href="/events/instances/{delivery.event_id}" truncate={16} /></td>
+                      <td class="td hidden sm:table-cell">
+                        {#if delivery.event_name}
+                          <a href="/events/{encodeURIComponent(delivery.event_name)}/reports" class="block text-sm mono text-text hover:text-beacon truncate max-w-[16rem]" title={delivery.event_name} data-testid="delivery-event-name">{delivery.event_name}</a>
+                        {/if}
+                        <CopyableId id={delivery.event_id} href="/events/instances/{delivery.event_id}" truncate={16} />
+                      </td>
                       <td class="td">
                         <div class="flex items-center gap-1.5">
                           <StatusBadge status={delivery.status} />
@@ -1046,7 +1119,7 @@
             </div>
 
             <div class="border-t border-line px-4">
-              <Pagination {currentPage} {totalPages} {totalCount} pageSize={limit} onPageChange={handlePageChange} />
+              <CursorPager pages={deliveryPages} shown={deliveries.length} itemLabel="deliveries" onchange={fetchData} />
             </div>
           {/if}
         </div>

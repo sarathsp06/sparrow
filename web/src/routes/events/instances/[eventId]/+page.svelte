@@ -4,7 +4,8 @@
   import { getCategoryBadge, formatAPIError } from '$lib/utils';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
   import CopyableId from '$lib/components/CopyableId.svelte';
-  import Pagination from '$lib/components/Pagination.svelte';
+  import CursorPager from '$lib/components/CursorPager.svelte';
+  import { CursorPages } from '$lib/cursor-pages.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import favicon from '$lib/assets/favicon.svg';
   import { onMount } from 'svelte';
@@ -23,10 +24,8 @@
   let deliveries: DeliveryItem[] = $state([]);
   let deliveriesLoading = $state(true);
   let deliveriesError = $state('');
-  let currentPage = $state(1);
-  let totalCount = $state(0);
   let pageSize = $state(25);
-  let totalPages = $derived(Math.max(1, Math.ceil(totalCount / pageSize)));
+  const pages = new CursorPages();
 
   // Expanded delivery attempt rows
   let expandedDeliveries: Set<string> = $state(new Set());
@@ -37,6 +36,8 @@
   let retryingDeliveries: Set<string> = $state(new Set());
   let repushing = $state(false);
   let repushError = $state('');
+  // Sparrow's own sparrow.* events: the server refuses to push them.
+  let systemEvent = $derived(!!event?.event.toLowerCase().startsWith('sparrow.'));
 
   const eventId = page.params.eventId ?? '';
   let consumer = $state('');
@@ -66,22 +67,16 @@
     deliveriesError = '';
     try {
       const ns = event?.consumer || consumer || 'default';
-      const offset = (currentPage - 1) * pageSize;
       const res = unwrap(await api.GET('/v1/consumers/{consumer}/deliveries', {
-        params: { path: { consumer: ns }, query: { event_id: eventId, limit: pageSize, offset } },
+        params: { path: { consumer: ns }, query: { event_id: eventId, limit: pageSize, cursor: pages.cursor || undefined } },
       }));
       deliveries = res.items || [];
-      totalCount = res.pagination?.total_count ?? 0;
+      pages.update(res.pagination);
     } catch (e: any) {
       deliveriesError = formatAPIError(e, 'Failed to load deliveries');
     } finally {
       deliveriesLoading = false;
     }
-  }
-
-  function handlePageChange(newPage: number) {
-    currentPage = newPage;
-    fetchDeliveries();
   }
 
   function formatTimestamp(timestamp: string | null | undefined): string {
@@ -204,8 +199,13 @@
         <div class="mt-1"><CopyableId id={event.event_id} truncate={0} /></div>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-      <!-- Sparrow's own sparrow.* events can't be pushed, so neither re-push nor schema samples apply. -->
-      {#if !event.event.toLowerCase().startsWith('sparrow.')}
+      <!-- Sparrow's own sparrow.* events can't be pushed, so the same actions
+           show disabled with the reason instead of disappearing. -->
+      {#if systemEvent}
+        <button type="button" disabled class="btn btn-ghost !px-3 !py-1.5" title="Sparrow defines the schema of its own events">
+          Use as schema sample
+        </button>
+      {:else}
         <a
           href={`/events/${encodeURIComponent(event.event)}/update?sample=${event.event_id}`}
           class="btn btn-ghost !px-3 !py-1.5"
@@ -213,10 +213,12 @@
         >
           Use as schema sample
         </a>
+      {/if}
       <button
         onclick={rePushEvent}
-        disabled={repushing}
+        disabled={repushing || systemEvent}
         class="btn btn-ghost !px-3 !py-1.5"
+        title={systemEvent ? "Only Sparrow emits its own events. To resend an alert, retry its delivery below." : undefined}
       >
         {#if repushing}
           <img src={favicon} alt="" aria-hidden="true" class="w-3.5 h-3.5 animate-spin" />
@@ -228,7 +230,6 @@
           Re-push
         {/if}
       </button>
-      {/if}
       </div>
     </div>
     {#if repushError}<p class="text-xs mb-4" style="color:var(--color-bad)">{repushError}</p>{/if}
@@ -319,9 +320,6 @@
     <div>
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg">Deliveries</h2>
-        {#if totalCount > 0}
-          <span class="text-sm text-muted tnum">{totalCount} total</span>
-        {/if}
       </div>
 
       {#if deliveriesLoading}
@@ -459,11 +457,7 @@
           </div>
         </div>
 
-        {#if totalPages > 1}
-          <div class="mt-4">
-            <Pagination {currentPage} {totalPages} {totalCount} {pageSize} onPageChange={handlePageChange} />
-          </div>
-        {/if}
+        <CursorPager {pages} shown={deliveries.length} itemLabel="deliveries" onchange={fetchDeliveries} />
       {/if}
     </div>
 

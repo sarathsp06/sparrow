@@ -153,38 +153,17 @@ func (r *Repository) CleanupExpiredBatchJobs(ctx context.Context) (int, error) {
 // SnapshotEventIDs runs the event report filter query WITHOUT pagination to capture
 // all matching event IDs (up to MaxBatchSize). Used by prepare_repush.
 func (r *Repository) SnapshotEventIDs(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) ([]string, error) {
-	var ns any
-	if filter.Consumer != "" {
-		ns = filter.Consumer
+	args, err := eventReportFilterArgs(tenantID, filter)
+	if err != nil {
+		return nil, err
 	}
-
-	var labelsJSON any
-	if len(filter.Labels) > 0 {
-		b, err := json.Marshal(filter.Labels)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal label filter: %w", err)
-		}
-		labelsJSON = string(b)
-	}
-
-	args := []any{tenantID, ns, filter.EventName, filter.SchemaValid, labelsJSON, filter.CreatedAfter, filter.CreatedBefore, MaxBatchSize + 1}
-
-	query := `
-		SELECT id::text FROM event_records
-		WHERE tenant_id = $1
-		  AND ($2::text IS NULL OR consumer = $2)
-		  AND ($3::text IS NULL OR event = $3)
-		  AND ($4::boolean IS NULL OR schema_valid = $4)
-		  AND ($5::jsonb IS NULL OR labels @> $5::jsonb)
-		  AND ($6::timestamptz IS NULL OR created_at >= $6)
-		  AND ($7::timestamptz IS NULL OR created_at <= $7)
-		ORDER BY created_at DESC
-		LIMIT $8
-	`
+	args = append(args, MaxBatchSize+1)
+	query := `SELECT er.id::text FROM event_records er ` + eventReportFilterWhere + `
+		ORDER BY er.created_at DESC
+		LIMIT $8`
 
 	var ids []string
-	err := r.conn.SelectContext(ctx, &ids, query, args...)
-	if err != nil {
+	if err := r.conn.SelectContext(ctx, &ids, query, args...); err != nil {
 		return nil, storage.Error(err)
 	}
 
@@ -198,29 +177,10 @@ func (r *Repository) SnapshotEventIDs(ctx context.Context, tenantID uuid.UUID, f
 // SnapshotDeliveryIDs runs the delivery filter query WITHOUT pagination to capture
 // all matching delivery IDs (up to MaxBatchSize). Used by prepare_retry.
 func (r *Repository) SnapshotDeliveryIDs(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]string, error) {
-	var ns any
-	if filter.Consumer != "" {
-		ns = filter.Consumer
-	}
-
-	args := []any{tenantID, ns, filter.WebhookID, filter.EventID, filter.Status, filter.ErrorCategory, filter.SubscriptionID, filter.CreatedAfter, filter.CreatedBefore, MaxBatchSize + 1}
-
-	query := `
-		SELECT wd.id::text
-		FROM webhook_deliveries wd
-		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
-		WHERE wr.tenant_id = $1
-		  AND ($2::text IS NULL OR wr.consumer = $2)
-		  AND ($3::uuid IS NULL OR wd.webhook_id = $3)
-		  AND ($4::uuid IS NULL OR wd.event_id = $4)
-		  AND ($5::text IS NULL OR wd.status::text = $5)
-		  AND ($6::text IS NULL OR wd.error_category = $6)
-		  AND ($7::uuid IS NULL OR wd.subscription_id = $7)
-		  AND ($8::timestamptz IS NULL OR wd.created_at >= $8)
-		  AND ($9::timestamptz IS NULL OR wd.created_at <= $9)
+	args := append(deliveryFilterArgs(tenantID, filter), MaxBatchSize+1)
+	query := `SELECT wd.id::text ` + deliveryFilterFrom + `
 		ORDER BY wd.created_at DESC
-		LIMIT $10
-	`
+		LIMIT $11`
 
 	var ids []string
 	err := r.conn.SelectContext(ctx, &ids, query, args...)

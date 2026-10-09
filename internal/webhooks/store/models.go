@@ -131,6 +131,9 @@ type WebhookDelivery struct {
 	// Consumer of the delivery's webhook. Filled by the delivery listings
 	// only.
 	Consumer string `json:"consumer,omitempty" db:"consumer"`
+	// EventName is the event type of the delivery's event. Filled by the
+	// delivery listings only.
+	EventName string `json:"event_name,omitempty" db:"event_name"`
 }
 
 // WebhookDeliveryStatus represents the status of a webhook delivery
@@ -170,6 +173,24 @@ type EventReportWithStats struct {
 	PendingDeliveries    int32 `json:"pending_deliveries" db:"pending_deliveries"`
 }
 
+// PageCursor marks where a newest-first list stopped: the created_at and id
+// of the last row returned. The next page holds the rows strictly older in
+// (created_at, id) order, so rows added meanwhile never shift it.
+type PageCursor struct {
+	CreatedAt time.Time
+	ID        uuid.UUID
+}
+
+// cursorArgs binds an optional cursor as two always-set parameters: no
+// cursor is "older than the end of time", so the keyset condition needs no
+// IS NULL guard and stays usable as an index range in cached plans.
+func cursorArgs(c *PageCursor) (time.Time, uuid.UUID) {
+	if c == nil {
+		return time.Date(9999, 12, 31, 0, 0, 0, 0, time.UTC), uuid.Max
+	}
+	return c.CreatedAt, c.ID
+}
+
 // EventReportFilter defines filter criteria for listing event reports.
 type EventReportFilter struct {
 	Consumer      string
@@ -178,6 +199,9 @@ type EventReportFilter struct {
 	Labels        map[string]string // JSONB containment filter
 	CreatedAfter  *time.Time
 	CreatedBefore *time.Time
+	// After continues a list after this row; Offset is kept for older
+	// clients and applies on top of it.
+	After         *PageCursor
 	Limit         int
 	Offset        int
 	PrepareRepush bool // When true, snapshot matching IDs into a batch job and return repush_id
@@ -191,11 +215,18 @@ type DeliveryFilter struct {
 	Status         *string
 	ErrorCategory  *string
 	SubscriptionID *uuid.UUID
-	CreatedAfter   *time.Time
-	CreatedBefore  *time.Time
-	Limit          int
-	Offset         int
-	PrepareRetry   bool // When true, snapshot matching IDs into a batch job and return retry_id
+	// EventName matches the event type of the delivery's event. Unlike
+	// SubscriptionID it also finds deliveries whose subscription was
+	// replaced or deleted since.
+	EventName     *string
+	CreatedAfter  *time.Time
+	CreatedBefore *time.Time
+	// After continues a list after this row; Offset is kept for older
+	// clients and applies on top of it.
+	After        *PageCursor
+	Limit        int
+	Offset       int
+	PrepareRetry bool // When true, snapshot matching IDs into a batch job and return retry_id
 }
 
 // WebhookHealthSummary represents aggregated health metrics for a webhook

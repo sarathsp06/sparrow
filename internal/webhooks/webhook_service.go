@@ -61,7 +61,7 @@ type EventManager interface {
 	PushEvent(ctx context.Context, consumer string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string, idempotencyKey *string) (eventID string, isDuplicate bool, schemaValid bool, warnings []string, err error)
 	RePushEvent(ctx context.Context, eventID string) (string, []string, error)
 	GetEventRecord(ctx context.Context, eventID string) (*store.EventRecord, int32, int32, int32, int32, error)
-	ListEventReports(ctx context.Context, filter store.EventReportFilter) ([]*store.EventReportWithStats, int32, string, error)
+	ListEventReports(ctx context.Context, filter store.EventReportFilter) (*EventReportPage, error)
 }
 
 // SubscriptionManager manages event subscriptions and payload-transform templates.
@@ -85,7 +85,7 @@ type SubscriptionManager interface {
 type DeliveryManager interface {
 	GetDeliveryStatus(ctx context.Context, deliveryID string, consumer string) (*store.WebhookDelivery, error)
 	GetDeliveryAttempts(ctx context.Context, deliveryID string) ([]*store.WebhookHealthEvent, error)
-	ListDeliveries(ctx context.Context, filter store.DeliveryFilter) ([]*store.WebhookDelivery, int32, string, error)
+	ListDeliveries(ctx context.Context, filter store.DeliveryFilter) (*DeliveryPage, error)
 	RetryDelivery(ctx context.Context, consumer string, deliveryID string, webhookID string, force bool) ([]string, int32, error)
 }
 
@@ -216,6 +216,25 @@ const maxPageLimit = 1000
 
 // normalizePagination applies default limit (50), caps limit at maxPageLimit,
 // and ensures offset is non-negative.
+// DeliveryPage is one page of a delivery list. RetryID and RetryTotal are
+// set when the list was asked to snapshot its matches for a batch retry.
+type DeliveryPage struct {
+	Items      []*store.WebhookDelivery
+	HasMore    bool
+	RetryID    string
+	RetryTotal int
+}
+
+// EventReportPage is one page of an event occurrence list. RepushID and
+// RepushTotal are set when the list was asked to snapshot its matches for a
+// batch re-push.
+type EventReportPage struct {
+	Items       []*store.EventReportWithStats
+	HasMore     bool
+	RepushID    string
+	RepushTotal int
+}
+
 func normalizePagination(limit, offset int) (int, int) {
 	if limit <= 0 {
 		limit = 50

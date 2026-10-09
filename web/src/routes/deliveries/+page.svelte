@@ -5,11 +5,12 @@
     import { consumerFilter, consumerLabel, withConsumer } from '$lib/consumer.svelte';
     import { SYSTEM_CONSUMER, isSystemConsumer } from '$lib/system';
     import { pulseStore } from '$lib/pulse.svelte';
-    import { onDestroy } from 'svelte';
+    import { onDestroy, untrack } from 'svelte';
     import type { components } from '$lib/api-types';
     import StatusBadge from '$lib/components/StatusBadge.svelte';
     import CopyableId from '$lib/components/CopyableId.svelte';
-    import Pagination from '$lib/components/Pagination.svelte';
+    import CursorPager from '$lib/components/CursorPager.svelte';
+    import { CursorPages } from '$lib/cursor-pages.svelte';
     import ConsumerPicker from '$lib/components/ConsumerPicker.svelte';
     import EmptyState from '$lib/components/EmptyState.svelte';
     import BatchProgress from '$lib/components/BatchProgress.svelte';
@@ -20,10 +21,8 @@
     let deliveries: DeliveryItem[] = $state([]);
     let loading = $state(true);
     let error = $state('');
-    let currentPage = $state(1);
-    let totalCount = $state(0);
     let pageSize = $state(25);
-    let totalPages = $derived(Math.max(1, Math.ceil(totalCount / pageSize)));
+    const pages = new CursorPages();
 
     // Filters. Initial values may come from the URL, e.g. the event type
     // import links here with ?status=failed&error_category=template_error.
@@ -62,7 +61,7 @@
     function startLive() {
         stopLive();
         live = true;
-        liveTimer = setInterval(() => { fetchDeliveries(1, false, true); pulseStore.ping(); }, 5000);
+        liveTimer = setInterval(() => { pages.reset(); fetchDeliveries(false, true); pulseStore.ping(); }, 5000);
     }
     function stopLive() {
         live = false;
@@ -73,12 +72,11 @@
         else startLive();
     }
 
-    async function fetchDeliveries(pageNum: number = 1, prepareRetry: boolean = false, silent: boolean = false) {
+    async function fetchDeliveries(prepareRetry: boolean = false, silent: boolean = false) {
         loading = !prepareRetry && !silent;
         if (!prepareRetry) error = '';
 
         const ns = consumerFilter.value;
-        const offset = (pageNum - 1) * pageSize;
 
         try {
             const res = unwrap(await api.GET('/v1/deliveries', {
@@ -93,14 +91,14 @@
                         created_before: createdBeforeFilter || undefined,
                         prepare_retry: prepareRetry,
                         limit: pageSize,
-                        offset,
+                        cursor: prepareRetry ? undefined : pages.cursor || undefined,
                     },
                 },
             }));
             if (prepareRetry) {
                 if (res.retry_id) {
                     retryId = res.retry_id;
-                    retryTotal = res.pagination?.total_count || 0;
+                    retryTotal = res.retry_total || 0;
                     confirmRetry = true;
                 } else {
                     error = 'No matching deliveries to retry.';
@@ -108,8 +106,7 @@
                 return;
             }
             deliveries = res.items || [];
-            totalCount = res.pagination?.total_count || 0;
-            currentPage = pageNum;
+            pages.update(res.pagination);
         } catch (e: any) {
             console.error('Failed to fetch deliveries:', e);
             error = formatAPIError(e, 'Failed to load deliveries');
@@ -118,15 +115,9 @@
         }
     }
 
-    function handlePageChange(pageNum: number) {
-        if (pageNum >= 1 && pageNum <= totalPages) {
-            fetchDeliveries(pageNum);
-        }
-    }
-
     function applyFilters() {
-        currentPage = 1;
-        fetchDeliveries(1);
+        pages.reset();
+        fetchDeliveries();
     }
 
     function clearFilters() {
@@ -155,7 +146,7 @@
             unwrap(await api.POST('/v1/deliveries/{delivery_id}:retry', {
                 params: { path: { delivery_id: deliveryId } },
             }));
-            await fetchDeliveries(currentPage);
+            await fetchDeliveries();
         } catch (e: any) {
             error = formatAPIError(e, 'Failed to retry delivery');
         } finally {
@@ -168,7 +159,7 @@
         preparingRetry = true;
         error = '';
         try {
-            await fetchDeliveries(1, true);
+            await fetchDeliveries(true);
         } finally {
             preparingRetry = false;
         }
@@ -240,7 +231,7 @@
     }
 
     function onBatchDone() {
-        fetchDeliveries(currentPage);
+        fetchDeliveries();
     }
 
     function formatTimestamp(timestamp: string | null | undefined): string {
@@ -251,7 +242,10 @@
 
     $effect(() => {
         consumerFilter.value; // refetch when the active consumer changes
-        fetchDeliveries(1);
+        untrack(() => {
+            pages.reset();
+            fetchDeliveries();
+        });
     });
 </script>
 
@@ -275,10 +269,7 @@
                 {live ? 'Live' : 'Live off'}
             </button>
             {#if !loading}
-                <span class="text-sm text-muted mono tnum">
-                    {totalCount} deliver{totalCount !== 1 ? 'ies' : 'y'}
-                </span>
-                {#if totalCount > 0}
+                {#if deliveries.length > 0}
                     <button onclick={prepareRetryBatch} disabled={preparingRetry} class="btn btn-ghost !px-3 !py-1.5 !text-xs">
                         {preparingRetry ? 'Preparing…' : 'Re-deliver all matching'}
                     </button>
@@ -420,13 +411,7 @@
             </div>
         </div>
 
-        <Pagination
-            {currentPage}
-            {totalPages}
-            {totalCount}
-            {pageSize}
-            onPageChange={handlePageChange}
-        />
+        <CursorPager {pages} shown={deliveries.length} itemLabel="deliveries" onchange={() => fetchDeliveries()} />
     {/if}
 </main>
 

@@ -639,7 +639,7 @@ func ValidateJSONSchema(schema map[string]any, payload map[string]any) error {
 // ListEventReports lists event records with delivery statistics in descending order by creation time.
 // Supports filtering by consumer, event name, schema_valid, labels, and time range.
 // When PrepareRepush is true, snapshots all matching event IDs into a batch job and returns the batch ID.
-func (s *WebhookService) ListEventReports(ctx context.Context, filter store.EventReportFilter) ([]*store.EventReportWithStats, int32, string, error) {
+func (s *WebhookService) ListEventReports(ctx context.Context, filter store.EventReportFilter) (*EventReportPage, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.ListEventReports")
 	defer span.End()
 
@@ -654,20 +654,20 @@ func (s *WebhookService) ListEventReports(ctx context.Context, filter store.Even
 
 	filter.Limit, filter.Offset = normalizePagination(filter.Limit, filter.Offset)
 
-	events, totalCount, err := s.webhookRepo.ListEventReportsFiltered(ctx, tenantID, filter)
+	events, hasMore, err := s.webhookRepo.ListEventReportsFiltered(ctx, tenantID, filter)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Failed to list event reports", "consumer", filter.Consumer, "event_name", filter.EventName, "error", err)
 		span.SetStatus(otelcodes.Error, err.Error())
-		return nil, 0, "", fmt.Errorf("failed to list event reports: %w", err)
+		return nil, fmt.Errorf("failed to list event reports: %w", err)
 	}
 
 	// Snapshot matching IDs into a batch job if requested
-	var repushID string
+	page := &EventReportPage{Items: events, HasMore: hasMore}
 	if filter.PrepareRepush {
 		ids, err := s.webhookRepo.SnapshotEventIDs(ctx, tenantID, filter)
 		if err != nil {
 			s.logger.ErrorContext(ctx, "Failed to snapshot event IDs for repush", "error", err)
-			return nil, 0, "", fmt.Errorf("failed to prepare repush: %w", err)
+			return nil, fmt.Errorf("failed to prepare repush: %w", err)
 		}
 		if len(ids) > 0 {
 			filterMap := map[string]any{
@@ -689,11 +689,12 @@ func (s *WebhookService) ListEventReports(ctx context.Context, filter store.Even
 			batchJob, err := s.webhookRepo.CreateBatchJob(ctx, tenantID, filter.Consumer, store.BatchTypeEventRepush, batchData)
 			if err != nil {
 				s.logger.ErrorContext(ctx, "Failed to create batch job for repush", "error", err)
-				return nil, 0, "", fmt.Errorf("failed to create repush batch: %w", err)
+				return nil, fmt.Errorf("failed to create repush batch: %w", err)
 			}
-			repushID = batchJob.ID.String()
+			page.RepushID = batchJob.ID.String()
+			page.RepushTotal = len(ids)
 			s.logger.InfoContext(ctx, "Created repush batch job",
-				"repush_id", repushID,
+				"repush_id", page.RepushID,
 				"event_count", len(ids))
 		}
 	}
@@ -702,16 +703,16 @@ func (s *WebhookService) ListEventReports(ctx context.Context, filter store.Even
 		"consumer", filter.Consumer,
 		"event_name", filter.EventName,
 		"count", len(events),
-		"total", totalCount)
+		"has_more", hasMore)
 
 	span.SetAttributes(
 		attribute.String("consumer", filter.Consumer),
 		attribute.Int("count", len(events)),
-		attribute.Int("total", totalCount),
+		attribute.Bool("has_more", hasMore),
 	)
 	if filter.EventName != nil {
 		span.SetAttributes(attribute.String("event_name", *filter.EventName))
 	}
 
-	return events, int32(totalCount), repushID, nil
+	return page, nil
 }

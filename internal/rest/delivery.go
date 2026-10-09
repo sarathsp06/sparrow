@@ -28,6 +28,7 @@ type deliveryItem struct {
 	WebhookID       string  `json:"webhook_id" doc:"Webhook this delivery was sent to."`
 	Consumer        string  `json:"consumer,omitempty" doc:"Consumer of the webhook. Set in delivery listings."`
 	EventID         string  `json:"event_id" doc:"Pushed event occurrence this delivery originated from."`
+	EventName       string  `json:"event_name,omitempty" doc:"Event type of that occurrence, e.g. order.created. Set in delivery listings."`
 	Status          string  `json:"status" enum:"pending,sending,success,failed,retrying,expired,paused" doc:"Current delivery status. paused: created while its subscription was paused; not attempted until retried."`
 	AttemptCount    int     `json:"attempt_count" doc:"Number of delivery attempts made so far."`
 	MaxAttempts     int     `json:"max_attempts" doc:"Maximum attempts allowed before the delivery is marked failed."`
@@ -51,6 +52,7 @@ func toDeliveryItem(dl *store.WebhookDelivery) deliveryItem {
 		WebhookID:     dl.WebhookID.String(),
 		Consumer:      dl.Consumer,
 		EventID:       dl.EventID.String(),
+		EventName:     dl.EventName,
 		Status:        string(dl.Status),
 		AttemptCount:  dl.AttemptCount,
 		MaxAttempts:   dl.MaxAttempts,
@@ -84,11 +86,13 @@ type DeliveryListParams struct {
 	Status         string `query:"status,omitempty" doc:"Filter by delivery status (e.g. pending, success, failed, retrying, paused)."`
 	ErrorCategory  string `query:"error_category,omitempty" doc:"Filter by failure classification (e.g. server_error, client_error, timeout)."`
 	SubscriptionID string `query:"subscription_id,omitempty" doc:"Filter to deliveries created by one subscription, e.g. its paused deliveries."`
+	EventName      string `query:"event_name,omitempty" doc:"Filter to deliveries of one event type, e.g. order.created. Also matches deliveries whose subscription has since been replaced or deleted."`
 	CreatedAfter   string `query:"created_after,omitempty" doc:"Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at)."`
 	CreatedBefore  string `query:"created_before,omitempty" doc:"Filter to deliveries created on or before this date (YYYY-MM-DD) or exact time (RFC3339)."`
 	PrepareRetry   bool   `query:"prepare_retry" default:"false" doc:"If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint."`
 	Limit          int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
-	Offset         int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
+	Cursor         string `query:"cursor,omitempty" doc:"Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new deliveries arrive."`
+	Offset         int32  `query:"offset" default:"0" doc:"Deprecated: use cursor. Number of items to skip."`
 }
 
 type listDeliveriesInput struct {
@@ -103,9 +107,10 @@ type listDeliveriesGlobalInput struct {
 
 type listDeliveriesOutput struct {
 	Body struct {
-		Items      []deliveryItem   `json:"items"`
-		Pagination PaginationOutput `json:"pagination"`
-		RetryID    string           `json:"retry_id,omitempty" doc:"Snapshot id for the batch retry endpoint, present when prepare_retry was set."`
+		Items      []deliveryItem         `json:"items"`
+		Pagination CursorPaginationOutput `json:"pagination"`
+		RetryID    string                 `json:"retry_id,omitempty" doc:"Snapshot id for the batch retry endpoint, present when prepare_retry was set and something matched."`
+		RetryTotal int                    `json:"retry_total,omitempty" doc:"Number of deliveries in that snapshot."`
 	}
 }
 
@@ -381,6 +386,11 @@ func listDeliveriesImpl(ctx context.Context, svc deliveryRouteService, consumer 
 		Offset:       int(p.Offset),
 		PrepareRetry: p.PrepareRetry,
 	}
+	after, err := decodeCursor(p.Cursor)
+	if err != nil {
+		return nil, err
+	}
+	filter.After = after
 	if p.WebhookID != "" {
 		id, err := uuid.Parse(p.WebhookID)
 		if err != nil {
@@ -402,6 +412,9 @@ func listDeliveriesImpl(ctx context.Context, svc deliveryRouteService, consumer 
 		}
 		filter.SubscriptionID = &id
 	}
+	if p.EventName != "" {
+		filter.EventName = &p.EventName
+	}
 	if p.Status != "" {
 		filter.Status = &p.Status
 	}
@@ -418,16 +431,22 @@ func listDeliveriesImpl(ctx context.Context, svc deliveryRouteService, consumer 
 		return nil, huma.Error400BadRequest("created_before " + err.Error())
 	}
 	filter.CreatedBefore = createdBefore
-	deliveries, total, retryID, err := svc.ListDeliveries(ctx, filter)
+	page, err := svc.ListDeliveries(ctx, filter)
 	if err != nil {
 		return nil, mapError(ctx, err, "failed to list deliveries")
 	}
 	out := &listDeliveriesOutput{}
-	out.Body.Items = make([]deliveryItem, 0, len(deliveries))
-	for _, dl := range deliveries {
+	out.Body.Items = make([]deliveryItem, 0, len(page.Items))
+	for _, dl := range page.Items {
 		out.Body.Items = append(out.Body.Items, toDeliveryItem(dl))
 	}
-	out.Body.Pagination = newPagination(p.Limit, p.Offset, total)
-	out.Body.RetryID = retryID
+	if n := len(page.Items); n > 0 {
+		last := page.Items[n-1]
+		out.Body.Pagination = newCursorPagination(p.Limit, page.HasMore, last.CreatedAt, last.ID)
+	} else {
+		out.Body.Pagination = newCursorPagination(p.Limit, false, time.Time{}, uuid.Nil)
+	}
+	out.Body.RetryID = page.RetryID
+	out.Body.RetryTotal = page.RetryTotal
 	return out, nil
 }

@@ -115,3 +115,65 @@ func assertHasRecipient(t *testing.T, payload map[string]any, email string) {
 	}
 	t.Fatalf("expected %s among alert_recipients, got %v", email, recipients)
 }
+
+// TestE2E_BatchRePushSkipsSystemEvents re-pushes _sparrow's events in a
+// batch. Only Sparrow emits sparrow.* events (a single re-push is refused),
+// so the batch must not replay them either: that would resend alert emails.
+// Each one is counted as failed and no new system event is created.
+func TestE2E_BatchRePushSkipsSystemEvents(t *testing.T) {
+	env := setupEnv(t)
+	c := newRESTClient(t, env)
+	ctx := context.Background()
+
+	const (
+		consumer  = "batch-repush-system"
+		eventName = "batchrepush.system"
+	)
+
+	targetSrv, _ := startAlwaysFailTarget(t, http.StatusUnauthorized)
+	registerEventType(t, c, ctx, eventName)
+	registerWebhookPipeline(t, c, ctx, consumer, eventName, targetSrv.URL, 0)
+	pushTestEvent(t, c, ctx, consumer, eventName)
+
+	pollCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	pollSystemEvent(t, pollCtx, env, tenant.SystemConsumer, "sparrow.webhook.delivery_failed")
+
+	countSystemEvents := func() int {
+		var n int
+		require.NoError(t, env.sqlxDB.GetContext(ctx, &n,
+			`SELECT count(*) FROM event_records WHERE tenant_id = $1 AND event LIKE 'sparrow.%'`,
+			tenant.DefaultTenantID))
+		return n
+	}
+	before := countSystemEvents()
+
+	var list struct {
+		RepushID string `json:"repush_id"`
+	}
+	_, err := c.get(ctx, "/v1/consumers/"+tenant.SystemConsumer+"/events?prepare_repush=true", &list)
+	require.NoError(t, err)
+	require.NotEmpty(t, list.RepushID, "the _sparrow consumer has events to snapshot")
+
+	var job struct {
+		ID string `json:"id"`
+	}
+	resp, err := c.post(ctx, "/v1/consumers/"+tenant.SystemConsumer+"/events:rePush", map[string]any{
+		"repush_id": list.RepushID,
+	}, &job)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	jobPath := "/v1/consumers/" + tenant.SystemConsumer + "/repush-jobs/" + job.ID
+	pollBatchJob(t, c, pollCtx, jobPath)
+	var done struct {
+		Total     int `json:"total"`
+		Processed int `json:"processed"`
+		Failed    int `json:"failed"`
+	}
+	_, err = c.get(ctx, jobPath, &done)
+	require.NoError(t, err)
+	assert.Equal(t, 0, done.Processed, "no system event may be replayed")
+	assert.Equal(t, done.Total, done.Failed, "every system event is reported as not re-pushed")
+	assert.Equal(t, before, countSystemEvents(), "batch re-push created new system events")
+}

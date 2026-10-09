@@ -549,11 +549,10 @@ func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, co
 		return nil, err
 	}
 	status := string(store.StatusPaused)
-	_, count, err := s.webhookRepo.ListDeliveriesFiltered(ctx, tenant.DefaultTenantID, store.DeliveryFilter{
+	count, err := s.webhookRepo.CountDeliveries(ctx, tenant.DefaultTenantID, store.DeliveryFilter{
 		Consumer:  consumer,
 		WebhookID: &id,
 		Status:    &status,
-		Limit:     1,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to count paused deliveries: %w", err)

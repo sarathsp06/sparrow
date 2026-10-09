@@ -171,6 +171,7 @@ events, usually one per customer; any name works.
           "delivery_id": "5fcf5267-6288-443e-b8b9-691037818c80",
           "webhook_id": "431b2e95-ac8a-4127-b3f5-601a0110afae",
           "event_id": "9fab6d74-baa0-45cd-af80-7a63ccdc08a5",
+          "event_name": "order.created",
           "status": "success",
           "attempt_count": 1,
           "max_attempts": 4,
@@ -178,9 +179,13 @@ events, usually one per customer; any name works.
           "error_category": "success"
         }
       ],
-      "pagination": {"limit": 10, "offset": 0, "total_count": 1, "has_more": false}
+      "pagination": {"limit": 10, "has_more": false}
     }
     ```
+
+    Delivery and event lists are newest first and have no total. When
+    `has_more` is true, pass `pagination.next_cursor` back as `cursor` to get
+    the next, older page.
 
     `max_attempts` is 4: the first try plus the webhook's 3 retries. The web UI
     at `http://localhost:8080` shows the same delivery under **Deliveries**.

@@ -74,6 +74,17 @@ func TestE2E_SystemConsumerScope(t *testing.T) {
 		return p.Pagination.Total
 	}
 
+	// Deliveries and event occurrences have no total_count (cursor paged):
+	// these sets are small, so count the items on the first page.
+	items := func(path string) int {
+		t.Helper()
+		var p page
+		resp, err := c.get(ctx, path, &p)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode, path)
+		return len(p.Items)
+	}
+
 	type consumerList struct {
 		Items []struct {
 			Name string `json:"name"`
@@ -132,11 +143,11 @@ func TestE2E_SystemConsumerScope(t *testing.T) {
 		require.Equal(t, http.StatusCreated, resp.StatusCode, "push under %s", consumer)
 	}
 	require.Eventually(t, func() bool {
-		return total("/v1/deliveries") == 2
+		return items("/v1/deliveries") == 2
 	}, 15*time.Second, 200*time.Millisecond)
 
-	assert.Equal(t, 2, total("/v1/events"))
-	assert.Equal(t, 1, total("/v1/deliveries?consumer=_sparrow"))
+	assert.Equal(t, 2, items("/v1/events"))
+	assert.Equal(t, 1, items("/v1/deliveries?consumer=_sparrow"))
 
 	var dl page
 	_, err = c.get(ctx, "/v1/deliveries", &dl)

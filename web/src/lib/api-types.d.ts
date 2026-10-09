@@ -1503,6 +1503,14 @@ export interface components {
             secret: string;
             token: components["schemas"]["TokenOut"];
         };
+        CursorPaginationOutput: {
+            /** @description True when older items follow this page. */
+            has_more: boolean;
+            /** Format: int32 */
+            limit: number;
+            /** @description Pass as cursor to get the next, older page. Absent on the last page. */
+            next_cursor?: string;
+        };
         DeliveryItem: {
             /**
              * Format: uri
@@ -1530,6 +1538,8 @@ export interface components {
             error_message?: string;
             /** @description Pushed event occurrence this delivery originated from. */
             event_id: string;
+            /** @description Event type of that occurrence, e.g. order.created. Set in delivery listings. */
+            event_name?: string;
             /** @description Timestamp of the most recent attempt, RFC3339. */
             last_attempted_at?: string;
             /**
@@ -2085,9 +2095,14 @@ export interface components {
              */
             readonly $schema?: string;
             items: components["schemas"]["DeliveryItem"][] | null;
-            pagination: components["schemas"]["PaginationOutput"];
-            /** @description Snapshot id for the batch retry endpoint, present when prepare_retry was set. */
+            pagination: components["schemas"]["CursorPaginationOutput"];
+            /** @description Snapshot id for the batch retry endpoint, present when prepare_retry was set and something matched. */
             retry_id?: string;
+            /**
+             * Format: int64
+             * @description Number of deliveries in that snapshot.
+             */
+            retry_total?: number;
         };
         ListEventOccurrencesOutputBody: {
             /**
@@ -2097,9 +2112,14 @@ export interface components {
              */
             readonly $schema?: string;
             items: components["schemas"]["EventOccurrenceItem"][] | null;
-            pagination: components["schemas"]["PaginationOutput"];
-            /** @description Snapshot id for the batch re-push endpoint, present when prepare_repush was set. */
+            pagination: components["schemas"]["CursorPaginationOutput"];
+            /** @description Snapshot id for the batch re-push endpoint, present when prepare_repush was set and something matched. */
             repush_id?: string;
+            /**
+             * Format: int64
+             * @description Number of occurrences in that snapshot.
+             */
+            repush_total?: number;
         };
         ListEventTypeVersionsOutputBody: {
             /**
@@ -3265,6 +3285,8 @@ export interface operations {
                 error_category?: string;
                 /** @description Filter to deliveries created by one subscription, e.g. its paused deliveries. */
                 subscription_id?: string;
+                /** @description Filter to deliveries of one event type, e.g. order.created. Also matches deliveries whose subscription has since been replaced or deleted. */
+                event_name?: string;
                 /** @description Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at). */
                 created_after?: string;
                 /** @description Filter to deliveries created on or before this date (YYYY-MM-DD) or exact time (RFC3339). */
@@ -3273,7 +3295,9 @@ export interface operations {
                 prepare_retry?: boolean;
                 /** @description Maximum items to return. */
                 limit?: number;
-                /** @description Number of items to skip, for pagination. */
+                /** @description Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new deliveries arrive. */
+                cursor?: string;
+                /** @description Deprecated: use cursor. Number of items to skip. */
                 offset?: number;
             };
             header?: never;
@@ -3603,7 +3627,9 @@ export interface operations {
                 prepare_repush?: boolean;
                 /** @description Maximum items to return. */
                 limit?: number;
-                /** @description Number of items to skip, for pagination. */
+                /** @description Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new events arrive. */
+                cursor?: string;
+                /** @description Deprecated: use cursor. Number of items to skip. */
                 offset?: number;
             };
             header?: never;
@@ -4940,6 +4966,8 @@ export interface operations {
                 error_category?: string;
                 /** @description Filter to deliveries created by one subscription, e.g. its paused deliveries. */
                 subscription_id?: string;
+                /** @description Filter to deliveries of one event type, e.g. order.created. Also matches deliveries whose subscription has since been replaced or deleted. */
+                event_name?: string;
                 /** @description Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at). */
                 created_after?: string;
                 /** @description Filter to deliveries created on or before this date (YYYY-MM-DD) or exact time (RFC3339). */
@@ -4948,7 +4976,9 @@ export interface operations {
                 prepare_retry?: boolean;
                 /** @description Maximum items to return. */
                 limit?: number;
-                /** @description Number of items to skip, for pagination. */
+                /** @description Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new deliveries arrive. */
+                cursor?: string;
+                /** @description Deprecated: use cursor. Number of items to skip. */
                 offset?: number;
             };
             header?: never;
@@ -5628,7 +5658,9 @@ export interface operations {
                 prepare_repush?: boolean;
                 /** @description Maximum items to return. */
                 limit?: number;
-                /** @description Number of items to skip, for pagination. */
+                /** @description Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new events arrive. */
+                cursor?: string;
+                /** @description Deprecated: use cursor. Number of items to skip. */
                 offset?: number;
             };
             header?: never;

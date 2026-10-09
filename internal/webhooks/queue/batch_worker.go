@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -188,6 +189,14 @@ func (w *BatchJobWorker) processEventRepush(ctx context.Context, tenantID, batch
 		original, err := w.eventRepo.GetEventByID(ctx, tenantID, eventID)
 		if err != nil || original == nil {
 			w.logger.ErrorContext(ctx, "Failed to load event for repush", "event_id", idStr, "error", err)
+			failed++
+			continue
+		}
+		// Only Sparrow emits its own sparrow.* events: the single re-push
+		// refuses them, and replaying one here would resend its alert
+		// emails. Counted as failed so the job shows it.
+		if strings.HasPrefix(strings.ToLower(original.Event), store.SystemEventPrefix) {
+			w.logger.WarnContext(ctx, "Skipping re-push of a Sparrow system event", "event_id", idStr, "event", original.Event)
 			failed++
 			continue
 		}

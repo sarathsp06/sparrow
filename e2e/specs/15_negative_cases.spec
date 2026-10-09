@@ -34,7 +34,7 @@ delivery history.
 * Push event "neg.metric.emitted" with payload "{\"n\": 3}"
 * Wait for "collector" to receive "3" deliveries
 * List deliveries with limit "2" and offset "0" should return "2" items
-* Last delivery page should have total_count "3" and has_more "true"
+* Last delivery page should have has_more "true"
 * List deliveries with limit "2" and offset "2" should return "1" items
-* Last delivery page should have total_count "3" and has_more "false"
+* Last delivery page should have has_more "false"
 * Paging through deliveries with limit "2" should yield "3" unique deliveries

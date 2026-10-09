@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 
 	"github.com/sarathsp06/sparrow/pkg/storage"
 )
@@ -24,9 +25,11 @@ type DeliveryRepository interface {
 	GetDeliveriesByWebhookID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, limit, offset int) ([]*WebhookDelivery, int, error)
 	GetDeliveriesByEventPaginated(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID, consumer string, limit, offset int) ([]*WebhookDelivery, int, error)
 	ListDeliveriesPaginated(ctx context.Context, tenantID uuid.UUID, consumer string, limit, offset int) ([]*WebhookDelivery, int, error)
-	ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]*WebhookDelivery, int, error)
+	ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]*WebhookDelivery, bool, error)
+	CountDeliveries(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) (int, error)
 	GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, force bool) ([]*WebhookDelivery, error)
 	ResetDeliveryForRetry(ctx context.Context, deliveryID uuid.UUID) error
+	ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uuid.UUID) error
 	UpdateDeliveryTemplateError(ctx context.Context, deliveryID uuid.UUID, msg string) error
 	DeleteDeliveryByID(ctx context.Context, deliveryID uuid.UUID) error
 	GetDeliveryAttempts(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID) ([]*WebhookHealthEvent, error)
@@ -341,71 +344,93 @@ func (r *Repository) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.
 	return deliveries, totalCount, nil
 }
 
-// ListDeliveriesFiltered retrieves delivery records using a fixed SQL query with
-// optional parameter guards. Uses ($N::type IS NULL OR col = $N) so that unset filter
-// fields become no-op conditions — no dynamic SQL building required.
-func (r *Repository) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]*WebhookDelivery, int, error) {
+// deliveryFilterFrom is the FROM and WHERE of every DeliveryFilter query
+// (count, page, retry snapshot), with the filter in deliveryFilterArgs order
+// as $1..$10. Unset filter fields bind NULL, so each ($N IS NULL OR ...)
+// guard becomes a no-op: no dynamic SQL.
+//
+// The event type filter is an EXISTS behind its guard, not a join on
+// event_records: measured on 300k deliveries with pgx's cached (generic)
+// plans, a join made every count 5-20x slower, filtered or not, while the
+// EXISTS costs nothing when the filter is unset.
+const deliveryFilterFrom = `
+		FROM webhook_deliveries wd
+		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
+		WHERE wr.tenant_id = $1
+		  AND ($2::text IS NULL OR wr.consumer = $2)
+		  AND ($3::uuid IS NULL OR wd.webhook_id = $3)
+		  AND ($4::uuid IS NULL OR wd.event_id = $4)
+		  AND ($5::text IS NULL OR wd.status::text = $5)
+		  AND ($6::text IS NULL OR wd.error_category = $6)
+		  AND ($7::uuid IS NULL OR wd.subscription_id = $7)
+		  AND ($8::timestamptz IS NULL OR wd.created_at >= $8)
+		  AND ($9::timestamptz IS NULL OR wd.created_at <= $9)
+		  AND ($10::text IS NULL OR EXISTS (
+		        SELECT 1 FROM event_records er WHERE er.id = wd.event_id AND er.event = $10))`
+
+// deliveryFilterArgs binds a DeliveryFilter to deliveryFilterFrom's $1..$10.
+func deliveryFilterArgs(tenantID uuid.UUID, filter DeliveryFilter) []any {
 	var ns any
 	if filter.Consumer != "" {
 		ns = filter.Consumer
 	}
+	return []any{tenantID, ns, filter.WebhookID, filter.EventID, filter.Status, filter.ErrorCategory, filter.SubscriptionID, filter.CreatedAfter, filter.CreatedBefore, filter.EventName}
+}
 
-	args := []any{tenantID, ns, filter.WebhookID, filter.EventID, filter.Status, filter.ErrorCategory, filter.SubscriptionID, filter.CreatedAfter, filter.CreatedBefore}
-
-	countQuery := `
-		SELECT COUNT(*)
-		FROM webhook_deliveries wd
-		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
-		WHERE wr.tenant_id = $1
-		  AND ($2::text IS NULL OR wr.consumer = $2)
-		  AND ($3::uuid IS NULL OR wd.webhook_id = $3)
-		  AND ($4::uuid IS NULL OR wd.event_id = $4)
-		  AND ($5::text IS NULL OR wd.status::text = $5)
-		  AND ($6::text IS NULL OR wd.error_category = $6)
-		  AND ($7::uuid IS NULL OR wd.subscription_id = $7)
-		  AND ($8::timestamptz IS NULL OR wd.created_at >= $8)
-		  AND ($9::timestamptz IS NULL OR wd.created_at <= $9)
-	`
-
-	var totalCount int
-	err := r.conn.GetContext(ctx, &totalCount, countQuery, args...)
-	if err != nil {
-		return nil, 0, storage.Error(err)
+// CountDeliveries counts the deliveries matching filter (its cursor, limit
+// and offset are ignored). For the few places that report a number, e.g.
+// the deliveries held by a paused webhook; lists use has_more instead.
+func (r *Repository) CountDeliveries(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) (int, error) {
+	var n int
+	if err := r.conn.GetContext(ctx, &n, "SELECT COUNT(*) "+deliveryFilterFrom, deliveryFilterArgs(tenantID, filter)...); err != nil {
+		return 0, storage.Error(err)
 	}
+	return n, nil
+}
 
+// ListDeliveriesFiltered returns one page of the deliveries matching filter,
+// newest first, and whether more follow. There is no total: counting every
+// match cost more than the page itself on a large table, on every load.
+// filter.After continues after a row (keyset, constant cost at any depth).
+func (r *Repository) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]*WebhookDelivery, bool, error) {
+	afterAt, afterID := cursorArgs(filter.After)
+	args := append(deliveryFilterArgs(tenantID, filter), afterAt, afterID, filter.Limit+1, filter.Offset)
+
+	// The page is cut first, then joined to its event names: a lookup in the
+	// outer SELECT of the paged query would also run for every row skipped
+	// by OFFSET.
 	query := fmt.Sprintf(`
-		SELECT %s, wr.consumer
-		FROM webhook_deliveries wd
-		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
-		WHERE wr.tenant_id = $1
-		  AND ($2::text IS NULL OR wr.consumer = $2)
-		  AND ($3::uuid IS NULL OR wd.webhook_id = $3)
-		  AND ($4::uuid IS NULL OR wd.event_id = $4)
-		  AND ($5::text IS NULL OR wd.status::text = $5)
-		  AND ($6::text IS NULL OR wd.error_category = $6)
-		  AND ($7::uuid IS NULL OR wd.subscription_id = $7)
-		  AND ($8::timestamptz IS NULL OR wd.created_at >= $8)
-		  AND ($9::timestamptz IS NULL OR wd.created_at <= $9)
-		ORDER BY wd.created_at DESC
-		LIMIT $10 OFFSET $11
-	`, deliveryColumns)
+		SELECT page.*, er.event AS event_name
+		FROM (
+			SELECT %s, wr.consumer
+			%s
+			  AND wd.created_at <= $11 AND (wd.created_at < $11 OR wd.id < $12)
+			ORDER BY wd.created_at DESC, wd.id DESC
+			LIMIT $13 OFFSET $14
+		) page
+		LEFT JOIN event_records er ON er.id = page.event_id
+		ORDER BY page.created_at DESC, page.id DESC
+	`, deliveryColumns, deliveryFilterFrom)
 
-	queryArgs := append(args, filter.Limit, filter.Offset)
 	var deliveries []*WebhookDelivery
-	err = r.conn.SelectContext(ctx, &deliveries, query, queryArgs...)
-	if err != nil {
-		return nil, 0, storage.Error(err)
+	if err := r.conn.SelectContext(ctx, &deliveries, query, args...); err != nil {
+		return nil, false, storage.Error(err)
 	}
-
-	return deliveries, totalCount, nil
+	if len(deliveries) > filter.Limit {
+		return deliveries[:filter.Limit], true, nil
+	}
+	return deliveries, false, nil
 }
 
 // GetRetriableDeliveries finds webhook deliveries eligible for retry attempts within a tenant.
 func (r *Repository) GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, force bool) ([]*WebhookDelivery, error) {
+	// Only what a retry needs to re-queue each delivery, never the bodies: a
+	// forced retry can cover every delivery of a webhook. subscription_id
+	// must stay: without it the worker finds no transform template (sending
+	// the payload untransformed, or failing a webhook that requires one).
 	query := `
-		SELECT wd.id, wd.webhook_id, wd.event_id, wd.status, wd.attempt_count, wd.max_attempts,
-		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
-		       wd.response_code, wd.response_body, wd.error_message, wd.error_category
+		SELECT wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.max_attempts,
+		       wd.created_at, wd.expires_at
 		FROM webhook_deliveries wd
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
 		WHERE wd.webhook_id = $1
@@ -451,6 +476,29 @@ func (r *Repository) ResetDeliveryForRetry(ctx context.Context, deliveryID uuid.
 	`
 
 	_, err := r.conn.ExecContext(ctx, query, deliveryID)
+	return storage.Error(err)
+}
+
+// ResetDeliveriesForRetry is ResetDeliveryForRetry for many deliveries in
+// one statement.
+func (r *Repository) ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uuid.UUID) error {
+	if len(deliveryIDs) == 0 {
+		return nil
+	}
+	query := `
+		UPDATE webhook_deliveries
+		SET status = 'pending',
+		    last_attempted_at = NULL,
+		    next_retry_at = NULL,
+		    response_code = 0,
+		    response_body = '',
+		    error_message = '',
+		    error_category = '',
+		    template_error = NULL
+		WHERE id = ANY($1)
+	`
+
+	_, err := r.conn.ExecContext(ctx, query, pq.Array(deliveryIDs))
 	return storage.Error(err)
 }
 

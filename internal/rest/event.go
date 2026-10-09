@@ -242,7 +242,8 @@ type EventOccurrenceListParams struct {
 	CreatedBefore string `query:"created_before,omitempty" doc:"Filter to occurrences created on or before this date (YYYY-MM-DD)."`
 	PrepareRepush bool   `query:"prepare_repush" default:"false" doc:"If true, snapshot the matching occurrences into a repush_id you can pass to the batch re-push endpoint."`
 	Limit         int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
-	Offset        int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
+	Cursor        string `query:"cursor,omitempty" doc:"Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new events arrive."`
+	Offset        int32  `query:"offset" default:"0" doc:"Deprecated: use cursor. Number of items to skip."`
 }
 
 type listEventOccurrencesInput struct {
@@ -257,9 +258,10 @@ type listEventOccurrencesGlobalInput struct {
 
 type listEventOccurrencesOutput struct {
 	Body struct {
-		Items      []eventOccurrenceItem `json:"items"`
-		Pagination PaginationOutput      `json:"pagination"`
-		RepushID   string                `json:"repush_id,omitempty" doc:"Snapshot id for the batch re-push endpoint, present when prepare_repush was set."`
+		Items       []eventOccurrenceItem  `json:"items"`
+		Pagination  CursorPaginationOutput `json:"pagination"`
+		RepushID    string                 `json:"repush_id,omitempty" doc:"Snapshot id for the batch re-push endpoint, present when prepare_repush was set and something matched."`
+		RepushTotal int                    `json:"repush_total,omitempty" doc:"Number of occurrences in that snapshot."`
 	}
 }
 
@@ -644,6 +646,11 @@ func listEventOccurrencesImpl(ctx context.Context, svc eventRouteService, consum
 		Offset:        int(p.Offset),
 		PrepareRepush: p.PrepareRepush,
 	}
+	after, err := decodeCursor(p.Cursor)
+	if err != nil {
+		return nil, err
+	}
+	filter.After = after
 	if p.Event != "" {
 		filter.EventName = &p.Event
 	}
@@ -673,13 +680,13 @@ func listEventOccurrencesImpl(ctx context.Context, svc eventRouteService, consum
 		return nil, huma.Error400BadRequest("created_before " + err.Error())
 	}
 	filter.CreatedBefore = createdBefore
-	reports, total, repushID, err := svc.ListEventReports(ctx, filter)
+	page, err := svc.ListEventReports(ctx, filter)
 	if err != nil {
 		return nil, mapError(ctx, err, "failed to list event occurrences")
 	}
 	out := &listEventOccurrencesOutput{}
-	out.Body.Items = make([]eventOccurrenceItem, 0, len(reports))
-	for _, r := range reports {
+	out.Body.Items = make([]eventOccurrenceItem, 0, len(page.Items))
+	for _, r := range page.Items {
 		var o eventOccurrenceOutput
 		o.Body.EventID = r.ID.String()
 		o.Body.Consumer = r.Consumer
@@ -696,7 +703,13 @@ func listEventOccurrencesImpl(ctx context.Context, svc eventRouteService, consum
 		o.Body.CreatedAt = r.CreatedAt.Format(time.RFC3339Nano)
 		out.Body.Items = append(out.Body.Items, o.Body)
 	}
-	out.Body.Pagination = newPagination(p.Limit, p.Offset, total)
-	out.Body.RepushID = repushID
+	if n := len(page.Items); n > 0 {
+		last := page.Items[n-1]
+		out.Body.Pagination = newCursorPagination(p.Limit, page.HasMore, last.CreatedAt, last.ID)
+	} else {
+		out.Body.Pagination = newCursorPagination(p.Limit, false, time.Time{}, uuid.Nil)
+	}
+	out.Body.RepushID = page.RepushID
+	out.Body.RepushTotal = page.RepushTotal
 	return out, nil
 }

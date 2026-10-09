@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
+	"github.com/riverqueue/river"
+
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
@@ -74,7 +77,7 @@ func (s *WebhookService) GetDeliveryAttempts(ctx context.Context, deliveryID str
 // Supports filtering by consumer, webhook, event, status, error_category,
 // subscription, and time range via the DeliveryFilter struct.
 // When PrepareRetry is true, snapshots all matching delivery IDs into a batch job and returns the batch ID.
-func (s *WebhookService) ListDeliveries(ctx context.Context, filter store.DeliveryFilter) ([]*store.WebhookDelivery, int32, string, error) {
+func (s *WebhookService) ListDeliveries(ctx context.Context, filter store.DeliveryFilter) (*DeliveryPage, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.ListDeliveries")
 	defer span.End()
 
@@ -92,19 +95,19 @@ func (s *WebhookService) ListDeliveries(ctx context.Context, filter store.Delive
 
 	filter.Limit, filter.Offset = normalizePagination(filter.Limit, filter.Offset)
 
-	deliveries, totalCount, err := s.webhookRepo.ListDeliveriesFiltered(ctx, tenantID, filter)
+	deliveries, hasMore, err := s.webhookRepo.ListDeliveriesFiltered(ctx, tenantID, filter)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Failed to list deliveries", "error", err)
-		return nil, 0, "", fmt.Errorf("failed to retrieve deliveries: %w", err)
+		return nil, fmt.Errorf("failed to retrieve deliveries: %w", err)
 	}
 
 	// Snapshot matching IDs into a batch job if requested
-	var retryID string
+	page := &DeliveryPage{Items: deliveries, HasMore: hasMore}
 	if filter.PrepareRetry {
 		ids, err := s.webhookRepo.SnapshotDeliveryIDs(ctx, tenantID, filter)
 		if err != nil {
 			s.logger.ErrorContext(ctx, "Failed to snapshot delivery IDs for retry", "error", err)
-			return nil, 0, "", fmt.Errorf("failed to prepare retry: %w", err)
+			return nil, fmt.Errorf("failed to prepare retry: %w", err)
 		}
 		if len(ids) > 0 {
 			filterMap := map[string]any{
@@ -122,6 +125,9 @@ func (s *WebhookService) ListDeliveries(ctx context.Context, filter store.Delive
 			if filter.ErrorCategory != nil {
 				filterMap["error_category"] = *filter.ErrorCategory
 			}
+			if filter.EventName != nil {
+				filterMap["event_name"] = *filter.EventName
+			}
 			batchData := &store.BatchJobData{
 				ItemIDs: ids,
 				Filter:  filterMap,
@@ -129,17 +135,21 @@ func (s *WebhookService) ListDeliveries(ctx context.Context, filter store.Delive
 			batchJob, err := s.webhookRepo.CreateBatchJob(ctx, tenantID, filter.Consumer, store.BatchTypeDeliveryRetry, batchData)
 			if err != nil {
 				s.logger.ErrorContext(ctx, "Failed to create batch job for retry", "error", err)
-				return nil, 0, "", fmt.Errorf("failed to create retry batch: %w", err)
+				return nil, fmt.Errorf("failed to create retry batch: %w", err)
 			}
-			retryID = batchJob.ID.String()
+			page.RetryID = batchJob.ID.String()
+			page.RetryTotal = len(ids)
 			s.logger.InfoContext(ctx, "Created retry batch job",
-				"retry_id", retryID,
+				"retry_id", page.RetryID,
 				"delivery_count", len(ids))
 		}
 	}
 
-	return deliveries, int32(totalCount), retryID, nil
+	return page, nil
 }
+
+// retryChunkSize bounds each reset UPDATE and job BatchInsert of a retry.
+const retryChunkSize = 1000
 
 // RetryDelivery manually retries failed or pending webhook deliveries
 func (s *WebhookService) RetryDelivery(ctx context.Context, consumer string, deliveryID string, webhookID string, force bool) ([]string, int32, error) {
@@ -170,6 +180,9 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, consumer string, del
 	}
 
 	var deliveriesToResubmit []*store.WebhookDelivery
+	// Every delivery retried here belongs to this one webhook: a single
+	// delivery's, or the webhook named in the request.
+	var webhook *store.WebhookRegistration
 
 	if deliveryID != "" {
 		id, err := parseUUID(deliveryID, "delivery ID")
@@ -194,6 +207,11 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, consumer string, del
 		}
 
 		deliveriesToResubmit = []*store.WebhookDelivery{delivery}
+		webhook, err = s.webhookRepo.GetWebhookByID(ctx, tenantID, delivery.WebhookID, consumer)
+		if err != nil {
+			s.logger.ErrorContext(ctx, "Failed to get webhook for delivery", "webhook_id", delivery.WebhookID, "error", err)
+			return nil, 0, fmt.Errorf("failed to retrieve webhook: %w", err)
+		}
 	} else {
 		id, err := parseUUID(webhookID, "webhook ID")
 		if err != nil {
@@ -201,7 +219,7 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, consumer string, del
 		}
 
 		// Resubmit all failed/pending deliveries for webhook
-		_, err = s.webhookRepo.GetWebhookByID(ctx, tenantID, id, consumer)
+		webhook, err = s.webhookRepo.GetWebhookByID(ctx, tenantID, id, consumer)
 		if err != nil {
 			s.logger.ErrorContext(ctx, "Failed to get webhook", "error", err)
 			return nil, 0, fmt.Errorf("failed to retrieve webhook: %w", err)
@@ -224,31 +242,14 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, consumer string, del
 		}
 	}
 
-	// Process each delivery for resubmission
-	var resubmittedIDs []string
-	var resubmittedCount int32
-
-	for _, delivery := range deliveriesToResubmit {
-		// Reset delivery status to pending
-		err := s.webhookRepo.ResetDeliveryForRetry(ctx, delivery.ID)
-		if err != nil {
-			s.logger.ErrorContext(ctx, "Failed to reset delivery for retry",
-				"delivery_id", delivery.ID,
-				"error", err)
-			continue
-		}
-
-		// Get webhook info for queuing
-		webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, delivery.WebhookID, consumer)
-		if err != nil {
-			s.logger.ErrorContext(ctx, "Failed to get webhook for delivery",
-				"webhook_id", delivery.WebhookID,
-				"delivery_id", delivery.ID,
-				"error", err)
-			continue
-		}
-
-		// Queue the webhook for delivery.
+	// One UPDATE for every delivery and one insert for every job, rather
+	// than a round trip (and a webhook lookup) per delivery.
+	ids := make([]uuid.UUID, len(deliveriesToResubmit))
+	jobs := make([]river.JobArgs, len(deliveriesToResubmit))
+	resubmittedIDs := make([]string, len(deliveriesToResubmit))
+	for i, delivery := range deliveriesToResubmit {
+		ids[i] = delivery.ID
+		resubmittedIDs[i] = delivery.ID.String()
 		// Manual retries never expire -- use far-future sentinel so TTL doesn't apply.
 		args := &queue.WebhookArgs{
 			DeliveryID:          delivery.ID.String(),
@@ -263,19 +264,23 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, consumer string, del
 		if delivery.SubscriptionID != nil {
 			args.SubscriptionID = delivery.SubscriptionID.String()
 		}
-
-		_, err = s.jobInserter.Insert(ctx, args)
-		if err != nil {
-			s.logger.ErrorContext(ctx, "Failed to queue webhook for resubmission",
-				"delivery_id", delivery.ID,
-				"webhook_id", delivery.WebhookID,
-				"error", err)
-			continue
-		}
-
-		resubmittedIDs = append(resubmittedIDs, delivery.ID.String())
-		resubmittedCount++
+		jobs[i] = args
 	}
+
+	// In chunks, so a forced retry of a large webhook stays a bounded
+	// statement and insert.
+	for start := 0; start < len(ids); start += retryChunkSize {
+		end := min(start+retryChunkSize, len(ids))
+		if err := s.webhookRepo.ResetDeliveriesForRetry(ctx, ids[start:end]); err != nil {
+			s.logger.ErrorContext(ctx, "Failed to reset deliveries for retry", "count", end-start, "error", err)
+			return nil, 0, fmt.Errorf("failed to reset deliveries for retry: %w", err)
+		}
+		if _, err := s.jobInserter.BatchInsert(ctx, jobs[start:end]); err != nil {
+			s.logger.ErrorContext(ctx, "Failed to queue deliveries for resubmission", "count", end-start, "error", err)
+			return nil, 0, fmt.Errorf("failed to queue deliveries for retry: %w", err)
+		}
+	}
+	resubmittedCount := int32(len(resubmittedIDs))
 
 	if resubmittedCount == 0 {
 		return nil, 0, svcerrors.Error(svcerrors.FailedPrecondition, "failed to resubmit any deliveries")

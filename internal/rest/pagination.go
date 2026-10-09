@@ -1,5 +1,17 @@
 package rest
 
+import (
+	"encoding/base64"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/google/uuid"
+
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+)
+
 // PaginationOutput is the shared pagination envelope returned by every list
 // endpoint's response body, embedded alongside the `items` field.
 type PaginationOutput struct {
@@ -25,4 +37,50 @@ func newPagination(limit, offset, totalCount int32) PaginationOutput {
 		TotalCount: totalCount,
 		HasMore:    offset+limit < totalCount,
 	}
+}
+
+// CursorPaginationOutput is the pagination envelope of the high-volume
+// newest-first lists (deliveries, event occurrences). There is no total:
+// counting every match cost more than the page itself on large tables.
+type CursorPaginationOutput struct {
+	Limit      int32  `json:"limit"`
+	HasMore    bool   `json:"has_more" doc:"True when older items follow this page."`
+	NextCursor string `json:"next_cursor,omitempty" doc:"Pass as cursor to get the next, older page. Absent on the last page."`
+}
+
+// encodeCursor makes the opaque cursor for the row a page ended on.
+// Microseconds match Postgres's timestamptz precision exactly.
+func encodeCursor(createdAt time.Time, id uuid.UUID) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(strconv.FormatInt(createdAt.UnixMicro(), 10) + "." + id.String()))
+}
+
+// decodeCursor parses a cursor from encodeCursor; empty means none.
+func decodeCursor(s string) (*store.PageCursor, error) {
+	if s == "" {
+		return nil, nil
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(s)
+	if err != nil {
+		return nil, huma.Error400BadRequest("cursor is not valid: pass next_cursor from a previous page unchanged")
+	}
+	micros, idStr, ok := strings.Cut(string(raw), ".")
+	us, errT := strconv.ParseInt(micros, 10, 64)
+	id, errID := uuid.Parse(idStr)
+	if !ok || errT != nil || errID != nil {
+		return nil, huma.Error400BadRequest("cursor is not valid: pass next_cursor from a previous page unchanged")
+	}
+	return &store.PageCursor{CreatedAt: time.UnixMicro(us).UTC(), ID: id}, nil
+}
+
+// newCursorPagination builds the envelope for a page whose last row is
+// (lastAt, lastID); the cursor is only set when more rows follow.
+func newCursorPagination(limit int32, hasMore bool, lastAt time.Time, lastID uuid.UUID) CursorPaginationOutput {
+	if limit <= 0 {
+		limit = 50
+	}
+	out := CursorPaginationOutput{Limit: limit, HasMore: hasMore}
+	if hasMore {
+		out.NextCursor = encodeCursor(lastAt, lastID)
+	}
+	return out
 }

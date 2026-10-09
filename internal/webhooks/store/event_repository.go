@@ -22,7 +22,7 @@ type EventRepository interface {
 
 	ListEventReports(ctx context.Context, tenantID uuid.UUID, consumer string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error)
 	ListEventReportsWithStats(ctx context.Context, tenantID uuid.UUID, consumer string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error)
-	ListEventReportsFiltered(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) ([]*EventReportWithStats, int, error)
+	ListEventReportsFiltered(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) ([]*EventReportWithStats, bool, error)
 }
 
 // StoreEvent persists an event record with automatic ID generation and timestamp management.
@@ -272,83 +272,87 @@ func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uui
 	return events, totalCount, nil
 }
 
-// ListEventReportsFiltered retrieves event records with delivery statistics using
-// fixed IS NULL guard conditions. Labels filter uses @> operator; time range,
-// schema_valid, and event_name are optional via ($N::type IS NULL OR col = $N).
-func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) ([]*EventReportWithStats, int, error) {
-	var ns any
-	if filter.Consumer != "" {
-		ns = filter.Consumer
-	}
-
-	var labelsJSON any
-	if len(filter.Labels) > 0 {
-		b, err := json.Marshal(filter.Labels)
-		if err != nil {
-			return nil, 0, fmt.Errorf("failed to marshal label filter: %w", err)
-		}
-		labelsJSON = string(b)
-	}
-
-	args := []any{tenantID, ns, filter.EventName, filter.SchemaValid, labelsJSON, filter.CreatedAfter, filter.CreatedBefore}
-
-	baseQuery := `
-		SELECT
-			er.id, er.tenant_id, er.consumer, er.event, er.payload, er.ttl,
-			er.metadata, er.labels, er.schema_valid, COALESCE(er.event_version, 1) AS event_version, er.created_at, er.expires_at,
-			COALESCE(ds.webhook_count, 0) as webhook_count,
-			COALESCE(ds.successful_deliveries, 0) as successful_deliveries,
-			COALESCE(ds.failed_deliveries, 0) as failed_deliveries,
-			COALESCE(ds.pending_deliveries, 0) as pending_deliveries
-		FROM event_records er
-		LEFT JOIN (
-			SELECT
-				wd.event_id,
-				COUNT(DISTINCT wd.webhook_id) as webhook_count,
-				SUM(CASE WHEN wh.success = true THEN 1 ELSE 0 END) as successful_deliveries,
-				SUM(CASE WHEN wh.success = false THEN 1 ELSE 0 END) as failed_deliveries,
-				COUNT(CASE WHEN wd.status IN ('pending', 'sending', 'retrying') THEN 1 END) as pending_deliveries
-			FROM webhook_deliveries wd
-			LEFT JOIN webhook_health_events wh ON wd.id = wh.delivery_id
-			GROUP BY wd.event_id
-		) ds ON er.id = ds.event_id
+// eventReportFilterWhere is the WHERE of every EventReportFilter query (page,
+// re-push snapshot) over event_records er, with the filter in
+// eventReportFilterArgs order as $1..$7.
+const eventReportFilterWhere = `
 		WHERE er.tenant_id = $1
 		  AND ($2::text IS NULL OR er.consumer = $2)
 		  AND ($3::text IS NULL OR er.event = $3)
 		  AND ($4::boolean IS NULL OR er.schema_valid = $4)
 		  AND ($5::jsonb IS NULL OR er.labels @> $5::jsonb)
 		  AND ($6::timestamptz IS NULL OR er.created_at >= $6)
-		  AND ($7::timestamptz IS NULL OR er.created_at <= $7)
-		ORDER BY er.created_at DESC
-		LIMIT $8 OFFSET $9
+		  AND ($7::timestamptz IS NULL OR er.created_at <= $7)`
+
+// eventReportFilterArgs binds an EventReportFilter to eventReportFilterWhere.
+func eventReportFilterArgs(tenantID uuid.UUID, filter EventReportFilter) ([]any, error) {
+	var ns any
+	if filter.Consumer != "" {
+		ns = filter.Consumer
+	}
+	var labelsJSON any
+	if len(filter.Labels) > 0 {
+		b, err := json.Marshal(filter.Labels)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal label filter: %w", err)
+		}
+		labelsJSON = string(b)
+	}
+	return []any{tenantID, ns, filter.EventName, filter.SchemaValid, labelsJSON, filter.CreatedAfter, filter.CreatedBefore}, nil
+}
+
+// ListEventReportsFiltered returns one page of event records, newest first,
+// with their delivery statistics, and whether more follow. The page is cut
+// first and statistics are computed for its rows only: aggregating every
+// delivery and then joining scanned the whole deliveries table per page.
+// There is no total, and filter.After continues after a row (keyset).
+func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) ([]*EventReportWithStats, bool, error) {
+	args, err := eventReportFilterArgs(tenantID, filter)
+	if err != nil {
+		return nil, false, err
+	}
+	afterAt, afterID := cursorArgs(filter.After)
+	args = append(args, afterAt, afterID, filter.Limit+1, filter.Offset)
+
+	query := `
+		SELECT
+			page.id, page.tenant_id, page.consumer, page.event, page.payload, page.ttl,
+			page.metadata, page.labels, page.schema_valid, page.event_version, page.created_at, page.expires_at,
+			COALESCE(ds.webhook_count, 0) AS webhook_count,
+			COALESCE(ds.successful_deliveries, 0) AS successful_deliveries,
+			COALESCE(ds.failed_deliveries, 0) AS failed_deliveries,
+			COALESCE(ds.pending_deliveries, 0) AS pending_deliveries
+		FROM (
+			SELECT er.id, er.tenant_id, er.consumer, er.event, er.payload, er.ttl,
+			       er.metadata, er.labels, er.schema_valid, COALESCE(er.event_version, 1) AS event_version,
+			       er.created_at, er.expires_at
+			FROM event_records er
+			` + eventReportFilterWhere + `
+			  AND er.created_at <= $8 AND (er.created_at < $8 OR er.id < $9)
+			ORDER BY er.created_at DESC, er.id DESC
+			LIMIT $10 OFFSET $11
+		) page
+		LEFT JOIN LATERAL (
+			SELECT
+				COUNT(DISTINCT wd.webhook_id) AS webhook_count,
+				SUM(CASE WHEN wh.success = true THEN 1 ELSE 0 END) AS successful_deliveries,
+				SUM(CASE WHEN wh.success = false THEN 1 ELSE 0 END) AS failed_deliveries,
+				COUNT(CASE WHEN wd.status IN ('pending', 'sending', 'retrying') THEN 1 END) AS pending_deliveries
+			FROM webhook_deliveries wd
+			LEFT JOIN webhook_health_events wh ON wd.id = wh.delivery_id
+			WHERE wd.event_id = page.id
+		) ds ON true
+		ORDER BY page.created_at DESC, page.id DESC
 	`
 
-	countQuery := `
-		SELECT COUNT(*)
-		FROM event_records
-		WHERE tenant_id = $1
-		  AND ($2::text IS NULL OR consumer = $2)
-		  AND ($3::text IS NULL OR event = $3)
-		  AND ($4::boolean IS NULL OR schema_valid = $4)
-		  AND ($5::jsonb IS NULL OR labels @> $5::jsonb)
-		  AND ($6::timestamptz IS NULL OR created_at >= $6)
-		  AND ($7::timestamptz IS NULL OR created_at <= $7)
-	`
-
-	queryArgs := append(args, filter.Limit, filter.Offset)
 	var events []*EventReportWithStats
-	err := r.conn.SelectContext(ctx, &events, baseQuery, queryArgs...)
-	if err != nil {
-		return nil, 0, storage.Error(err)
+	if err := r.conn.SelectContext(ctx, &events, query, args...); err != nil {
+		return nil, false, storage.Error(err)
 	}
-
-	var totalCount int
-	err = r.conn.GetContext(ctx, &totalCount, countQuery, args...)
-	if err != nil {
-		return nil, 0, storage.Error(err)
+	if len(events) > filter.Limit {
+		return events[:filter.Limit], true, nil
 	}
-
-	return events, totalCount, nil
+	return events, false, nil
 }
 
 // DeleteEventByID deletes an event record by its ID within a tenant.

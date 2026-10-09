@@ -118,6 +118,11 @@ func (m *mockRepo) ResetDeliveryForRetry(ctx context.Context, deliveryID uuid.UU
 	return args.Error(0)
 }
 
+func (m *mockRepo) ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uuid.UUID) error {
+	args := m.Called(ctx, deliveryIDs)
+	return args.Error(0)
+}
+
 func (m *mockRepo) GetDeliveriesByWebhookID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, limit, offset int) ([]*store.WebhookDelivery, int, error) {
 	args := m.Called(ctx, tenantID, webhookID, consumer, limit, offset)
 	return args.Get(0).([]*store.WebhookDelivery), args.Int(1), args.Error(2)
@@ -128,14 +133,19 @@ func (m *mockRepo) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.UU
 	return args.Get(0).([]*store.WebhookDelivery), args.Int(1), args.Error(2)
 }
 
-func (m *mockRepo) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter store.DeliveryFilter) ([]*store.WebhookDelivery, int, error) {
+func (m *mockRepo) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter store.DeliveryFilter) ([]*store.WebhookDelivery, bool, error) {
 	args := m.Called(ctx, tenantID, filter)
-	return args.Get(0).([]*store.WebhookDelivery), args.Int(1), args.Error(2)
+	return args.Get(0).([]*store.WebhookDelivery), args.Bool(1), args.Error(2)
 }
 
-func (m *mockRepo) ListEventReportsFiltered(ctx context.Context, tenantID uuid.UUID, filter store.EventReportFilter) ([]*store.EventReportWithStats, int, error) {
+func (m *mockRepo) CountDeliveries(ctx context.Context, tenantID uuid.UUID, filter store.DeliveryFilter) (int, error) {
 	args := m.Called(ctx, tenantID, filter)
-	return args.Get(0).([]*store.EventReportWithStats), args.Int(1), args.Error(2)
+	return args.Int(0), args.Error(1)
+}
+
+func (m *mockRepo) ListEventReportsFiltered(ctx context.Context, tenantID uuid.UUID, filter store.EventReportFilter) ([]*store.EventReportWithStats, bool, error) {
+	args := m.Called(ctx, tenantID, filter)
+	return args.Get(0).([]*store.EventReportWithStats), args.Bool(1), args.Error(2)
 }
 
 func (m *mockRepo) CreateSubscription(ctx context.Context, tenantID uuid.UUID, sub *store.EventSubscription) error {
@@ -230,9 +240,10 @@ func TestWebhookService_RetryDelivery(t *testing.T) {
 	}
 
 	repo.On("GetDeliveryByID", mock.Anything, mock.Anything, deliveryID, consumer).Return(delivery, nil)
-	repo.On("ResetDeliveryForRetry", mock.Anything, deliveryID).Return(nil)
-	repo.On("GetWebhookByID", mock.Anything, mock.Anything, webhookID, consumer).Return(webhook, nil)
-	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
+	repo.On("ResetDeliveriesForRetry", mock.Anything, []uuid.UUID{deliveryID}).Return(nil)
+	repo.On("GetWebhookByID", mock.Anything, mock.Anything, webhookID, consumer).Return(webhook, nil).Once()
+	inserter.On("BatchInsert", mock.Anything, mock.MatchedBy(func(jobs []river.JobArgs) bool { return len(jobs) == 1 })).
+		Return([]*rivertype.JobInsertResult{{}}, nil)
 
 	ids, count, err := service.RetryDelivery(ctx, consumer, deliveryID.String(), "", false)
 
@@ -258,18 +269,18 @@ func TestWebhookService_ListDeliveries_Pagination(t *testing.T) {
 	// The service normalises limit/offset, so match the filter as built by the service.
 	repo.On("ListDeliveriesFiltered", mock.Anything, mock.Anything, mock.MatchedBy(func(f store.DeliveryFilter) bool {
 		return f.Consumer == consumer && f.Limit == 20 && f.Offset == 0
-	})).Return(expectedDeliveries, 1, nil)
+	})).Return(expectedDeliveries, true, nil)
 
 	filter := store.DeliveryFilter{
 		Consumer: consumer,
 		Limit:    20,
 		Offset:   0,
 	}
-	deliveries, totalCount, _, err := service.ListDeliveries(ctx, filter)
+	page, err := service.ListDeliveries(ctx, filter)
 
 	assert.NoError(t, err)
-	assert.Equal(t, int32(1), totalCount)
-	assert.Equal(t, len(expectedDeliveries), len(deliveries))
+	assert.True(t, page.HasMore)
+	assert.Equal(t, len(expectedDeliveries), len(page.Items))
 	repo.AssertExpectations(t)
 }
 

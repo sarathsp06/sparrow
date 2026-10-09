@@ -524,6 +524,22 @@ components:
         - secret
         - reused
       type: object
+    CursorPaginationOutput:
+      additionalProperties: false
+      properties:
+        has_more:
+          description: True when older items follow this page.
+          type: boolean
+        limit:
+          format: int32
+          type: integer
+        next_cursor:
+          description: Pass as cursor to get the next, older page. Absent on the last page.
+          type: string
+      required:
+        - limit
+        - has_more
+      type: object
     DeliveryItem:
       additionalProperties: false
       properties:
@@ -569,6 +585,9 @@ components:
           type: string
         event_id:
           description: Pushed event occurrence this delivery originated from.
+          type: string
+        event_name:
+          description: Event type of that occurrence, e.g. order.created. Set in delivery listings.
           type: string
         last_attempted_at:
           description: Timestamp of the most recent attempt, RFC3339.
@@ -1413,10 +1432,14 @@ components:
             - array
             - "null"
         pagination:
-          $ref: "#/components/schemas/PaginationOutput"
+          $ref: "#/components/schemas/CursorPaginationOutput"
         retry_id:
-          description: Snapshot id for the batch retry endpoint, present when prepare_retry was set.
+          description: Snapshot id for the batch retry endpoint, present when prepare_retry was set and something matched.
           type: string
+        retry_total:
+          description: Number of deliveries in that snapshot.
+          format: int64
+          type: integer
       required:
         - items
         - pagination
@@ -1438,10 +1461,14 @@ components:
             - array
             - "null"
         pagination:
-          $ref: "#/components/schemas/PaginationOutput"
+          $ref: "#/components/schemas/CursorPaginationOutput"
         repush_id:
-          description: Snapshot id for the batch re-push endpoint, present when prepare_repush was set.
+          description: Snapshot id for the batch re-push endpoint, present when prepare_repush was set and something matched.
           type: string
+        repush_total:
+          description: Number of occurrences in that snapshot.
+          format: int64
+          type: integer
       required:
         - items
         - pagination
@@ -3228,6 +3255,13 @@ paths:
           schema:
             description: Filter to deliveries created by one subscription, e.g. its paused deliveries.
             type: string
+        - description: Filter to deliveries of one event type, e.g. order.created. Also matches deliveries whose subscription has since been replaced or deleted.
+          explode: false
+          in: query
+          name: event_name
+          schema:
+            description: Filter to deliveries of one event type, e.g. order.created. Also matches deliveries whose subscription has since been replaced or deleted.
+            type: string
         - description: Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at).
           explode: false
           in: query
@@ -3261,13 +3295,20 @@ paths:
             maximum: 1000
             minimum: 1
             type: integer
-        - description: Number of items to skip, for pagination.
+        - description: "Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new deliveries arrive."
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: "Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new deliveries arrive."
+            type: string
+        - description: "Deprecated: use cursor. Number of items to skip."
           explode: false
           in: query
           name: offset
           schema:
             default: 0
-            description: Number of items to skip, for pagination.
+            description: "Deprecated: use cursor. Number of items to skip."
             format: int32
             type: integer
       responses:
@@ -3595,13 +3636,20 @@ paths:
             maximum: 1000
             minimum: 1
             type: integer
-        - description: Number of items to skip, for pagination.
+        - description: "Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new events arrive."
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: "Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new events arrive."
+            type: string
+        - description: "Deprecated: use cursor. Number of items to skip."
           explode: false
           in: query
           name: offset
           schema:
             default: 0
-            description: Number of items to skip, for pagination.
+            description: "Deprecated: use cursor. Number of items to skip."
             format: int32
             type: integer
       responses:
@@ -4841,6 +4889,13 @@ paths:
           schema:
             description: Filter to deliveries created by one subscription, e.g. its paused deliveries.
             type: string
+        - description: Filter to deliveries of one event type, e.g. order.created. Also matches deliveries whose subscription has since been replaced or deleted.
+          explode: false
+          in: query
+          name: event_name
+          schema:
+            description: Filter to deliveries of one event type, e.g. order.created. Also matches deliveries whose subscription has since been replaced or deleted.
+            type: string
         - description: Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at).
           explode: false
           in: query
@@ -4874,13 +4929,20 @@ paths:
             maximum: 1000
             minimum: 1
             type: integer
-        - description: Number of items to skip, for pagination.
+        - description: "Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new deliveries arrive."
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: "Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new deliveries arrive."
+            type: string
+        - description: "Deprecated: use cursor. Number of items to skip."
           explode: false
           in: query
           name: offset
           schema:
             default: 0
-            description: Number of items to skip, for pagination.
+            description: "Deprecated: use cursor. Number of items to skip."
             format: int32
             type: integer
       responses:
@@ -5490,13 +5552,20 @@ paths:
             maximum: 1000
             minimum: 1
             type: integer
-        - description: Number of items to skip, for pagination.
+        - description: "Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new events arrive."
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: "Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new events arrive."
+            type: string
+        - description: "Deprecated: use cursor. Number of items to skip."
           explode: false
           in: query
           name: offset
           schema:
             default: 0
-            description: Number of items to skip, for pagination.
+            description: "Deprecated: use cursor. Number of items to skip."
             format: int32
             type: integer
       responses:

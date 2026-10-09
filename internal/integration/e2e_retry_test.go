@@ -189,7 +189,7 @@ func pollBatchJob(t *testing.T, c *restClient, ctx context.Context, path string)
 				continue
 			}
 			t.Logf("  batch job status: %s (processed=%d/%d)", out.Status, out.Processed, out.Total)
-			if out.Status == "completed" || out.Status == "cancelled" {
+			if out.Status == "completed" || out.Status == "cancelled" || out.Status == "failed" {
 				return
 			}
 		}
@@ -838,4 +838,181 @@ func TestE2E_NullLabelFiltersStillDelivers(t *testing.T) {
 		case <-ticker.C:
 		}
 	}
+}
+
+// TestE2E_WebhookRetryKeepsTransform retries every failed delivery of a
+// webhook at once (deliveries:retry with webhook_id) and checks the retried
+// delivery is still transformed. The bulk path once loaded deliveries
+// without subscription_id, so the worker found no template: it sent the
+// untransformed envelope, or failed a webhook that requires a transform.
+func TestE2E_WebhookRetryKeepsTransform(t *testing.T) {
+	env := setupEnv(t)
+	c := newRESTClient(t, env)
+	ctx := context.Background()
+
+	const (
+		consumer  = "bulk-retry-transform"
+		eventName = "bulkretry.transform"
+	)
+
+	var (
+		mu     sync.Mutex
+		bodies []string
+		calls  atomic.Int32
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		if calls.Add(1) == 1 {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		mu.Lock()
+		bodies = append(bodies, string(b))
+		mu.Unlock()
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	registerEventType(t, c, ctx, eventName)
+	var wh struct {
+		WebhookID string `json:"webhook_id"`
+	}
+	resp, err := c.post(ctx, "/v1/consumers/"+consumer+"/webhooks", map[string]any{
+		"events":             []string{eventName},
+		"url":                srv.URL + "/webhook",
+		"active":             true,
+		"requires_transform": true,
+		"transform_template": `{"transformed":true}`,
+		"http_config": map[string]any{
+			"max_retries":             0,
+			"retry_backoff_seconds":   1,
+			"request_timeout_seconds": 5,
+		},
+	}, &wh)
+	require.NoError(t, err, "RegisterWebhook failed")
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	eventID := pushTestEvent(t, c, ctx, consumer, eventName)
+	pollCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	pollDeliveryStatus(t, c, pollCtx, consumer, eventID, func(d deliveryItem) bool {
+		return d.Status == "failed"
+	})
+
+	resp, err = c.post(ctx, "/v1/consumers/"+consumer+"/deliveries:retry", map[string]any{
+		"webhook_id": wh.WebhookID,
+	}, nil)
+	require.NoError(t, err, "RetryDeliveries failed")
+	require.Less(t, resp.StatusCode, 300, "retry failed with %d", resp.StatusCode)
+
+	pollDeliveryStatus(t, c, pollCtx, consumer, eventID, func(d deliveryItem) bool {
+		return d.Status == "success"
+	})
+	mu.Lock()
+	defer mu.Unlock()
+	require.Len(t, bodies, 1)
+	assert.JSONEq(t, `{"transformed":true}`, bodies[0], "retried delivery lost its transform")
+}
+
+// TestE2E_DeliveryListCursorPaging checks the delivery listing: no total,
+// has_more from one extra row, cursor paging that stays put while new
+// deliveries arrive, the event_name filter, and the retry snapshot applying
+// the same filter.
+func TestE2E_DeliveryListCursorPaging(t *testing.T) {
+	env := setupEnv(t)
+	c := newRESTClient(t, env)
+	ctx := context.Background()
+
+	const (
+		consumer = "delivery-list-cursor"
+		created  = "listcursor.created"
+		paid     = "listcursor.paid"
+	)
+
+	targetSrv, _ := startAlwaysFailTarget(t, http.StatusBadRequest)
+	registerEventType(t, c, ctx, created)
+	registerEventType(t, c, ctx, paid)
+	var wh struct {
+		WebhookID string `json:"webhook_id"`
+	}
+	resp, err := c.post(ctx, "/v1/consumers/"+consumer+"/webhooks", map[string]any{
+		"events":      []string{created, paid},
+		"url":         targetSrv.URL + "/webhook",
+		"active":      true,
+		"http_config": map[string]any{"max_retries": 0, "retry_backoff_seconds": 1, "request_timeout_seconds": 5},
+	}, &wh)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	pollCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	push := func(event string) {
+		t.Helper()
+		id := pushTestEvent(t, c, ctx, consumer, event)
+		pollDeliveryStatus(t, c, pollCtx, consumer, id, func(d deliveryItem) bool { return d.Status == "failed" })
+	}
+	for range 3 {
+		push(created)
+	}
+	push(paid)
+
+	type page struct {
+		Items []struct {
+			DeliveryID string `json:"delivery_id"`
+			EventName  string `json:"event_name"`
+		} `json:"items"`
+		Pagination map[string]any `json:"pagination"`
+		RetryID    string         `json:"retry_id"`
+		RetryTotal int            `json:"retry_total"`
+	}
+	list := func(query string) page {
+		t.Helper()
+		var p page
+		resp, err := c.get(ctx, "/v1/consumers/"+consumer+"/deliveries?webhook_id="+wh.WebhookID+query, &p)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		_, hasTotal := p.Pagination["total_count"]
+		require.False(t, hasTotal, "delivery lists do not count every match")
+		return p
+	}
+	cursor := func(p page) string {
+		s, _ := p.Pagination["next_cursor"].(string)
+		return s
+	}
+
+	first := list("&limit=2")
+	require.Len(t, first.Items, 2)
+	assert.Equal(t, true, first.Pagination["has_more"])
+	require.NotEmpty(t, cursor(first))
+
+	// A delivery arriving mid-paging lands before the first page and must
+	// not shift the next one.
+	push(created)
+
+	second := list("&limit=2&cursor=" + cursor(first))
+	require.Len(t, second.Items, 2)
+	assert.Equal(t, false, second.Pagination["has_more"])
+	assert.Empty(t, cursor(second), "no cursor on the last page")
+	seen := map[string]bool{}
+	for _, it := range append(first.Items, second.Items...) {
+		assert.False(t, seen[it.DeliveryID], "delivery %s listed twice", it.DeliveryID)
+		seen[it.DeliveryID] = true
+	}
+	assert.Len(t, seen, 4, "the two pages cover exactly the deliveries that existed when paging started")
+
+	onlyCreated := list("&event_name=" + created)
+	assert.Len(t, onlyCreated.Items, 4)
+	for _, it := range onlyCreated.Items {
+		assert.Equal(t, created, it.EventName)
+	}
+	assert.Empty(t, list("&event_name=nope.never").Items)
+
+	var bad struct{}
+	resp, err = c.get(ctx, "/v1/consumers/"+consumer+"/deliveries?cursor=not-a-cursor", &bad)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+	snap := list("&event_name=" + paid + "&prepare_retry=true&limit=1")
+	require.NotEmpty(t, snap.RetryID)
+	assert.Equal(t, 1, snap.RetryTotal, "the retry snapshot applies the event filter")
 }
