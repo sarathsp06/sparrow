@@ -12,6 +12,7 @@ export const SYSTEM_CONSUMER = "_sparrow";
 export const SYSTEM_CONSUMER_LABEL = "Sparrow alerts";
 
 export const ALERTS_GUIDE_URL = "https://sarathsp06.github.io/sparrow/guides/webhook-health-alerts/";
+export const VERIFY_SIGNATURES_GUIDE_URL = "https://sarathsp06.github.io/sparrow/guides/verify-signatures/";
 /** Register page pre-filled with the SendGrid recipe under _sparrow. */
 export const ALERT_SETUP_HREF = `/webhooks/register?recipe=sendgrid&consumer=${SYSTEM_CONSUMER}`;
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { VERIFY_SIGNATURES_GUIDE_URL } from '$lib/system';
   // Shows a webhook signing secret the server returns in plaintext exactly
   // once (at registration or rotation). Every later read is masked, so this is
   // the user's only chance to copy it.
@@ -39,5 +40,6 @@
       <p class="text-[10px] text-faint mt-0.5">Verifies the v1a, signature. Not secret, and always shown on the webhook page.</p>
     </div>
   {/if}
-  <p class="text-sm" style="color:var(--color-warn)">Copy the signing secret now and give it to the receiver. You won't see it again: Sparrow only stores it encrypted and masks it on every later read.</p>
+  <p class="text-sm" style="color:var(--color-warn)">Copy the signing secret now and give it to the receiver. You won't see it again: Sparrow only stores it encrypted and masks it on every later read.
+    <a href={VERIFY_SIGNATURES_GUIDE_URL} target="_blank" rel="noreferrer" class="link-beacon whitespace-nowrap">How receivers verify ↗</a></p>
 </div>
