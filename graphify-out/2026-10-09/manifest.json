@@ -805,8 +805,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/architecture.mdx": {
-    "mtime": 1791532284.2352178,
-    "ast_hash": "cd4c64e9a9153f4cc3027b8356a66095",
+    "mtime": 1791494507.988701,
+    "ast_hash": "8112d935b042d6eb6a58e760fcae1a12",
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/client-libraries.mdx": {
@@ -1710,13 +1710,13 @@
     "semantic_hash": ""
   },
   "web/tests/api.ts": {
-    "mtime": 1791532233.922966,
-    "ast_hash": "258903ae968cea84d2307bb5f801519f",
+    "mtime": 1790892958.4823315,
+    "ast_hash": "81bfa66dbc24e3e67aff420fe7c8d397",
     "semantic_hash": ""
   },
   "web/tests/portal.spec.ts": {
-    "mtime": 1791532233.952777,
-    "ast_hash": "2f05d19019cd12552d84d579d65595a5",
+    "mtime": 1790892958.482426,
+    "ast_hash": "308114b803b2db50c19930c82e5e6fed",
     "semantic_hash": ""
   },
   "docs/public/robots.txt": {
