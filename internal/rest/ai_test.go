@@ -139,7 +139,7 @@ func TestDraftTemplate_GroundsRequestAndReturnsDraft(t *testing.T) {
 		t.Fatalf("sample_source should be provided: %s", rec.Body)
 	}
 
-	if d.got.RecipeName != "slack" || !strings.Contains(d.got.RecipeTemplate, "blocks") {
+	if d.got.Recipe == nil || d.got.Recipe.Name != "slack" || d.got.Recipe.Guidance == "" || !strings.Contains(d.got.Recipe.Template, "blocks") {
 		t.Fatalf("recipe not resolved: %+v", d.got)
 	}
 	if d.got.TargetExample != `{"x":1}` || d.got.CurrentTemplate != "old" || d.got.Instructions != "just the id" {
@@ -171,7 +171,7 @@ func TestDraftTemplatePrompt_WorksWithoutAProvider(t *testing.T) {
 		SampleSource string `json:"sample_source"`
 	}
 	_ = json.Unmarshal(rec.Body.Bytes(), &out)
-	for _, want := range []string{"order.created", `"id": "ord_9"`, "a@example.com", "short Slack text", "Destination recipe: slack", "### json", "fenced code block", "=== Your task ==="} {
+	for _, want := range []string{"order.created", `"id": "ord_9"`, "a@example.com", "short Slack text", `# Part 2: Destination recipe "slack"`, "### json", "fenced code block", "# Part 3"} {
 		if !strings.Contains(out.Prompt, want) {
 			t.Errorf("prompt missing %q", want)
 		}

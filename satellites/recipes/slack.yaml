@@ -14,6 +14,24 @@ webhook:
   url: '{{param "webhook_url"}}'
   headers:
     Content-Type: application/json
+# What an ideal message for this destination looks like. Advice for
+# template authors and AI drafting, not a rule: instructions and the
+# receiver's own example take precedence.
+guidance: |
+  A good Slack notification is read in a second in a busy channel, so it
+  says what happened before anything else.
+  - Lead with the outcome in plain words, not the event type: "Order ord_8F2 refunded: $49.50" beats "order.refunded".
+  - Use a header block as the subject line (short, at most ~150 characters), at most one emoji, at the end of the header or in the context line, not both.
+  - Put the 2-6 facts a reader acts on in a section's fields (label in bold, value below): who, what, amount, status. Leave the rest out or behind a link.
+  - Put metadata (event id, time, attempt) in a small context block at the bottom, not in the main text.
+  - Always set top-level text as well: it is the notification and screen-reader fallback, so make it the one-line summary.
+  - Link to the record in the source system with <url|label> when the payload has a URL; a link beats pasting the raw payload.
+  - No @channel / @here unless the instructions ask; no walls of text or full JSON dumps unless asked.
+  Ideal, rendered:
+    text: "Order ord_8F2 refunded: $49.50 (acme-co)"
+    header: "Order refunded :leftwards_arrow_with_hook:"
+    fields: *Customer* acme-co | *Amount* $49.50 | *Reason* duplicate charge
+    context: "order.refunded · evt_123 · 2026-03-01 12:00 UTC"
 subscription:
   transform_template: |
     {

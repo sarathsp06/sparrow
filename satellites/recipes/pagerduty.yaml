@@ -20,6 +20,20 @@ webhook:
   url: https://events.pagerduty.com/v2/enqueue
   headers:
     Content-Type: application/json
+# What an ideal message for this destination looks like. Advice for
+# template authors and AI drafting, not a rule: instructions and the
+# receiver's own example take precedence.
+guidance: |
+  A good PagerDuty alert wakes someone up only when a human must act, and
+  tells the responder what is broken and where, before they open anything.
+  - summary is the alert title on the phone: "<what is wrong> on/for <what>", with the key number. "Payment success rate 62% (<90%) on checkout-api" beats "Sparrow event: payment.failed". Keep it under ~120 characters.
+  - source: the affected system (host, service, tenant), not "sparrow".
+  - severity from the event's own level or status when there is one: critical = user-facing outage, error = action needed soon, warning = degradation, info = no action.
+  - dedup_key: one key per real-world problem, so repeats group into one alert and a later resolve closes it (e.g. the order or check id, not the event id, when the instructions say events update one incident).
+  - component / group / class when the payload has them; they drive routing and grouping.
+  - custom_details: the few fields a responder needs (ids, values, thresholds), not necessarily the whole payload.
+  - links: a runbook or dashboard URL when the payload has one.
+  Ideal, rendered: summary "Checkout error rate 12% on checkout-api (eu-west-1)", source "checkout-api", severity "critical", dedup_key "checkout-api/error-rate", custom_details {error_rate: 0.12, threshold: 0.05}.
 subscription:
   transform_template: |
     {

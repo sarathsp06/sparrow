@@ -32,6 +32,15 @@ webhook:
   secret_headers:
     # Password is envelope-encrypted at rest and masked in API responses.
     X-ClickHouse-Key: '{{param "password"}}'
+# What an ideal message for this destination looks like. Advice for
+# template authors and AI drafting, not a rule: instructions and the
+# receiver's own example take precedence.
+guidance: |
+  A good row keeps the data faithful and easy to query.
+  - One column per key you will filter or aggregate on, typed as the table declares; keep the full payload as a JSON string column so nothing is lost.
+  - Copy values as they are: no formatting, rounding, renaming of enum values or added text.
+  - Timestamps in a format ClickHouse parses for the column type (RFC 3339 for String, "YYYY-MM-DD hh:mm:ss" for DateTime).
+  - Emit every column the table needs on every row; use null or an empty value for absent optional fields rather than leaving the key out.
 subscription:
   # payload is double-encoded ({{.payload | json | json}}) on purpose: the
   # payload column is a String, so the first json turns the map into a JSON

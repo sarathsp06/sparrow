@@ -30,6 +30,11 @@ type Recipe struct {
 	Consumer     *ConsumerHint `yaml:"consumer,omitempty" json:"consumer,omitempty" doc:"The consumer the recipe is meant to be registered under, when it matters."`
 	Webhook      Webhook       `yaml:"webhook" json:"webhook"`
 	Subscription Subscription  `yaml:"subscription" json:"subscription"`
+	// Guidance describes what an ideal message for this destination looks
+	// like (tone, length, structure, a rendered example). It is advice, not
+	// a rule: nothing checks templates against it. AI template drafting
+	// gives it to the model, below the user's instructions in precedence.
+	Guidance string `yaml:"guidance,omitempty" json:"guidance,omitempty" doc:"What an ideal message for this destination looks like. Advice for template authors and AI drafting, not a rule."`
 }
 
 // ConsumerHint names the consumer a recipe is meant for and why.

@@ -22,6 +22,18 @@ webhook:
   url: '{{param "server_url"}}'
   headers:
     Content-Type: application/json
+# What an ideal message for this destination looks like. Advice for
+# template authors and AI drafting, not a rule: instructions and the
+# receiver's own example take precedence.
+guidance: |
+  A good push notification fits the lock screen: a title and one or two
+  short lines.
+  - title: the outcome in a few words ("Backup failed on db-1"); the topic already says where it comes from.
+  - message: one or two sentences with the key facts (what, which, how much). No JSON; the phone shows a few lines at most.
+  - priority from the event's urgency: 5 only for something that needs action now (it can bypass Do Not Disturb), 4 for failures, 3 default, 1-2 for FYI.
+  - tags: one emoji shortcode that matches the outcome ("white_check_mark", "warning", "rotating_light"), plus plain tags for filtering.
+  - click: the URL of the record in the source system when the payload has one.
+  Ideal, rendered: title "Payment failed: ord_8F2", message "Card declined for acme-co ($49.50). Attempt 2.", priority 4, tags ["warning", "payments"].
 subscription:
   transform_template: |
     {

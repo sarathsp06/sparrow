@@ -503,6 +503,8 @@ webhook:
   headers: {Content-Type: application/json}
   secret_headers:              # envelope-encrypted at rest, masked on read
     Authorization: 'Bearer {{param "api_token"}}'
+guidance: |                    # what an ideal message looks like (advice, not a rule)
+  Lead with what happened in plain words; a short title, 2-6 key facts, a link.
 subscription:
   transform_template: |
     {"title": {{.event_name | json}}, "body": {{.payload | json}}}
@@ -526,6 +528,14 @@ A recipe can also name the consumer it is meant for, with a `consumer` block
 (`name` and `note`). The UI shows the note and offers to switch to that
 consumer: the shipped `sendgrid` recipe uses it, because its alert emails only
 work under `_sparrow`.
+
+`guidance` describes what an ideal message for the destination looks like:
+what goes first, length, structure, tone, the destination's own conventions
+(Slack's fallback text, SMS segments, PagerDuty dedup keys), and a short
+rendered example. It is advice, not a rule, and nothing validates against it.
+AI template drafting gives it to the model so a draft reads well rather than
+only rendering; the user's instructions and receiver example still win. Every
+shipped recipe has one.
 
 `{{param "x"}}` tokens in `webhook.url`, header values, `secret_headers` values,
 and the template are

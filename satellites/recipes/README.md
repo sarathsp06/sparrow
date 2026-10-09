@@ -62,6 +62,8 @@ webhook:
   headers: {Content-Type: application/json}
   secret_headers:              # envelope-encrypted at rest, masked in API responses
     Authorization: 'Bearer {{param "api_token"}}'  # for header-based auth tokens/passwords
+guidance: |                    # what an ideal message looks like (advice, not a rule)
+  Lead with the outcome in plain words; 2-6 key facts; link to the record.
 subscription:
   transform_template: |
     <Go template producing destination-native JSON from .event_name/.payload/etc>
@@ -69,6 +71,17 @@ subscription:
 
 The Go struct for this schema lives in [`schema.go`](schema.go)
 (`recipes.Recipe`) — dependency-free, importable by the CLI.
+
+## Guidance
+
+`guidance` says what an ideal message for the destination looks like: what
+goes first, length, structure, tone, the destination's conventions (Slack's
+fallback text, SMS segments, PagerDuty dedup keys), and a short rendered
+example. It is advice, not a rule, and nothing validates against it. AI
+template drafting (`POST /v1/subscriptions:draftTemplate` /
+`:draftTemplatePrompt`) gives it to the model so a draft reads well rather
+than only rendering; the user's instructions and receiver example still win.
+Every shipped recipe has one.
 
 ## Requiring the transform
 
@@ -103,7 +116,8 @@ baked into a recipe.
 ## Contributing a recipe
 
 1. Create `satellites/recipes/<name>.yaml` per the schema above; `name` must equal the
-   filename.
+   filename. Write `guidance` from the destination's own docs and good
+   practice for that medium.
 2. Templates that produce JSON must quote every interpolated value through
    the `json` helper (e.g. `{{.event_name | json}}`) so quotes and newlines
    in payloads can't break the output.

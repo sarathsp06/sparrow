@@ -35,6 +35,19 @@ webhook:
     # Basic: base64("<AccountSID>:<AuthToken>"). The AuthToken never leaves the
     # encrypted store in plaintext.
     Authorization: 'Basic {{param "basic_auth"}}'
+# What an ideal message for this destination looks like. Advice for
+# template authors and AI drafting, not a rule: instructions and the
+# receiver's own example take precedence.
+guidance: |
+  A good SMS is short, plain and obviously from you.
+  - Start with who it is from ("Acme:"), since SMS arrive from bare numbers.
+  - One message, the key fact and, if any, the next step: "Acme: payment for order 8F2 failed. Update your card at acme.co/pay".
+  - Keep it within 160 characters (one segment); never above 320. Every character over adds a billed segment.
+  - Stick to plain GSM-7 characters: emoji, curly quotes, em dashes, ellipses and bullets switch the whole message to UCS-2 and cut a segment to 70 characters. Use straight quotes, "-" and "...".
+  - No raw ids nobody can use, no JSON, no event names; times in the reader's terms ("today 14:00 UTC").
+  - Short links only; long URLs eat the budget.
+  - Ongoing or marketing messages need opt-out wording ("Reply STOP to opt out"); a one-off operational alert to your own team usually does not.
+  Ideal, rendered: "Acme: order 8F2 payment failed ($49.50). Retry at acme.co/o/8F2" (63 characters).
 subscription:
   # Twilio expects application/x-www-form-urlencoded. To/From are set from params
   # at apply time (digits are URL-safe; %2B is the encoded '+'); Body is rendered

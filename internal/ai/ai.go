@@ -66,11 +66,9 @@ type Request struct {
 	// Instructions is the user's plain-language description of the payload
 	// the receiver should get.
 	Instructions string
-	// Recipe, when set, names the destination format (e.g. "slack") and
-	// carries its reference template so the draft matches that API's shape.
-	RecipeName        string
-	RecipeDescription string
-	RecipeTemplate    string
+	// Recipe, when set, is the shipped destination format (e.g. "slack") the
+	// draft must follow.
+	Recipe *Recipe
 	// TargetExample is what the receiver expects: an example body, or a
 	// plain-language description of its shape.
 	TargetExample string
@@ -106,26 +104,6 @@ type completion struct {
 // provider turns (system, turns, json schema) into one structured reply.
 type completer interface {
 	complete(ctx context.Context, system string, turns []turn, schema map[string]any) (completion, error)
-}
-
-// PromptBuilder assembles the drafting prompt from a Request. It needs no
-// model or key, so a server with no AI provider configured can still hand
-// the prompt to a user to paste into any chat assistant.
-type PromptBuilder struct {
-	helpers []HelperFunc
-}
-
-// NewPromptBuilder returns a builder that knows the template helper catalog.
-func NewPromptBuilder(helpers []HelperFunc) *PromptBuilder {
-	return &PromptBuilder{helpers: helpers}
-}
-
-// ChatPrompt returns one self-contained prompt for a human to paste into a
-// chat assistant: the same grounding the drafter sends, but asking for the
-// template in a code block instead of a JSON object.
-func (p *PromptBuilder) ChatPrompt(req Request, docsText string) string {
-	return p.systemPrompt(true) + "\n\n=== Your task ===\n\n" + p.userPrompt(req, docsText) +
-		"\nReply with the complete template in one ```-fenced code block and nothing else inside it, then one or two sentences on which payload fields you used and any assumption you made. The person will paste the code block into Sparrow's template editor and check it with Run Preview.\n"
 }
 
 // ResolveDocs fetches req.DocsURL through fetch when set. A nil fetch with a
@@ -278,7 +256,7 @@ func (d *Drafter) DraftTemplate(ctx context.Context, req Request) (*Result, erro
 		lastErr = renderErr
 		turns = append(turns, turn{role: "user", text: "Rendering that template against the sample payload failed with:\n\n" +
 			renderErr.Error() +
-			"\n\nFix the template so it renders. Only use helpers from the catalog and fields that exist in the payload (reading a missing key is an error; optional fields go through index). Return the full corrected template."})
+			"\n\nFix the template so it renders. Only use helpers from the catalog and fields that exist in the payload: reading a missing key is an error, so read optional fields with dig or index; compare payload numbers with float literals (3.0, not 3); never leave a {{param}} token. Return the full corrected template."})
 	}
 	return nil, svcerrors.Wrapf(lastErr, svcerrors.InvalidArgument,
 		"drafted template did not render after %d attempts: %v", d.maxAttempts, lastErr)
@@ -359,102 +337,4 @@ func mapTransportError(err error) error {
 		return svcerrors.Error(svcerrors.DeadlineExceeded, "AI drafting timed out")
 	}
 	return svcerrors.Wrapf(err, svcerrors.Unavailable, "ai: request failed")
-}
-
-// systemPrompt is stable across requests so it can be prefix-cached. chat
-// swaps the structured-output instruction for a code-block one.
-func (p *PromptBuilder) systemPrompt(chat bool) string {
-	var b strings.Builder
-	b.WriteString(`You write Sparrow subscription transform templates.
-
-Sparrow is a webhook delivery service. A transform template is a Go text/template that is rendered once per delivery to produce the HTTP body sent to the receiver. You will be given the event type's JSON Schema and a sample payload, plus a description of what the receiver should get. Produce a template that renders that body.
-
-Template data (the dot):
-  .event_id    string  unique id of this event occurrence
-  .event_name  string  the event type name, e.g. "order.created"
-  .timestamp   string  RFC 3339 time the event was pushed
-  .attempt     int     delivery attempt number, starting at 1
-  .payload     object  the event payload; the schema and sample below describe it
-
-Rules:
-- Use only Go text/template syntax and the helper functions in the catalog below. Do not invent helpers.
-- When the output is JSON, emit valid JSON: pipe string values through the json helper ({{ .payload.name | json }}) rather than wrapping them in quotes by hand, so quoting and escaping are always correct. Pipe objects and arrays through json too.
-- Access payload fields as {{ .payload.field }}. Reading a key that is not in the payload is an error (the template is rendered with missingkey=error), so for fields the schema marks optional, or that may be absent, read them with (index .payload "field") inside {{ with }} or {{ if }}, and use default for fallbacks. Check every field name and its case against the sample payload.
-- Do not use .Payload (capitalised): the field is .payload.
-- Prefer a small, readable template over a clever one. No comments unless asked.
-- If given a recipe reference template, keep its top-level shape (the destination API requires it) and adapt only the content.
-- If given an example of what the receiver expects, match its structure and field names exactly and map event fields onto it. If given a description instead, follow it literally; if given documentation, use only the parts about the request body.
-- If given a current template to refine, keep everything the instructions do not ask to change.
-`)
-	if chat {
-		b.WriteString("- Reply with the complete template in one fenced code block, followed by one or two plain sentences of notes.\n")
-	} else {
-		b.WriteString("- Respond only with the JSON object described by the output schema. The template field is the full template text; the notes field is one or two plain sentences for the user.\n")
-	}
-	b.WriteString("\nHelper catalog (name, then its documentation):\n")
-	for _, h := range p.helpers {
-		b.WriteString("\n### ")
-		b.WriteString(h.Name)
-		b.WriteString("\n")
-		b.WriteString(h.Description)
-		b.WriteString("\n")
-	}
-	return b.String()
-}
-
-func (p *PromptBuilder) userPrompt(req Request, docsText string) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "Event type: %s\n\n", req.EventName)
-	if len(req.Schema) > 0 {
-		b.WriteString("JSON Schema of the payload:\n```json\n")
-		b.WriteString(mustJSON(req.Schema))
-		b.WriteString("\n```\n\n")
-	}
-	if len(req.SamplePayload) > 0 {
-		b.WriteString("Sample payload (this is what .payload looks like):\n```json\n")
-		b.WriteString(mustJSON(req.SamplePayload))
-		b.WriteString("\n```\n\n")
-	} else {
-		b.WriteString("No sample payload is registered for this event type; rely on the schema and the instructions.\n\n")
-	}
-	if req.RecipeName != "" {
-		fmt.Fprintf(&b, "Destination recipe: %s", req.RecipeName)
-		if req.RecipeDescription != "" {
-			fmt.Fprintf(&b, " — %s", req.RecipeDescription)
-		}
-		b.WriteString("\n")
-		if req.RecipeTemplate != "" {
-			b.WriteString("Reference template for this destination (keep its top-level shape):\n```\n")
-			b.WriteString(req.RecipeTemplate)
-			b.WriteString("\n```\n")
-		}
-		b.WriteString("\n")
-	}
-	if strings.TrimSpace(req.TargetExample) != "" {
-		b.WriteString("What the receiver expects (an example body, or a description of its shape):\n```\n")
-		b.WriteString(strings.TrimSpace(req.TargetExample))
-		b.WriteString("\n```\n\n")
-	}
-	if strings.TrimSpace(docsText) != "" {
-		fmt.Fprintf(&b, "Receiver documentation, text extracted from %s (use only what concerns the request body):\n```\n", strings.TrimSpace(req.DocsURL))
-		b.WriteString(strings.TrimSpace(docsText))
-		b.WriteString("\n```\n\n")
-	}
-	if strings.TrimSpace(req.CurrentTemplate) != "" {
-		b.WriteString("Current template to refine:\n```\n")
-		b.WriteString(strings.TrimSpace(req.CurrentTemplate))
-		b.WriteString("\n```\n\n")
-	}
-	b.WriteString("Instructions:\n")
-	b.WriteString(strings.TrimSpace(req.Instructions))
-	b.WriteString("\n")
-	return b.String()
-}
-
-func mustJSON(v any) string {
-	b, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return fmt.Sprintf("%v", v)
-	}
-	return string(b)
 }

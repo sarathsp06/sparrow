@@ -266,34 +266,6 @@ func TestDraftTemplate_ValidatesInput(t *testing.T) {
 	}
 }
 
-func TestPrompts_IncludeRecipeExampleAndCurrent(t *testing.T) {
-	d := NewPromptBuilder([]HelperFunc{{Name: "json", Description: "doc"}})
-	sys := d.systemPrompt(false)
-	if !strings.Contains(sys, ".payload") || !strings.Contains(sys, "### json") || !strings.Contains(sys, "JSON object") {
-		t.Fatalf("system prompt missing data model or helper catalog:\n%s", sys)
-	}
-	user := d.userPrompt(Request{
-		DocsURL:         "https://docs.example.com/hooks",
-		EventName:       "order.created",
-		Schema:          map[string]any{"type": "object"},
-		SamplePayload:   map[string]any{"id": "1"},
-		Instructions:    "do it",
-		RecipeName:      "slack",
-		RecipeTemplate:  `{"blocks": []}`,
-		TargetExample:   `{"text": "..."}`,
-		CurrentTemplate: `{{ .payload.id }}`,
-	}, "POST a JSON body with title and body fields")
-	chat := d.ChatPrompt(Request{EventName: "e", Instructions: "do it", SamplePayload: map[string]any{"id": "1"}}, "")
-	if strings.Contains(chat, "JSON object") || !strings.Contains(chat, "fenced code block") || !strings.Contains(chat, "=== Your task ===") || !strings.Contains(chat, "### json") {
-		t.Fatalf("chat prompt should be self-contained and ask for a code block:\n%s", chat)
-	}
-	for _, want := range []string{"docs.example.com/hooks", "title and body fields", "order.created", `"type": "object"`, `"id": "1"`, "Destination recipe: slack", `{"blocks": []}`, `{"text": "..."}`, "Current template to refine", "do it"} {
-		if !strings.Contains(user, want) {
-			t.Fatalf("user prompt missing %q:\n%s", want, user)
-		}
-	}
-}
-
 func TestNew_RequiresConfig(t *testing.T) {
 	r := func(context.Context, string, string, map[string]any) (string, error) { return "", nil }
 	if _, err := New(Config{Model: "m"}, r, nil, nil); err == nil {

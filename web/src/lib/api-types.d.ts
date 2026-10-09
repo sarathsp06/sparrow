@@ -2339,6 +2339,8 @@ export interface components {
             /** @description The consumer the recipe is meant to be registered under, when it matters. */
             consumer?: components["schemas"]["ConsumerHint"];
             description: string;
+            /** @description What an ideal message for this destination looks like. Advice for template authors and AI drafting, not a rule. */
+            guidance?: string;
             name: string;
             params?: components["schemas"]["Param"][] | null;
             subscription: components["schemas"]["Subscription"];

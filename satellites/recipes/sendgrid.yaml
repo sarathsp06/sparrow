@@ -41,6 +41,37 @@ webhook:
   secret_headers:
     # Envelope-encrypted at rest, masked in API responses.
     Authorization: 'Bearer {{param "api_key"}}'
+# What an ideal message for this destination looks like. Advice for
+# template authors and AI drafting, not a rule: instructions and the
+# receiver's own example take precedence.
+guidance: |
+  A good email reads like a short letter from a person: who it is for,
+  why it was sent, what it means for them, and who it is from.
+  - Subject: says what the email is about, specific enough to recognise in an inbox list, e.g. "Payment failed for order 8F2" rather than "Sparrow event: payment.failed".
+  - Greeting: address the recipient, by name when the payload has one ("Hi Priya,"), otherwise a neutral "Hello,".
+  - Opening: one or two sentences on why they are getting this email and what happened.
+  - Body: the details that matter to the reader, in short paragraphs or "Label: value" lines; then what they need to do, if anything, with the link to do it.
+  - Closing: a short line that ends the email ("If you have questions, reply to this email." / "Thanks,").
+  - Signature: the sender's name, team or product, so the reader knows who wrote to them.
+  - Write for people, not machines: plain sentences, no raw JSON, internal ids or field names unless the reader is an engineer and the instructions want them. Reference details (event id, time) can go in a small footer.
+  - Content: include text/plain (first) so every client can show it; an HTML version with the same structure is welcome when asked for.
+  - One recipient per personalization when recipients must not see each other.
+  Ideal, rendered:
+    Subject: Payment failed for order 8F2
+    Body: "Hi Priya,
+
+    We could not take the card payment for your order 8F2 ($49.50).
+
+    Order: 8F2
+    Amount: $49.50
+    Reason: the card was declined
+
+    You can retry the payment here: https://acme.co/o/8F2
+
+    If you have questions, just reply to this email.
+
+    Thanks,
+    The Acme team"
 subscription:
   # Sparrow's own system alerts (sparrow.webhook.health_changed /
   # delivery_failed / disabled, see the webhook_alert_configs API) carry

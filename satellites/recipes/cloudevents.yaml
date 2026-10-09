@@ -21,6 +21,17 @@ webhook:
   headers:
     # Structured content mode: every attribute travels in the JSON body.
     Content-Type: application/cloudevents+json; charset=utf-8
+# What an ideal message for this destination looks like. Advice for
+# template authors and AI drafting, not a rule: instructions and the
+# receiver's own example take precedence.
+guidance: |
+  A good CloudEvent is a faithful, self-describing envelope; consumers route
+  on its attributes, so they must be stable.
+  - type: a stable, versioned, reverse-DNS style name ("com.acme.order.refunded.v1"); keep the event name if the consumer routes on it.
+  - source + id: unique per event and stable across retries (keep .event_id), so consumers deduplicate.
+  - subject: the entity the event is about (an order or user id) when the payload has one; consumers filter on it without parsing data.
+  - time: when the event happened, from the payload when it has an occurrence time, else .timestamp.
+  - data: the payload unchanged unless the instructions ask to reshape it; set datacontenttype to match.
 subscription:
   # The event id is the CloudEvents id, so a receiver deduplicates retries of
   # the same event (id + source is unique per the spec). time is the delivery

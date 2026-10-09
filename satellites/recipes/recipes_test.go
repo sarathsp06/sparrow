@@ -105,6 +105,10 @@ func TestRecipes(t *testing.T) {
 			if !r.Webhook.RequiresTransform {
 				t.Error("webhook.requires_transform must be true")
 			}
+			// AI drafting uses it to aim for a good message, not just a valid one.
+			if strings.TrimSpace(r.Guidance) == "" {
+				t.Error("guidance is empty")
+			}
 
 			// Every {{param "x"}} token must reference a declared param.
 			declared := make(map[string]bool, len(r.Params))

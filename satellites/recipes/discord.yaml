@@ -14,6 +14,20 @@ webhook:
   url: '{{param "webhook_url"}}'
   headers:
     Content-Type: application/json
+# What an ideal message for this destination looks like. Advice for
+# template authors and AI drafting, not a rule: instructions and the
+# receiver's own example take precedence.
+guidance: |
+  A good Discord notification is one embed a reader can scan without
+  expanding anything.
+  - Title: the outcome in a few words ("Deploy failed: api-server"), at most ~80 characters even though 256 are allowed.
+  - Description: one or two sentences of what happened and what to do next. Avoid dumping the payload; a short code block for one key value is fine.
+  - Fields: 2-6 key facts as name/value pairs; mark short ones inline so they sit three to a row.
+  - Color signals intent: green 3066993 success, yellow 16776960 warning, red 15158332 failure, blurple 5793266 informational. Pick it from the event or status, not at random.
+  - timestamp: the event time (ISO 8601), so Discord shows it in the reader's timezone.
+  - url on the embed when the payload links to the record, so the title is clickable.
+  - Leave content empty unless a plain-text line or mention is asked for.
+  Ideal, rendered: red embed, title "Payment failed: ord_8F2", description "Card declined for acme-co. Retry from the dashboard.", fields Amount $49.50 · Customer acme-co · Attempt 2, timestamp set.
 subscription:
   transform_template: |
     {

@@ -165,9 +165,7 @@ func buildDraftRequest(ctx context.Context, svc webhooks.WebhookServiceInterface
 		if r == nil {
 			return ai.Request{}, "", huma.Error404NotFound("recipe not found: " + name)
 		}
-		req.RecipeName = r.Name
-		req.RecipeDescription = r.Description
-		req.RecipeTemplate = r.Subscription.TransformTemplate
+		req.Recipe = toAIRecipe(r)
 	}
 	return req, sampleSource, nil
 }
@@ -199,6 +197,32 @@ func registerPromptRoute(api huma.API, svc webhooks.WebhookServiceInterface, dep
 		out.Body.SampleSource = sampleSource
 		return out, nil
 	})
+}
+
+// toAIRecipe keeps what the model needs from a recipe. Secret headers are
+// left out: their values are {{param}} tokens, but they say nothing about
+// the body. A secret param's default is left out too.
+func toAIRecipe(r *recipes.Recipe) *ai.Recipe {
+	out := &ai.Recipe{
+		Name:        r.Name,
+		Description: r.Description,
+		Guidance:    r.Guidance,
+		URL:         r.Webhook.URL,
+		Template:    r.Subscription.TransformTemplate,
+	}
+	for k, v := range r.Webhook.Headers {
+		if strings.EqualFold(k, "Content-Type") {
+			out.ContentType = v
+		}
+	}
+	for _, p := range r.Params {
+		prm := ai.RecipeParam{Name: p.Name, Prompt: p.Prompt, Help: p.Help, Example: p.Example, Enum: p.Enum}
+		if !p.Secret {
+			prm.Default = p.Default
+		}
+		out.Params = append(out.Params, prm)
+	}
+	return out
 }
 
 func findRecipe(name string) (*recipes.Recipe, error) {

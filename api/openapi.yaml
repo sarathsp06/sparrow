@@ -1858,6 +1858,9 @@ components:
           description: The consumer the recipe is meant to be registered under, when it matters.
         description:
           type: string
+        guidance:
+          description: What an ideal message for this destination looks like. Advice for template authors and AI drafting, not a rule.
+          type: string
         name:
           type: string
         params:
