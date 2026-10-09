@@ -40,10 +40,12 @@ type oaMessage struct {
 	Content string `json:"content"`
 }
 
+// oaRequest sets no sampling parameters (temperature, top_p): reasoning
+// models reject any non-default value, and every server falls back to its
+// own default when they are omitted.
 type oaRequest struct {
 	Model          string      `json:"model"`
 	Messages       []oaMessage `json:"messages"`
-	Temperature    float64     `json:"temperature"`
 	ResponseFormat any         `json:"response_format,omitempty"`
 }
 
@@ -67,9 +69,8 @@ func (c *openAIClient) complete(ctx context.Context, system string, turns []turn
 		msgs = append(msgs, oaMessage{Role: t.role, Content: t.text})
 	}
 	body, err := json.Marshal(oaRequest{
-		Model:       c.model,
-		Messages:    msgs,
-		Temperature: 0.2,
+		Model:    c.model,
+		Messages: msgs,
 		ResponseFormat: map[string]any{
 			"type": "json_schema",
 			"json_schema": map[string]any{

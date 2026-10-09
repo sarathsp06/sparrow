@@ -99,6 +99,12 @@ func TestOpenAIProvider_DraftsAndRepairs(t *testing.T) {
 	if f.auth[0] != "" {
 		t.Fatalf("no key configured but Authorization sent: %q", f.auth[0])
 	}
+	// No sampling parameters: reasoning models reject non-default values.
+	for _, k := range []string{"temperature", "top_p"} {
+		if _, ok := f.requests[0][k]; ok {
+			t.Fatalf("request sets %s: %v", k, f.requests[0])
+		}
+	}
 	// The repair turn carries the assistant's previous reply and the error.
 	second, _ := json.Marshal(f.requests[1]["messages"])
 	if !strings.Contains(string(second), `"role":"assistant"`) || !strings.Contains(string(second), "does not exist in the data") {
