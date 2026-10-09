@@ -82,6 +82,7 @@ No variables set: prompt-only mode. `GET /v1/capabilities` reports `ai_drafting.
 | `SPARROW_AI_API_KEY` | Provider key. Enables drafting for `anthropic`; optional Bearer token for `openai`. `GET /v1/capabilities` reports `ai_drafting.{enabled,provider,model}` | -- |
 | `SPARROW_AI_MODEL` | Model id. Required for `openai` | `claude-haiku-4-5` (anthropic) |
 | `SPARROW_AI_BASE_URL` | API base URL. Required for `openai` (enables drafting); optional gateway override for `anthropic` | -- |
+| `SPARROW_AI_TIMEOUT` | Budget for one draft incl. repair rounds; lifts the 30s write timeout for that request only; 504 when exceeded | `3m` |
 
 ## Database Pools
 

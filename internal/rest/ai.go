@@ -2,10 +2,14 @@ package rest
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 
 	"github.com/sarathsp06/sparrow/internal/ai"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
@@ -28,9 +32,33 @@ type AIDeps struct {
 	// Fetch reads a docs_url for the prompt endpoint when no drafter is
 	// configured (the drafter carries its own). Nil refuses docs_url.
 	Fetch ai.DocFetcher
+	// Timeout bounds one draft, repair rounds included. 0 means
+	// defaultDraftTimeout.
+	Timeout time.Duration
 }
 
+const defaultDraftTimeout = 3 * time.Minute
+
 func (d AIDeps) enabled() bool { return d.Drafter != nil }
+
+func (d AIDeps) draftTimeout() time.Duration {
+	if d.Timeout > 0 {
+		return d.Timeout
+	}
+	return defaultDraftTimeout
+}
+
+// extendWriteDeadline lifts the server's WriteTimeout for one slow
+// operation. Without it the connection is dropped at 30s while the model is
+// still answering, and the caller (or a proxy in front) sees a bare 5xx.
+func extendWriteDeadline(d time.Duration) func(huma.Context, func(huma.Context)) {
+	return func(hctx huma.Context, next func(huma.Context)) {
+		_, w := humachi.Unwrap(hctx)
+		// Best effort: a writer that cannot extend keeps the server default.
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(d))
+		next(hctx)
+	}
+}
 
 type capabilitiesOutput struct {
 	Body struct {
@@ -109,8 +137,10 @@ func registerAIRoutes(api huma.API, svc webhooks.WebhookServiceInterface, deps A
 		Path:        "/v1/subscriptions:draftTemplate",
 		Summary:     "Draft a transform template with AI",
 		Description: "Drafts a transform_template from a plain-language description, grounded in the event type's JSON Schema and sample payload, the template helper catalog, and optionally a shipped recipe's destination format or an example body the receiver expects. Every draft is rendered against the sample payload (as POST /v1/subscriptions:testTemplate does) and repaired until it renders, so the returned template is known to work. Nothing is saved: put the template into a subscription's transform_template. Requires AI drafting to be configured on the server (SPARROW_AI_API_KEY for Anthropic, or SPARROW_AI_PROVIDER=openai with SPARROW_AI_BASE_URL for any OpenAI-compatible server); otherwise 503. Only the sample payload (registered or provided in the request), the schema, and the request's own text are sent to the model, never stored events, headers, or secrets.",
-		Errors:      []int{400, 404, 429, 503},
+		Errors:      []int{400, 404, 429, 503, 504},
 		Tags:        []string{"Subscriptions"},
+		// Room to write the answer (or the 504) after the draft's own budget.
+		Middlewares: huma.Middlewares{extendWriteDeadline(deps.draftTimeout() + 30*time.Second)},
 	}, func(ctx context.Context, in *draftTemplateInput) (*draftTemplateOutput, error) {
 		if !deps.enabled() {
 			return nil, huma.Error503ServiceUnavailable("AI drafting is not configured on this server (set SPARROW_AI_API_KEY, or SPARROW_AI_PROVIDER=openai with SPARROW_AI_BASE_URL); POST /v1/subscriptions:draftTemplatePrompt still builds a prompt you can paste into any chat assistant")
@@ -119,8 +149,13 @@ func registerAIRoutes(api huma.API, svc webhooks.WebhookServiceInterface, deps A
 		if err != nil {
 			return nil, err
 		}
-		res, err := deps.Drafter.DraftTemplate(ctx, req)
+		draftCtx, cancel := context.WithTimeout(ctx, deps.draftTimeout())
+		defer cancel()
+		res, err := deps.Drafter.DraftTemplate(draftCtx, req)
 		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
+				return nil, huma.Error504GatewayTimeout(fmt.Sprintf("the model did not finish a draft within %s; try again, use a faster model, or raise SPARROW_AI_TIMEOUT", deps.draftTimeout()))
+			}
 			return nil, mapError(ctx, err, "failed to draft template")
 		}
 		out := &draftTemplateOutput{}

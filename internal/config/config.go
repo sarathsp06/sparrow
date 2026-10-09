@@ -203,6 +203,13 @@ type Config struct {
 	// (an internal gateway or proxy).
 	// Env: SPARROW_AI_BASE_URL
 	AIBaseURL string `envconfig:"SPARROW_AI_BASE_URL" default:""`
+
+	// AITimeout bounds one POST /v1/subscriptions:draftTemplate, every
+	// draft → render → repair round included. The server's 30s write
+	// timeout is lifted to match for that request only, so a slow model or
+	// a few repair rounds are not cut off mid-draft.
+	// Env: SPARROW_AI_TIMEOUT (Go duration, default "3m")
+	AITimeout time.Duration `envconfig:"SPARROW_AI_TIMEOUT" default:"3m"`
 }
 
 // Load populates a Config struct from environment variables.

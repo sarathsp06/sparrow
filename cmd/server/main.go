@@ -261,7 +261,7 @@ func main() {
 	// install with no AI still gets a copy-and-paste prompt.
 	// docs_url fetches obey the delivery network policy (SSRF guard).
 	fetch := ai.NewDocFetcher(client.NetworkPolicy{AllowPrivate: cfg.AllowPrivateNetworks, AllowedNetworks: cfg.AllowedNetworkList()})
-	aiDeps := rest.AIDeps{Fetch: fetch}
+	aiDeps := rest.AIDeps{Fetch: fetch, Timeout: cfg.AITimeout}
 	if cfg.AIEnabled() {
 		helpers := make([]ai.HelperFunc, 0)
 		for _, f := range tracedWebhookService.GetTemplateFunctions() {

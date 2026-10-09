@@ -103,6 +103,7 @@ addresses unless you allow them.
 | `SPARROW_AI_API_KEY` | unset | Provider API key. Required for `anthropic`; optional for a local `openai` server. |
 | `SPARROW_AI_MODEL` | `claude-haiku-4-5` for `anthropic` | Model name. Required for `openai`. |
 | `SPARROW_AI_BASE_URL` | unset | API root. Required for `openai`; optional proxy override for `anthropic`. |
+| `SPARROW_AI_TIMEOUT` | `3m` | Longest one draft may take, repair rounds included; past it the request answers 504. A reverse proxy in front of Sparrow needs a read timeout at least this long. |
 
 See [AI template drafting](#ai-template-drafting) below for what each setup
 does.
