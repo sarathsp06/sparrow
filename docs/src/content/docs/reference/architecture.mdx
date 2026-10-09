@@ -65,14 +65,17 @@ See the [API Reference](/sparrow/reference/api/) for the full endpoint list.
 ## Event Processing Pipeline
 
 ```mermaid
-flowchart TD
+flowchart LR
     accTitle: Event processing pipeline
-    accDescr: Event processing pipeline: a push rejects unknown event types unless auto-register is on, dedups, validates softly, stores the event with its event_version and enqueues it; EventProcessingWorker matches subscriptions and batch-inserts deliveries, paused ones for paused subscriptions or paused/auto-disabled webhooks, and enqueues jobs for the rest; WebhookWorker renders the transform strictly (failing with template_error or falling back), applies the rate limit, sends the signed request, updates the delivery, records health for receiver outcomes only, and retries retryable failures with backoff.
-    IN["POST /v1/consumers/{consumer}/events"] --> H
-    H["Push (internal/webhooks)<br>1. Reject unknown event types (404) unless auto-register is on<br>2. Dedup on idempotency key<br>3. Validate payload against the current schema (soft)<br>4. Insert event_record with event_version<br>5. Enqueue EventArgs (River, events queue)"] --> EW
-    EW["EventProcessingWorker<br>1. Load event<br>2. Match subscriptions (consumer + event name or * + labels)<br>3. Batch-insert deliveries: paused for paused subscriptions or webhooks<br>4. Batch-enqueue WebhookArgs for the rest"] --> WW
-    WW["WebhookWorker<br>1. Load webhook, event, subscription; hold as paused if either is paused<br>2. Render the transform (strict by default); on failure fail with template_error or fall back<br>3. Rate limit (leaky bucket in PostgreSQL)<br>4. HTTP request with Standard Webhooks signing<br>5. Update delivery; record health for receiver outcomes only<br>6. Retryable failure: re-enqueue with backoff; auto-disable a webhook failing too long"] --> T[Target URL receives the webhook]
+    accDescr: An event pushed to the API is stored and queued, EventProcessingWorker fans it out into deliveries, and WebhookWorker sends each one to its target URL, retrying failures with backoff.
+    IN["POST …/events"] --> H["Push"] --> EW["EventProcessingWorker"] --> WW["WebhookWorker"] --> T["Target URL"]
 ```
+
+| Stage | What it does |
+|-------|--------------|
+| **Push** (`internal/webhooks`) | Rejects unknown event types (`404`) unless auto-register is on, dedups on the idempotency key, validates the payload against the current schema (soft), stores the event with its `event_version`, and enqueues it. |
+| **EventProcessingWorker** | Matches subscriptions (consumer + event name or `*` + labels) and batch-inserts deliveries: `paused` for a paused subscription or webhook, queued for the rest. |
+| **WebhookWorker** | Holds the delivery as paused if its webhook or subscription is paused, renders the transform (strict by default; a failure is `template_error` or falls back), applies the rate limit, sends the signed request, updates the delivery and records health for receiver outcomes only. A retryable failure is re-queued with backoff; a webhook failing too long is auto-disabled. |
 
 ---
 
