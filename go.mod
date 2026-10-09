@@ -17,6 +17,7 @@ require (
 	github.com/kaptinlin/jsonschema v0.7.7
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/lib/pq v1.12.3
+	github.com/prometheus/client_golang v1.23.2
 	github.com/remychantenay/slog-otel v1.3.5
 	github.com/riverqueue/river v0.33.0
 	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.33.0
@@ -27,6 +28,7 @@ require (
 	github.com/sarathsp06/sparrow/pkg/signature v0.0.0-00010101000000-000000000000
 	github.com/sarathsp06/sparrow/pkg/template v0.0.0-00010101000000-000000000000
 	github.com/sarathsp06/sparrow/satellites/recipes v0.0.0-00010101000000-000000000000
+	github.com/shirou/gopsutil/v4 v4.26.2
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.41.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.41.0
@@ -40,6 +42,7 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.43.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.43.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.43.0
+	go.opentelemetry.io/otel/exporters/prometheus v0.65.0
 	go.opentelemetry.io/otel/log v0.19.0
 	go.opentelemetry.io/otel/metric v1.43.0
 	go.opentelemetry.io/otel/sdk v1.43.0
@@ -124,14 +127,12 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
-	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.5 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
 	github.com/prometheus/procfs v0.20.1 // indirect
 	github.com/riverqueue/river/riverdriver v0.33.0 // indirect
 	github.com/riverqueue/river/rivershared v0.33.0 // indirect
-	github.com/shirou/gopsutil/v4 v4.26.2 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/standard-webhooks/standard-webhooks/libraries v0.0.1 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
@@ -144,7 +145,6 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.43.0 // indirect
-	go.opentelemetry.io/otel/exporters/prometheus v0.65.0 // indirect
 	go.uber.org/goleak v1.3.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect

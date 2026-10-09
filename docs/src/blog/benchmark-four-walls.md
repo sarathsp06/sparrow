@@ -190,17 +190,17 @@ Ingest never flinched. `POST /events` answered in 4 to 13 milliseconds at the me
 
 ### Resource utilization & efficiency
 
-Throughput alone hides whether a system is bound by software design or hardware saturation. Following Brendan Gregg's USE (Utilization, Saturation, Errors) methodology, tracking process CPU, memory RSS, and WAL growth alongside delivery rates makes the performance claims checkable:
+Throughput alone does not say whether a wall is software design or hardware saturation. Following Brendan Gregg's USE (Utilization, Saturation, Errors) method, the harness can now sample the Sparrow process (`-sparrow-pid`: CPU %, peak RSS), the Postgres postmaster plus its backend children (`-postgres-pid`), and WAL growth over the run (`-postgres-dsn`, via `pg_wal_lsn_diff`). The same caveat as the table above applies — each figure is one run, on the same laptop (M3 Pro, local Postgres 14) — so read magnitudes, not decimals. The final build, 500 events/s × 2 subscribers (~1,000 deliveries/s), 10 KB payloads, 30 s:
 
-| Metric (Final build, 1,000 events/s) | Value | Why it matters |
+| Metric | Measured | What it says |
 |---|---|---|
-| Sparrow CPU % (avg / peak) | 18% / 34% | Confirms walls 2–4 were artificial pacers rather than CPU saturation |
-| Postgres CPU % (avg / peak) | 22% / 38% | Confirms database CPU had ample headroom |
-| Sparrow Peak RSS | ~42 MB | Proves backlog is held in Postgres via River, keeping process memory flat even during 20,000-event bursts |
-| WAL Write Rate | 9.8 MB/s | Establishes baseline WAL write overhead for 10 KB delivery bodies |
-| CPU Efficiency | ~0.42 CPU-ms / delivery | Provides a concrete sizing number for self-hosters calculating core requirements |
+| Sparrow CPU % (avg / peak) | 104% / 120% | About one core of twelve at a thousand deliveries a second; the earlier walls were pacers, not saturation |
+| Postgres CPU % (avg / peak) | 96% / 157% | Backends included — sampling the postmaster alone reads ~0% and is why the flag takes the postmaster and sums its children |
+| Sparrow peak RSS | 76 MB | The backlog lives in Postgres via River; process memory stays flat even during 20,000-event bursts |
+| WAL written | 13 MB/s | The delivery-body write cost called out above, now measured rather than estimated from payload size |
+| CPU per delivered event | 2.2 CPU-ms | A concrete sizing anchor for self-hosters, until a multi-run median replaces it |
 
-Proving that memory RSS stays flat during massive backlog bursts validates Sparrow's core promise: "accept first, never lose." The process RAM never bloats under load because queuing and retry state live entirely within PostgreSQL.
+Flat RSS under a growing backlog is the point: queue and retry state live entirely in PostgreSQL, so "accept first" never turns into process memory growth.
 
 ## What we would tell ourselves at the start
 
@@ -244,7 +244,7 @@ go run ./cmd/benchmark -mode e2e -sparrow-url http://localhost:8080 \
 | `-burst N` | Publish N events as fast as possible, then time the drain |
 | `-receiver-delay 50ms` | Make the receiver slow |
 | `-sparrow-pid PID` | Target Sparrow process PID to sample CPU % and peak RSS |
-| `-postgres-pid PID` | Postgres process PID to sample database CPU % |
+| `-postgres-pid PID` | Postgres postmaster PID; sampled CPU % includes its backend children |
 | `-postgres-dsn DSN` | Postgres connection string to query WAL write bytes (`pg_wal_lsn_diff`) |
 | `-json FILE` | Write the full report, including the per-second backlog timeline and resource utilization, for plotting |
 
