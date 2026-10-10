@@ -529,6 +529,19 @@ A recipe can also name the consumer it is meant for, with a `consumer` block
 consumer: the shipped `sendgrid` recipe uses it, because its alert emails only
 work under `_sparrow`.
 
+### Validating a recipe
+
+`go test ./satellites/recipes/` checks every shipped recipe. For a draft, or a
+local recipe outside the repo, the [`sparrow mcp`](/sparrow/satellites/cli/#sparrow-mcp)
+server's `validate_recipe` tool runs the same checks without registering
+anything: param tokens and enums, a strict render of the template with params
+substituted (missing payload keys are errors, as on a subscription), valid JSON
+when the `Content-Type` is JSON, and an http(s) URL once real param values are
+given. Keys outside the schema, such as a misspelled `requires_transform`, and
+the catalog's shipping rules (description, guidance, param help) come back as
+warnings. `apply_recipe` runs the same validation and refuses to create
+anything when it fails.
+
 `guidance` describes what an ideal message for the destination looks like:
 what goes first, length, structure, tone, the destination's own conventions
 (Slack's fallback text, SMS segments, PagerDuty dedup keys), and a short

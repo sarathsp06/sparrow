@@ -13,11 +13,12 @@ import (
 const mcpHelp = `Serve Sparrow to AI agents over the Model Context Protocol (stdio).
 
 Read-only by default: agents can list webhooks, subscriptions, deliveries,
-attempts, event types and stats, and render a template against an event
-type's sample payload. With --allow-write they can also push events, retry
-deliveries, register and delete webhooks, create subscriptions, and run a
-temporary local receiver (start_listen / list_received / stop_listen) to see
-what a subscription actually delivers.
+attempts, event types, stats and recipes, render a template against an event
+type's sample payload, and validate a recipe (built-in, local or draft YAML).
+With --allow-write they can also push events, retry deliveries, register and
+delete webhooks, create subscriptions, apply recipes, and run a temporary
+local receiver (start_listen / list_received / stop_listen) to see what a
+subscription actually delivers.
 
 Register it with an MCP client, for example Claude Code:
 
@@ -48,7 +49,7 @@ func newMCPCmd() *cobra.Command {
 			return runErr
 		},
 	}
-	cmd.Flags().BoolVar(&allowWrite, "allow-write", false, "expose tools that change state: push, retry, register/delete webhooks, subscriptions, listen")
+	cmd.Flags().BoolVar(&allowWrite, "allow-write", false, "expose tools that change state: push, retry, register/delete webhooks, subscriptions, apply recipes, listen")
 	return cmd
 }
 
@@ -183,6 +184,8 @@ func newMCPServer(client *apiClient, consumer string, allowWrite bool) (*mcp.Ser
 			out, err := post(ctx, "/v1/subscriptions:testTemplate", map[string]any{"event_name": in.EventName, "template": in.Template})
 			return nil, out, err
 		})
+
+	addRecipeTools(srv, client, consumer, allowWrite)
 
 	if !allowWrite {
 		return srv, listener

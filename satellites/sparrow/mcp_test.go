@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -20,18 +21,21 @@ const fakeSecret = "whsec_MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3" // base64 of 0123456
 // request (method + path) and answers with canned JSON.
 type fakeSparrow struct {
 	*httptest.Server
-	mu   sync.Mutex
-	last *http.Request
-	seen []string
+	mu     sync.Mutex
+	last   *http.Request
+	seen   []string
+	bodies map[string]string // "METHOD path" -> last request body
 }
 
 func newFakeSparrow(t *testing.T) *fakeSparrow {
 	t.Helper()
-	f := &fakeSparrow{}
+	f := &fakeSparrow{bodies: map[string]string{}}
 	f.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
 		f.mu.Lock()
 		f.last = r
 		f.seen = append(f.seen, r.Method+" "+r.URL.Path)
+		f.bodies[r.Method+" "+r.URL.Path] = string(body)
 		f.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		switch {
@@ -47,6 +51,10 @@ func newFakeSparrow(t *testing.T) *fakeSparrow {
 			_, _ = w.Write([]byte(`{"webhook_id":"wh_1","url":"x","http_config":{"webhook_secret":"` + fakeSecret + `"}}`))
 		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/subscriptions"):
 			_, _ = w.Write([]byte(`{"subscription_id":"sub_1"}`))
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/subscriptions"):
+			_, _ = w.Write([]byte(`{"items":[{"subscription_id":"sub_1","event_name":"order.created"}]}`))
+		case r.Method == http.MethodPatch:
+			_, _ = w.Write([]byte(`{}`))
 		case r.Method == http.MethodDelete:
 			w.WriteHeader(http.StatusNoContent)
 		default:
@@ -61,6 +69,12 @@ func (f *fakeSparrow) lastReq() *http.Request {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.last
+}
+
+func (f *fakeSparrow) body(method, path string) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.bodies[method+" "+path]
 }
 
 func (f *fakeSparrow) sawPath(method, suffix string) bool {
@@ -120,13 +134,13 @@ func call(t *testing.T, cs *mcp.ClientSession, name string, args map[string]any)
 func TestMCPReadOnlyHidesWriteTools(t *testing.T) {
 	client := newAPIClient(config{ServerURL: newFakeSparrow(t).URL})
 
-	readOnly := []string{"get_delivery_attempts", "get_stats", "list_deliveries", "list_event_types", "list_subscriptions", "list_webhooks", "test_template"}
+	readOnly := []string{"get_delivery_attempts", "get_recipe", "get_stats", "list_deliveries", "list_event_types", "list_recipes", "list_subscriptions", "list_webhooks", "test_template", "validate_recipe"}
 	srv, _ := newMCPServer(client, "acme", false)
 	if got := toolNames(t, connectMCP(t, srv)); strings.Join(got, ",") != strings.Join(readOnly, ",") {
 		t.Fatalf("read-only tools = %v, want %v", got, readOnly)
 	}
 
-	want := append(readOnly, "create_subscription", "delete_webhook", "list_received", "push_event", "register_webhook", "retry_delivery", "start_listen", "stop_listen")
+	want := append(readOnly, "apply_recipe", "create_subscription", "delete_webhook", "list_received", "push_event", "register_webhook", "retry_delivery", "start_listen", "stop_listen")
 	sort.Strings(want)
 	srv, _ = newMCPServer(client, "acme", true)
 	if got := toolNames(t, connectMCP(t, srv)); strings.Join(got, ",") != strings.Join(want, ",") {

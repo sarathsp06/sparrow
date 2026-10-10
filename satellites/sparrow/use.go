@@ -49,14 +49,9 @@ func resolveRecipe(name, file string) (recipe, error) {
 	if file != "" {
 		return loadRecipe(file)
 	}
-	candidates := []string{filepath.Join("recipes", name+".yaml")}
-	if dir := os.Getenv("SPARROW_RECIPES_DIR"); dir != "" {
-		candidates = append(candidates, filepath.Join(dir, name+".yaml"))
-	}
-	for _, p := range candidates {
-		if _, err := os.Stat(p); err == nil {
-			return loadRecipe(p)
-		}
+	path, candidates := localRecipePath(name)
+	if path != "" {
+		return loadRecipe(path)
 	}
 	builtin, err := recipes.All()
 	if err != nil {
@@ -70,23 +65,44 @@ func resolveRecipe(name, file string) (recipe, error) {
 	return recipe{}, fmt.Errorf("recipe %q not found (no built-in recipe by that name — run 'sparrow recipes' to list them — and no %s; use --file or set SPARROW_RECIPES_DIR)", name, strings.Join(candidates, ", "))
 }
 
+// localRecipePath returns the first local file that overrides a built-in
+// recipe of that name ("" when none exists) and every path it looked at.
+func localRecipePath(name string) (string, []string) {
+	candidates := []string{filepath.Join("recipes", name+".yaml")}
+	if dir := os.Getenv("SPARROW_RECIPES_DIR"); dir != "" {
+		candidates = append(candidates, filepath.Join(dir, name+".yaml"))
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p, candidates
+		}
+	}
+	return "", candidates
+}
+
 func loadRecipe(path string) (recipe, error) {
-	var r recipe
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return r, err
+		return recipe{}, err
 	}
+	return parseRecipe(data, path)
+}
+
+// parseRecipe decodes recipe YAML and checks the invariants every recipe must
+// hold to be applied. src names the input in errors (a path, or "inline").
+func parseRecipe(data []byte, src string) (recipe, error) {
+	var r recipe
 	if err := yaml.Unmarshal(data, &r); err != nil {
-		return r, fmt.Errorf("parse %s: %w", path, err)
+		return r, fmt.Errorf("parse %s: %w", src, err)
 	}
 	if r.Version != 1 {
-		return r, fmt.Errorf("%s: unsupported recipe version %d (want 1)", path, r.Version)
+		return r, fmt.Errorf("%s: unsupported recipe version %d (want 1)", src, r.Version)
 	}
 	if r.Webhook.URL == "" {
-		return r, fmt.Errorf("%s: recipe has no webhook.url", path)
+		return r, fmt.Errorf("%s: recipe has no webhook.url", src)
 	}
 	if err := r.Validate(); err != nil {
-		return r, fmt.Errorf("%s: %w", path, err)
+		return r, fmt.Errorf("%s: %w", src, err)
 	}
 	return r, nil
 }
@@ -127,23 +143,23 @@ func runUse(ctx context.Context, out io.Writer, client *apiClient, consumer, rec
 		return err
 	}
 
-	// Collect params: flags first, prompt for the rest.
-	stdin := bufio.NewScanner(os.Stdin)
-	for _, p := range r.Params {
-		if _, ok := params[p.Name]; ok {
-			continue
-		}
-		promptText := p.Prompt
-		if promptText == "" {
-			promptText = p.Name
-		}
-		if len(p.Enum) > 0 {
-			promptText += " (" + strings.Join(p.Enum, "|") + ")"
-		}
-		if p.Default != "" && !p.MustOverrideDefault {
-			promptText += " [" + p.Default + "]"
-		}
-		if isTerminal(os.Stdin) {
+	// Prompt for params not given as flags; resolveParams fills the rest.
+	if isTerminal(os.Stdin) {
+		stdin := bufio.NewScanner(os.Stdin)
+		for _, p := range r.Params {
+			if _, ok := params[p.Name]; ok {
+				continue
+			}
+			promptText := p.Prompt
+			if promptText == "" {
+				promptText = p.Name
+			}
+			if len(p.Enum) > 0 {
+				promptText += " (" + strings.Join(p.Enum, "|") + ")"
+			}
+			if p.Default != "" && !p.MustOverrideDefault {
+				promptText += " [" + p.Default + "]"
+			}
 			if p.Help != "" {
 				_, _ = fmt.Fprintf(out, "%s\n", p.Help)
 			}
@@ -151,81 +167,142 @@ func runUse(ctx context.Context, out io.Writer, client *apiClient, consumer, rec
 			if stdin.Scan() {
 				if v := strings.TrimSpace(stdin.Text()); v != "" {
 					params[p.Name] = v
-					continue
 				}
 			}
 		}
-		if p.Default != "" && !p.MustOverrideDefault {
-			params[p.Name] = p.Default
-			continue
-		}
-		if p.Required {
-			return fmt.Errorf("param %q is required (pass --param %s=value)", p.Name, p.Name)
-		}
-		params[p.Name] = ""
 	}
-	for _, p := range r.Params {
-		if p.MustOverrideDefault && p.Default != "" && strings.TrimSpace(params[p.Name]) == p.Default {
-			return fmt.Errorf("param %q must be changed from its default %q", p.Name, p.Default)
-		}
-		if v := params[p.Name]; len(p.Enum) > 0 && v != "" && !slices.Contains(p.Enum, v) {
-			return fmt.Errorf("param %q must be one of %s, not %q", p.Name, strings.Join(p.Enum, ", "), v)
-		}
-	}
-
-	// Substitute {{param "x"}} in url, header values, and the template.
-	hookURL, err := substituteParams(r.Webhook.URL, params)
-	if err != nil {
-		return err
-	}
-	headers := make(map[string]string, len(r.Webhook.Headers))
-	for k, v := range r.Webhook.Headers {
-		if headers[k], err = substituteParams(v, params); err != nil {
-			return err
-		}
-	}
-	secretHeaders := make(map[string]string, len(r.Webhook.SecretHeaders))
-	for k, v := range r.Webhook.SecretHeaders {
-		if secretHeaders[k], err = substituteParams(v, params); err != nil {
-			return err
-		}
-	}
-	tmpl, err := substituteParams(r.Subscription.TransformTemplate, params)
+	values, err := resolveParams(r, params)
 	if err != nil {
 		return err
 	}
 
-	hook, err := client.registerWebhook(ctx, consumer, webhookRequest{
-		URL:           hookURL,
-		Events:        events,
-		Active:        true,
-		Description:   fmt.Sprintf("recipe %s: %s", r.Name, r.Description),
-		Headers:       headers,
-		SecretHeaders: secretHeaders,
-
-		RequiresTransform: r.Webhook.RequiresTransform,
-		TransformTemplate: tmpl,
-	})
-	if err != nil {
-		return fmt.Errorf("register webhook: %w", err)
+	res, err := applyRecipe(ctx, client, consumer, r, values, events, labels)
+	if res.WebhookID != "" {
+		_, _ = fmt.Fprintf(out, "webhook %s -> %s\n", res.WebhookID, res.URL)
 	}
-	_, _ = fmt.Fprintf(out, "webhook %s -> %s\n", hook.WebhookID, hookURL)
-
-	subs, err := client.listSubscriptions(ctx, consumer, hook.WebhookID)
-	if err != nil {
-		return fmt.Errorf("list subscriptions: %w", err)
+	for _, sub := range res.Subscriptions {
+		_, _ = fmt.Fprintf(out, "subscription %s (%s): transform %v, label filters %v\n", sub.SubscriptionID, sub.EventName, sub.Transform, map[string]string(labels))
 	}
-	for _, sub := range subs {
-		patch := subscriptionPatch{LabelFilters: labels}
-		if tmpl != "" {
-			patch.TransformEnabled = true
-			patch.TransformTemplate = tmpl
-		}
-		if err := client.patchSubscription(ctx, consumer, sub.SubscriptionID, patch); err != nil {
-			return fmt.Errorf("update subscription %s: %w", sub.SubscriptionID, err)
-		}
-		_, _ = fmt.Fprintf(out, "subscription %s (%s): transform %v, label filters %v\n", sub.SubscriptionID, sub.EventName, tmpl != "", map[string]string(labels))
+	if err != nil {
+		return err
 	}
 	_, _ = fmt.Fprintf(out, "recipe %q applied in consumer %q\n", r.Name, consumer)
 	return nil
+}
+
+// resolveParams turns the values a user gave into the full value set for r:
+// defaults for the rest, then the required, must-override and enum rules.
+// It never prompts, so the CLI (after prompting) and MCP share it.
+func resolveParams(r recipe, given map[string]string) (map[string]string, error) {
+	values := make(map[string]string, len(r.Params))
+	for _, p := range r.Params {
+		if v, ok := given[p.Name]; ok {
+			values[p.Name] = v
+			continue
+		}
+		switch {
+		case p.Default != "" && !p.MustOverrideDefault:
+			values[p.Name] = p.Default
+		case p.Required:
+			return nil, fmt.Errorf("param %q is required (pass --param %s=value)", p.Name, p.Name)
+		default:
+			values[p.Name] = ""
+		}
+	}
+	for _, p := range r.Params {
+		if p.MustOverrideDefault && p.Default != "" && strings.TrimSpace(values[p.Name]) == p.Default {
+			return nil, fmt.Errorf("param %q must be changed from its default %q", p.Name, p.Default)
+		}
+		if v := values[p.Name]; len(p.Enum) > 0 && v != "" && !slices.Contains(p.Enum, v) {
+			return nil, fmt.Errorf("param %q must be one of %s, not %q", p.Name, strings.Join(p.Enum, ", "), v)
+		}
+	}
+	return values, nil
+}
+
+// renderedRecipe is r with every {{param "x"}} token replaced.
+type renderedRecipe struct {
+	URL           string
+	Headers       map[string]string
+	SecretHeaders map[string]string
+	Template      string
+}
+
+func substituteRecipe(r recipe, values map[string]string) (renderedRecipe, error) {
+	var out renderedRecipe
+	var err error
+	if out.URL, err = substituteParams(r.Webhook.URL, values); err != nil {
+		return out, err
+	}
+	out.Headers = make(map[string]string, len(r.Webhook.Headers))
+	for k, v := range r.Webhook.Headers {
+		if out.Headers[k], err = substituteParams(v, values); err != nil {
+			return out, err
+		}
+	}
+	out.SecretHeaders = make(map[string]string, len(r.Webhook.SecretHeaders))
+	for k, v := range r.Webhook.SecretHeaders {
+		if out.SecretHeaders[k], err = substituteParams(v, values); err != nil {
+			return out, err
+		}
+	}
+	out.Template, err = substituteParams(r.Subscription.TransformTemplate, values)
+	return out, err
+}
+
+type appliedSubscription struct {
+	SubscriptionID string `json:"subscription_id"`
+	EventName      string `json:"event_name"`
+	Transform      bool   `json:"transform"`
+}
+
+type appliedRecipe struct {
+	Recipe        string                `json:"recipe"`
+	WebhookID     string                `json:"webhook_id"`
+	URL           string                `json:"url"`
+	Subscriptions []appliedSubscription `json:"subscriptions"`
+}
+
+// applyRecipe registers a webhook for r with resolved param values and
+// enables the recipe's transform (and label filters) on the subscriptions
+// created for events. On a partial failure the result still names the
+// webhook that was registered.
+func applyRecipe(ctx context.Context, client *apiClient, consumer string, r recipe, values map[string]string, events []string, labels map[string]string) (appliedRecipe, error) {
+	res := appliedRecipe{Recipe: r.Name, Subscriptions: []appliedSubscription{}}
+	rr, err := substituteRecipe(r, values)
+	if err != nil {
+		return res, err
+	}
+	hook, err := client.registerWebhook(ctx, consumer, webhookRequest{
+		URL:           rr.URL,
+		Events:        events,
+		Active:        true,
+		Description:   fmt.Sprintf("recipe %s: %s", r.Name, r.Description),
+		Headers:       rr.Headers,
+		SecretHeaders: rr.SecretHeaders,
+
+		RequiresTransform: r.Webhook.RequiresTransform,
+		TransformTemplate: rr.Template,
+	})
+	if err != nil {
+		return res, fmt.Errorf("register webhook: %w", err)
+	}
+	res.WebhookID, res.URL = hook.WebhookID, rr.URL
+
+	subs, err := client.listSubscriptions(ctx, consumer, hook.WebhookID)
+	if err != nil {
+		return res, fmt.Errorf("list subscriptions of webhook %s: %w", hook.WebhookID, err)
+	}
+	for _, sub := range subs {
+		patch := subscriptionPatch{LabelFilters: labels}
+		if rr.Template != "" {
+			patch.TransformEnabled = true
+			patch.TransformTemplate = rr.Template
+		}
+		if err := client.patchSubscription(ctx, consumer, sub.SubscriptionID, patch); err != nil {
+			return res, fmt.Errorf("update subscription %s of webhook %s: %w", sub.SubscriptionID, hook.WebhookID, err)
+		}
+		res.Subscriptions = append(res.Subscriptions, appliedSubscription{SubscriptionID: sub.SubscriptionID, EventName: sub.EventName, Transform: rr.Template != ""})
+	}
+	return res, nil
 }
