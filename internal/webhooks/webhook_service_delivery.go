@@ -88,12 +88,11 @@ func (s *WebhookService) ListDeliveries(ctx context.Context, filter store.Delive
 		"status", filter.Status,
 		"error_category", filter.ErrorCategory,
 		"prepare_retry", filter.PrepareRetry,
-		"limit", filter.Limit,
-		"offset", filter.Offset)
+		"limit", filter.Limit)
 
 	tenantID := tenant.DefaultTenantID
 
-	filter.Limit, filter.Offset = normalizePagination(filter.Limit, filter.Offset)
+	filter.Limit, _ = normalizePagination(filter.Limit, 0)
 
 	deliveries, hasMore, err := s.webhookRepo.ListDeliveriesFiltered(ctx, tenantID, filter)
 	if err != nil {

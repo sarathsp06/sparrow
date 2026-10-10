@@ -83,7 +83,7 @@ func toDeliveryOutput(dl *store.WebhookDelivery) *deliveryOutput {
 type DeliveryListParams struct {
 	WebhookID      string `query:"webhook_id,omitempty" doc:"Filter to deliveries for one webhook."`
 	EventID        string `query:"event_id,omitempty" doc:"Filter to deliveries for one pushed event occurrence."`
-	Status         string `query:"status,omitempty" doc:"Filter by delivery status (e.g. pending, success, failed, retrying, paused)."`
+	Status         string `query:"status,omitempty" enum:"pending,sending,success,failed,retrying,expired,paused" doc:"Filter by delivery status."`
 	ErrorCategory  string `query:"error_category,omitempty" doc:"Filter by failure classification (e.g. server_error, client_error, timeout)."`
 	SubscriptionID string `query:"subscription_id,omitempty" doc:"Filter to deliveries created by one subscription, e.g. its paused deliveries."`
 	EventName      string `query:"event_name,omitempty" doc:"Filter to deliveries of one event type, e.g. order.created. Also matches deliveries whose subscription has since been replaced or deleted."`
@@ -92,7 +92,7 @@ type DeliveryListParams struct {
 	PrepareRetry   bool   `query:"prepare_retry" default:"false" doc:"If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint."`
 	Limit          int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
 	Cursor         string `query:"cursor,omitempty" doc:"Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new deliveries arrive."`
-	Offset         int32  `query:"offset" default:"0" doc:"Deprecated: use cursor. Number of items to skip."`
+	Offset         int32  `query:"offset" default:"0" doc:"Removed: page with cursor. Any value other than 0 is rejected with 400, so a client still paging by offset fails loudly instead of re-reading the first page."`
 }
 
 type listDeliveriesInput struct {
@@ -380,10 +380,12 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 // listDeliveriesImpl is the shared body of the consumer-scoped and global
 // delivery list routes. An empty consumer lists across all consumers.
 func listDeliveriesImpl(ctx context.Context, svc deliveryRouteService, consumer string, p DeliveryListParams) (*listDeliveriesOutput, error) {
+	if p.Offset != 0 {
+		return nil, errOffsetRemoved
+	}
 	filter := store.DeliveryFilter{
 		Consumer:     consumer,
 		Limit:        int(p.Limit),
-		Offset:       int(p.Offset),
 		PrepareRetry: p.PrepareRetry,
 	}
 	after, err := decodeCursor(p.Cursor)

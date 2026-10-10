@@ -56,11 +56,15 @@ type HealthEvaluationRepository interface {
 // EvaluateHealth folds every webhook_health_events row recorded after the
 // watermark and up to upTo (at most about maxEvents of them) into:
 //
-//   - webhook_health_buckets: per-minute attempt/failure counts, so the 24h
-//     success rate behind the label is a sum over at most 1,440 small rows
-//     however busy the webhook is;
+//   - webhook_health_buckets: per-minute attempt/failure counts;
 //   - webhook_health_state: consecutive_failures, failing_since and the
 //     last_*_at timestamps, derived from the ordered outcome stream;
+//   - webhook_metrics: running counters, never recounted from history:
+//     total_attempts/total_failures (all time, for consumer and global
+//     stats) and window_attempts/window_failures (the label's 24h window:
+//     each pass adds its new outcomes and subtracts the buckets that slid out
+//     of the window, so a pass reads about a minute of buckets however many
+//     webhooks are busy);
 //   - webhook_registrations.health: rewritten only where the label changed.
 //
 // Everything, including advancing the watermark, happens in one transaction
@@ -74,7 +78,7 @@ type HealthEvaluationRepository interface {
 // a later one can still commit after it, and the watermark must not pass it.
 func (r *Repository) EvaluateHealth(ctx context.Context, upTo time.Time, maxEvents int) (*HealthEvaluation, error) {
 	if maxEvents <= 0 {
-		maxEvents = 50000
+		maxEvents = 10000
 	}
 	var out *HealthEvaluation
 	err := storage.WithTransaction(r.db, func(tx storage.DBTX) error {
@@ -120,8 +124,27 @@ func (r *Repository) evaluateHealth(ctx context.Context, upTo time.Time, maxEven
 	}
 
 	res := &HealthEvaluation{From: from, To: to, More: more}
+	windowHours := DefaultHealthRules.WindowHours
 
-	// 3. Per-minute rollups.
+	// 3. Slide the label window from (from - 24h) to (to - 24h): subtract the
+	// buckets that left it. This runs before the rollup below, so a bucket
+	// leaves with exactly the counts that were added while it was inside.
+	if _, err := r.conn.ExecContext(ctx, `
+		UPDATE webhook_metrics m
+		SET window_attempts = m.window_attempts - x.attempts,
+		    window_failures = m.window_failures - x.failures
+		FROM (
+			SELECT webhook_id, SUM(attempts) AS attempts, SUM(failures) AS failures
+			FROM webhook_health_buckets
+			WHERE bucket_start >= date_trunc('minute', $1::timestamptz) - make_interval(hours => $3)
+			  AND bucket_start <  date_trunc('minute', $2::timestamptz) - make_interval(hours => $3)
+			GROUP BY webhook_id
+		) x
+		WHERE m.webhook_id = x.webhook_id`, from, to, windowHours); err != nil {
+		return nil, storage.Error(err)
+	}
+
+	// 4. Per-minute rollups.
 	bucketRes, err := r.conn.ExecContext(ctx, `
 		INSERT INTO webhook_health_buckets (webhook_id, bucket_start, attempts, failures)
 		SELECT e.webhook_id, date_trunc('minute', e.timestamp), COUNT(*), COUNT(*) FILTER (WHERE NOT e.success)
@@ -137,9 +160,12 @@ func (r *Repository) evaluateHealth(ctx context.Context, upTo time.Time, maxEven
 	}
 	_ = bucketRes
 
-	// 4. Failure-run state from the ordered outcome stream. For each touched
+	// 5. Failure-run state from the ordered outcome stream. For each touched
 	// webhook: the trailing failures after its last success in the slice
 	// (or all of them if the slice has no success), and when that run began.
+	// The slice's outcomes are added to the webhook's counters; only those
+	// inside the label window (all of them, unless the slice is a backlog
+	// older than the window) count toward the window.
 	type stateRow struct {
 		WebhookID           uuid.UUID  `db:"webhook_id"`
 		TenantID            uuid.UUID  `db:"tenant_id"`
@@ -149,6 +175,8 @@ func (r *Repository) evaluateHealth(ctx context.Context, upTo time.Time, maxEven
 		ConsecutiveFailures int        `db:"consecutive_failures"`
 		FailingSince        *time.Time `db:"failing_since"`
 		Events              int        `db:"events"`
+		WindowAttempts      int        `db:"window_attempts"`
+		WindowFailures      int        `db:"window_failures"`
 	}
 	var touched []stateRow
 	if err := r.conn.SelectContext(ctx, &touched, `
@@ -161,6 +189,9 @@ func (r *Repository) evaluateHealth(ctx context.Context, upTo time.Time, maxEven
 		agg AS (
 			SELECT webhook_id,
 			       COUNT(*)                                   AS events,
+			       COUNT(*) FILTER (WHERE NOT success)        AS failures,
+			       COUNT(*) FILTER (WHERE timestamp >= date_trunc('minute', $2::timestamptz) - make_interval(hours => $3))                 AS window_events,
+			       COUNT(*) FILTER (WHERE NOT success AND timestamp >= date_trunc('minute', $2::timestamptz) - make_interval(hours => $3)) AS window_failures,
 			       MAX(timestamp) FILTER (WHERE success)      AS last_success_at,
 			       MAX(timestamp) FILTER (WHERE NOT success)  AS last_failure_at,
 			       MAX(timestamp)                             AS last_event_at
@@ -188,11 +219,25 @@ func (r *Repository) evaluateHealth(ctx context.Context, upTo time.Time, maxEven
 				last_event_at   = GREATEST(webhook_health_state.last_event_at, EXCLUDED.last_event_at),
 				updated_at      = NOW()
 			RETURNING webhook_id, consecutive_failures, failing_since
+		),
+		counted AS (
+			INSERT INTO webhook_metrics (webhook_id, total_attempts, total_failures, window_attempts, window_failures, updated_at)
+			SELECT a.webhook_id, a.events, a.failures, a.window_events, a.window_failures, NOW()
+			FROM agg a
+			ON CONFLICT (webhook_id) DO UPDATE SET
+				total_attempts  = webhook_metrics.total_attempts + EXCLUDED.total_attempts,
+				total_failures  = webhook_metrics.total_failures + EXCLUDED.total_failures,
+				window_attempts = webhook_metrics.window_attempts + EXCLUDED.window_attempts,
+				window_failures = webhook_metrics.window_failures + EXCLUDED.window_failures,
+				updated_at      = NOW()
+			RETURNING webhook_id, window_attempts, window_failures
 		)
-		SELECT u.webhook_id, wr.tenant_id, wr.consumer, wr.url, wr.health, u.consecutive_failures, u.failing_since, a.events
+		SELECT u.webhook_id, wr.tenant_id, wr.consumer, wr.url, wr.health, u.consecutive_failures, u.failing_since, a.events,
+		       c.window_attempts, c.window_failures
 		FROM upserted u
+		JOIN counted c USING (webhook_id)
 		JOIN agg a USING (webhook_id)
-		JOIN webhook_registrations wr ON wr.id = u.webhook_id`, from, to); err != nil {
+		JOIN webhook_registrations wr ON wr.id = u.webhook_id`, from, to, windowHours); err != nil {
 		return nil, storage.Error(err)
 	}
 	res.Webhooks = len(touched)
@@ -200,49 +245,35 @@ func (r *Repository) evaluateHealth(ctx context.Context, upTo time.Time, maxEven
 		return res, r.advanceHealthWatermark(ctx, to)
 	}
 
-	// 5. Labels for the touched webhooks from the 24h rollup window.
-	ids := make([]uuid.UUID, 0, len(touched))
+	// 6. Labels for the touched webhooks, from their window counters,
+	// written in one statement for all that changed.
+	var changedIDs, changedLabels []string
 	for _, t := range touched {
-		ids = append(ids, t.WebhookID)
 		res.Events += t.Events
-	}
-	type winRow struct {
-		WebhookID uuid.UUID `db:"webhook_id"`
-		Attempts  int       `db:"attempts"`
-		Failures  int       `db:"failures"`
-	}
-	var wins []winRow
-	if err := r.conn.SelectContext(ctx, &wins, `
-		SELECT webhook_id, SUM(attempts) AS attempts, SUM(failures) AS failures
-		FROM webhook_health_buckets
-		WHERE webhook_id = ANY($1) AND bucket_start >= date_trunc('minute', $2::timestamptz) - make_interval(hours => $3)
-		GROUP BY webhook_id`, pq.Array(ids), to, DefaultHealthRules.WindowHours); err != nil {
-		return nil, storage.Error(err)
-	}
-	window := make(map[uuid.UUID]winRow, len(wins))
-	for _, w := range wins {
-		window[w.WebhookID] = w
-	}
-
-	for _, t := range touched {
-		w := window[t.WebhookID]
 		rate := 0.0
-		if w.Attempts > 0 {
-			rate = float64(w.Attempts-w.Failures) / float64(w.Attempts)
+		if t.WindowAttempts > 0 {
+			rate = float64(t.WindowAttempts-t.WindowFailures) / float64(t.WindowAttempts)
 		}
-		label := healthLabel(w.Attempts, rate, t.ConsecutiveFailures)
+		label := healthLabel(t.WindowAttempts, rate, t.ConsecutiveFailures)
 		if label != t.Health {
-			if _, err := r.conn.ExecContext(ctx, `UPDATE webhook_registrations SET health = $1, updated_at = NOW() WHERE id = $2`, label, t.WebhookID); err != nil {
-				return nil, storage.Error(err)
-			}
+			changedIDs = append(changedIDs, t.WebhookID.String())
+			changedLabels = append(changedLabels, label)
 			res.Changes = append(res.Changes, HealthLabelChange{WebhookID: t.WebhookID, TenantID: t.TenantID, Consumer: t.Consumer, URL: t.URL, OldHealth: t.Health, NewHealth: label})
 		}
 		if t.ConsecutiveFailures > 0 {
 			res.Failing = append(res.Failing, FailingWebhook{WebhookID: t.WebhookID, TenantID: t.TenantID, Consumer: t.Consumer, URL: t.URL, ConsecutiveFailures: t.ConsecutiveFailures, FailingSince: t.FailingSince})
 		}
 	}
+	if len(changedIDs) > 0 {
+		if _, err := r.conn.ExecContext(ctx, `
+			UPDATE webhook_registrations wr SET health = c.health, updated_at = NOW()
+			FROM unnest($1::uuid[], $2::text[]) AS c(id, health)
+			WHERE wr.id = c.id`, pq.Array(changedIDs), pq.Array(changedLabels)); err != nil {
+			return nil, storage.Error(err)
+		}
+	}
 
-	// 6. Drop rollups outside the window.
+	// 7. Drop rollups outside the window.
 	if _, err := r.conn.ExecContext(ctx, `DELETE FROM webhook_health_buckets WHERE bucket_start < $1`, to.Add(-healthBucketRetention)); err != nil {
 		return nil, storage.Error(err)
 	}

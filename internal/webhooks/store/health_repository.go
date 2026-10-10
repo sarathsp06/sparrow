@@ -15,8 +15,6 @@ type HealthRepository interface {
 	RecordWebhookHealthEvent(ctx context.Context, webhookID, deliveryID uuid.UUID, success bool, responseTime, responseCode int, errorMessage string, errorCategory string) error
 	GetWebhookHealthState(ctx context.Context, webhookID uuid.UUID) (*WebhookHealthMetrics, error)
 	GetWebhookHealthSummary(ctx context.Context, webhookID uuid.UUID, hours int) (*WebhookHealthSummary, error)
-	GetWebhookHealthTimeSeries(ctx context.Context, webhookID uuid.UUID, hours int, bucketSize string) ([]*WebhookHealthEvent, error)
-	AggregateHealthSummaries(ctx context.Context) (int, error)
 	GetHealthSummary(ctx context.Context, tenantID uuid.UUID, consumer string) (map[WebhookHealth]int, error)
 	GetConsumerStats(ctx context.Context, tenantID uuid.UUID, consumer string) (*ConsumerStats, error)
 	AutoDisableWebhook(ctx context.Context, webhookID uuid.UUID, minFailures int, failingFor time.Duration) (*AutoDisableResult, error)
@@ -203,149 +201,6 @@ func (r *Repository) GetWebhookHealthSummary(ctx context.Context, webhookID uuid
 	return &summary, nil
 }
 
-// GetWebhookHealthTimeSeries gets health events over time for analytics.
-// bucketSize controls time bucketing: valid values are "1 minute", "5 minutes", "1 hour", "1 day".
-// If empty, raw events are returned (up to 1000).
-func (r *Repository) GetWebhookHealthTimeSeries(ctx context.Context, webhookID uuid.UUID, hours int, bucketSize string) ([]*WebhookHealthEvent, error) {
-	if bucketSize == "" {
-		// Return raw events when no bucket size specified
-		query := `
-			SELECT id, webhook_id, delivery_id, success, response_time, response_code, error_message, timestamp
-			FROM webhook_health_events
-			WHERE webhook_id = $1 
-			  AND timestamp >= NOW() - INTERVAL '1 hour' * $2
-			ORDER BY timestamp DESC
-			LIMIT 1000
-		`
-		var events []*WebhookHealthEvent
-		err := r.conn.SelectContext(ctx, &events, query, webhookID, hours)
-		if err != nil {
-			return nil, storage.Error(err)
-		}
-		return events, nil
-	}
-
-	// Validate and map bucketSize to a date_trunc precision to prevent SQL injection.
-	var truncPrecision string
-	switch bucketSize {
-	case "1 minute":
-		truncPrecision = "minute"
-	case "5 minutes":
-		truncPrecision = "minute" // We'll use 5-minute flooring below
-	case "1 hour":
-		truncPrecision = "hour"
-	case "1 day":
-		truncPrecision = "day"
-	default:
-		return nil, fmt.Errorf("invalid bucket size: %q (valid: \"1 minute\", \"5 minutes\", \"1 hour\", \"1 day\")", bucketSize)
-	}
-
-	// For 5-minute buckets, floor to 5-minute intervals using epoch arithmetic.
-	// For all others, date_trunc with the precision is sufficient.
-	var bucketExpr string
-	if bucketSize == "5 minutes" {
-		bucketExpr = "to_timestamp(floor(extract(epoch from timestamp) / 300) * 300)"
-	} else {
-		bucketExpr = fmt.Sprintf("date_trunc('%s', timestamp)", truncPrecision)
-	}
-
-	query := fmt.Sprintf(`
-		SELECT 
-			gen_random_uuid() AS id,
-			webhook_id,
-			'00000000-0000-0000-0000-000000000000'::uuid AS delivery_id,
-			(AVG(CASE WHEN success THEN 1.0 ELSE 0.0 END) >= 0.5) AS success,
-			COALESCE(AVG(response_time), 0)::INTEGER AS response_time,
-			0 AS response_code,
-			'' AS error_message,
-			%s AS timestamp
-		FROM webhook_health_events
-		WHERE webhook_id = $1
-		  AND timestamp >= NOW() - INTERVAL '1 hour' * $2
-		GROUP BY %s, webhook_id
-		ORDER BY %s DESC
-		LIMIT 1000
-	`, bucketExpr, bucketExpr, bucketExpr)
-
-	var events []*WebhookHealthEvent
-	err := r.conn.SelectContext(ctx, &events, query, webhookID, hours)
-	if err != nil {
-		return nil, storage.Error(err)
-	}
-
-	return events, nil
-}
-
-// AggregateHealthSummaries computes hourly health summaries from raw health events
-// and inserts them into the webhook_health_summaries table.
-// Includes error category breakdown (client_errors, server_errors, timeout_errors, network_errors, unexpected_status_errors).
-// Returns the number of summaries processed.
-func (r *Repository) AggregateHealthSummaries(ctx context.Context) (int, error) {
-	query := `
-		INSERT INTO webhook_health_summaries (
-			id, webhook_id, window_start, window_end,
-			total_deliveries, successful_deliveries, failed_deliveries,
-			success_rate, avg_response_time, min_response_time, max_response_time, p95_response_time,
-			client_errors, server_errors, timeout_errors, network_errors, unexpected_status_errors,
-			created_at, updated_at
-		)
-		SELECT
-			gen_random_uuid(),
-			webhook_id,
-			date_trunc('hour', timestamp) AS window_start,
-			date_trunc('hour', timestamp) + INTERVAL '1 hour' AS window_end,
-			COUNT(DISTINCT delivery_id) AS total_deliveries,
-			COUNT(DISTINCT CASE WHEN success THEN delivery_id END) AS successful_deliveries,
-			COUNT(DISTINCT delivery_id) - COUNT(DISTINCT CASE WHEN success THEN delivery_id END) AS failed_deliveries,
-			COALESCE(
-				CASE WHEN COUNT(DISTINCT delivery_id) > 0
-				     THEN COUNT(DISTINCT CASE WHEN success THEN delivery_id END)::FLOAT / COUNT(DISTINCT delivery_id)
-				     ELSE 0
-				END, 0) AS success_rate,
-			COALESCE(AVG(response_time), 0)::INTEGER AS avg_response_time,
-			COALESCE(MIN(response_time), 0) AS min_response_time,
-			COALESCE(MAX(response_time), 0) AS max_response_time,
-			COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY response_time), 0)::INTEGER AS p95_response_time,
-			SUM(CASE WHEN error_category = 'client_error' THEN 1 ELSE 0 END) AS client_errors,
-			SUM(CASE WHEN error_category = 'server_error' THEN 1 ELSE 0 END) AS server_errors,
-			SUM(CASE WHEN error_category = 'timeout' THEN 1 ELSE 0 END) AS timeout_errors,
-			SUM(CASE WHEN error_category IN ('network_error', 'dns_error', 'tls_error', 'connection_refused') THEN 1 ELSE 0 END) AS network_errors,
-			SUM(CASE WHEN error_category = 'unexpected_status' THEN 1 ELSE 0 END) AS unexpected_status_errors,
-			NOW(),
-			NOW()
-		FROM webhook_health_events
-		WHERE timestamp >= NOW() - INTERVAL '24 hours'
-		GROUP BY webhook_id, date_trunc('hour', timestamp)
-		ON CONFLICT (webhook_id, window_start, window_end) DO UPDATE SET
-			total_deliveries = EXCLUDED.total_deliveries,
-			successful_deliveries = EXCLUDED.successful_deliveries,
-			failed_deliveries = EXCLUDED.failed_deliveries,
-			success_rate = EXCLUDED.success_rate,
-			avg_response_time = EXCLUDED.avg_response_time,
-			min_response_time = EXCLUDED.min_response_time,
-			max_response_time = EXCLUDED.max_response_time,
-			p95_response_time = EXCLUDED.p95_response_time,
-			client_errors = EXCLUDED.client_errors,
-			server_errors = EXCLUDED.server_errors,
-			timeout_errors = EXCLUDED.timeout_errors,
-			network_errors = EXCLUDED.network_errors,
-			unexpected_status_errors = EXCLUDED.unexpected_status_errors,
-			updated_at = NOW()
-	`
-
-	result, err := r.conn.ExecContext(ctx, query)
-	if err != nil {
-		return 0, fmt.Errorf("failed to aggregate health summaries: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return 0, fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	return int(rowsAffected), nil
-}
-
 // CountWebhooksByState counts a tenant's webhooks by health and status, for
 // the sparrow_webhooks gauge.
 func (r *Repository) CountWebhooksByState(ctx context.Context, tenantID uuid.UUID) ([]WebhookStateCount, error) {
@@ -357,7 +212,7 @@ func (r *Repository) CountWebhooksByState(ctx context.Context, tenantID uuid.UUI
 		            ELSE 'paused' END AS status,
 		       COUNT(*) AS count
 		FROM webhook_registrations
-		WHERE tenant_id = $1
+		WHERE tenant_id = $1 AND deleted_at IS NULL
 		GROUP BY 1, 2
 	`, tenantID)
 	if err != nil {
@@ -376,7 +231,7 @@ func (r *Repository) GetHealthSummary(ctx context.Context, tenantID uuid.UUID, c
 	query := `
 		SELECT health, COUNT(*) as count
 		FROM webhook_registrations
-		WHERE tenant_id = $1
+		WHERE tenant_id = $1 AND deleted_at IS NULL
 		  AND ($2::text IS NULL OR consumer = $2)
 		GROUP BY health
 	`

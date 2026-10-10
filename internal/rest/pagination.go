@@ -54,6 +54,13 @@ func encodeCursor(createdAt time.Time, id uuid.UUID) string {
 	return base64.RawURLEncoding.EncodeToString([]byte(strconv.FormatInt(createdAt.UnixMicro(), 10) + "." + id.String()))
 }
 
+// errOffsetRemoved rejects offset paging on the delivery and event
+// occurrence lists. Those tables grow without bound and an offset reads and
+// discards every skipped row (91ms for deliveries and 241ms for events at
+// 100k deep on 6M rows, growing with depth), while the cursor stays under a
+// millisecond at any depth.
+var errOffsetRemoved = huma.Error400BadRequest("offset paging was removed from this list; pass pagination.next_cursor from the previous page as cursor")
+
 // decodeCursor parses a cursor from encodeCursor; empty means none.
 func decodeCursor(s string) (*store.PageCursor, error) {
 	if s == "" {

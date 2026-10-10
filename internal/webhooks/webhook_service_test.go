@@ -123,16 +123,6 @@ func (m *mockRepo) ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uu
 	return args.Error(0)
 }
 
-func (m *mockRepo) GetDeliveriesByWebhookID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, limit, offset int) ([]*store.WebhookDelivery, int, error) {
-	args := m.Called(ctx, tenantID, webhookID, consumer, limit, offset)
-	return args.Get(0).([]*store.WebhookDelivery), args.Int(1), args.Error(2)
-}
-
-func (m *mockRepo) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.UUID, consumer string, limit, offset int) ([]*store.WebhookDelivery, int, error) {
-	args := m.Called(ctx, tenantID, consumer, limit, offset)
-	return args.Get(0).([]*store.WebhookDelivery), args.Int(1), args.Error(2)
-}
-
 func (m *mockRepo) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter store.DeliveryFilter) ([]*store.WebhookDelivery, bool, error) {
 	args := m.Called(ctx, tenantID, filter)
 	return args.Get(0).([]*store.WebhookDelivery), args.Bool(1), args.Error(2)
@@ -266,15 +256,14 @@ func TestWebhookService_ListDeliveries_Pagination(t *testing.T) {
 		{ID: uuid.New(), WebhookID: uuid.New(), EventID: uuid.New()},
 	}
 
-	// The service normalises limit/offset, so match the filter as built by the service.
+	// The service normalises the limit, so match the filter as built by the service.
 	repo.On("ListDeliveriesFiltered", mock.Anything, mock.Anything, mock.MatchedBy(func(f store.DeliveryFilter) bool {
-		return f.Consumer == consumer && f.Limit == 20 && f.Offset == 0
+		return f.Consumer == consumer && f.Limit == 20
 	})).Return(expectedDeliveries, true, nil)
 
 	filter := store.DeliveryFilter{
 		Consumer: consumer,
 		Limit:    20,
-		Offset:   0,
 	}
 	page, err := service.ListDeliveries(ctx, filter)
 

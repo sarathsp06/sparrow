@@ -243,7 +243,7 @@ type EventOccurrenceListParams struct {
 	PrepareRepush bool   `query:"prepare_repush" default:"false" doc:"If true, snapshot the matching occurrences into a repush_id you can pass to the batch re-push endpoint."`
 	Limit         int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
 	Cursor        string `query:"cursor,omitempty" doc:"Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new events arrive."`
-	Offset        int32  `query:"offset" default:"0" doc:"Deprecated: use cursor. Number of items to skip."`
+	Offset        int32  `query:"offset" default:"0" doc:"Removed: page with cursor. Any value other than 0 is rejected with 400, so a client still paging by offset fails loudly instead of re-reading the first page."`
 }
 
 type listEventOccurrencesInput struct {
@@ -640,10 +640,12 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 // global event occurrence list routes. An empty consumer lists across all
 // consumers.
 func listEventOccurrencesImpl(ctx context.Context, svc eventRouteService, consumer string, p EventOccurrenceListParams) (*listEventOccurrencesOutput, error) {
+	if p.Offset != 0 {
+		return nil, errOffsetRemoved
+	}
 	filter := store.EventReportFilter{
 		Consumer:      consumer,
 		Limit:         int(p.Limit),
-		Offset:        int(p.Offset),
 		PrepareRepush: p.PrepareRepush,
 	}
 	after, err := decodeCursor(p.Cursor)

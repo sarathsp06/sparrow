@@ -998,6 +998,14 @@ func TestE2E_DeliveryListCursorPaging(t *testing.T) {
 		assert.False(t, seen[it.DeliveryID], "delivery %s listed twice", it.DeliveryID)
 		seen[it.DeliveryID] = true
 	}
+
+	// Offset paging is gone from the unbounded lists: a client still using
+	// it gets a 400 instead of the first page over and over.
+	for _, path := range []string{"/v1/consumers/" + consumer + "/deliveries?offset=2", "/v1/events?offset=2"} {
+		resp, err := c.get(ctx, path, nil)
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusBadRequest, resp.StatusCode, path)
+	}
 	assert.Len(t, seen, 4, "the two pages cover exactly the deliveries that existed when paging started")
 
 	onlyCreated := list("&event_name=" + created)

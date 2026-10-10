@@ -139,14 +139,21 @@ def cancel_completed_job(code):
 
 @step("Consumer stats should show <success> successful and <failed> failed deliveries")
 def assert_consumer_stats(success, failed):
-    resp = requests.get(f"{_base_url()}/v1/consumers/{_consumer()}/stats")
-    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
-    stats = resp.json()
+    # Attempt counts come from the health evaluator's running totals, so they
+    # appear after its next pass (SPARROW_HEALTH_EVAL_INTERVAL, default 1m).
+    deadline = time.time() + 90
+    while True:
+        resp = requests.get(f"{_base_url()}/v1/consumers/{_consumer()}/stats")
+        assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
+        stats = resp.json()
+        if (stats["successful_deliveries"], stats["failed_deliveries"]) == (int(success), int(failed)):
+            break
+        if time.time() >= deadline:
+            raise AssertionError(
+                f"Expected {success} successful and {failed} failed within 90s, got "
+                f"{stats['successful_deliveries']} and {stats['failed_deliveries']}")
+        time.sleep(1)
     data_store.scenario["consumer_stats"] = stats
-    assert stats["successful_deliveries"] == int(success), \
-        f"Expected {success} successful, got {stats['successful_deliveries']}"
-    assert stats["failed_deliveries"] == int(failed), \
-        f"Expected {failed} failed, got {stats['failed_deliveries']}"
 
 
 @step("Consumer stats should show <count> total webhooks")
