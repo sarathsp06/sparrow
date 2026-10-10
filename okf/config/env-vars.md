@@ -24,6 +24,7 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 |----------|---------|---------|
 | `SPARROW_HTTP_PORT` | HTTP/REST listen port | `8080` |
 | `SPARROW_SERVE_UI` | Serve embedded SvelteKit UI | `false` |
+| `SPARROW_LOG_LEVEL` | Lowest log level: `debug`, `info`, `warn`, `error` (case-insensitive; `warning` = `warn`). Set in `cmd/server/main.go` on the slog JSON handler behind the OTel bridge; invalid values fail `Config.Validate` | `info` |
 | `SPARROW_MAX_BODY_BYTES` | Max request body size in bytes (min 1 MiB); oversized bodies return `413` | `5242880` (5 MiB) |
 
 ## Auth & Security

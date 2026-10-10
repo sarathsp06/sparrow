@@ -101,9 +101,12 @@ func main() {
 		}
 	}
 
-	// Initialize structured logging with OTel bridge.
+	// Initialize structured logging with OTel bridge. The bridge defers to
+	// the JSON handler's level, so records below SPARROW_LOG_LEVEL are
+	// dropped before any formatting or export.
+	logLevel, _ := cfg.SlogLevel() // checked by cfg.Validate
 	slog.SetDefault(slog.New(slogotel.OtelHandler{
-		Next: slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo, AddSource: true}),
+		Next: slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel, AddSource: true}),
 	}))
 
 	// Run database migrations before anything else touches the DB.

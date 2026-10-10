@@ -9,6 +9,7 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"net/url"
 	"os"
@@ -47,6 +48,12 @@ type Config struct {
 	// ServeUI enables the embedded SvelteKit web UI.
 	// Env: SPARROW_SERVE_UI
 	ServeUI bool `envconfig:"SPARROW_SERVE_UI" default:"false"`
+
+	// LogLevel is the lowest level the server logs: debug, info, warn or
+	// error. info logs every event and delivery; warn keeps only problems,
+	// which saves the per-event log work on a busy instance.
+	// Env: SPARROW_LOG_LEVEL
+	LogLevel string `envconfig:"SPARROW_LOG_LEVEL" default:"info"`
 
 	// MaxCapturedResponseBytes caps the stored response body of webhooks
 	// with capture_response_body enabled (others always store 1 KiB). Lower
@@ -223,6 +230,24 @@ func Load() (*Config, error) {
 	return &cfg, nil
 }
 
+// SlogLevel parses LogLevel: debug, info, warn or error (any case).
+func (c *Config) SlogLevel() (slog.Level, error) {
+	var level slog.Level
+	switch strings.ToLower(strings.TrimSpace(c.LogLevel)) {
+	case "debug":
+		level = slog.LevelDebug
+	case "", "info":
+		level = slog.LevelInfo
+	case "warn", "warning":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		return level, fmt.Errorf("SPARROW_LOG_LEVEL: %q is not one of debug, info, warn, error", c.LogLevel)
+	}
+	return level, nil
+}
+
 // IsProduction returns true when Environment is set to "production".
 func (c *Config) IsProduction() bool {
 	return c.Environment == "production"
@@ -239,6 +264,9 @@ func (c *Config) Validate() error {
 	}
 	if c.DatabaseURL == "" {
 		return fmt.Errorf("DATABASE_URL is required")
+	}
+	if _, err := c.SlogLevel(); err != nil {
+		return err
 	}
 	if c.IsProduction() && c.APIKey == "" {
 		return fmt.Errorf("SPARROW_API_KEY is required in production (without it all endpoints are unauthenticated)")

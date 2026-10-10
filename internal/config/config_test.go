@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -30,6 +31,8 @@ func TestValidate(t *testing.T) {
 		{"captured response cap too small", func(c *Config) { c.MaxCapturedResponseBytes = 10 }, "SPARROW_MAX_CAPTURED_RESPONSE_BYTES"},
 		{"negative token ttl", func(c *Config) { c.TokenDefaultTTL = -time.Hour }, "SPARROW_TOKEN_DEFAULT_TTL"},
 		{"invalid allowed networks", func(c *Config) { c.AllowedNetworks = []string{"nope"} }, "SPARROW_ALLOWED_NETWORKS"},
+		{"invalid log level", func(c *Config) { c.LogLevel = "verbose" }, "SPARROW_LOG_LEVEL"},
+		{"warn log level", func(c *Config) { c.LogLevel = "WARN" }, ""},
 		{"valid allowed networks", func(c *Config) { c.AllowedNetworks = []string{"10.0.0.0/8", "fd00::1"} }, ""},
 		{"missing encryption keyring", func(c *Config) { c.EncryptionKeys = nil }, "SPARROW_ENCRYPTION_KEYS"},
 		{"legacy single encryption key no longer satisfies config", func(c *Config) {
@@ -152,5 +155,20 @@ func TestAIConfig(t *testing.T) {
 				t.Fatalf("AIModelOrDefault() = %q, want %q", c.AIModelOrDefault(), tc.model)
 			}
 		})
+	}
+}
+
+func TestSlogLevel(t *testing.T) {
+	for in, want := range map[string]slog.Level{
+		"": slog.LevelInfo, "info": slog.LevelInfo, "debug": slog.LevelDebug,
+		"warn": slog.LevelWarn, "Warning": slog.LevelWarn, " ERROR ": slog.LevelError,
+	} {
+		got, err := (&Config{LogLevel: in}).SlogLevel()
+		if err != nil || got != want {
+			t.Errorf("SlogLevel(%q) = %v, %v; want %v", in, got, err, want)
+		}
+	}
+	if _, err := (&Config{LogLevel: "trace"}).SlogLevel(); err == nil {
+		t.Error("SlogLevel(\"trace\") should fail")
 	}
 }
