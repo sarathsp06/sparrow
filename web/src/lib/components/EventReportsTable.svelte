@@ -65,7 +65,7 @@
         loadingDeliveries = new Set(loadingDeliveries);
         try {
             const res = unwrap(await api.GET('/v1/consumers/{consumer}/deliveries', {
-                params: { path: { consumer }, query: { event_id: eventId, limit: 100, offset: 0 } },
+                params: { path: { consumer }, query: { event_id: eventId, limit: 100 } },
             }));
             deliveriesByEvent.set(eventId, res.items || []);
             deliveriesByEvent = new Map(deliveriesByEvent);

@@ -20,8 +20,6 @@ type EventRepository interface {
 	DeleteEventByID(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) error
 	DeleteEventsBefore(ctx context.Context, cutoff time.Time) (int64, error)
 
-	ListEventReports(ctx context.Context, tenantID uuid.UUID, consumer string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error)
-	ListEventReportsWithStats(ctx context.Context, tenantID uuid.UUID, consumer string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error)
 	ListEventReportsFiltered(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) ([]*EventReportWithStats, bool, error)
 }
 
@@ -157,121 +155,6 @@ func (r *Repository) DeleteEventsBefore(ctx context.Context, cutoff time.Time) (
 	return total, nil
 }
 
-// ListEventReports gets event records in descending order by creation time.
-// Uses ($N::type IS NULL OR col = $N) guards so unset filters become no-op.
-func (r *Repository) ListEventReports(ctx context.Context, tenantID uuid.UUID, consumer string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error) {
-	var ns any
-	if consumer != "" {
-		ns = consumer
-	}
-
-	args := []any{tenantID, ns, eventName}
-
-	baseQuery := `
-		SELECT
-			id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, COALESCE(event_version, 1) AS event_version, idempotency_key, created_at, expires_at
-		FROM event_records
-		WHERE tenant_id = $1
-		  AND ($2::text IS NULL OR consumer = $2)
-		  AND ($3::text IS NULL OR event = $3)
-		ORDER BY created_at DESC
-		LIMIT $4 OFFSET $5
-	`
-
-	countQuery := `
-		SELECT COUNT(*)
-		FROM event_records
-		WHERE tenant_id = $1
-		  AND ($2::text IS NULL OR consumer = $2)
-		  AND ($3::text IS NULL OR event = $3)
-	`
-
-	queryArgs := append(args, limit, offset)
-
-	var eventRows []EventRecord
-	err := r.conn.SelectContext(ctx, &eventRows, baseQuery, queryArgs...)
-	if err != nil {
-		return nil, 0, storage.Error(err)
-	}
-
-	var totalCount int
-	err = r.conn.GetContext(ctx, &totalCount, countQuery, args...)
-	if err != nil {
-		return nil, 0, storage.Error(err)
-	}
-
-	var events []*EventReportWithStats
-	for _, row := range eventRows {
-		events = append(events, &EventReportWithStats{
-			EventRecord: row,
-		})
-	}
-
-	return events, totalCount, nil
-}
-
-// ListEventReportsWithStats retrieves event records enriched with delivery statistics.
-// Uses ($N::type IS NULL OR col = $N) guards so unset filters become no-op.
-func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uuid.UUID, consumer string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error) {
-	var ns any
-	if consumer != "" {
-		ns = consumer
-	}
-
-	args := []any{tenantID, ns, eventName}
-
-	baseQuery := `
-		SELECT
-			er.id, er.tenant_id, er.consumer, er.event, er.payload, er.ttl,
-			er.metadata, er.labels, er.schema_valid, COALESCE(er.event_version, 1) AS event_version, er.created_at, er.expires_at,
-			COALESCE(ds.webhook_count, 0) as webhook_count,
-			COALESCE(ds.successful_deliveries, 0) as successful_deliveries,
-			COALESCE(ds.failed_deliveries, 0) as failed_deliveries,
-			COALESCE(ds.pending_deliveries, 0) as pending_deliveries
-		FROM event_records er
-		LEFT JOIN (
-			SELECT
-				wd.event_id,
-				COUNT(DISTINCT wd.webhook_id) as webhook_count,
-				SUM(CASE WHEN wh.success = true THEN 1 ELSE 0 END) as successful_deliveries,
-				SUM(CASE WHEN wh.success = false THEN 1 ELSE 0 END) as failed_deliveries,
-				COUNT(CASE WHEN wd.status IN ('pending', 'sending', 'retrying') THEN 1 END) as pending_deliveries
-			FROM webhook_deliveries wd
-			LEFT JOIN webhook_health_events wh ON wd.id = wh.delivery_id
-			GROUP BY wd.event_id
-		) ds ON er.id = ds.event_id
-		WHERE er.tenant_id = $1
-		  AND ($2::text IS NULL OR er.consumer = $2)
-		  AND ($3::text IS NULL OR er.event = $3::text)
-		ORDER BY er.created_at DESC
-		LIMIT $4 OFFSET $5
-	`
-
-	countQuery := `
-		SELECT COUNT(*)
-		FROM event_records
-		WHERE tenant_id = $1
-		  AND ($2::text IS NULL OR consumer = $2)
-		  AND ($3::text IS NULL OR event = $3::text)
-	`
-
-	queryArgs := append(args, limit, offset)
-
-	var events []*EventReportWithStats
-	err := r.conn.SelectContext(ctx, &events, baseQuery, queryArgs...)
-	if err != nil {
-		return nil, 0, storage.Error(err)
-	}
-
-	var totalCount int
-	err = r.conn.GetContext(ctx, &totalCount, countQuery, args...)
-	if err != nil {
-		return nil, 0, storage.Error(err)
-	}
-
-	return events, totalCount, nil
-}
-
 // eventReportFilterWhere is the WHERE of every EventReportFilter query (page,
 // re-push snapshot) over event_records er, with the filter in
 // eventReportFilterArgs order as $1..$7.
@@ -312,7 +195,7 @@ func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid
 		return nil, false, err
 	}
 	afterAt, afterID := cursorArgs(filter.After)
-	args = append(args, afterAt, afterID, filter.Limit+1, filter.Offset)
+	args = append(args, afterAt, afterID, filter.Limit+1)
 
 	query := `
 		SELECT
@@ -330,7 +213,7 @@ func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid
 			` + eventReportFilterWhere + `
 			  AND er.created_at <= $8 AND (er.created_at < $8 OR er.id < $9)
 			ORDER BY er.created_at DESC, er.id DESC
-			LIMIT $10 OFFSET $11
+			LIMIT $10
 		) page
 		LEFT JOIN LATERAL (
 			SELECT

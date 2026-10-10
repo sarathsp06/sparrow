@@ -20,7 +20,6 @@ type SubscriptionRepository interface {
 	DeleteSubscription(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) error
 	ListSubscriptions(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) ([]*EventSubscription, error)
 	ListSubscriptionsByConsumer(ctx context.Context, tenantID uuid.UUID, consumer string, limit, offset int) ([]*EventSubscription, int, error)
-	GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string, labels map[string]string) ([]*EventSubscription, error)
 	ListSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string) ([]*EventSubscription, error)
 	GetSubscriptionsWithWebhooksByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string, labels map[string]string) ([]*SubscriptionWithWebhook, error)
 	ListSubscriptionsByWebhookIDs(ctx context.Context, tenantID uuid.UUID, webhookIDs []uuid.UUID) ([]*EventSubscription, error)
@@ -85,13 +84,15 @@ func (r *Repository) CreateSubscription(ctx context.Context, tenantID uuid.UUID,
 	return insertSubscription(ctx, r.conn, tenantID, sub)
 }
 
-// GetSubscription gets a subscription by ID within a tenant
+// GetSubscription gets a subscription by ID within a tenant. Subscriptions of a
+// deleted webhook are kept (deliveries still reference them) but not found.
 func (r *Repository) GetSubscription(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (*EventSubscription, error) {
 	query := `
 		SELECT id, tenant_id, webhook_id, event_name, consumer, headers, method,
 		       transform_enabled, transform_template, timeout, label_filters, on_transform_error, template_missing_key, paused_at, COALESCE(paused_reason, '') AS paused_reason, created_at, updated_at
 		FROM event_subscriptions
 		WHERE tenant_id = $1 AND id = $2
+		  AND webhook_id IN (SELECT id FROM webhook_registrations WHERE deleted_at IS NULL)
 	`
 	var sub EventSubscription
 	err := r.conn.GetContext(ctx, &sub, query, tenantID, id)
@@ -175,7 +176,7 @@ func (r *Repository) ListSubscriptionsByConsumer(ctx context.Context, tenantID u
 	if consumer != "" {
 		ns = consumer
 	}
-	countQuery := `SELECT COUNT(*) FROM event_subscriptions WHERE tenant_id = $1 AND ($2::text IS NULL OR consumer = $2)`
+	countQuery := `SELECT COUNT(*) FROM event_subscriptions WHERE tenant_id = $1 AND ($2::text IS NULL OR consumer = $2) AND webhook_id IN (SELECT id FROM webhook_registrations WHERE deleted_at IS NULL)`
 	var totalCount int
 	if err := r.conn.GetContext(ctx, &totalCount, countQuery, tenantID, ns); err != nil {
 		return nil, 0, storage.Error(err)
@@ -186,6 +187,7 @@ func (r *Repository) ListSubscriptionsByConsumer(ctx context.Context, tenantID u
 		       transform_enabled, transform_template, timeout, label_filters, on_transform_error, template_missing_key, paused_at, COALESCE(paused_reason, '') AS paused_reason, created_at, updated_at
 		FROM event_subscriptions
 		WHERE tenant_id = $1 AND ($2::text IS NULL OR consumer = $2)
+		  AND webhook_id IN (SELECT id FROM webhook_registrations WHERE deleted_at IS NULL)
 		ORDER BY created_at DESC
 		LIMIT $3 OFFSET $4
 	`
@@ -211,6 +213,7 @@ func (r *Repository) ListSubscriptionsByEvent(ctx context.Context, tenantID uuid
 		       transform_enabled, transform_template, timeout, label_filters, on_transform_error, template_missing_key, paused_at, COALESCE(paused_reason, '') AS paused_reason, created_at, updated_at
 		FROM event_subscriptions
 		WHERE tenant_id = $1 AND ($2::text IS NULL OR consumer = $2) AND event_name = $3
+		  AND webhook_id IN (SELECT id FROM webhook_registrations WHERE deleted_at IS NULL)
 		ORDER BY created_at DESC
 	`
 	var subs []*EventSubscription
@@ -262,6 +265,7 @@ func (r *Repository) ListSubscriptionsTargetingEvent(ctx context.Context, tenant
 		       transform_enabled, transform_template, timeout, label_filters, on_transform_error, template_missing_key, paused_at, COALESCE(paused_reason, '') AS paused_reason, created_at, updated_at
 		FROM event_subscriptions
 		WHERE tenant_id = $1 AND (event_name = $2 OR event_name = '*')
+		  AND webhook_id IN (SELECT id FROM webhook_registrations WHERE deleted_at IS NULL)
 		ORDER BY consumer, created_at
 	`
 	var subs []*EventSubscription
@@ -298,33 +302,6 @@ func (r *Repository) ListSubscriptionsByWebhookIDs(ctx context.Context, tenantID
 	return subs, nil
 }
 
-// GetSubscriptionsByEvent finds all active subscriptions for a specific event in a consumer within a tenant.
-// Also includes catch-all subscriptions (event_name = '*') for the same consumer.
-func (r *Repository) GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string, labels map[string]string) ([]*EventSubscription, error) {
-	query := `
-		SELECT es.id, es.tenant_id, es.webhook_id, es.event_name, es.consumer, es.headers, es.method, 
-		       es.transform_enabled, es.transform_template, es.timeout, es.label_filters, es.on_transform_error, es.template_missing_key, es.paused_at, COALESCE(es.paused_reason, '') AS paused_reason, es.created_at, es.updated_at
-		FROM event_subscriptions es
-		JOIN webhook_registrations wr ON es.webhook_id = wr.id
-		WHERE es.tenant_id = $1 AND es.consumer = $2
-		  AND (es.event_name = $3 OR es.event_name = '*')
-		  AND (es.label_filters = '{}' OR es.label_filters <@ $4::jsonb)
-	`
-
-	labelsJSON, err := json.Marshal(labels)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal labels: %w", err)
-	}
-
-	var subscriptions []*EventSubscription
-
-	err = r.conn.SelectContext(ctx, &subscriptions, query, tenantID, consumer, event, labelsJSON)
-	if err != nil {
-		return nil, storage.Error(err)
-	}
-	return subscriptions, nil
-}
-
 // GetSubscriptionsWithWebhooksByEvent finds every subscription for a specific event in a consumer within a tenant,
 // including the webhook configuration for each subscription. Paused webhooks are included (with Active false) so
 // fan-out records their deliveries as paused instead of dropping them.
@@ -340,7 +317,7 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, te
 			wr.user_agent, wr.content_type, wr.secret_headers, wr.created_at as wr_created_at, wr.updated_at as wr_updated_at
 		FROM event_subscriptions es
 		JOIN webhook_registrations wr ON es.webhook_id = wr.id
-		WHERE es.tenant_id = $1 AND es.consumer = $2
+		WHERE es.tenant_id = $1 AND es.consumer = $2 AND wr.deleted_at IS NULL
 		  AND (es.event_name = $3 OR es.event_name = '*')
 		  AND (es.label_filters = '{}' OR es.label_filters <@ $4::jsonb)
 	`

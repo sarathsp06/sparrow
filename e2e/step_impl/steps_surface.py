@@ -199,17 +199,31 @@ def get_consumer_path_status(suffix, code):
     assert resp.status_code == int(code), f"Expected {code}, got {resp.status_code}: {resp.text}"
 
 
-@step("List deliveries with limit <limit> and offset <offset> should return <count> items")
-def list_deliveries_page(limit, offset, count):
-    resp = requests.get(
-        f"{_base()}/v1/consumers/{_ns()}/deliveries",
-        params={"limit": limit, "offset": offset},
-    )
+def _delivery_page(params, count):
+    resp = requests.get(f"{_base()}/v1/consumers/{_ns()}/deliveries", params=params)
     assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
     body = resp.json()
     assert len(body["items"]) == int(count), \
         f"Expected {count} items, got {len(body['items'])}"
     data_store.scenario["last_delivery_page"] = body
+    data_store.scenario["last_delivery_limit"] = params["limit"]
+
+
+@step("List deliveries with limit <limit> should return <count> items")
+def list_deliveries_page(limit, count):
+    _delivery_page({"limit": limit}, count)
+
+
+@step("Next delivery page should return <count> items")
+def next_delivery_page(count):
+    cursor = data_store.scenario["last_delivery_page"]["pagination"]["next_cursor"]
+    _delivery_page({"limit": data_store.scenario["last_delivery_limit"], "cursor": cursor}, count)
+
+
+@step("List deliveries with offset <offset> should be rejected")
+def list_deliveries_offset_rejected(offset):
+    resp = requests.get(f"{_base()}/v1/consumers/{_ns()}/deliveries", params={"offset": offset})
+    assert resp.status_code == 400, f"Expected 400, got {resp.status_code}: {resp.text}"
 
 
 @step("Last delivery page should have has_more <has_more>")

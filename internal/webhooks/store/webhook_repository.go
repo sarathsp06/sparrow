@@ -42,18 +42,34 @@ func (r *Repository) RegisterWebhook(ctx context.Context, tenantID uuid.UUID, re
 	return insertWebhookRegistration(ctx, r.conn, tenantID, registration)
 }
 
-// UnregisterWebhook permanently deletes a webhook registration and all associated data.
+// UnregisterWebhook soft-deletes a webhook: it is marked deleted and inactive,
+// disappears from every webhook read (lookups, lists, stats, fan-out), and its
+// URL can be registered again. Its deliveries, health history and
+// subscriptions stay, so nothing referencing it is touched. A hard delete
+// cascaded through every delivery and health event of the webhook (8s and a
+// row lock for one with 600k deliveries); this is a single-row update.
+// Returns storage.ErrNotFound when the webhook does not exist or is already
+// deleted.
 func (r *Repository) UnregisterWebhook(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) error {
-	query := `DELETE FROM webhook_registrations WHERE id = $1 AND tenant_id = $2`
-	_, err := r.conn.ExecContext(ctx, query, webhookID, tenantID)
-	return storage.Error(err)
+	query := `
+		UPDATE webhook_registrations
+		SET deleted_at = NOW(), active = false, updated_at = NOW()
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`
+	res, err := r.conn.ExecContext(ctx, query, webhookID, tenantID)
+	if err != nil {
+		return storage.Error(err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return storage.ErrNotFound
+	}
+	return nil
 }
 
 // checkWebhookDuplicate checks if a webhook with the same tenant, consumer, and URL
 // already exists. If found, sets registration.ID to the existing ID and returns
 // storage.ErrAlreadyExists. Used by RegisterWebhook and RegisterWebhookWithSubscriptions.
 func checkWebhookDuplicate(ctx context.Context, conn storage.DBTX, tenantID uuid.UUID, registration *WebhookRegistration) error {
-	checkQuery := `SELECT id FROM webhook_registrations WHERE tenant_id = $1 AND consumer = $2 AND url = $3 LIMIT 1`
+	checkQuery := `SELECT id FROM webhook_registrations WHERE tenant_id = $1 AND consumer = $2 AND url = $3 AND deleted_at IS NULL LIMIT 1`
 	var existingID uuid.UUID
 	err := conn.GetContext(ctx, &existingID, checkQuery, tenantID, registration.Consumer, registration.URL)
 	if err == nil && existingID != uuid.Nil {
@@ -148,6 +164,7 @@ func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UU
 		FROM webhook_registrations wr
 		LEFT JOIN event_subscriptions es ON wr.id = es.webhook_id
 		WHERE wr.tenant_id = $1
+		  AND wr.deleted_at IS NULL
 		  AND ($2::text IS NULL OR wr.consumer = $2)
 		  AND ($3 IS FALSE OR wr.active = true)
 		  AND ($4 = '' OR es.event_name = $4)
@@ -169,6 +186,7 @@ func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UU
 		FROM webhook_registrations wr
 		LEFT JOIN event_subscriptions es ON wr.id = es.webhook_id
 		WHERE wr.tenant_id = $1
+		  AND wr.deleted_at IS NULL
 		  AND ($2::text IS NULL OR wr.consumer = $2)
 		  AND ($3 IS FALSE OR wr.active = true)
 		  AND ($4 = '' OR es.event_name = $4)
@@ -196,39 +214,47 @@ func (r *Repository) GetConsumerStats(ctx context.Context, tenantID uuid.UUID, c
 
 	args := []any{tenantID, ns}
 
+	// Attempt counts come from the running totals the health evaluator keeps
+	// in webhook_metrics (one row per webhook), so they lag by at most
+	// one evaluator pass. Counting webhook_deliveries here instead took 4.8s
+	// for a busy consumer on 6M deliveries. Pending is a live, index-only
+	// count over the small partial idx_webhook_deliveries_unsuccessful.
 	query := `
-		WITH webhook_counts AS (
-			SELECT
-				COUNT(*) as total_webhooks,
-				COUNT(*) FILTER (WHERE active = true) as active_webhooks
+		WITH wh AS (
+			SELECT id, active
 			FROM webhook_registrations
 			WHERE tenant_id = $1
+			  AND deleted_at IS NULL
 			  AND ($2::text IS NULL OR consumer = $2)
 		),
-		delivery_stats AS (
-			SELECT
-				COUNT(wd.id) as total_deliveries,
-				COUNT(wd.id) FILTER (WHERE wd.status = 'success') as successful_deliveries,
-				COUNT(wd.id) FILTER (WHERE wd.status = 'failed') as failed_deliveries,
-				COUNT(wd.id) FILTER (WHERE wd.status IN ('pending', 'sending', 'retrying')) as pending_deliveries
+		webhook_counts AS (
+			SELECT COUNT(*) AS total_webhooks, COUNT(*) FILTER (WHERE active) AS active_webhooks
+			FROM wh
+		),
+		attempt_stats AS (
+			SELECT COALESCE(SUM(m.total_attempts), 0) AS attempts,
+			       COALESCE(SUM(m.total_failures), 0) AS failures
+			FROM webhook_metrics m
+			WHERE m.webhook_id IN (SELECT id FROM wh)
+		),
+		in_flight AS (
+			SELECT COUNT(*) AS pending
 			FROM webhook_deliveries wd
-			JOIN webhook_registrations wr ON wd.webhook_id = wr.id
-			WHERE wr.tenant_id = $1
-			  AND ($2::text IS NULL OR wr.consumer = $2)
+			WHERE wd.webhook_id IN (SELECT id FROM wh)
+			  AND wd.status IN ('pending', 'sending', 'retrying')
 		)
 		SELECT
 			wc.total_webhooks,
 			wc.active_webhooks,
-			COALESCE(ds.total_deliveries, 0) as total_deliveries,
-			COALESCE(ds.successful_deliveries, 0) as successful_deliveries,
-			COALESCE(ds.failed_deliveries, 0) as failed_deliveries,
-			COALESCE(ds.pending_deliveries, 0) as pending_deliveries,
-			CASE
-				WHEN COALESCE(ds.total_deliveries, 0) > 0
-				THEN CAST(ds.successful_deliveries AS FLOAT) / ds.total_deliveries
-				ELSE 0
-			END as success_rate
-		FROM webhook_counts wc, delivery_stats ds
+			a.attempts AS total_deliveries,
+			a.attempts - a.failures AS successful_deliveries,
+			a.failures AS failed_deliveries,
+			f.pending AS pending_deliveries,
+			CASE WHEN a.attempts > 0
+			     THEN CAST(a.attempts - a.failures AS FLOAT) / a.attempts
+			     ELSE 0
+			END AS success_rate
+		FROM webhook_counts wc, attempt_stats a, in_flight f
 	`
 
 	var stats ConsumerStats
@@ -256,7 +282,7 @@ func (r *Repository) LockWebhook(ctx context.Context, tenantID uuid.UUID, webhoo
 		       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, signature_type, requires_transform,
 		       auto_disabled_at, auto_disabled_reason, created_at, updated_at
 		FROM webhook_registrations
-		WHERE id = $1 AND tenant_id = $2 AND consumer = $3
+		WHERE id = $1 AND tenant_id = $2 AND consumer = $3 AND deleted_at IS NULL
 		` + lock
 	var result WebhookRegistration
 	if err := r.conn.GetContext(ctx, &result, query, webhookID, tenantID, consumer); err != nil {
@@ -333,7 +359,8 @@ func (r *Repository) replaceWebhookSubscriptions(ctx context.Context, conn stora
 }
 
 // GetWebhookByID gets a webhook by ID within a tenant, optionally filtered by consumer.
-// When consumer is empty, looks up by webhook ID within the tenant.
+// When consumer is empty, looks up by webhook ID within the tenant. A deleted
+// webhook is not found.
 func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string) (*WebhookRegistration, error) {
 	var query string
 	var args []any
@@ -346,7 +373,7 @@ func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, web
 			       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, signature_type, requires_transform,
 			       auto_disabled_at, auto_disabled_reason, created_at, updated_at
 			FROM webhook_registrations
-			WHERE id = $1 AND tenant_id = $2 AND consumer = $3
+			WHERE id = $1 AND tenant_id = $2 AND consumer = $3 AND deleted_at IS NULL
 		`
 		args = []any{webhookID, tenantID, consumer}
 	} else {
@@ -357,7 +384,7 @@ func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, web
 			       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, signature_type, requires_transform,
 			       auto_disabled_at, auto_disabled_reason, created_at, updated_at
 			FROM webhook_registrations
-			WHERE id = $1 AND tenant_id = $2
+			WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 		`
 		args = []any{webhookID, tenantID}
 	}
@@ -390,7 +417,7 @@ func (r *Repository) UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webh
 			UPDATE webhook_health_state SET failing_since = NULL
 			WHERE $7 AND webhook_id = (
 				SELECT id FROM webhook_registrations
-				WHERE id = $1 AND tenant_id = $2 AND consumer = $3 AND auto_disabled_at IS NOT NULL
+				WHERE id = $1 AND tenant_id = $2 AND consumer = $3 AND auto_disabled_at IS NOT NULL AND deleted_at IS NULL
 			)
 		)
 		UPDATE webhook_registrations
@@ -406,7 +433,7 @@ func (r *Repository) UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webh
 		    auto_disabled_at = CASE WHEN $7 THEN NULL ELSE auto_disabled_at END,
 		    auto_disabled_reason = CASE WHEN $7 THEN NULL ELSE auto_disabled_reason END,
 		    updated_at = NOW()
-		WHERE id = $1 AND tenant_id = $2 AND consumer = $3
+		WHERE id = $1 AND tenant_id = $2 AND consumer = $3 AND deleted_at IS NULL
 	`
 
 	_, err = r.conn.ExecContext(ctx, query,

@@ -293,23 +293,23 @@ components:
           format: int64
           type: integer
         failed_deliveries:
-          description: Deliveries that failed.
+          description: Attempts that failed, all time, including failures that were later retried successfully. Lags like total_deliveries.
           format: int64
           type: integer
         pending_deliveries:
-          description: Deliveries pending or retrying.
+          description: Deliveries waiting to be sent or retried right now (pending, sending or retrying).
           format: int64
           type: integer
         success_rate:
-          description: Overall success rate, 0.0 to 1.0.
+          description: successful_deliveries / total_deliveries, 0.0 to 1.0.
           format: double
           type: number
         successful_deliveries:
-          description: Deliveries that succeeded.
+          description: Attempts that succeeded, all time. Lags like total_deliveries.
           format: int64
           type: integer
         total_deliveries:
-          description: Total delivery attempts recorded.
+          description: Delivery attempts recorded, all time. A retried delivery counts once per attempt. Updated by each health evaluation (SPARROW_HEALTH_EVAL_INTERVAL), so it can lag by that much.
           format: int64
           type: integer
         total_webhooks:
@@ -3234,12 +3234,20 @@ paths:
           schema:
             description: Filter to deliveries for one pushed event occurrence.
             type: string
-        - description: Filter by delivery status (e.g. pending, success, failed, retrying, paused).
+        - description: Filter by delivery status.
           explode: false
           in: query
           name: status
           schema:
-            description: Filter by delivery status (e.g. pending, success, failed, retrying, paused).
+            description: Filter by delivery status.
+            enum:
+              - pending
+              - sending
+              - success
+              - failed
+              - retrying
+              - expired
+              - paused
             type: string
         - description: Filter by failure classification (e.g. server_error, client_error, timeout).
           explode: false
@@ -3302,13 +3310,13 @@ paths:
           schema:
             description: "Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new deliveries arrive."
             type: string
-        - description: "Deprecated: use cursor. Number of items to skip."
+        - description: "Removed: page with cursor. Any value other than 0 is rejected with 400, so a client still paging by offset fails loudly instead of re-reading the first page."
           explode: false
           in: query
           name: offset
           schema:
             default: 0
-            description: "Deprecated: use cursor. Number of items to skip."
+            description: "Removed: page with cursor. Any value other than 0 is rejected with 400, so a client still paging by offset fails loudly instead of re-reading the first page."
             format: int32
             type: integer
       responses:
@@ -3643,13 +3651,13 @@ paths:
           schema:
             description: "Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new events arrive."
             type: string
-        - description: "Deprecated: use cursor. Number of items to skip."
+        - description: "Removed: page with cursor. Any value other than 0 is rejected with 400, so a client still paging by offset fails loudly instead of re-reading the first page."
           explode: false
           in: query
           name: offset
           schema:
             default: 0
-            description: "Deprecated: use cursor. Number of items to skip."
+            description: "Removed: page with cursor. Any value other than 0 is rejected with 400, so a client still paging by offset fails loudly instead of re-reading the first page."
             format: int32
             type: integer
       responses:
@@ -4511,7 +4519,7 @@ paths:
         - Webhooks
   /v1/consumers/{consumer}/webhooks/{webhook_id}:
     delete:
-      description: Permanently unregisters a webhook and cascade-deletes its subscriptions and delivery history. This cannot be undone.
+      description: "Deletes a webhook: it stops receiving events and no longer appears in webhook lists, and its URL can be registered again. Its delivery history is kept and stays listed under deliveries until retention removes it. Queued deliveries for it fail with \"Webhook was deleted\". This cannot be undone."
       operationId: deleteWebhook
       parameters:
         - description: Tenant consumer the webhook belongs to.
@@ -4868,12 +4876,20 @@ paths:
           schema:
             description: Filter to deliveries for one pushed event occurrence.
             type: string
-        - description: Filter by delivery status (e.g. pending, success, failed, retrying, paused).
+        - description: Filter by delivery status.
           explode: false
           in: query
           name: status
           schema:
-            description: Filter by delivery status (e.g. pending, success, failed, retrying, paused).
+            description: Filter by delivery status.
+            enum:
+              - pending
+              - sending
+              - success
+              - failed
+              - retrying
+              - expired
+              - paused
             type: string
         - description: Filter by failure classification (e.g. server_error, client_error, timeout).
           explode: false
@@ -4936,13 +4952,13 @@ paths:
           schema:
             description: "Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new deliveries arrive."
             type: string
-        - description: "Deprecated: use cursor. Number of items to skip."
+        - description: "Removed: page with cursor. Any value other than 0 is rejected with 400, so a client still paging by offset fails loudly instead of re-reading the first page."
           explode: false
           in: query
           name: offset
           schema:
             default: 0
-            description: "Deprecated: use cursor. Number of items to skip."
+            description: "Removed: page with cursor. Any value other than 0 is rejected with 400, so a client still paging by offset fails loudly instead of re-reading the first page."
             format: int32
             type: integer
       responses:
@@ -5559,13 +5575,13 @@ paths:
           schema:
             description: "Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new events arrive."
             type: string
-        - description: "Deprecated: use cursor. Number of items to skip."
+        - description: "Removed: page with cursor. Any value other than 0 is rejected with 400, so a client still paging by offset fails loudly instead of re-reading the first page."
           explode: false
           in: query
           name: offset
           schema:
             default: 0
-            description: "Deprecated: use cursor. Number of items to skip."
+            description: "Removed: page with cursor. Any value other than 0 is rejected with 400, so a client still paging by offset fails loudly instead of re-reading the first page."
             format: int32
             type: integer
       responses:

@@ -354,21 +354,12 @@ func TestCreateSubscription_CatchAllWithLabelFilters(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// GetSubscriptionsByEvent mock tests (service → repo contract)
+// GetSubscriptionsWithWebhooksByEvent mock tests (service → repo contract)
 // ---------------------------------------------------------------------------
 
 // mockRepoWithEventQuery extends mockRepo with the event-subscription query methods.
 type mockRepoWithEventQuery struct {
 	mockRepo
-}
-
-func (m *mockRepoWithEventQuery) GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string, labels map[string]string) ([]*store.EventSubscription, error) {
-	args := m.Called(ctx, tenantID, consumer, event, labels)
-	res := args.Get(0)
-	if res == nil {
-		return nil, args.Error(1)
-	}
-	return res.([]*store.EventSubscription), args.Error(1)
 }
 
 func (m *mockRepoWithEventQuery) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string, labels map[string]string) ([]*store.SubscriptionWithWebhook, error) {
@@ -378,138 +369,6 @@ func (m *mockRepoWithEventQuery) GetSubscriptionsWithWebhooksByEvent(ctx context
 		return nil, args.Error(1)
 	}
 	return res.([]*store.SubscriptionWithWebhook), args.Error(1)
-}
-
-func TestGetSubscriptionsByEvent_CatchAllReturned(t *testing.T) {
-	repo := new(mockRepoWithEventQuery)
-
-	ctx := testContext()
-
-	// Simulate DB returning both an exact match and a catch-all subscription.
-	expected := []*store.EventSubscription{
-		{
-			ID:        uuid.New(),
-			WebhookID: uuid.New(),
-			EventName: "signup",
-			Consumer:  "default",
-		},
-		{
-			ID:        uuid.New(),
-			WebhookID: uuid.New(),
-			EventName: store.CatchAllEventName,
-			Consumer:  "default",
-		},
-	}
-
-	repo.On("GetSubscriptionsByEvent", mock.Anything, mock.Anything, "default", "signup", map[string]string(nil)).
-		Return(expected, nil)
-
-	result, err := repo.GetSubscriptionsByEvent(ctx, uuid.New(), "default", "signup", nil)
-	assert.NoError(t, err)
-	assert.Len(t, result, 2)
-
-	eventNames := []string{result[0].EventName, result[1].EventName}
-	assert.Contains(t, eventNames, "signup")
-	assert.Contains(t, eventNames, store.CatchAllEventName)
-	repo.AssertExpectations(t)
-}
-
-func TestGetSubscriptionsByEvent_NoMatches(t *testing.T) {
-	repo := new(mockRepoWithEventQuery)
-
-	ctx := testContext()
-
-	repo.On("GetSubscriptionsByEvent", mock.Anything, mock.Anything, "default", "unknown.event", map[string]string(nil)).
-		Return([]*store.EventSubscription{}, nil)
-
-	result, err := repo.GetSubscriptionsByEvent(ctx, uuid.New(), "default", "unknown.event", nil)
-	assert.NoError(t, err)
-	assert.Empty(t, result)
-	repo.AssertExpectations(t)
-}
-
-func TestGetSubscriptionsByEvent_LabelFiltering(t *testing.T) {
-	repo := new(mockRepoWithEventQuery)
-
-	ctx := testContext()
-
-	// Subscription with label_filters={"region":"us"} should match event with labels={"region":"us","tier":"premium"}.
-	matchingSub := &store.EventSubscription{
-		ID:           uuid.New(),
-		WebhookID:    uuid.New(),
-		EventName:    "order.created",
-		Consumer:     "default",
-		LabelFilters: map[string]string{"region": "us"},
-	}
-
-	eventLabels := map[string]string{"region": "us", "tier": "premium"}
-
-	repo.On("GetSubscriptionsByEvent", mock.Anything, mock.Anything, "default", "order.created", eventLabels).
-		Return([]*store.EventSubscription{matchingSub}, nil)
-
-	result, err := repo.GetSubscriptionsByEvent(ctx, uuid.New(), "default", "order.created", eventLabels)
-	assert.NoError(t, err)
-	assert.Len(t, result, 1)
-	assert.Equal(t, "order.created", result[0].EventName)
-	repo.AssertExpectations(t)
-}
-
-func TestGetSubscriptionsByEvent_LabelMismatchFiltered(t *testing.T) {
-	repo := new(mockRepoWithEventQuery)
-
-	ctx := testContext()
-
-	// If event labels don't contain all of the subscription's label_filters,
-	// the DB query filters it out — result is empty.
-	eventLabels := map[string]string{"region": "eu"}
-
-	repo.On("GetSubscriptionsByEvent", mock.Anything, mock.Anything, "default", "order.created", eventLabels).
-		Return([]*store.EventSubscription{}, nil)
-
-	result, err := repo.GetSubscriptionsByEvent(ctx, uuid.New(), "default", "order.created", eventLabels)
-	assert.NoError(t, err)
-	assert.Empty(t, result)
-	repo.AssertExpectations(t)
-}
-
-func TestGetSubscriptionsByEvent_EmptyLabelFiltersMatchAll(t *testing.T) {
-	repo := new(mockRepoWithEventQuery)
-
-	ctx := testContext()
-
-	// A subscription with label_filters={} matches any event, regardless of its labels.
-	sub := &store.EventSubscription{
-		ID:           uuid.New(),
-		WebhookID:    uuid.New(),
-		EventName:    "signup",
-		Consumer:     "default",
-		LabelFilters: map[string]string{},
-	}
-
-	eventLabels := map[string]string{"region": "us", "tier": "premium"}
-
-	repo.On("GetSubscriptionsByEvent", mock.Anything, mock.Anything, "default", "signup", eventLabels).
-		Return([]*store.EventSubscription{sub}, nil)
-
-	result, err := repo.GetSubscriptionsByEvent(ctx, uuid.New(), "default", "signup", eventLabels)
-	assert.NoError(t, err)
-	assert.Len(t, result, 1)
-	repo.AssertExpectations(t)
-}
-
-func TestGetSubscriptionsByEvent_ConsumerIsolation(t *testing.T) {
-	repo := new(mockRepoWithEventQuery)
-
-	ctx := testContext()
-
-	// Subscriptions in consumer "billing" should not appear when querying "default".
-	repo.On("GetSubscriptionsByEvent", mock.Anything, mock.Anything, "default", "signup", map[string]string(nil)).
-		Return([]*store.EventSubscription{}, nil)
-
-	result, err := repo.GetSubscriptionsByEvent(ctx, uuid.New(), "default", "signup", nil)
-	assert.NoError(t, err)
-	assert.Empty(t, result)
-	repo.AssertExpectations(t)
 }
 
 // ---------------------------------------------------------------------------

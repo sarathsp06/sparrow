@@ -45,8 +45,10 @@ type HealthEvaluatorConfig struct {
 	// Lag is how far behind the clock the evaluation stops, so an event that
 	// commits late is not skipped. Default 5s.
 	Lag time.Duration
-	// MaxEvents bounds one pass; a backlog is worked through in several
-	// passes within the same job. Default 50000.
+	// MaxEvents bounds one pass (one transaction); a backlog is worked
+	// through in several passes within the same job. Default 10000: on 6M
+	// deliveries a 10k-event pass takes ~85ms of rollup with a 1.4MB hash,
+	// where 50k took ~380ms and 6MB while holding the evaluator's locks.
 	MaxEvents int
 }
 
@@ -54,8 +56,8 @@ type HealthEvaluatorConfig struct {
 const (
 	DefaultHealthEvalInterval = time.Minute
 	defaultHealthEvalLag      = 5 * time.Second
-	defaultHealthEvalMax      = 50000
-	maxHealthEvalPasses       = 20
+	defaultHealthEvalMax      = 10000
+	maxHealthEvalPasses       = 100
 )
 
 func (c HealthEvaluatorConfig) withDefaults() HealthEvaluatorConfig {

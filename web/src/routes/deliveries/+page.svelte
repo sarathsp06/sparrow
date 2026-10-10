@@ -7,6 +7,7 @@
     import { pulseStore } from '$lib/pulse.svelte';
     import { onDestroy, untrack } from 'svelte';
     import type { components } from '$lib/api-types';
+    type DeliveryStatus = components['schemas']['DeliveryItem']['status'];
     import StatusBadge from '$lib/components/StatusBadge.svelte';
     import CopyableId from '$lib/components/CopyableId.svelte';
     import CursorPager from '$lib/components/CursorPager.svelte';
@@ -85,7 +86,7 @@
                         consumer: ns || undefined,
                         webhook_id: webhookIdFilter.trim() || undefined,
                         event_id: eventIdFilter.trim() || undefined,
-                        status: statusFilter || undefined,
+                        status: (statusFilter || undefined) as DeliveryStatus | undefined,
                         error_category: errorCategoryFilter || undefined,
                         created_after: createdAfterFilter || undefined,
                         created_before: createdBeforeFilter || undefined,

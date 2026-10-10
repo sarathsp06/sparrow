@@ -647,12 +647,11 @@ func (s *WebhookService) ListEventReports(ctx context.Context, filter store.Even
 		"consumer", filter.Consumer,
 		"event_name", filter.EventName,
 		"prepare_repush", filter.PrepareRepush,
-		"limit", filter.Limit,
-		"offset", filter.Offset)
+		"limit", filter.Limit)
 
 	tenantID := tenant.DefaultTenantID
 
-	filter.Limit, filter.Offset = normalizePagination(filter.Limit, filter.Offset)
+	filter.Limit, _ = normalizePagination(filter.Limit, 0)
 
 	events, hasMore, err := s.webhookRepo.ListEventReportsFiltered(ctx, tenantID, filter)
 	if err != nil {

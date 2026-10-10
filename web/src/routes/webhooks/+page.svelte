@@ -415,7 +415,7 @@
 <ConfirmDialog
   open={confirmUnregister}
   title="Unregister Webhook"
-  message="This will permanently remove the webhook and stop all future deliveries. This action cannot be undone."
+  message="This removes the webhook and stops all future deliveries. Its delivery history is kept. This cannot be undone."
   confirmLabel="Unregister"
   variant="danger"
   onconfirm={executeUnregister}

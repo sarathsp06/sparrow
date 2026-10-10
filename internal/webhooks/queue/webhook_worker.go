@@ -25,6 +25,7 @@ import (
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"github.com/sarathsp06/sparrow/pkg/crypto"
+	"github.com/sarathsp06/sparrow/pkg/storage"
 	"github.com/sarathsp06/sparrow/pkg/template"
 )
 
@@ -185,6 +186,13 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 
 	// Get webhook configuration from database
 	webhook, err := w.webhookRepo.GetWebhookByID(ctx, tenantID, webhookID, args.Consumer)
+	if storage.IsNotFound(err) {
+		// The webhook was deleted after this delivery was queued. Deletes
+		// are soft, so the delivery row stays; retrying cannot bring the
+		// webhook back.
+		_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, store.StatusFailed, 0, "", "Webhook was deleted", "unknown")
+		return river.JobCancel(fmt.Errorf("webhook %s was deleted", args.WebhookID))
+	}
 	if err != nil {
 		w.logger.ErrorContext(ctx, "Failed to get webhook configuration", "error", err, "webhook_id", args.WebhookID)
 		_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, store.StatusFailed, 0, "", fmt.Sprintf("Failed to get webhook configuration: %v", err), "unknown")

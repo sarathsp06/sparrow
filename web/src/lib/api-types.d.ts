@@ -504,7 +504,7 @@ export interface paths {
         post?: never;
         /**
          * Delete a webhook
-         * @description Permanently unregisters a webhook and cascade-deletes its subscriptions and delivery history. This cannot be undone.
+         * @description Deletes a webhook: it stops receiving events and no longer appears in webhook lists, and its URL can be registered again. Its delivery history is kept and stays listed under deliveries until retention removes it. Queued deliveries for it fail with "Webhook was deleted". This cannot be undone.
          */
         delete: operations["deleteWebhook"];
         options?: never;
@@ -1343,27 +1343,27 @@ export interface components {
             active_webhooks: number;
             /**
              * Format: int64
-             * @description Deliveries that failed.
+             * @description Attempts that failed, all time, including failures that were later retried successfully. Lags like total_deliveries.
              */
             failed_deliveries: number;
             /**
              * Format: int64
-             * @description Deliveries pending or retrying.
+             * @description Deliveries waiting to be sent or retried right now (pending, sending or retrying).
              */
             pending_deliveries: number;
             /**
              * Format: double
-             * @description Overall success rate, 0.0 to 1.0.
+             * @description successful_deliveries / total_deliveries, 0.0 to 1.0.
              */
             success_rate: number;
             /**
              * Format: int64
-             * @description Deliveries that succeeded.
+             * @description Attempts that succeeded, all time. Lags like total_deliveries.
              */
             successful_deliveries: number;
             /**
              * Format: int64
-             * @description Total delivery attempts recorded.
+             * @description Delivery attempts recorded, all time. A retried delivery counts once per attempt. Updated by each health evaluation (SPARROW_HEALTH_EVAL_INTERVAL), so it can lag by that much.
              */
             total_deliveries: number;
             /**
@@ -3279,8 +3279,8 @@ export interface operations {
                 webhook_id?: string;
                 /** @description Filter to deliveries for one pushed event occurrence. */
                 event_id?: string;
-                /** @description Filter by delivery status (e.g. pending, success, failed, retrying, paused). */
-                status?: string;
+                /** @description Filter by delivery status. */
+                status?: "pending" | "sending" | "success" | "failed" | "retrying" | "expired" | "paused";
                 /** @description Filter by failure classification (e.g. server_error, client_error, timeout). */
                 error_category?: string;
                 /** @description Filter to deliveries created by one subscription, e.g. its paused deliveries. */
@@ -3297,7 +3297,7 @@ export interface operations {
                 limit?: number;
                 /** @description Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new deliveries arrive. */
                 cursor?: string;
-                /** @description Deprecated: use cursor. Number of items to skip. */
+                /** @description Removed: page with cursor. Any value other than 0 is rejected with 400, so a client still paging by offset fails loudly instead of re-reading the first page. */
                 offset?: number;
             };
             header?: never;
@@ -3629,7 +3629,7 @@ export interface operations {
                 limit?: number;
                 /** @description Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new events arrive. */
                 cursor?: string;
-                /** @description Deprecated: use cursor. Number of items to skip. */
+                /** @description Removed: page with cursor. Any value other than 0 is rejected with 400, so a client still paging by offset fails loudly instead of re-reading the first page. */
                 offset?: number;
             };
             header?: never;
@@ -4960,8 +4960,8 @@ export interface operations {
                 webhook_id?: string;
                 /** @description Filter to deliveries for one pushed event occurrence. */
                 event_id?: string;
-                /** @description Filter by delivery status (e.g. pending, success, failed, retrying, paused). */
-                status?: string;
+                /** @description Filter by delivery status. */
+                status?: "pending" | "sending" | "success" | "failed" | "retrying" | "expired" | "paused";
                 /** @description Filter by failure classification (e.g. server_error, client_error, timeout). */
                 error_category?: string;
                 /** @description Filter to deliveries created by one subscription, e.g. its paused deliveries. */
@@ -4978,7 +4978,7 @@ export interface operations {
                 limit?: number;
                 /** @description Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new deliveries arrive. */
                 cursor?: string;
-                /** @description Deprecated: use cursor. Number of items to skip. */
+                /** @description Removed: page with cursor. Any value other than 0 is rejected with 400, so a client still paging by offset fails loudly instead of re-reading the first page. */
                 offset?: number;
             };
             header?: never;
@@ -5660,7 +5660,7 @@ export interface operations {
                 limit?: number;
                 /** @description Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new events arrive. */
                 cursor?: string;
-                /** @description Deprecated: use cursor. Number of items to skip. */
+                /** @description Removed: page with cursor. Any value other than 0 is rejected with 400, so a client still paging by offset fails loudly instead of re-reading the first page. */
                 offset?: number;
             };
             header?: never;

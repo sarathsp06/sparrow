@@ -199,11 +199,10 @@ type EventReportFilter struct {
 	Labels        map[string]string // JSONB containment filter
 	CreatedAfter  *time.Time
 	CreatedBefore *time.Time
-	// After continues a list after this row; Offset is kept for older
-	// clients and applies on top of it.
+	// After continues a list after this row (keyset paging; event_records
+	// grows without bound, so there is no offset).
 	After         *PageCursor
 	Limit         int
-	Offset        int
 	PrepareRepush bool // When true, snapshot matching IDs into a batch job and return repush_id
 }
 
@@ -221,11 +220,10 @@ type DeliveryFilter struct {
 	EventName     *string
 	CreatedAfter  *time.Time
 	CreatedBefore *time.Time
-	// After continues a list after this row; Offset is kept for older
-	// clients and applies on top of it.
+	// After continues a list after this row (keyset paging;
+	// webhook_deliveries grows without bound, so there is no offset).
 	After        *PageCursor
 	Limit        int
-	Offset       int
 	PrepareRetry bool // When true, snapshot matching IDs into a batch job and return retry_id
 }
 
@@ -402,7 +400,9 @@ type SubscriptionTemplateVersion struct {
 // TemplateVersionsKept is how many versions are retained per subscription.
 const TemplateVersionsKept = 20
 
-// ConsumerStats represents statistics for a consumer
+// ConsumerStats represents statistics for a consumer. The delivery counts
+// are delivery attempts (a retried delivery counts once per attempt) from
+// the health evaluator's running totals; PendingDeliveries is live.
 type ConsumerStats struct {
 	TotalWebhooks        int     `db:"total_webhooks"`
 	ActiveWebhooks       int     `db:"active_webhooks"`

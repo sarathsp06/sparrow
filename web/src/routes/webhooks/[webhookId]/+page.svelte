@@ -6,6 +6,7 @@
   import { getCategoryBadge, ERROR_CATEGORIES, formatAPIError } from '$lib/utils';
   import { onMount, onDestroy } from 'svelte';
   import type { components } from '$lib/api-types';
+  type DeliveryStatus = components['schemas']['DeliveryItem']['status'];
   import HealthBadge from '$lib/components/HealthBadge.svelte';
   import CopyableId from '$lib/components/CopyableId.svelte';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
@@ -159,7 +160,7 @@
             query: {
               webhook_id: webhookId,
               event_name: deliveryEventFilter || undefined,
-              status: deliveryStatusFilter || undefined,
+              status: (deliveryStatusFilter || undefined) as DeliveryStatus | undefined,
               error_category: deliveryErrorCategoryFilter || undefined,
               created_after: deliveryCreatedAfterFilter || undefined,
               created_before: deliveryCreatedBeforeFilter || undefined,
@@ -527,7 +528,7 @@
           query: {
             webhook_id: webhookId,
             event_name: deliveryEventFilter || undefined,
-            status: deliveryStatusFilter || undefined,
+            status: (deliveryStatusFilter || undefined) as DeliveryStatus | undefined,
             error_category: deliveryErrorCategoryFilter || undefined,
             created_after: deliveryCreatedAfterFilter || undefined,
             created_before: deliveryCreatedBeforeFilter || undefined,
@@ -1448,7 +1449,7 @@
 <ConfirmDialog
   open={confirmUnregister}
   title="Unregister Webhook"
-  message="This will permanently remove the webhook and stop all future deliveries. This action cannot be undone."
+  message="This removes the webhook and stops all future deliveries. Its delivery history is kept. This cannot be undone."
   confirmLabel="Unregister"
   variant="danger"
   onconfirm={executeUnregister}

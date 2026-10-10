@@ -153,11 +153,11 @@ type consumerStatsOutput struct {
 	Body struct {
 		TotalWebhooks        int     `json:"total_webhooks" doc:"Total webhooks registered."`
 		ActiveWebhooks       int     `json:"active_webhooks" doc:"Webhooks currently active (not paused)."`
-		TotalDeliveries      int     `json:"total_deliveries" doc:"Total delivery attempts recorded."`
-		SuccessfulDeliveries int     `json:"successful_deliveries" doc:"Deliveries that succeeded."`
-		FailedDeliveries     int     `json:"failed_deliveries" doc:"Deliveries that failed."`
-		PendingDeliveries    int     `json:"pending_deliveries" doc:"Deliveries pending or retrying."`
-		SuccessRate          float64 `json:"success_rate" doc:"Overall success rate, 0.0 to 1.0."`
+		TotalDeliveries      int     `json:"total_deliveries" doc:"Delivery attempts recorded, all time. A retried delivery counts once per attempt. Updated by each health evaluation (SPARROW_HEALTH_EVAL_INTERVAL), so it can lag by that much."`
+		SuccessfulDeliveries int     `json:"successful_deliveries" doc:"Attempts that succeeded, all time. Lags like total_deliveries."`
+		FailedDeliveries     int     `json:"failed_deliveries" doc:"Attempts that failed, all time, including failures that were later retried successfully. Lags like total_deliveries."`
+		PendingDeliveries    int     `json:"pending_deliveries" doc:"Deliveries waiting to be sent or retried right now (pending, sending or retrying)."`
+		SuccessRate          float64 `json:"success_rate" doc:"successful_deliveries / total_deliveries, 0.0 to 1.0."`
 	}
 }
 
@@ -378,7 +378,7 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 		Method:        http.MethodDelete,
 		Path:          "/v1/consumers/{consumer}/webhooks/{webhook_id}",
 		Summary:       "Delete a webhook",
-		Description:   "Permanently unregisters a webhook and cascade-deletes its subscriptions and delivery history. This cannot be undone.",
+		Description:   "Deletes a webhook: it stops receiving events and no longer appears in webhook lists, and its URL can be registered again. Its delivery history is kept and stays listed under deliveries until retention removes it. Queued deliveries for it fail with \"Webhook was deleted\". This cannot be undone.",
 		Errors:        []int{404},
 		Tags:          []string{"Webhooks"},
 		DefaultStatus: http.StatusNoContent,

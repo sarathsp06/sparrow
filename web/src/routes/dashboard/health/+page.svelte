@@ -142,7 +142,7 @@
 
       {#if consumerStats}
         <div>
-          <h2 class="eyebrow mb-3">Statistics · {scope ? consumerLabel(scope) : 'All consumers'}</h2>
+          <h2 class="eyebrow mb-3" title="Successful and failed count delivery attempts, all time, and update with each health evaluation (about once a minute). Pending is live.">Statistics · {scope ? consumerLabel(scope) : 'All consumers'} · attempts</h2>
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div class="panel px-4 py-4">
               <p class="key">Total Webhooks</p>

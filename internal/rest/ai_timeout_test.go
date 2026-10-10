@@ -52,7 +52,7 @@ func draftOverServer(t *testing.T, d rest.TemplateDrafter, timeout time.Duration
 	if err != nil {
 		t.Fatalf("request failed (connection dropped by the write timeout?): %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	return resp.StatusCode, string(body)
 }
