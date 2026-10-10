@@ -243,6 +243,7 @@ Give each person and CI job their own access token instead of sharing `SPARROW_A
 - [ ] `CORS_ALLOWED_ORIGINS` set if the UI is hosted on a different origin.
 - [ ] Use `SPARROW_ALLOWED_NETWORKS` (not `SPARROW_ALLOW_PRIVATE_NETWORKS`) for internal webhook targets. Cloud metadata endpoints are always blocked.
 - [ ] `SPARROW_EVENT_RETENTION_DAYS` set if payloads carry regulated data.
+- [ ] `SPARROW_LOG_LEVEL` chosen: the default `info` writes a line for every event and delivery; `warn` keeps only problems and is lighter on a busy instance.
 - [ ] Each person and CI job uses their own [access token](/sparrow/deployment/access/), not the master key. Tokens expire after `SPARROW_TOKEN_DEFAULT_TTL` (90 days) unless created with `--ttl never`.
 - [ ] Revoke tokens when someone leaves or a machine credential is retired.
 

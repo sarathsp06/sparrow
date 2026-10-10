@@ -32,6 +32,7 @@
 - **Queue**: River (Postgres-backed). Default 20 event fan-out workers + 20 webhook delivery workers + 5 default (`SPARROW_EVENT_WORKERS`, `SPARROW_WEBHOOK_WORKERS`); `SPARROW_QUEUE_FETCH_COOLDOWN` (default `20ms`) bounds each queue at `workers / cooldown` jobs/s — River's default `100ms` capped delivery at ~200/s, which is how `cmd/benchmark -mode e2e` found it.
 - **DB**: pgxpool (50 conns, 10 min) for River + sqlx (25 conns) for app queries.
 - **Config**: env vars via `kelseyhightower/envconfig` — see `internal/config/config.go`.
+- **Logging**: `slog` JSON on stdout, bridged to OTel logs. `SPARROW_LOG_LEVEL` (`debug`/`info`/`warn`/`error`, default `info`) sets the level in `cmd/server/main.go` via `Config.SlogLevel`. `info` logs every event and delivery; keep per-request detail at `Debug` so busy instances can run at `warn`.
 
 ## Design Principles
 

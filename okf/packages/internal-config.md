@@ -19,6 +19,7 @@ type Config struct {
     HTTPPort               string   // default "8080" (SPARROW_HTTP_PORT)
     APIKey                 string   // optional (SPARROW_API_KEY)
     ServeUI                bool     // SPARROW_SERVE_UI
+    LogLevel               string   // debug | info (default) | warn | error (SPARROW_LOG_LEVEL)
     AllowPrivateNetworks   bool     // SPARROW_ALLOW_PRIVATE_NETWORKS
     EncryptionKeys         []string // "<key-id>=<64-char-hex>" entries (SPARROW_ENCRYPTION_KEYS)
     EncryptionPrimaryKeyID string   // selects the active key (SPARROW_ENCRYPTION_PRIMARY_KEY_ID)
@@ -39,7 +40,8 @@ type Config struct {
 
 - `Load() (*Config, error)` — reads env vars (no prefix; spans SPARROW_*, DATABASE_URL, ENVIRONMENT, OTEL_*, CORS_*)
 - `(*Config).IsProduction() bool`
-- `(*Config).Validate() error` — checks port, keyring, DATABASE_URL, production API key, body-size floor, retention range
+- `(*Config).Validate() error` — checks port, keyring, DATABASE_URL, log level, production API key, body-size floor, retention range
+- `(*Config).SlogLevel() (slog.Level, error)` — parses SPARROW_LOG_LEVEL (case-insensitive, `warning` = `warn`); `cmd/server/main.go` sets it on the JSON handler behind the OTel log bridge
 - `(*Config).Warnings() []string` — non-fatal advisories (e.g. sslmode=disable on non-local host)
 - `(*Config).EncryptionKeyring() (*crypto.Keyring, error)` — resolves SPARROW_ENCRYPTION_KEYS + primary ID into a crypto.Keyring
 

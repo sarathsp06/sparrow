@@ -44,6 +44,8 @@ services:
       # SPARROW_API_KEY: "change-me-to-a-secure-random-string"
       # Optional: custom port (default HTTP=8080)
       # SPARROW_HTTP_PORT: "8080"
+      # Optional: log level: debug | info (default) | warn | error
+      # SPARROW_LOG_LEVEL: "info"
     depends_on:
       postgres:
         condition: service_healthy
