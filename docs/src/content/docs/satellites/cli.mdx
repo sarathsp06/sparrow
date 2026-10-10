@@ -495,6 +495,56 @@ sparrow functions json          # show one function's docs
 sparrow functions -o json       # machine-readable output
 ```
 
+### `sparrow mcp`
+
+Serves Sparrow to AI agents over the [Model Context Protocol](https://modelcontextprotocol.io)
+on stdio, so a coding agent can inspect webhooks, explain failed deliveries,
+and, with `--allow-write`, set up subscriptions and test them end to end
+against your real server.
+
+Read-only tools (always on):
+
+| Tool | What it does |
+| --- | --- |
+| `list_webhooks` | The consumer's webhooks with url, events, active flag and health |
+| `list_subscriptions` | One webhook's subscriptions: event, label filters, transform template |
+| `list_deliveries` | Recent deliveries, filterable by `status`, with response code and error category |
+| `get_delivery_attempts` | Per-attempt history of one delivery (code, timing, error category and message) |
+| `list_event_types` | Registered event types with schema and sample payload |
+| `get_stats` | Delivery counts by outcome and success rate |
+| `test_template` | Renders a transform template server-side against an event type's sample payload |
+
+Write tools (`--allow-write`):
+
+| Tool | What it does |
+| --- | --- |
+| `push_event` | Pushes one event; an unknown event type is auto-created (a test push) |
+| `retry_delivery` | Re-attempts one delivery immediately |
+| `register_webhook` | Registers an endpoint, optionally subscribed to events in the same call |
+| `create_subscription` | Subscribes an existing webhook to an event, with optional filters and template |
+| `delete_webhook` | Deletes a webhook and its subscriptions |
+| `start_listen` | Starts a temporary local receiver behind a temp webhook, like `sparrow listen` |
+| `list_received` | Signature-verified deliveries the receiver has accepted so far |
+| `stop_listen` | Stops the receiver and deletes the temp webhook (also happens when the client disconnects) |
+
+That last group lets an agent close the loop on its own: `start_listen` for
+`order.created`, `push_event`, `list_received` to see the signed envelope or
+the transformed body, `stop_listen`. The same SSRF note as `sparrow listen`
+applies: the server must allow private-network delivery URLs for a local
+receiver.
+
+Every tool returns the REST API response unchanged, so the fields match the
+[API reference](/sparrow/reference/api/). Connection flags, `SPARROW_*` env
+vars and the config file apply as for every other command.
+
+```bash
+# Claude Code, read-only
+claude mcp add sparrow -- sparrow mcp --url http://localhost:8080 --consumer default
+
+# Let the agent push, subscribe and run a local receiver
+claude mcp add sparrow -- sparrow mcp --allow-write
+```
+
 ### `sparrow version`
 
 Prints the CLI version (set at build time via

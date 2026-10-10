@@ -45,15 +45,9 @@ func runPush(ctx context.Context, out io.Writer, client *apiClient, consumer, ev
 	}
 	body := pushBody{Payload: payload, Labels: labels, IdempotencyKey: idempotencyKey}
 
-	res, err := client.pushEvent(ctx, consumer, event, body)
-	var apiErr *apiError
-	if errors.As(err, &apiErr) && (apiErr.Status == http.StatusNotFound || apiErr.Status == http.StatusUnprocessableEntity) {
-		// Unknown event type: register it and retry once.
-		if cerr := client.createEventType(ctx, event, "created by sparrow push"); cerr != nil {
-			return fmt.Errorf("push failed (%v) and auto-creating event type failed: %w", err, cerr)
-		}
+	res, created, err := pushWithAutoCreate(ctx, client, consumer, event, body)
+	if created {
 		_, _ = fmt.Fprintf(out, "event type %q auto-created\n", event)
-		res, err = client.pushEvent(ctx, consumer, event, body)
 	}
 	if err != nil {
 		return err
@@ -64,4 +58,19 @@ func runPush(ctx context.Context, out io.Writer, client *apiClient, consumer, ev
 		_, _ = fmt.Fprintln(out, res.EventID)
 	}
 	return nil
+}
+
+// pushWithAutoCreate pushes one event; when the event type is unknown it is
+// registered and the push retried once. created reports whether that happened.
+func pushWithAutoCreate(ctx context.Context, client *apiClient, consumer, event string, body pushBody) (res pushResult, created bool, err error) {
+	res, err = client.pushEvent(ctx, consumer, event, body)
+	var apiErr *apiError
+	if !errors.As(err, &apiErr) || (apiErr.Status != http.StatusNotFound && apiErr.Status != http.StatusUnprocessableEntity) {
+		return res, false, err
+	}
+	if cerr := client.createEventType(ctx, event, "created by sparrow push"); cerr != nil {
+		return res, false, fmt.Errorf("push failed (%v) and auto-creating event type failed: %w", err, cerr)
+	}
+	res, err = client.pushEvent(ctx, consumer, event, body)
+	return res, true, err
 }
