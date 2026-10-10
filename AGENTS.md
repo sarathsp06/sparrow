@@ -19,6 +19,7 @@
 | Single package test | `go test -v ./internal/webhooks/...` | |
 | Integration tests | `make test-integration` | Needs Docker (testcontainers) |
 | E2E tests | `make test-e2e` | Gauge + Python, needs Docker |
+| SQL benchmark | `make bench-sql SCALE=0.1` | `scripts/sqlbench/run.sh`: fresh DB + `seed.sql` (scale 1 = 6M deliveries, ~9 GB, ~20 min), then `sqlbench_test.go` times the heavy repository methods; `--e2e` adds the pipeline benchmark, `--skip-seed` reuses the DB |
 | Lint | `make lint` | golangci-lint, 15m timeout |
 | Format | `make fmt` | `goimports -local github.com/sarathsp06/sparrow/ -w .` |
 | Run migrations | `make migrate` | Also runs automatically on server startup |

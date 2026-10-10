@@ -135,6 +135,9 @@ generate: ## Export the OpenAPI spec from Go and regenerate client SDKs
 book: ## Build the Svelte 5 tutorial PDF with Typst
 	typst compile --font-path book/fonts book/tutorial.typ book/svelte5-tutorial.pdf
 
+bench-sql: ## Seed a large synthetic DB and time the heavy queries (SCALE=0.1 for a quick run; needs Postgres from `make dev-db`)
+	scripts/sqlbench/run.sh --scale $(or $(SCALE),1)
+
 lint: ## Run golangci-lint for linting
 	golangci-lint run -v --timeout 15m ./...
 

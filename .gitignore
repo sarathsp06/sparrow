@@ -93,3 +93,6 @@ security_fixes_report.md
 /sparrow
 /satellites/sparrow/sparrow
 .scratch/
+
+# SQL benchmark output (scripts/sqlbench/run.sh)
+sqlbench-results/
