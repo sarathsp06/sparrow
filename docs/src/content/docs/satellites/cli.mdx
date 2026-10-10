@@ -508,7 +508,7 @@ Read-only tools (always on):
 | --- | --- |
 | `list_webhooks` | The consumer's webhooks with url, events, active flag and health |
 | `list_subscriptions` | One webhook's subscriptions: event, label filters, transform template |
-| `list_deliveries` | Recent deliveries, filterable by `status`, with response code and error category |
+| `list_deliveries` | Deliveries newest first, filterable by `status`, `webhook_id` and `event_name`, paged with `cursor` |
 | `get_delivery_attempts` | Per-attempt history of one delivery (code, timing, error category and message) |
 | `list_event_types` | Registered event types with schema and sample payload |
 | `get_stats` | Delivery counts by outcome and success rate |

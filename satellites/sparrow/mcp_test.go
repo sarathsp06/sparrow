@@ -140,9 +140,11 @@ func TestMCPToolsCallTheAPI(t *testing.T) {
 	srv, _ := newMCPServer(client, "acme", true)
 	cs := connectMCP(t, srv)
 
-	call(t, cs, "list_deliveries", map[string]any{"status": "failed", "limit": 5})
+	call(t, cs, "list_deliveries", map[string]any{"status": "failed", "limit": 5, "webhook_id": "wh_1", "event_name": "order.created", "cursor": "c2"})
 	last := api.lastReq()
-	if last.URL.Path != "/v1/consumers/acme/deliveries" || last.URL.Query().Get("status") != "failed" || last.URL.Query().Get("limit") != "5" {
+	q := last.URL.Query()
+	if last.URL.Path != "/v1/consumers/acme/deliveries" || q.Get("status") != "failed" || q.Get("limit") != "5" ||
+		q.Get("webhook_id") != "wh_1" || q.Get("event_name") != "order.created" || q.Get("cursor") != "c2" || q.Has("offset") {
 		t.Fatalf("list_deliveries hit %s", last.URL)
 	}
 	if last.Header.Get("X-API-Key") != "k" {

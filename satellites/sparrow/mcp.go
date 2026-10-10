@@ -63,8 +63,11 @@ type webhookIDIn struct {
 }
 
 type listDeliveriesIn struct {
-	Status string `json:"status,omitempty" jsonschema:"filter by status: pending, success, failed, retrying, paused"`
-	Limit  int    `json:"limit,omitempty" jsonschema:"max rows, default 50"`
+	Status    string `json:"status,omitempty" jsonschema:"filter by status: pending, success, failed, retrying, paused"`
+	WebhookID string `json:"webhook_id,omitempty" jsonschema:"only deliveries to this webhook"`
+	EventName string `json:"event_name,omitempty" jsonschema:"only deliveries of this event type, e.g. order.created"`
+	Limit     int    `json:"limit,omitempty" jsonschema:"max rows, default 50, max 1000"`
+	Cursor    string `json:"cursor,omitempty" jsonschema:"pagination.next_cursor from the previous call, to fetch the next (older) page"`
 }
 
 type deliveryIDIn struct {
@@ -138,14 +141,16 @@ func newMCPServer(client *apiClient, consumer string, allowWrite bool) (*mcp.Ser
 		})
 
 	mcp.AddTool(srv, &mcp.Tool{Name: "list_deliveries", Annotations: ro,
-		Description: "List recent deliveries (newest first) with status, response code, attempt count and error category."},
+		Description: "List deliveries newest first with status, response code, attempt count and error category. When pagination.has_more is true, pass pagination.next_cursor as cursor to get the next page."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in listDeliveriesIn) (*mcp.CallToolResult, any, error) {
 			if in.Limit <= 0 {
 				in.Limit = 50
 			}
 			q := url.Values{"limit": {fmt.Sprint(in.Limit)}}
-			if in.Status != "" {
-				q.Set("status", in.Status)
+			for k, v := range map[string]string{"status": in.Status, "webhook_id": in.WebhookID, "event_name": in.EventName, "cursor": in.Cursor} {
+				if v != "" {
+					q.Set(k, v)
+				}
 			}
 			out, err := get(ctx, "/v1/consumers/"+c+"/deliveries?"+q.Encode())
 			return nil, out, err
