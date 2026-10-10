@@ -720,7 +720,9 @@ FROM generate_series(1, 5000) g;
 
 ----------------------------------------------------------------------
 -- 11. RIVER JOBS (~300,000 x scale)
--- Mix: 80% completed, 5% available, 5% retryable, 5% scheduled, 5% running
+-- Mix: 90% completed, 5% cancelled, 5% discarded. All finished: a seeded job in
+-- a live state (available, retryable, running) has made-up args, and a server
+-- started on this database (run.sh --e2e) would spend its workers on them.
 -- Kinds: event_processing, webhook_delivery, batch_processing,
 --        health_evaluate, batch_cleanup, retention, token_purge
 ----------------------------------------------------------------------
@@ -734,20 +736,15 @@ INSERT INTO river_job (
 )
 SELECT
   CASE
-    WHEN g % 100 < 80 THEN 'completed'
-    WHEN g % 100 < 85 THEN 'available'
-    WHEN g % 100 < 90 THEN 'retryable'
-    WHEN g % 100 < 95 THEN 'scheduled'
-    ELSE 'running'
+    WHEN g % 100 < 90 THEN 'completed'
+    WHEN g % 100 < 95 THEN 'cancelled'
+    ELSE 'discarded'
   END::river_job_state,
-  CASE WHEN g % 100 < 80 THEN 1 WHEN g % 100 >= 95 THEN 1 ELSE 0 END, -- attempt
+  1, -- attempt
   CASE WHEN kind_name = 'webhook_delivery' THEN 3 ELSE 5 END,
-  CASE WHEN g % 100 < 80 OR g % 100 >= 95
-    THEN now() - interval '7 days' + (g * interval '2 seconds')
-    ELSE NULL
-  END,
   now() - interval '7 days' + (g * interval '2 seconds'),
-  CASE WHEN g % 100 < 80 THEN now() - interval '7 days' + (g * interval '2 seconds') + interval '1 second' ELSE NULL END,
+  now() - interval '7 days' + (g * interval '2 seconds'),
+  now() - interval '7 days' + (g * interval '2 seconds') + interval '1 second',
   now() - interval '7 days' + (g * interval '2 seconds'),
   1,
   -- args JSONB
@@ -778,7 +775,7 @@ SELECT
     )
     ELSE '{}'::jsonb
   END,
-  CASE WHEN g % 100 < 80 OR g % 100 >= 95 THEN ARRAY['worker-1'] ELSE NULL END,
+  ARRAY['worker-1'],
   kind_name,
   CASE kind_name
     WHEN 'event_processing' THEN 'events'
