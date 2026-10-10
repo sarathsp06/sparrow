@@ -20,9 +20,10 @@ delete webhooks, create subscriptions, apply recipes, and run a temporary
 local receiver (start_listen / list_received / stop_listen) to see what a
 subscription actually delivers.
 
-Register it with an MCP client, for example Claude Code:
+Register it as a stdio server in your MCP client's config, for example:
 
-  claude mcp add sparrow -- sparrow mcp --url http://localhost:8080 --consumer default
+  {"mcpServers": {"sparrow": {"command": "sparrow",
+    "args": ["mcp", "--url", "http://localhost:8080", "--consumer", "default"]}}}
 
 Connection flags, SPARROW_* env vars and ~/.config/sparrow apply as for every
 other command.

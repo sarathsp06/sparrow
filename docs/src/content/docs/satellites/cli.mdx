@@ -546,13 +546,21 @@ Every tool returns the REST API response unchanged, so the fields match the
 [API reference](/sparrow/reference/api/). Connection flags, `SPARROW_*` env
 vars and the config file apply as for every other command.
 
-```bash
-# Claude Code, read-only
-claude mcp add sparrow -- sparrow mcp --url http://localhost:8080 --consumer default
+Register it in your MCP client's server config. Most clients use this shape:
 
-# Let the agent push, subscribe and run a local receiver
-claude mcp add sparrow -- sparrow mcp --allow-write
+```json
+{
+  "mcpServers": {
+    "sparrow": {
+      "command": "sparrow",
+      "args": ["mcp", "--url", "http://localhost:8080", "--consumer", "default"]
+    }
+  }
+}
 ```
+
+Add `"--allow-write"` to `args` to let the agent push, subscribe, apply
+recipes and run a local receiver.
 
 ### `sparrow version`
 
