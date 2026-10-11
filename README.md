@@ -89,7 +89,7 @@ Companion tools that use Sparrow through its public API and never reach inside i
 
 | Satellite | What it does |
 |-----------|--------------|
-| [CLI](https://sarathsp06.github.io/sparrow/satellites/cli/) | Push events, tail deliveries, receive webhooks locally, apply recipes, and debug templates from the terminal. |
+| [CLI](https://sarathsp06.github.io/sparrow/satellites/cli/) | Push events, tail deliveries, receive webhooks locally, apply recipes, debug templates, and serve an MCP server for AI agents from the terminal. |
 | [Recipes](https://sarathsp06.github.io/sparrow/satellites/recipes/) | Destination adapters as YAML: a URL plus a transform, applied with `sparrow use <name>`. |
 | [Sources](https://sarathsp06.github.io/sparrow/satellites/sources/) | Bring events in: a cron emitter and Stripe and GitHub receivers that verify and re-publish. |
 | [Sinks](https://sarathsp06.github.io/sparrow/satellites/sinks/) | Send deliveries beyond HTTP: SMTP email, S3-compatible archiving, and OTLP log export. |
