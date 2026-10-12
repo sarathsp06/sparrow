@@ -1,16 +1,23 @@
-package main
+// Package email is the email sink: each verified Sparrow delivery becomes one
+// plain-text email sent over SMTP.
+package email
 
 import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
+	"net/http"
 	"net/smtp"
 	"strconv"
 	"strings"
 	"text/template"
 	"time"
+
+	"github.com/sarathsp06/sparrow/satellites/sparrow-sinks/sinks"
 )
 
 const (
@@ -25,35 +32,55 @@ Payload:
 `
 )
 
-var emailDef = sinkDef{
-	name:       "email",
-	configured: func(c *config) bool { return c.Email != nil },
-	validate: func(c *config) error {
-		switch {
-		case c.Email.SMTP.Host == "" || c.Email.SMTP.Port == 0:
-			return fmt.Errorf("email: smtp host and port are required")
-		case c.Email.From == "" || len(c.Email.To) == 0:
-			return fmt.Errorf("email: from and to are required")
-		}
-		return nil
-	},
-	secret: func(c *config) string { return c.Email.WebhookSecret },
-	build: func(_ context.Context, c *config) (deliverFunc, []any, error) {
-		sink, err := newEmailSink(*c.Email)
-		if err != nil {
-			return nil, nil, err
-		}
-		return sink.deliver, []any{"smtp", c.Email.SMTP.Host, "to", c.Email.To}, nil
-	},
+// SMTPConfig is the SMTP server the sink sends through.
+type SMTPConfig struct {
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+	StartTLS bool   `yaml:"starttls"`
+}
+
+// Config is the email: section of sinks.yaml. The templates are Go
+// text/template over the envelope's snake_case fields (event_name, event_id,
+// timestamp, attempt, payload, payload_pretty).
+type Config struct {
+	WebhookSecret    string     `yaml:"webhook_secret"`
+	SigningPublicKey string     `yaml:"signing_public_key"`
+	SMTP             SMTPConfig `yaml:"smtp"`
+	From             string     `yaml:"from"`
+	To               []string   `yaml:"to"`
+	SubjectTemplate  string     `yaml:"subject_template"`
+	BodyTemplate     string     `yaml:"body_template"`
+}
+
+// Handler returns the email sink. It verifies with SigningPublicKey when
+// set, else WebhookSecret; one of them is required.
+func Handler(cfg Config, logger *slog.Logger) (http.Handler, error) {
+	switch {
+	case cfg.SMTP.Host == "" || cfg.SMTP.Port == 0:
+		return nil, fmt.Errorf("email: smtp host and port are required")
+	case cfg.From == "" || len(cfg.To) == 0:
+		return nil, fmt.Errorf("email: from and to are required")
+	}
+	verify, err := sinks.VerifierFor(cfg.WebhookSecret, cfg.SigningPublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("email: %w", err)
+	}
+	sink, err := newEmailSink(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return sinks.Handle("email", verify, logger, sink.deliver), nil
 }
 
 type emailSink struct {
-	cfg     emailConfig
+	cfg     Config
 	subject *template.Template
 	body    *template.Template
 }
 
-func newEmailSink(cfg emailConfig) (*emailSink, error) {
+func newEmailSink(cfg Config) (*emailSink, error) {
 	subjectTmpl := cfg.SubjectTemplate
 	if subjectTmpl == "" {
 		subjectTmpl = defaultSubjectTemplate
@@ -74,7 +101,7 @@ func newEmailSink(cfg emailConfig) (*emailSink, error) {
 }
 
 // render produces the subject line and body text for an envelope.
-func (s *emailSink) render(env envelope) (subject, body string, err error) {
+func (s *emailSink) render(env sinks.Envelope) (subject, body string, err error) {
 	data := templateContext(env)
 	var subj, bod bytes.Buffer
 	if err := s.subject.Execute(&subj, data); err != nil {
@@ -88,7 +115,7 @@ func (s *emailSink) render(env envelope) (subject, body string, err error) {
 	return subject, bod.String(), nil
 }
 
-func (s *emailSink) deliver(_ context.Context, env envelope, _ []byte) error {
+func (s *emailSink) deliver(_ context.Context, env sinks.Envelope, _ []byte) error {
 	subject, body, err := s.render(env)
 	if err != nil {
 		return err
@@ -149,4 +176,21 @@ func (s *emailSink) send(msg []byte) error {
 		return fmt.Errorf("smtp finish data: %w", err)
 	}
 	return c.Quit()
+}
+
+// templateContext exposes the envelope to text/template with the same
+// snake_case keys Sparrow's server-side transform templates use.
+func templateContext(env sinks.Envelope) map[string]any {
+	var payload any
+	_ = json.Unmarshal(env.Payload, &payload) // nil payload renders as <no value>
+	pretty, _ := json.MarshalIndent(payload, "", "  ")
+	return map[string]any{
+		"version":        env.Version,
+		"event_id":       env.EventID,
+		"event_name":     env.EventName,
+		"timestamp":      env.Timestamp,
+		"attempt":        env.Attempt,
+		"payload":        payload,
+		"payload_pretty": string(pretty),
+	}
 }

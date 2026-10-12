@@ -1,12 +1,18 @@
-package sources
+// Package cron is the cron source: it pushes a fixed Sparrow event on each
+// job's 5-field schedule.
+package cron
 
 import (
+	"cmp"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/sarathsp06/sparrow/satellites/sparrow-sources/sources"
 )
 
 // cronSpec is a parsed 5-field cron expression (min hour dom mon dow).
@@ -107,9 +113,55 @@ func (s *cronSpec) Match(t time.Time) bool {
 	return domOK && dowOK
 }
 
-// RunCron ticks once per minute and pushes each matching job's event.
-// Jitterless: ticks are aligned to wall-clock minute boundaries.
-func RunCron(ctx context.Context, jobs []CronJob, p Pusher, log *slog.Logger) {
+// Job emits a fixed event on a 5-field cron schedule (one cron: entry).
+type Job struct {
+	Schedule string            `yaml:"schedule"`
+	Event    string            `yaml:"event"`
+	Payload  map[string]any    `yaml:"payload"`
+	Labels   map[string]string `yaml:"labels"`
+}
+
+// Emitter pushes fixed events on cron schedules. Build it with New, then
+// start Run.
+type Emitter struct {
+	jobs []entry
+}
+
+type entry struct {
+	Job
+	spec    *cronSpec
+	payload json.RawMessage
+}
+
+// New validates every job up front (event name, schedule, payload) so a
+// bad cron: entry fails at startup, not at its first tick.
+func New(jobs []Job) (*Emitter, error) {
+	c := &Emitter{jobs: make([]entry, 0, len(jobs))}
+	for i, job := range jobs {
+		if job.Event == "" {
+			return nil, fmt.Errorf("cron[%d]: event is required", i)
+		}
+		spec, err := parseCron(job.Schedule)
+		if err != nil {
+			return nil, fmt.Errorf("cron[%d] schedule %q: %w", i, job.Schedule, err)
+		}
+		payload := json.RawMessage(`{}`)
+		if job.Payload != nil {
+			if payload, err = json.Marshal(job.Payload); err != nil {
+				return nil, fmt.Errorf("cron[%d] payload: %w", i, err)
+			}
+		}
+		c.jobs = append(c.jobs, entry{Job: job, spec: spec, payload: payload})
+	}
+	return c, nil
+}
+
+// Run ticks once per minute until ctx is done and pushes each matching job's
+// event. Jitterless: ticks are aligned to wall-clock minute boundaries. A
+// failed push is logged and skipped; there is no catch-up. A nil log means
+// slog.Default().
+func (c *Emitter) Run(ctx context.Context, p sources.Pusher, log *slog.Logger) {
+	log = cmp.Or(log, slog.Default())
 	for {
 		now := time.Now()
 		next := now.Truncate(time.Minute).Add(time.Minute)
@@ -118,18 +170,17 @@ func RunCron(ctx context.Context, jobs []CronJob, p Pusher, log *slog.Logger) {
 			return
 		case <-time.After(next.Sub(now)):
 		}
-		cronTick(ctx, jobs, time.Now().Truncate(time.Minute), p, log)
+		c.tick(ctx, time.Now().Truncate(time.Minute), p, log)
 	}
 }
 
-// cronTick pushes every job whose schedule matches the given minute.
-func cronTick(ctx context.Context, jobs []CronJob, tick time.Time, p Pusher, log *slog.Logger) {
-	for i := range jobs {
-		job := &jobs[i]
+// tick pushes every job whose schedule matches the given minute.
+func (c *Emitter) tick(ctx context.Context, tick time.Time, p sources.Pusher, log *slog.Logger) {
+	for _, job := range c.jobs {
 		if !job.spec.Match(tick) {
 			continue
 		}
-		if err := p.PushEvent(ctx, job.Event, job.payloadJSON, job.Labels); err != nil {
+		if err := p.PushEvent(ctx, job.Event, job.payload, job.Labels); err != nil {
 			log.Error("cron push failed", "event", job.Event, "error", err)
 			continue
 		}

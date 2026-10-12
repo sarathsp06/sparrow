@@ -204,16 +204,21 @@ email:
 
 // TestE2E_OTLPSink proves the chain: Sparrow -> signed delivery ->
 // sparrow-sinks -> OTLP/HTTP logs export, using the real binary and an
-// in-test OTLP receiver.
+// in-test OTLP receiver. It runs once verifying the HMAC signature with the
+// webhook secret, and once verifying the Ed25519 signature with only the
+// webhook's public key.
 func TestE2E_OTLPSink(t *testing.T) {
+	t.Run("hmac", func(t *testing.T) { testOTLPSink(t, "hmac") })
+	t.Run("ed25519", func(t *testing.T) { testOTLPSink(t, "ed25519") })
+}
+
+func testOTLPSink(t *testing.T, signatureType string) {
 	env := setupEnv(t)
 	c := newRESTClient(t, env)
 	ctx := context.Background()
 
-	const (
-		consumer  = "sinks-otlp-test"
-		eventName = "sinks.otlp.event"
-	)
+	consumer := "sinks-otlp-" + signatureType
+	eventName := "sinks.otlp." + signatureType
 
 	bodies := make(chan []byte, 1)
 	receiver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -231,14 +236,16 @@ func TestE2E_OTLPSink(t *testing.T) {
 	registerEventType(t, c, ctx, eventName)
 
 	var webhookOut struct {
-		HTTPConfig struct {
+		SigningPublicKey string `json:"signing_public_key"`
+		HTTPConfig       struct {
 			WebhookSecret string `json:"webhook_secret"`
 		} `json:"http_config"`
 	}
 	resp, err := c.post(ctx, "/v1/consumers/"+consumer+"/webhooks", map[string]any{
-		"events": []string{eventName},
-		"url":    fmt.Sprintf("http://127.0.0.1:%d/sinks/otlp", sinksPort),
-		"active": true,
+		"events":         []string{eventName},
+		"url":            fmt.Sprintf("http://127.0.0.1:%d/sinks/otlp", sinksPort),
+		"active":         true,
+		"signature_type": signatureType,
 		"http_config": map[string]any{
 			"max_retries":             3,
 			"retry_backoff_seconds":   1,
@@ -248,11 +255,18 @@ func TestE2E_OTLPSink(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
+	// The sink holds exactly one credential: the secret for hmac, the public
+	// key (never the secret) for ed25519.
+	credential := fmt.Sprintf("webhook_secret: %q", webhookOut.HTTPConfig.WebhookSecret)
+	if signatureType == "ed25519" {
+		require.NotEmpty(t, webhookOut.SigningPublicKey, "ed25519 webhook must expose signing_public_key")
+		credential = fmt.Sprintf("signing_public_key: %q", webhookOut.SigningPublicKey)
+	}
 	configYAML := fmt.Sprintf(`listen: 127.0.0.1:%d
-webhook_secret: %q
+%s
 otlp:
   endpoint: %s
-`, sinksPort, webhookOut.HTTPConfig.WebhookSecret, receiver.URL)
+`, sinksPort, credential, receiver.URL)
 	startSinksBinary(t, ctx, configYAML)
 
 	eventID := pushTestEvent(t, c, ctx, consumer, eventName)

@@ -40,6 +40,7 @@ COPY pkg/access/go.mod ./pkg/access/
 COPY pkg/signature/go.mod ./pkg/signature/
 COPY pkg/template/go.mod ./pkg/template/
 COPY satellites/recipes/go.mod ./satellites/recipes/
+COPY satellites/sparrow-sources/go.mod ./satellites/sparrow-sources/
 RUN go mod download
 
 # Copy source code

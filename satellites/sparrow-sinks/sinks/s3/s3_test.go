@@ -1,4 +1,4 @@
-package main
+package s3
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/sarathsp06/sparrow/satellites/sparrow-sinks/sinks"
 )
 
 func TestObjectKey(t *testing.T) {
@@ -41,7 +43,7 @@ func TestS3Sink_PutObject(t *testing.T) {
 	t.Setenv("AWS_ACCESS_KEY_ID", "test")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
 	t.Setenv("AWS_SESSION_TOKEN", "")
-	sink, err := newS3Sink(context.Background(), s3Config{
+	sink, err := newS3Sink(context.Background(), Config{
 		Endpoint: srv.URL,
 		Region:   "us-east-1",
 		Bucket:   "sparrow-events",
@@ -52,7 +54,7 @@ func TestS3Sink_PutObject(t *testing.T) {
 	}
 
 	raw := []byte(`{"version":"1","event_id":"evt_42","event_name":"order.paid","timestamp":"2026-09-12T10:00:00Z","attempt":1,"payload":{}}`)
-	env := envelope{EventID: "evt_42", EventName: "order.paid", Timestamp: "2026-09-12T10:00:00Z"}
+	env := sinks.Envelope{EventID: "evt_42", EventName: "order.paid", Timestamp: "2026-09-12T10:00:00Z"}
 	if err := sink.deliver(context.Background(), env, raw); err != nil {
 		t.Fatalf("deliver: %v", err)
 	}

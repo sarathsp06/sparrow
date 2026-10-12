@@ -7,4 +7,6 @@ use (
 	./pkg/template
 	./satellites/recipes
 	./satellites/sparrow
+	./satellites/sparrow-sinks
+	./satellites/sparrow-sources
 )

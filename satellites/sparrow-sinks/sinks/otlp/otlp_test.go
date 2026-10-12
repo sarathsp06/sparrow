@@ -1,4 +1,4 @@
-package main
+package otlp
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/sarathsp06/sparrow/satellites/sparrow-sinks/sinks"
 )
 
 func TestLogsURL(t *testing.T) {
@@ -31,7 +33,7 @@ func TestLogsURL(t *testing.T) {
 }
 
 func TestOTLPSinkDeliver(t *testing.T) {
-	env := envelope{
+	env := sinks.Envelope{
 		Version:   "1",
 		EventID:   "evt_1",
 		EventName: "user.signup",
@@ -50,7 +52,7 @@ func TestOTLPSinkDeliver(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	sink, err := newOTLPSink(otlpConfig{
+	sink, err := newOTLPSink(Config{
 		Endpoint: srv.URL,
 		Headers:  map[string]string{"Authorization": "Bearer tok"},
 	})
@@ -122,11 +124,11 @@ func TestOTLPSinkDeliverDownstreamFailure(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	sink, err := newOTLPSink(otlpConfig{Endpoint: srv.URL})
+	sink, err := newOTLPSink(Config{Endpoint: srv.URL})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := sink.deliver(context.Background(), envelope{EventID: "e", EventName: "n"}, nil); err == nil {
+	if err := sink.deliver(context.Background(), sinks.Envelope{EventID: "e", EventName: "n"}, nil); err == nil {
 		t.Fatal("expected error on 503 so Sparrow retries")
 	}
 }

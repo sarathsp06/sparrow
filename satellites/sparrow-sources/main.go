@@ -1,8 +1,11 @@
 // Command sparrow-sources turns external things into Sparrow events:
-// cron schedules, Stripe webhooks, and GitHub webhooks.
+// cron schedules, Stripe webhooks, and GitHub webhooks. It is a thin server
+// around the sources packages: each sources.yaml section is that source's
+// Config.
 package main
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"flag"
@@ -14,7 +17,12 @@ import (
 	"syscall"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/sarathsp06/sparrow/satellites/sparrow-sources/sources"
+	"github.com/sarathsp06/sparrow/satellites/sparrow-sources/sources/cron"
+	"github.com/sarathsp06/sparrow/satellites/sparrow-sources/sources/github"
+	"github.com/sarathsp06/sparrow/satellites/sparrow-sources/sources/stripe"
 )
 
 const usage = `sparrow-sources: push external events into Sparrow.
@@ -45,6 +53,52 @@ Config file (YAML):
         sparrow_event_prefix: github   # -> github.pull_request.opened
 `
 
+// fileConfig is the sources.yaml shape. A nil provider is disabled.
+type fileConfig struct {
+	Sparrow sources.SparrowConfig `yaml:"sparrow"`
+	Cron    []cron.Job            `yaml:"cron"`
+	Webhook struct {
+		Listen    string    `yaml:"listen"`
+		Providers providers `yaml:"providers"`
+	} `yaml:"webhook"`
+}
+
+type providers struct {
+	Stripe *stripe.Config `yaml:"stripe"`
+	GitHub *github.Config `yaml:"github"`
+}
+
+func (p providers) any() bool { return p.Stripe != nil || p.GitHub != nil }
+
+// loadConfig reads the YAML file and applies the SPARROW_URL,
+// SPARROW_API_KEY and SPARROW_CONSUMER env overrides.
+func loadConfig(path string) (*fileConfig, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var cfg fileConfig
+	if err := yaml.Unmarshal(raw, &cfg); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	if v := os.Getenv("SPARROW_URL"); v != "" {
+		cfg.Sparrow.URL = v
+	}
+	if v := os.Getenv("SPARROW_API_KEY"); v != "" {
+		cfg.Sparrow.APIKey = v
+	}
+	if v := os.Getenv("SPARROW_CONSUMER"); v != "" {
+		cfg.Sparrow.Consumer = v
+	}
+	if cfg.Sparrow.URL == "" {
+		return nil, fmt.Errorf("sparrow.url is required (or set SPARROW_URL)")
+	}
+	if cfg.Webhook.Listen == "" {
+		cfg.Webhook.Listen = ":8787"
+	}
+	return &cfg, nil
+}
+
 func main() {
 	fs := flag.NewFlagSet("sparrow-sources", flag.ExitOnError)
 	configPath := fs.String("config", "sources.yaml", "path to YAML config file")
@@ -55,28 +109,45 @@ func main() {
 	_ = fs.Parse(os.Args[1:])
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
-
-	cfg, err := sources.LoadConfig(*configPath)
-	if err != nil {
-		log.Error("failed to load config", "path", *configPath, "error", err)
+	fail := func(msg string, err error) {
+		log.Error(msg, "path", *configPath, "error", err)
 		os.Exit(1)
+	}
+
+	cfg, err := loadConfig(*configPath)
+	if err != nil {
+		fail("failed to load config", err)
+	}
+	if len(cfg.Cron) == 0 && !cfg.Webhook.Providers.any() {
+		log.Error("nothing to do: configure cron jobs and/or webhook providers")
+		os.Exit(1)
+	}
+
+	client := sources.NewClient(cfg.Sparrow)
+	emitter, err := cron.New(cfg.Cron)
+	if err != nil {
+		fail("invalid cron config", err)
+	}
+	var handler http.Handler
+	if cfg.Webhook.Providers.any() {
+		if handler, err = newWebhookHandler(cfg.Webhook.Providers, client, log); err != nil {
+			fail("invalid webhook config", err)
+		}
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	client := sources.NewClient(cfg.Sparrow)
-
 	if len(cfg.Cron) > 0 {
 		log.Info("starting cron emitter", "jobs", len(cfg.Cron))
-		go sources.RunCron(ctx, cfg.Cron, client, log)
+		go emitter.Run(ctx, client, log)
 	}
 
 	var srv *http.Server
-	if cfg.Webhook.Providers.Stripe != nil || cfg.Webhook.Providers.GitHub != nil {
+	if handler != nil {
 		srv = &http.Server{
 			Addr:         cfg.Webhook.Listen,
-			Handler:      sources.NewWebhookHandler(cfg.Webhook, client, log),
+			Handler:      handler,
 			ReadTimeout:  30 * time.Second,
 			WriteTimeout: 30 * time.Second,
 		}
@@ -89,11 +160,6 @@ func main() {
 		}()
 	}
 
-	if len(cfg.Cron) == 0 && srv == nil {
-		log.Error("nothing to do: configure cron jobs and/or webhook providers")
-		os.Exit(1)
-	}
-
 	<-ctx.Done()
 	log.Info("shutting down")
 	if srv != nil {
@@ -101,4 +167,35 @@ func main() {
 		defer cancel()
 		_ = srv.Shutdown(shutdownCtx)
 	}
+}
+
+// newWebhookHandler mounts each configured provider at its path (defaults
+// /webhooks/stripe, /webhooks/github). Unknown paths 404.
+func newWebhookHandler(cfg providers, p sources.Pusher, log *slog.Logger) (http.Handler, error) {
+	mux := http.NewServeMux()
+	paths := map[string]string{} // path -> provider, to refuse duplicates
+	mount := func(name, path string, h http.Handler, err error) error {
+		if err != nil {
+			return err
+		}
+		if other, dup := paths[path]; dup {
+			return fmt.Errorf("webhook.providers: %s and %s both use path %s", other, name, path)
+		}
+		paths[path] = name
+		mux.Handle("POST "+path, h)
+		return nil
+	}
+	if c := cfg.Stripe; c != nil {
+		h, err := stripe.Handler(*c, p, log)
+		if err := mount("stripe", cmp.Or(c.Path, "/webhooks/stripe"), h, err); err != nil {
+			return nil, err
+		}
+	}
+	if c := cfg.GitHub; c != nil {
+		h, err := github.Handler(*c, p, log)
+		if err := mount("github", cmp.Or(c.Path, "/webhooks/github"), h, err); err != nil {
+			return nil, err
+		}
+	}
+	return mux, nil
 }

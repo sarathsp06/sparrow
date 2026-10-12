@@ -31,6 +31,21 @@ jobs:
           version: latest
           args: --timeout=5m
 
+      # sinks and sources are their own modules; root ./... no longer covers them.
+      - name: golangci-lint (sparrow-sinks)
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          working-directory: satellites/sparrow-sinks
+          args: --timeout=5m
+
+      - name: golangci-lint (sparrow-sources)
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          working-directory: satellites/sparrow-sources
+          args: --timeout=5m
+
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
 
@@ -41,6 +56,8 @@ jobs:
         run: |
           govulncheck ./...
           (cd satellites/sparrow && govulncheck ./...)
+          (cd satellites/sparrow-sinks && govulncheck ./...)
+          (cd satellites/sparrow-sources && govulncheck ./...)
 
   test:
     name: Test
@@ -84,6 +101,9 @@ jobs:
         run: |
           go test -v -race -coverprofile=coverage.txt -covermode=atomic ./... \
             github.com/sarathsp06/sparrow/satellites/sparrow/... \
+            github.com/sarathsp06/sparrow/satellites/recipes/... \
+            github.com/sarathsp06/sparrow/satellites/sparrow-sinks/... \
+            github.com/sarathsp06/sparrow/satellites/sparrow-sources/... \
             github.com/sarathsp06/sparrow/pkg/access/... \
             github.com/sarathsp06/sparrow/pkg/signature/... \
             github.com/sarathsp06/sparrow/pkg/template/...

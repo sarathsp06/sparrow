@@ -1,4 +1,4 @@
-package main
+package email
 
 import (
 	"bufio"
@@ -8,10 +8,12 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/sarathsp06/sparrow/satellites/sparrow-sinks/sinks"
 )
 
-func testEnvelope() envelope {
-	return envelope{
+func testEnvelope() sinks.Envelope {
+	return sinks.Envelope{
 		Version:   "1",
 		EventID:   "evt_42",
 		EventName: "order.paid",
@@ -22,7 +24,7 @@ func testEnvelope() envelope {
 }
 
 func TestEmailRender_Defaults(t *testing.T) {
-	sink, err := newEmailSink(emailConfig{From: "a@b", To: []string{"c@d"}})
+	sink, err := newEmailSink(Config{From: "a@b", To: []string{"c@d"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +43,7 @@ func TestEmailRender_Defaults(t *testing.T) {
 }
 
 func TestEmailRender_CustomTemplatesAndHeaderInjection(t *testing.T) {
-	sink, err := newEmailSink(emailConfig{
+	sink, err := newEmailSink(Config{
 		SubjectTemplate: "{{.payload.order_id}} paid on attempt {{.attempt}}",
 		BodyTemplate:    "total={{.payload.total}}",
 	})
@@ -66,7 +68,7 @@ func TestEmailRender_CustomTemplatesAndHeaderInjection(t *testing.T) {
 }
 
 func TestEmailRender_BadTemplate(t *testing.T) {
-	if _, err := newEmailSink(emailConfig{SubjectTemplate: "{{.unclosed"}); err == nil {
+	if _, err := newEmailSink(Config{SubjectTemplate: "{{.unclosed"}); err == nil {
 		t.Fatal("expected parse error")
 	}
 }
@@ -154,8 +156,8 @@ func serveSMTP(conn net.Conn, ch chan<- smtpMessage) {
 
 func TestEmailSink_SendsViaSMTP(t *testing.T) {
 	host, port, msgs := startSMTPServer(t)
-	sink, err := newEmailSink(emailConfig{
-		SMTP: smtpConfig{Host: host, Port: port},
+	sink, err := newEmailSink(Config{
+		SMTP: SMTPConfig{Host: host, Port: port},
 		From: "sparrow@example.com",
 		To:   []string{"ops@example.com", "dev@example.com"},
 	})
@@ -194,8 +196,8 @@ func TestEmailSink_SMTPDownIsError(t *testing.T) {
 	port := ln.Addr().(*net.TCPAddr).Port
 	ln.Close() //nolint:errcheck
 
-	sink, err := newEmailSink(emailConfig{
-		SMTP: smtpConfig{Host: "127.0.0.1", Port: port},
+	sink, err := newEmailSink(Config{
+		SMTP: SMTPConfig{Host: "127.0.0.1", Port: port},
 		From: "a@b", To: []string{"c@d"},
 	})
 	if err != nil {

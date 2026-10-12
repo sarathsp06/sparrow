@@ -23,8 +23,12 @@ type Client struct {
 	http *http.Client
 }
 
-// NewClient builds a push client for the given Sparrow connection.
+// NewClient builds a push client for the given Sparrow connection. An empty
+// Consumer means "default".
 func NewClient(cfg SparrowConfig) *Client {
+	if cfg.Consumer == "" {
+		cfg.Consumer = "default"
+	}
 	return &Client{cfg: cfg, http: &http.Client{Timeout: 15 * time.Second}}
 }
 

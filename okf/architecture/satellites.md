@@ -20,6 +20,28 @@ may depend on is `pkg/` — currently `pkg/signature` (verify/sign deliveries)
 and `pkg/template` (render transforms). This keeps the ecosystem decoupled from
 core internals; a satellite is just another API client + webhook receiver.
 
+## Library rule
+
+Each satellite with a binary is also an importable Go library in its own
+module (see `docs/adr/0002-cli-module-split.md`, 2026-10 amendment). The
+binary stays at `satellites/<name>` as a thin `main` package. The library
+is two layers: a core package (`sinks`, `sources`) with the shared interfaces
+and definitions, and one package per sink or source with its implementation
+(`sinks/email`, `sinks/otlp`, `sinks/s3`; `sources/stripe`, `sources/github`,
+`sources/cron`), so each keeps its own dependencies. It exposes what the
+command does:
+
+- config types that mirror the YAML file sections, with yaml tags;
+- `http.Handler`s, not a server: one per sink/source and a core `Handle(...)`
+  wrapper that custom ones plug into. The binaries compose them (routes,
+  defaults, top-level fallbacks); there is no combined library handler;
+- background work as a constructor that validates plus a `Run(ctx)` loop.
+- sinks verify with a `Verifier`: `HMAC(webhook_secret)` (`v1,`, on every
+  delivery) or `Ed25519(signing_public_key)` (`v1a,`, `ed25519` webhooks).
+
+Reading files, env vars, flags, the listen address and the HTTP server stay in
+the command.
+
 ## The ring
 
 | Satellite | Direction | Role |
@@ -42,3 +64,4 @@ durable, observable path; satellites are stateless edges.
 - `satellites/` — CLI, sources, sinks, recipes
 - `docs/src/content/docs/satellites/` — user-facing satellite docs
 - `pkg/template`, `pkg/signature` — the only core code satellites import
+- `satellites/sparrow-sinks/sinks{,/email,/otlp,/s3}`, `satellites/sparrow-sources/sources{,/stripe,/github,/cron}` — the satellite libraries

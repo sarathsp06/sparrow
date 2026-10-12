@@ -1,6 +1,12 @@
-package sources
+package cron
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log/slog"
+	"strings"
 	"testing"
 	"time"
 )
@@ -89,6 +95,50 @@ func TestCronMatch(t *testing.T) {
 		spec := mustParse(t, tt.expr)
 		if got := spec.Match(at(tt.time)); got != tt.want {
 			t.Errorf("%q.Match(%s) = %v, want %v", tt.expr, tt.time, got, tt.want)
+		}
+	}
+}
+
+// fakePusher records pushes and optionally fails.
+type fakePusher struct {
+	events []string
+	fail   bool
+}
+
+func (f *fakePusher) PushEvent(_ context.Context, event string, _ json.RawMessage, _ map[string]string) error {
+	if f.fail {
+		return fmt.Errorf("boom")
+	}
+	f.events = append(f.events, event)
+	return nil
+}
+
+func discardLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
+func TestCronTickPushesOnMatch(t *testing.T) {
+	cron, err := New([]Job{
+		{Schedule: "* * * * *", Event: "report.tick", Payload: map[string]any{"kind": "hourly"}, Labels: map[string]string{"source": "cron"}},
+		{Schedule: "1 2 3 4 5", Event: "never.fires"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	push := &fakePusher{}
+	cron.tick(context.Background(), time.Date(2026, 9, 11, 10, 30, 0, 0, time.UTC), push, discardLogger())
+	if got := fmt.Sprint(push.events); got != "[report.tick]" {
+		t.Errorf("pushed events = %s", got)
+	}
+}
+
+func TestNewCronValidates(t *testing.T) {
+	cases := map[string]Job{
+		"cron[0]: event is required": {Schedule: "* * * * *"},
+		"cron[0] schedule":           {Schedule: "* * *", Event: "x"},
+	}
+	for want, job := range cases {
+		if _, err := New([]Job{job}); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("New(%+v) err = %v, want containing %q", job, err, want)
 		}
 	}
 }

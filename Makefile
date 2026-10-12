@@ -56,13 +56,15 @@ run-web: ## Run the web development server
 web-test: ## Run frontend unit tests
 	cd web && npm run test:unit
 
-# The CLI (satellites/sparrow) and pkg/{signature,template} are separate Go
+# The satellites (CLI, recipes, sinks, sources) and pkg/* are separate Go
 # modules joined by the committed go.work (see docs/adr/0002-cli-module-split.md).
 # Root ./... only covers the root module, so the workspace modules are listed
 # explicitly; go.work makes the cross-module import paths resolve.
 MODULE_TEST_PATHS := ./... \
 	github.com/sarathsp06/sparrow/satellites/sparrow/... \
 	github.com/sarathsp06/sparrow/satellites/recipes/... \
+	github.com/sarathsp06/sparrow/satellites/sparrow-sinks/... \
+	github.com/sarathsp06/sparrow/satellites/sparrow-sources/... \
 	github.com/sarathsp06/sparrow/pkg/access/... \
 	github.com/sarathsp06/sparrow/pkg/signature/... \
 	github.com/sarathsp06/sparrow/pkg/template/...

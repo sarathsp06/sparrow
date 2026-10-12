@@ -35,9 +35,10 @@ leaving the heavy server tree in the root module:
   when the CLI grew the embedded catalog).
 - `satellites/sparrow/go.mod` (the CLI) — cobra, pflag, yaml, and the three
   light modules above.
-- Root module (`github.com/sarathsp06/sparrow`) keeps the server,
-  `sparrow-sinks`, and `sparrow-sources`, and `require`s the light modules it
-  uses.
+- `satellites/sparrow-sinks/go.mod` and `satellites/sparrow-sources/go.mod`
+  (2026-10 amendment, see below) — each satellite is also a Go library.
+- Root module (`github.com/sarathsp06/sparrow`) keeps the server and
+  `require`s the light modules it uses.
 
 Development is wired with a committed `go.work` (`use` all five modules) plus
 `replace` directives in each consuming `go.mod` pointing at the local relative
@@ -99,10 +100,42 @@ The end-user command is unchanged:
 Only extract a module when a consumer is *distributed independently* and its
 graph actually leaks (the CLI's `go install` path). Do **not** split for code
 organisation alone — Go 1.17+ build pruning already keeps *binaries* lean, and
-extra modules add a `go.work`/`replace`/ordered-tag release cost. `sinks` and
-`sources` stay in the root module for exactly this reason; `recipes` was
+extra modules add a `go.work`/`replace`/ordered-tag release cost. `recipes` was
 extracted only when the CLI (an independently-installed consumer) needed to
-embed it.
+embed it; `sinks` and `sources` stayed in the root module until they became
+libraries (amendment below).
+
+## Amendment (2026-10): sinks and sources are libraries
+
+Go teams should be able to import a satellite and get what its command does
+— mounted on their own HTTP server, extended with their own sinks or
+providers — while the binary keeps working unchanged. Importing from the root
+module would drag the server's graph (River, pgx, Huma, OTel) into theirs,
+which is this ADR's extraction trigger, so `satellites/sparrow-sinks` and
+`satellites/sparrow-sources` are now their own modules.
+
+Shape, the same for every satellite with a binary:
+
+- The binary stays at `satellites/<name>` (`package main`), so GoReleaser
+  `main:` paths, `go build ./satellites/<name>` and the install script are
+  unchanged. The library is two layers: a core package (`sinks`, `sources`)
+  with the shared interfaces and definitions, and one package per sink or
+  source (`sinks/email`, `sinks/otlp`, `sinks/s3`; `sources/stripe`,
+  `sources/github`, `sources/cron`). Each implementation keeps its own
+  dependencies: importing one sink or writing a custom one never compiles
+  aws-sdk-go-v2 (97 packages, ~0.9 MB of binary) unless you import
+  `sinks/s3`, and the same holds for any heavy client a future source (Kafka)
+  brings. The binaries compose the packages themselves.
+- The library API mirrors the command: config types are the YAML sections
+  (with yaml tags), and it reads no files, env vars or flags. Those, plus the
+  listen address and the `http.Server`, stay in `main`.
+- It exposes `http.Handler`s, not a server: one per sink/source and a core
+  `Handle(...)` that the built-ins and custom ones share. Background work (cron) is a validating
+  constructor plus `Run(ctx)`.
+- Release: `release-submodules.sh` tags `satellites/sparrow-sinks/vX.Y.Z`
+  (pinning `pkg/signature`) and `satellites/sparrow-sources/vX.Y.Z` (a leaf).
+  The root module `require`s `sparrow-sources` via `replace` for its
+  integration tests, so the Dockerfile copies that manifest too.
 
 ## Trigger to revisit
 

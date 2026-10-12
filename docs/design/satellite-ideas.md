@@ -63,8 +63,9 @@ per-webhook rate limiting.
   Paddle, Twilio (HMAC-SHA1 over URL + params), SendGrid events (ECDSA),
   Discord (Ed25519, `pkg/signature.VerifyEd25519` already exists), GitLab
   (shared token), Mailgun, Postmark, PagerDuty. Each is a path, a secret, a
-  verify function, and an event-name mapping, matching the existing
-  `ProvidersConfig` shape.
+  verify function, and an event-name mapping: one `sources/<provider>`
+  package with a `Config` and a `Handler` built on `sources.Handle`, like
+  `sources/stripe`.
 - **Catch hook: unverified unique-URL ingestion.** `catch: [{path: /in/abc,
   event: form.submitted, secret: optional-bearer}]`. Turns any "POST a JSON
   blob here" integration (Zapier, Make, n8n, IoT, internal scripts) into a
@@ -148,8 +149,11 @@ the most-shipped ecosystem component across every product surveyed (Outpost,
 Svix Bridge, Convoy, Dapr, Redpanda Connect). Reasons for a separate binary
 rather than folding into sources/sinks: client libraries are heavy (the
 Kafka and cloud SDKs dwarf the rest of the satellite), and a team using Kafka
-rarely needs SMTP. Keep the per-provider shape identical to `sinkDef` and
-`ProvidersConfig` so recipes, docs and tests read the same.
+rarely needs SMTP. (Library users are already isolated: each source and sink
+is its own package, so importing `sources/stripe` never compiles a Kafka
+client; the separate binary only keeps the shipped `sparrow-sources` and
+`sparrow-sinks` lean.) Keep the per-package shape (`Config` + `Handler`, or
+`New` + `Run` for consumers) so recipes, docs and tests read the same.
 
 Effort: medium. Core changes: none.
 

@@ -19,15 +19,18 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/sarathsp06/sparrow/satellites/sparrow-sources/sources"
+	"github.com/sarathsp06/sparrow/satellites/sparrow-sources/sources/github"
+	"github.com/sarathsp06/sparrow/satellites/sparrow-sources/sources/stripe"
 )
 
-// startWebhook mounts the sparrow-sources webhook handler on an httptest
-// server pointed at the harness Sparrow.
-func startWebhook(t *testing.T, env *testEnv, consumer string, providers sources.ProvidersConfig) *httptest.Server {
+// startWebhook mounts a source's webhook handler, built by newHandler, on an
+// httptest server pushing to the harness Sparrow.
+func startWebhook(t *testing.T, env *testEnv, consumer string, newHandler func(sources.Pusher, *slog.Logger) (http.Handler, error)) *httptest.Server {
 	t.Helper()
 	pusher := sources.NewClient(sources.SparrowConfig{URL: env.baseURL, Consumer: consumer})
-	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	srv := httptest.NewServer(sources.NewWebhookHandler(sources.WebhookConfig{Providers: providers}, pusher, log))
+	h, err := newHandler(pusher, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	require.NoError(t, err)
+	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 	return srv
 }
@@ -75,8 +78,8 @@ func TestE2E_SourcesStripeWebhook(t *testing.T) {
 	registerEventType(t, c, ctx, eventName)
 	registerWebhookPipeline(t, c, ctx, consumer, eventName, targetSrv.URL, 3)
 
-	webhook := startWebhook(t, env, consumer, sources.ProvidersConfig{
-		Stripe: &sources.StripeConfig{Path: "/webhooks/stripe", SigningSecret: secret, SparrowEventPrefix: "stripe"},
+	webhook := startWebhook(t, env, consumer, func(p sources.Pusher, log *slog.Logger) (http.Handler, error) {
+		return stripe.Handler(stripe.Config{SigningSecret: secret, SparrowEventPrefix: "stripe"}, p, log)
 	})
 
 	body := `{
@@ -126,8 +129,8 @@ func TestE2E_SourcesGitHubWebhook(t *testing.T) {
 	registerEventType(t, c, ctx, eventName)
 	registerWebhookPipeline(t, c, ctx, consumer, eventName, targetSrv.URL, 3)
 
-	webhook := startWebhook(t, env, consumer, sources.ProvidersConfig{
-		GitHub: &sources.GitHubConfig{Path: "/webhooks/github", Secret: secret, SparrowEventPrefix: "github"},
+	webhook := startWebhook(t, env, consumer, func(p sources.Pusher, log *slog.Logger) (http.Handler, error) {
+		return github.Handler(github.Config{Secret: secret, SparrowEventPrefix: "github"}, p, log)
 	})
 
 	body := `{

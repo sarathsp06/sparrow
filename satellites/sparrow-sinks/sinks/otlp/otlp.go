@@ -1,4 +1,7 @@
-package main
+// Package otlp is the OTLP sink: each verified Sparrow delivery is exported
+// as one OTLP/HTTP JSON log record, so events show up in any
+// OpenTelemetry-compatible backend.
+package otlp
 
 import (
 	"bytes"
@@ -6,51 +9,51 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/sarathsp06/sparrow/satellites/sparrow-sinks/sinks"
 )
 
-type otlpConfig struct {
-	WebhookSecret string            `yaml:"webhook_secret"` // optional per-sink override
-	Endpoint      string            `yaml:"endpoint"`       // http(s)://host:4318; /v1/logs appended when no path
-	Headers       map[string]string `yaml:"headers"`        // extra headers, e.g. Authorization
-	ServiceName   string            `yaml:"service_name"`   // resource service.name, default "sparrow"
+// Config is the otlp: section of sinks.yaml.
+type Config struct {
+	WebhookSecret    string            `yaml:"webhook_secret"`
+	SigningPublicKey string            `yaml:"signing_public_key"`
+	Endpoint         string            `yaml:"endpoint"`     // http(s)://host:4318; /v1/logs appended when no path
+	Headers          map[string]string `yaml:"headers"`      // extra headers, e.g. Authorization
+	ServiceName      string            `yaml:"service_name"` // resource service.name, default "sparrow"
 }
 
-var otlpDef = sinkDef{
-	name:       "otlp",
-	configured: func(c *config) bool { return c.OTLP != nil },
-	validate: func(c *config) error {
-		if c.OTLP.Endpoint == "" {
-			return fmt.Errorf("otlp: endpoint is required")
-		}
-		if _, err := logsURL(c.OTLP.Endpoint); err != nil {
-			return fmt.Errorf("otlp: %w", err)
-		}
-		return nil
-	},
-	secret: func(c *config) string { return c.OTLP.WebhookSecret },
-	build: func(_ context.Context, c *config) (deliverFunc, []any, error) {
-		sink, err := newOTLPSink(*c.OTLP)
-		if err != nil {
-			return nil, nil, err
-		}
-		return sink.deliver, []any{"endpoint", sink.url}, nil
-	},
+// Handler returns the OTLP sink. It verifies with SigningPublicKey when set,
+// else WebhookSecret; one of them is required.
+func Handler(cfg Config, logger *slog.Logger) (http.Handler, error) {
+	if cfg.Endpoint == "" {
+		return nil, fmt.Errorf("otlp: endpoint is required")
+	}
+	verify, err := sinks.VerifierFor(cfg.WebhookSecret, cfg.SigningPublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("otlp: %w", err)
+	}
+	sink, err := newOTLPSink(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return sinks.Handle("otlp", verify, logger, sink.deliver), nil
 }
 
 // otlpSink exports each delivery as one OTLP/HTTP JSON log record, making
 // Sparrow events visible in any OpenTelemetry-compatible backend (an OTel
 // Collector, or a vendor's native OTLP endpoint).
 type otlpSink struct {
-	cfg    otlpConfig
+	cfg    Config
 	url    string
 	client *http.Client
 }
 
-func newOTLPSink(cfg otlpConfig) (*otlpSink, error) {
+func newOTLPSink(cfg Config) (*otlpSink, error) {
 	u, err := logsURL(cfg.Endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("otlp: %w", err)
@@ -82,7 +85,7 @@ func logsURL(endpoint string) (string, error) {
 // the body.
 // ponytail: hand-rolled OTLP/JSON keeps this stdlib-only; switch to the
 // otlploghttp exporter if proto/gzip or structured (kvlist) bodies matter.
-func otlpPayload(env envelope, serviceName string) ([]byte, error) {
+func otlpPayload(env sinks.Envelope, serviceName string) ([]byte, error) {
 	ts := time.Now()
 	if t, err := time.Parse(time.RFC3339Nano, env.Timestamp); err == nil {
 		ts = t
@@ -113,7 +116,7 @@ func otlpPayload(env envelope, serviceName string) ([]byte, error) {
 	})
 }
 
-func (s *otlpSink) deliver(ctx context.Context, env envelope, _ []byte) error {
+func (s *otlpSink) deliver(ctx context.Context, env sinks.Envelope, _ []byte) error {
 	body, err := otlpPayload(env, s.cfg.ServiceName)
 	if err != nil {
 		return fmt.Errorf("otlp: encode: %w", err)

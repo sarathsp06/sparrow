@@ -51,6 +51,63 @@ docker run -v "$(pwd)/sources.yaml:/etc/sparrow/sources.yaml:ro" \
   -e SPARROW_URL=http://sparrow:8080 -p 8787:8787 sparrow-sources
 ```
 
+## Use it as a Go library
+
+Each source is a Go package you can run in your own process, mounted on your
+own server, instead of running `sparrow-sources`:
+
+```sh
+go get github.com/sarathsp06/sparrow/satellites/sparrow-sources
+```
+
+Import `sources` for the shared pieces and the package for each source you
+use:
+
+| Package | What it gives you |
+|---------|-------------------|
+| `sources` | `Pusher` and `Client` (publish to Sparrow), `Handle` + `MapFunc` (build a webhook source), `SparrowConfig` |
+| `sources/stripe` | `stripe.Config` (the `stripe:` provider section) and `stripe.Handler` |
+| `sources/github` | `github.Config` (the `github:` provider section) and `github.Handler` |
+| `sources/cron` | `cron.Job` (one `cron:` entry), `cron.New` and `Emitter.Run` |
+
+Every source package keeps its own dependencies, so you only build what you
+import. The library reads no files or env vars (`SPARROW_URL` and friends are
+the binary's), and your server owns the paths:
+
+```go
+import (
+	"github.com/sarathsp06/sparrow/satellites/sparrow-sources/sources"
+	"github.com/sarathsp06/sparrow/satellites/sparrow-sources/sources/cron"
+	"github.com/sarathsp06/sparrow/satellites/sparrow-sources/sources/stripe"
+)
+
+client := sources.NewClient(sources.SparrowConfig{URL: "http://sparrow:8080", APIKey: key})
+
+h, err := stripe.Handler(stripe.Config{SigningSecret: "whsec_..."}, client, logger)
+mux.Handle("POST /webhooks/stripe", h)
+
+emitter, err := cron.New([]cron.Job{{Schedule: "0 * * * *", Event: "report.tick"}}) // validates every job
+go emitter.Run(ctx, client, logger)
+```
+
+To add your own webhook source, pass a `MapFunc` to `sources.Handle`. You
+verify the request and name the event; it pushes the raw body as the payload
+and answers the provider exactly as the built-in ones do (401 for
+`sources.ErrBadSignature`, 502 when the push fails so the provider retries):
+
+```go
+mux.Handle("POST /webhooks/linear", sources.Handle("linear", client, logger,
+	func(r *http.Request, body []byte) (string, map[string]string, error) {
+		if !verifyLinear(r, body) {
+			return "", nil, sources.ErrBadSignature
+		}
+		return "linear.issue.updated", map[string]string{"source": "linear"}, nil
+	}))
+```
+
+`client.PushEvent(ctx, event, payload, labels)` is also usable on its own: it
+creates the event type on first use.
+
 ## Before you start
 
 <Steps>

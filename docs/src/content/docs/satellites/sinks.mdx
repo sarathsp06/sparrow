@@ -57,6 +57,56 @@ docker build -t sparrow-sinks .
 docker run -v "$(pwd)/sinks.yaml:/etc/sparrow/sinks.yaml:ro" -p 8788:8788 sparrow-sinks
 ```
 
+## Use it as a Go library
+
+Each sink is a Go package you can mount on your own server instead of running
+`sparrow-sinks`:
+
+```sh
+go get github.com/sarathsp06/sparrow/satellites/sparrow-sinks
+```
+
+| Package | What it gives you | Dependencies |
+|---------|-------------------|--------------|
+| `sinks` | `Handle`, `Verifier`, `Envelope`: the core every sink is built on | standard library |
+| `sinks/email` | `email.Config` (the `email:` section) and `email.Handler` | standard library |
+| `sinks/otlp` | `otlp.Config` (the `otlp:` section) and `otlp.Handler` | standard library |
+| `sinks/s3` | `s3.Config` (the `s3:` section) and `s3.Handler` | aws-sdk-go-v2 |
+
+Import only the sinks you use; only `sinks/s3` brings in the AWS SDK. Each
+`Config` is its YAML section with the sink's own `WebhookSecret` or
+`SigningPublicKey` (one is required; there is no top-level fallback outside
+the binary). Your server owns the paths:
+
+```go
+import (
+	"github.com/sarathsp06/sparrow/satellites/sparrow-sinks/sinks/s3"
+)
+
+h, err := s3.Handler(ctx, s3.Config{
+	WebhookSecret: os.Getenv("SPARROW_WEBHOOK_SECRET"),
+	Bucket:        "sparrow-events",
+	Prefix:        "events/",
+}, logger)
+mux.Handle("POST /archive", h)
+```
+
+To write your own sink, pass a `Verifier` and a `DeliverFunc` to
+`sinks.Handle`. It verifies the signature, parses the envelope and maps your
+error to a 502 exactly as the built-in sinks do. The verifier is
+`sinks.HMAC(secret)`, or `sinks.Ed25519(publicKeyHex)` to verify with only the
+webhook's public key:
+
+```go
+import "github.com/sarathsp06/sparrow/satellites/sparrow-sinks/sinks"
+
+verify, err := sinks.Ed25519(webhook.SigningPublicKey) // or sinks.HMAC(secret)
+mux.Handle("POST /sinks/kafka", sinks.Handle("kafka", verify, logger,
+	func(ctx context.Context, env sinks.Envelope, raw []byte) error {
+		return producer.Send(ctx, env.EventName, raw) // error → 502 → Sparrow retries
+	}))
+```
+
 ## Before you start
 
 <Steps>
@@ -89,6 +139,11 @@ docker run -v "$(pwd)/sinks.yaml:/etc/sparrow/sinks.yaml:ro" -p 8788:8788 sparro
    Copy `http_config.webhook_secret` (`whsec_...`) from the response. It's
    shown only once, and the sink needs it to check signatures.
 
+   To keep the secret out of the sink altogether, register the webhook with
+   `"signature_type": "ed25519"` and copy `signing_public_key` instead (it
+   isn't secret and stays readable on every `GET`). The sink then verifies the
+   Ed25519 signature with that public key.
+
 4. **Leave transforms off** on that webhook's subscriptions (the default). A
    sink reads Sparrow's standard event envelope; a transformed body is
    rejected with `422`. Don't apply a recipe to a sink webhook.
@@ -99,15 +154,16 @@ docker run -v "$(pwd)/sinks.yaml:/etc/sparrow/sinks.yaml:ro" -p 8788:8788 sparro
 
 `sparrow-sinks` reads one YAML file, `sinks.yaml` by default (`--config` to
 change it). There are no environment-variable overrides, so keep the file
-readable only by the user that runs the sink: it holds the webhook secret and
-the SMTP password. Configure one or more sinks; a sink without a section is
+readable only by the user that runs the sink: it holds the webhook secret (unless you
+use `signing_public_key`) and the SMTP password. Configure one or more sinks; a sink without a section is
 not served.
 
 | Field | Required | Default | Meaning |
 |-------|----------|---------|---------|
 | `listen` | no | `:8788` | Address to listen on. |
-| `webhook_secret` | yes, unless every sink sets its own | | The `whsec_...` secret of the webhook pointing at this server. |
-| `<sink>.webhook_secret` | no | the top-level secret | A different secret for one sink. You need this when you register a separate webhook per sink, since each webhook gets its own secret. |
+| `webhook_secret` | this or `signing_public_key`, unless every sink sets its own | | The `whsec_...` secret of the webhook pointing at this server. Verifies the HMAC (`v1,`) signature every delivery carries. |
+| `signing_public_key` | this or `webhook_secret` | | The hex `signing_public_key` of an `ed25519` webhook. Verifies the Ed25519 (`v1a,`) signature instead, so the sink never holds the secret. Used in place of `webhook_secret` when both are set. |
+| `<sink>.webhook_secret`, `<sink>.signing_public_key` | no | the top-level values | Credentials for one sink. You need these when you register a separate webhook per sink, since each webhook has its own secret and key. A sink that sets either one ignores both top-level values. |
 
 ```yaml title="sinks.yaml"
 listen: :8788
@@ -132,7 +188,7 @@ keeps no queue: if forwarding fails it answers `502` and Sparrow retries.
 |--------------|------|--------------|
 | `200` | Forwarded to the destination. | Marks the delivery succeeded. |
 | `400` | The body is over 10 MB. | Fails it for good (no retry). |
-| `401` | Signature missing or wrong (wrong `webhook_secret`, or the two machines' clocks more than 5 minutes apart). | Fails it for good. Fix the secret, then retry the failed deliveries. |
+| `401` | Signature missing or wrong (wrong `webhook_secret` or `signing_public_key`, a public key set for a webhook that isn't `ed25519`, or the two machines' clocks more than 5 minutes apart). | Fails it for good. Fix the credential, then retry the failed deliveries. |
 | `422` | The body isn't a Sparrow envelope (`event_id` or `event_name` missing), almost always because a transform is enabled. | Fails it for good. Turn the transform off, then retry. |
 | `502` | The destination failed: SMTP refused, S3 unreachable, OTLP endpoint returned non-2xx. | Retries with backoff, up to the webhook's `max_retries`. |
 
