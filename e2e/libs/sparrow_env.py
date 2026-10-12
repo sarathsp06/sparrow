@@ -51,6 +51,8 @@ class SparrowEnvironment:
         self._sparrow.with_env("SPARROW_ALLOW_PRIVATE_NETWORKS", "true")
         self._sparrow.with_env("SPARROW_HTTP_PORT", "8080")
         self._sparrow.with_env("SPARROW_AUTO_REGISTER_EVENTS", "true")
+        # Health is derived by a periodic job (default 1m); specs wait ~30s for it.
+        self._sparrow.with_env("SPARROW_HEALTH_EVAL_INTERVAL", "2s")
         self._sparrow.with_exposed_ports(8080)
         self._sparrow.with_kwargs(extra_hosts={"host.docker.internal": "host-gateway"})
         self._sparrow.start()
@@ -77,6 +79,8 @@ class SparrowEnvironment:
         self._authed.with_env("SPARROW_ALLOW_PRIVATE_NETWORKS", "true")
         self._authed.with_env("SPARROW_HTTP_PORT", "8080")
         self._authed.with_env("SPARROW_AUTO_REGISTER_EVENTS", "true")
+        # Health is derived by a periodic job (default 1m); specs wait ~30s for it.
+        self._authed.with_env("SPARROW_HEALTH_EVAL_INTERVAL", "2s")
         self._authed.with_env("SPARROW_API_KEY", api_key)
         self._authed.with_exposed_ports(8080)
         self._authed.with_kwargs(extra_hosts={"host.docker.internal": "host-gateway"})
