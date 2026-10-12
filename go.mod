@@ -22,7 +22,7 @@ require (
 	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.33.0
 	github.com/riverqueue/river/rivertype v0.33.0
 	github.com/rs/cors v1.11.1
-	github.com/sarathsp06/schemagen v0.1.1
+	github.com/sarathsp06/schemagen v0.2.0
 	github.com/sarathsp06/sparrow/pkg/access v0.0.0-00010101000000-000000000000
 	github.com/sarathsp06/sparrow/pkg/signature v0.0.0-00010101000000-000000000000
 	github.com/sarathsp06/sparrow/pkg/template v0.0.0-00010101000000-000000000000
