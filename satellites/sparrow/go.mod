@@ -4,9 +4,9 @@ go 1.26.1
 
 require (
 	github.com/modelcontextprotocol/go-sdk v1.8.0
-	github.com/sarathsp06/sparrow/pkg/signature v0.0.0-00010101000000-000000000000
-	github.com/sarathsp06/sparrow/pkg/template v0.0.0-00010101000000-000000000000
-	github.com/sarathsp06/sparrow/satellites/recipes v0.0.0-00010101000000-000000000000
+	github.com/sarathsp06/sparrow/pkg/signature v0.12.1
+	github.com/sarathsp06/sparrow/pkg/template v0.12.1
+	github.com/sarathsp06/sparrow/satellites/recipes v0.12.1
 	github.com/spf13/cobra v1.10.2
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -24,9 +24,3 @@ require (
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 )
-
-replace github.com/sarathsp06/sparrow/pkg/signature => ../../pkg/signature
-
-replace github.com/sarathsp06/sparrow/pkg/template => ../../pkg/template
-
-replace github.com/sarathsp06/sparrow/satellites/recipes => ../recipes
