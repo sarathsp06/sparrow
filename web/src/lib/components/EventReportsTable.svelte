@@ -1,15 +1,14 @@
 <script lang="ts">
     import type { components } from '$lib/api-types';
     import { api, unwrap } from '$lib/services';
-    import { getCategoryBadge, timeAgo } from '$lib/utils';
-    import StatusBadge from './StatusBadge.svelte';
+    import { timeAgo } from '$lib/utils';
     import CopyableId from './CopyableId.svelte';
     import EmptyState from './EmptyState.svelte';
+    import DeliveryTable from './DeliveryTable.svelte';
     import favicon from '$lib/assets/favicon.svg';
 
     type EventOccurrenceItem = components["schemas"]["EventOccurrenceItem"];
     type DeliveryItem = components["schemas"]["DeliveryItem"];
-    type AttemptItem = components["schemas"]["AttemptItem"];
 
     interface Props {
         eventReports: EventOccurrenceItem[];
@@ -24,12 +23,6 @@
     let expandedRows: Set<string> = $state(new Set());
     let deliveriesByEvent: Map<string, DeliveryItem[]> = $state(new Map());
     let loadingDeliveries: Set<string> = $state(new Set());
-    let retryingDeliveries: Set<string> = $state(new Set());
-
-    // Expanded delivery attempt rows state
-    let expandedDeliveries: Set<string> = $state(new Set());
-    let attemptsByDelivery: Map<string, AttemptItem[]> = $state(new Map());
-    let loadingAttempts: Set<string> = $state(new Set());
 
     function formatTimestamp(timestamp: string | null | undefined): string {
         if (!timestamp) return 'N/A';
@@ -77,52 +70,6 @@
         }
     }
 
-    async function retryDelivery(deliveryId: string, consumer: string, eventId: string) {
-        retryingDeliveries.add(deliveryId);
-        retryingDeliveries = new Set(retryingDeliveries);
-        try {
-            unwrap(await api.POST('/v1/consumers/{consumer}/deliveries/{delivery_id}:retry', {
-                params: { path: { consumer, delivery_id: deliveryId } },
-            }));
-            await fetchDeliveries(eventId, consumer);
-        } catch (e: any) {
-            console.error('Failed to retry delivery:', e);
-        } finally {
-            retryingDeliveries.delete(deliveryId);
-            retryingDeliveries = new Set(retryingDeliveries);
-        }
-    }
-
-    async function toggleDeliveryAttempts(deliveryId: string, consumer: string) {
-        if (expandedDeliveries.has(deliveryId)) {
-            expandedDeliveries.delete(deliveryId);
-            expandedDeliveries = new Set(expandedDeliveries);
-        } else {
-            expandedDeliveries.add(deliveryId);
-            expandedDeliveries = new Set(expandedDeliveries);
-
-            if (!attemptsByDelivery.has(deliveryId)) {
-                await fetchAttempts(deliveryId, consumer);
-            }
-        }
-    }
-
-    async function fetchAttempts(deliveryId: string, consumer: string) {
-        loadingAttempts.add(deliveryId);
-        loadingAttempts = new Set(loadingAttempts);
-        try {
-            const res = unwrap(await api.GET('/v1/consumers/{consumer}/deliveries/{delivery_id}/attempts', {
-                params: { path: { consumer, delivery_id: deliveryId } },
-            }));
-            attemptsByDelivery.set(deliveryId, res.items || []);
-            attemptsByDelivery = new Map(attemptsByDelivery);
-        } catch (e: any) {
-            console.error('Failed to fetch attempts for delivery:', e);
-        } finally {
-            loadingAttempts.delete(deliveryId);
-            loadingAttempts = new Set(loadingAttempts);
-        }
-    }
 </script>
 
 {#if eventReports.length === 0}
@@ -210,122 +157,7 @@
                                     {:else if deliveriesByEvent.has(report.event_id) && (deliveriesByEvent.get(report.event_id)?.length ?? 0) > 0}
                                         <div class="space-y-2">
                                             <p class="eyebrow mb-2">Webhook Deliveries</p>
-                                            <div class="overflow-x-auto">
-                                                <table class="w-full text-xs">
-                                                    <thead>
-                                                        <tr class="border-b border-line">
-                                                            <th class="th !py-2 !px-3">Webhook</th>
-                                                            <th class="th !py-2 !px-3">Status</th>
-                                                            <th class="th !py-2 !px-3 hidden sm:table-cell">Response</th>
-                                                            <th class="th !py-2 !px-3 hidden md:table-cell">Attempts</th>
-                                                            <th class="th !py-2 !px-3 hidden lg:table-cell">Last Attempt</th>
-                                                            <th class="th !py-2 !px-3">Actions</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {#each deliveriesByEvent.get(report.event_id) ?? [] as delivery}
-                                                            <tr class="row-line row-hover transition {expandedDeliveries.has(delivery.delivery_id) ? 'bg-black/[0.03]' : ''}">
-                                                                <td class="td !py-2 !px-3">
-                                                                    <CopyableId id={delivery.webhook_id} href="/webhooks/{delivery.webhook_id}" truncate={12} />
-                                                                </td>
-                                                                <td class="td !py-2 !px-3">
-                                                                    <div class="flex items-center gap-1.5">
-                                                                        <StatusBadge status={delivery.status} />
-                                                                        {#if delivery.error_category && delivery.error_category !== 'success'}
-                                                                            {@const badge = getCategoryBadge(delivery.error_category)}
-                                                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border {badge.classes}">{badge.label}</span>
-                                                                        {/if}
-                                                                    </div>
-                                                                </td>
-                                                                <td class="td !py-2 !px-3 hidden sm:table-cell">
-                                                                    <span class="mono tnum" style="color:{(delivery.response_code ?? 0) >= 200 && (delivery.response_code ?? 0) < 300 ? 'var(--color-ok)' : (delivery.response_code ?? 0) >= 400 ? 'var(--color-bad)' : 'var(--color-muted)'}">
-                                                                        {delivery.response_code || '—'}
-                                                                    </span>
-                                                                </td>
-                                                                <td class="td !py-2 !px-3 hidden md:table-cell">
-                                                                    <button
-                                                                        onclick={() => toggleDeliveryAttempts(delivery.delivery_id, report.consumer)}
-                                                                        aria-expanded={expandedDeliveries.has(delivery.delivery_id)}
-                                                                        class="link-beacon mono tnum font-medium transition"
-                                                                    >
-                                                                        {delivery.attempt_count}/{delivery.max_attempts}
-                                                                        <span class="text-[10px] ml-0.5" aria-hidden="true">{expandedDeliveries.has(delivery.delivery_id) ? '▲' : '▼'}</span>
-                                                                    </button>
-                                                                </td>
-                                                                <td class="td !py-2 !px-3 hidden lg:table-cell"><span class="mono tnum text-muted" title={formatTimestamp(delivery.last_attempted_at)}>{timeAgo(delivery.last_attempted_at)}</span></td>
-                                                                <td class="td !py-2 !px-3">
-                                                                    <div class="flex items-center gap-2">
-                                                                        {#if delivery.status === 'failed' || delivery.status === 'expired' || (delivery.error_category && delivery.error_category !== 'success')}
-                                                                            <button
-                                                                                onclick={() => retryDelivery(delivery.delivery_id, report.consumer, report.event_id)}
-                                                                                disabled={retryingDeliveries.has(delivery.delivery_id)}
-                                                                                class="btn btn-ghost !px-2 !py-1 text-xs"
-                                                                            >
-                                                                                {retryingDeliveries.has(delivery.delivery_id) ? 'Retrying…' : 'Retry'}
-                                                                            </button>
-                                                                        {/if}
-                                                                        <a
-                                                                            href="/deliveries/{delivery.delivery_id}"
-                                                                            class="btn btn-ghost !px-2 !py-1 text-xs"
-                                                                        >
-                                                                            Details
-                                                                        </a>
-                                                                    </div>
-                                                                </td>
-                                                            </tr>
-
-                                                            {#if expandedDeliveries.has(delivery.delivery_id)}
-                                                                <tr class="row-line" style="background:var(--color-panel-2)">
-                                                                    <td colspan="6" class="px-3 py-3">
-                                                                        {#if loadingAttempts.has(delivery.delivery_id)}
-                                                                            <div class="flex items-center justify-center py-3">
-                                                                                <img src={favicon} alt="" aria-hidden="true" class="w-3 h-3 animate-spin mr-2" />
-                                                                                <span class="text-xs text-muted">Loading attempt history…</span>
-                                                                            </div>
-                                                                        {:else if attemptsByDelivery.has(delivery.delivery_id) && (attemptsByDelivery.get(delivery.delivery_id)?.length ?? 0) > 0}
-                                                                            <div class="ml-4 border-l-2 border-line pl-3">
-                                                                                <p class="eyebrow mb-1.5">Attempt History</p>
-                                                                                <div class="space-y-1.5">
-                                                                                    {#each attemptsByDelivery.get(delivery.delivery_id) ?? [] as attempt, i}
-                                                                                        <div class="flex items-start gap-3 py-1.5 px-2 rounded" style="background:color-mix(in srgb,var(--color-{attempt.success ? 'ok' : 'bad'}) 8%,var(--color-panel-2))">
-                                                                                            <div class="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold mono tnum" style="color:var(--color-{attempt.success ? 'ok' : 'bad'});background:color-mix(in srgb,var(--color-{attempt.success ? 'ok' : 'bad'}) 15%,transparent)">
-                                                                                                {i + 1}
-                                                                                            </div>
-                                                                                            <div class="flex-1 min-w-0">
-                                                                                                <div class="flex flex-wrap items-center gap-2 text-[11px]">
-                                                                                                    <span class="font-medium" style="color:var(--color-{attempt.success ? 'ok' : 'bad'})">
-                                                                                                        {attempt.success ? 'Success' : 'Failed'}
-                                                                                                    </span>
-                                                                                                    {#if attempt.response_code > 0}
-                                                                                                        <span class="mono tnum px-1 py-0.5 rounded text-[10px]" style="color:var(--color-{attempt.response_code >= 200 && attempt.response_code < 300 ? 'ok' : 'bad'});background:color-mix(in srgb,var(--color-{attempt.response_code >= 200 && attempt.response_code < 300 ? 'ok' : 'bad'}) 15%,transparent)">
-                                                                                                            {attempt.response_code}
-                                                                                                        </span>
-                                                                                                    {/if}
-                                                                                                    {#if attempt.error_category && attempt.error_category !== 'success'}
-                                                                                                        {@const badge = getCategoryBadge(attempt.error_category)}
-                                                                                                        <span class="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium border {badge.classes}">{badge.label}</span>
-                                                                                                    {/if}
-                                                                                                    <span class="text-faint mono tnum text-[10px]">{attempt.response_time}ms</span>
-                                                                                                    <span class="text-faint mono tnum text-[10px]">{formatTimestamp(attempt.timestamp)}</span>
-                                                                                                </div>
-                                                                                                {#if attempt.error_message}
-                                                                                                    <p class="text-[10px] mt-0.5 truncate" style="color:var(--color-bad)" title={attempt.error_message}>{attempt.error_message}</p>
-                                                                                                {/if}
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    {/each}
-                                                                                </div>
-                                                                            </div>
-                                                                        {:else}
-                                                                            <p class="text-[11px] text-faint ml-4">No attempt history recorded yet.</p>
-                                                                        {/if}
-                                                                    </td>
-                                                                </tr>
-                                                            {/if}
-                                                        {/each}
-                                                    </tbody>
-                                                </table>
-                                            </div>
+                                            <DeliveryTable deliveries={deliveriesByEvent.get(report.event_id) ?? []} hide={['event', 'consumer']} onchange={() => fetchDeliveries(report.event_id, report.consumer)} />
                                         </div>
                                     {:else}
                                         <p class="text-sm text-muted text-center py-3">No deliveries found for this event.</p>

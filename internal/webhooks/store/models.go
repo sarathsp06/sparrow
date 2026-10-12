@@ -134,6 +134,10 @@ type WebhookDelivery struct {
 	// EventName is the event type of the delivery's event. Filled by the
 	// delivery listings only.
 	EventName string `json:"event_name,omitempty" db:"event_name"`
+	// WebhookDescription and WebhookURL identify the delivery's webhook for
+	// display. Filled by the delivery listings only.
+	WebhookDescription string `json:"webhook_description,omitempty" db:"webhook_description"`
+	WebhookURL         string `json:"webhook_url,omitempty" db:"webhook_url"`
 }
 
 // WebhookDeliveryStatus represents the status of a webhook delivery

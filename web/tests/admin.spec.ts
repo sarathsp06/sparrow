@@ -77,7 +77,8 @@ test('pushed events produce delivery attempts visible in the console', async ({ 
   await expect(async () => {
     await page.reload();
     await page.getByPlaceholder('Webhook ID').fill(webhook_id);
-    await expect(page.getByText(webhook_id.slice(0, 8))).toBeVisible({ timeout: 2000 });
+    // The webhook column shows the webhook's description, linking to it by id.
+    await expect(page.locator(`a[href="/webhooks/${webhook_id}"]`).first()).toHaveText('pw webhook', { timeout: 2000 });
   }).toPass({ timeout: 20000 });
 });
 

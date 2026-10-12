@@ -256,9 +256,10 @@ func (r *Repository) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.U
 	args := append(deliveryFilterArgs(tenantID, filter), afterAt, afterID, filter.Limit+1)
 
 	// The page is cut first, then joined to its event names, so the lookup
-	// runs once per returned row.
+	// runs once per returned row. The webhook's consumer, description and URL
+	// come from the webhook_registrations row the filter already joins.
 	query := fmt.Sprintf(deliveryPageQuery, fmt.Sprintf(`
-			SELECT %s, wr.consumer
+			SELECT %s, wr.consumer, wr.description AS webhook_description, wr.url AS webhook_url
 			%s
 			  AND wd.created_at <= $11 AND (wd.created_at < $11 OR wd.id < $12)
 			ORDER BY wd.created_at DESC, wd.id DESC
@@ -275,7 +276,7 @@ func (r *Repository) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.U
 			SELECT d.*
 			FROM webhook_registrations wr
 			CROSS JOIN LATERAL (
-				SELECT %s, wr.consumer
+				SELECT %s, wr.consumer, wr.description AS webhook_description, wr.url AS webhook_url
 				FROM webhook_deliveries wd
 				WHERE wd.webhook_id = wr.id%s
 				  AND wd.created_at <= $11 AND (wd.created_at < $11 OR wd.id < $12)

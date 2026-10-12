@@ -1,15 +1,14 @@
 <script lang="ts">
-  import favicon from '$lib/assets/favicon.svg';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import { api, unwrap } from '$lib/services';
-  import { getCategoryBadge, ERROR_CATEGORIES, formatAPIError } from '$lib/utils';
+  import { ERROR_CATEGORIES, formatAPIError } from '$lib/utils';
   import { onMount, onDestroy } from 'svelte';
   import type { components } from '$lib/api-types';
   type DeliveryStatus = components['schemas']['DeliveryItem']['status'];
   import HealthBadge from '$lib/components/HealthBadge.svelte';
   import CopyableId from '$lib/components/CopyableId.svelte';
-  import StatusBadge from '$lib/components/StatusBadge.svelte';
+  import DeliveryTable from '$lib/components/DeliveryTable.svelte';
   import CursorPager from '$lib/components/CursorPager.svelte';
   import { CursorPages } from '$lib/cursor-pages.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
@@ -33,8 +32,6 @@
   let subscriptions: SubscriptionItem[] = $state([]);
   let loading = $state(true);
   let error = $state('');
-  let expandedDeliveries: Set<string> = $state(new Set());
-  let deliveryDetails: Map<string, DeliveryItem> = $state(new Map());
   const initialTab = (page.url.searchParams.get('tab') as 'deliveries' | 'config' | 'subscriptions' | null) ?? 'deliveries';
   let activeTab = $state<'deliveries' | 'config' | 'subscriptions'>(['deliveries', 'config', 'subscriptions'].includes(initialTab) ? initialTab : 'deliveries');
 
@@ -126,12 +123,6 @@
   onDestroy(() => {
     if (pollingTimer) clearInterval(pollingTimer);
   });
-
-  function formatPayload(payload: string | undefined): string {
-    if (!payload) return 'N/A';
-    try { return JSON.stringify(JSON.parse(payload), null, 2); }
-    catch { return payload; }
-  }
 
   function formatTimestamp(timestamp: string | null | undefined): string {
     if (!timestamp) return 'N/A';
@@ -258,17 +249,6 @@
     } catch (e: any) {
       error = formatAPIError(e, 'Failed to unregister webhook');
       confirmUnregister = false;
-    }
-  }
-
-  async function resendDelivery(deliveryId: string) {
-    try {
-      unwrap(await api.POST('/v1/deliveries/{delivery_id}:retry', {
-        params: { path: { delivery_id: deliveryId } },
-      }));
-      await fetchData();
-    } catch (e: any) {
-      error = formatAPIError(e, 'Failed to resend delivery');
     }
   }
 
@@ -479,28 +459,6 @@
       error = formatAPIError(e, 'Failed to update configuration');
     } finally {
       savingConfig = false;
-    }
-  }
-
-  async function toggleDeliveryExpansion(deliveryId: string) {
-    if (expandedDeliveries.has(deliveryId)) {
-      expandedDeliveries.delete(deliveryId);
-      expandedDeliveries = new Set(expandedDeliveries);
-    } else {
-      expandedDeliveries.add(deliveryId);
-      expandedDeliveries = new Set(expandedDeliveries);
-
-      if (!deliveryDetails.has(deliveryId)) {
-        try {
-          const detail = unwrap(await api.GET('/v1/deliveries/{delivery_id}', {
-            params: { path: { delivery_id: deliveryId } },
-          }));
-          deliveryDetails.set(deliveryId, detail);
-          deliveryDetails = new Map(deliveryDetails);
-        } catch (e: any) {
-          console.error('Failed to load delivery details:', e);
-        }
-      }
     }
   }
 
@@ -997,127 +955,7 @@
           {#if deliveries.length === 0}
             <EmptyState icon="send" title="No deliveries yet" description="Deliveries will appear here when events are pushed to this webhook." />
           {:else}
-            <div class="overflow-x-auto">
-              <table class="w-full text-left">
-                <thead>
-                  <tr class="border-b border-line">
-                    <th class="th">Delivery ID</th>
-                    <th class="th hidden sm:table-cell">Event</th>
-                    <th class="th">Status</th>
-                    <th class="th hidden md:table-cell">Attempts</th>
-                    <th class="th hidden lg:table-cell">Last Attempt</th>
-                    <th class="th"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each deliveries as delivery}
-                    <tr class="row-line row-hover transition">
-                      <td class="td">
-                        <CopyableId id={delivery.delivery_id} href="/deliveries/{delivery.delivery_id}" truncate={12} />
-                        <span class="block sm:hidden mt-0.5">
-                          {#if delivery.event_name}<span class="block text-xs mono text-text truncate max-w-[14rem]" title={delivery.event_name}>{delivery.event_name}</span>{/if}
-                          <CopyableId id={delivery.event_id} href="/events/instances/{delivery.event_id}" truncate={12} />
-                        </span>
-                      </td>
-                      <td class="td hidden sm:table-cell">
-                        {#if delivery.event_name}
-                          <a href="/events/{encodeURIComponent(delivery.event_name)}/reports" class="block text-sm mono text-text hover:text-beacon truncate max-w-[16rem]" title={delivery.event_name} data-testid="delivery-event-name">{delivery.event_name}</a>
-                        {/if}
-                        <CopyableId id={delivery.event_id} href="/events/instances/{delivery.event_id}" truncate={16} />
-                      </td>
-                      <td class="td">
-                        <div class="flex items-center gap-1.5">
-                          <StatusBadge status={delivery.status} />
-                          {#if delivery.error_category && delivery.error_category !== 'success'}
-                            {@const badge = getCategoryBadge(delivery.error_category)}
-                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border {badge.classes}">{badge.label}</span>
-                          {/if}
-                        </div>
-                      </td>
-                      <td class="td tnum text-muted hidden md:table-cell">{delivery.attempt_count}</td>
-                      <td class="td hidden lg:table-cell"><span class="mono tnum text-muted text-xs">{formatTimestamp(delivery.last_attempted_at)}</span></td>
-                      <td class="td">
-                        <button onclick={() => toggleDeliveryExpansion(delivery.delivery_id)} aria-expanded={expandedDeliveries.has(delivery.delivery_id)} class="text-xs mono text-muted hover:text-text transition">
-                          {expandedDeliveries.has(delivery.delivery_id) ? 'Hide' : 'Details'}
-                        </button>
-                      </td>
-                    </tr>
-                    {#if expandedDeliveries.has(delivery.delivery_id)}
-                      <tr class="row-line">
-                        <td colspan="6" class="px-4 py-4 bg-panel-2">
-                          {#if deliveryDetails.has(delivery.delivery_id)}
-                            {@const details = deliveryDetails.get(delivery.delivery_id)!}
-                            <div class="space-y-3">
-                              <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                                <div>
-                                  <p class="eyebrow mb-0.5">Response Code</p>
-                                  <span class="mono text-sm tnum" style="color:{(details.response_code ?? 0) >= 200 && (details.response_code ?? 0) < 300 ? 'var(--color-ok)' : (details.response_code ?? 0) >= 400 ? 'var(--color-bad)' : 'var(--color-text)'}">
-                                    {details.response_code || 'N/A'}
-                                  </span>
-                                </div>
-                                <div>
-                                  <p class="eyebrow mb-0.5">Error Category</p>
-                                  {#if details.error_category && details.error_category !== 'success'}
-                                    {@const badge = getCategoryBadge(details.error_category)}
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium border {badge.classes}">{badge.label}</span>
-                                  {:else}
-                                    <span class="text-sm text-faint">—</span>
-                                  {/if}
-                                </div>
-                                <div>
-                                  <p class="eyebrow mb-0.5">Attempts</p>
-                                  <span class="text-sm text-text tnum">{delivery.attempt_count}</span>
-                                </div>
-                                <div>
-                                  <p class="eyebrow mb-0.5">Created</p>
-                                  <span class="text-sm text-text mono tnum">{details.created_at ? formatTimestamp(details.created_at) : 'N/A'}</span>
-                                </div>
-                                <div>
-                                  <p class="eyebrow mb-0.5">Last Attempt</p>
-                                  <span class="text-sm text-text mono tnum">{formatTimestamp(delivery.last_attempted_at)}</span>
-                                </div>
-                              </div>
-
-                              {#if details.response_body}
-                                <div>
-                                  <p class="eyebrow mb-1">Response Body</p>
-                                  <pre class="panel p-3 text-xs overflow-auto max-h-32 mono text-text">{formatPayload(details.response_body)}</pre>
-                                </div>
-                              {/if}
-
-                              {#if details.error_message}
-                                <div>
-                                  <p class="eyebrow mb-1">Error</p>
-                                  <div class="panel p-3" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
-                                    <p class="text-sm" style="color:var(--color-bad)">{details.error_message}</p>
-                                  </div>
-                                </div>
-                              {/if}
-
-                              <div class="flex items-center gap-2 pt-1">
-                                {#if delivery.status === 'failed' || details.error_message}
-                                  <button onclick={() => resendDelivery(delivery.delivery_id)} class="btn btn-beacon !px-3 !py-1.5">
-                                    Retry Delivery
-                                  </button>
-                                {/if}
-                                <a href="/deliveries/{delivery.delivery_id}" class="btn btn-ghost !px-3 !py-1.5">
-                                  Full Details
-                                </a>
-                              </div>
-                            </div>
-                          {:else}
-                            <div class="flex items-center justify-center py-4">
-                              <img src={favicon} alt="" aria-hidden="true" class="w-4 h-4 animate-spin mr-2" />
-                              <span class="text-sm text-muted">Loading details…</span>
-                            </div>
-                          {/if}
-                        </td>
-                      </tr>
-                    {/if}
-                  {/each}
-                </tbody>
-              </table>
-            </div>
+            <DeliveryTable {deliveries} hide={['webhook', 'consumer']} onchange={fetchData} onerror={(m) => (error = m)} />
 
             <div class="border-t border-line px-4">
               <CursorPager pages={deliveryPages} shown={deliveries.length} itemLabel="deliveries" onchange={fetchData} />

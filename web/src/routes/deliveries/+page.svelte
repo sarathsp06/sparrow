@@ -1,15 +1,14 @@
 <script lang="ts">
     import { page } from '$app/state';
     import { api, unwrap } from '$lib/services';
-    import { getCategoryBadge, ERROR_CATEGORIES, formatAPIError, timeAgo } from '$lib/utils';
-    import { consumerFilter, consumerLabel, withConsumer } from '$lib/consumer.svelte';
+    import { ERROR_CATEGORIES, formatAPIError } from '$lib/utils';
+    import { consumerFilter, withConsumer } from '$lib/consumer.svelte';
     import { SYSTEM_CONSUMER, isSystemConsumer } from '$lib/system';
     import { pulseStore } from '$lib/pulse.svelte';
     import { onDestroy, untrack } from 'svelte';
     import type { components } from '$lib/api-types';
     type DeliveryStatus = components['schemas']['DeliveryItem']['status'];
-    import StatusBadge from '$lib/components/StatusBadge.svelte';
-    import CopyableId from '$lib/components/CopyableId.svelte';
+    import DeliveryTable from '$lib/components/DeliveryTable.svelte';
     import CursorPager from '$lib/components/CursorPager.svelte';
     import { CursorPages } from '$lib/cursor-pages.svelte';
     import ConsumerPicker from '$lib/components/ConsumerPicker.svelte';
@@ -49,7 +48,6 @@
     let retryTotal = $state(0);
     let pollingTimer: ReturnType<typeof setInterval> | undefined;
 
-    let retryingDeliveries: Set<string> = $state(new Set());
 
     let live = $state(false);
     let liveTimer: ReturnType<typeof setInterval> | undefined;
@@ -140,22 +138,6 @@
         createdBeforeFilter !== ''
     );
 
-    async function retrySingleDelivery(deliveryId: string) {
-        retryingDeliveries.add(deliveryId);
-        retryingDeliveries = new Set(retryingDeliveries);
-        try {
-            unwrap(await api.POST('/v1/deliveries/{delivery_id}:retry', {
-                params: { path: { delivery_id: deliveryId } },
-            }));
-            await fetchDeliveries();
-        } catch (e: any) {
-            error = formatAPIError(e, 'Failed to retry delivery');
-        } finally {
-            retryingDeliveries.delete(deliveryId);
-            retryingDeliveries = new Set(retryingDeliveries);
-        }
-    }
-
     async function prepareRetryBatch() {
         preparingRetry = true;
         error = '';
@@ -233,12 +215,6 @@
 
     function onBatchDone() {
         fetchDeliveries();
-    }
-
-    function formatTimestamp(timestamp: string | null | undefined): string {
-        if (!timestamp) return 'N/A';
-        const d = new Date(timestamp);
-        return isNaN(d.getTime()) ? 'N/A' : d.toLocaleString();
     }
 
     $effect(() => {
@@ -351,65 +327,7 @@
         </div>
     {:else}
         <div class="panel overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left">
-                    <thead>
-                        <tr class="border-b border-line">
-                            <th class="th">Delivery</th>
-                            <th class="th hidden sm:table-cell">Webhook</th>
-                            {#if allConsumers}<th class="th hidden md:table-cell">Consumer</th>{/if}
-                            <th class="th">Status</th>
-                            <th class="th hidden sm:table-cell">Response</th>
-                            <th class="th hidden md:table-cell">Attempts</th>
-                            <th class="th hidden lg:table-cell">Created</th>
-                            <th class="th"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {#each deliveries as d}
-                            <tr class="row-line row-hover transition">
-                                <td class="td"><CopyableId id={d.delivery_id} href="/deliveries/{d.delivery_id}" truncate={12} /></td>
-                                <td class="td hidden sm:table-cell"><CopyableId id={d.webhook_id} href="/webhooks/{d.webhook_id}" truncate={12} /></td>
-                                {#if allConsumers}
-                                    <td class="td hidden md:table-cell">
-                                        {#if d.consumer}<span class="chip" title={isSystemConsumer(d.consumer) ? "Sparrow's own alert delivery" : undefined}>{consumerLabel(d.consumer)}</span>{/if}
-                                    </td>
-                                {/if}
-                                <td class="td">
-                                    <div class="flex items-center gap-1.5">
-                                        <StatusBadge status={d.status} />
-                                    {#if d.error_category && d.error_category !== 'success'}
-                                            {@const badge = getCategoryBadge(d.error_category)}
-                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border {badge.classes}">{badge.label}</span>
-                                        {/if}
-                                    </div>
-                                </td>
-                                <td class="td hidden sm:table-cell">
-                                    <span class="mono tnum text-xs" style="color:{(d.response_code ?? 0) >= 200 && (d.response_code ?? 0) < 300 ? 'var(--color-ok)' : (d.response_code ?? 0) >= 400 ? 'var(--color-bad)' : 'var(--color-muted)'}">
-                                        {d.response_code || '—'}
-                                    </span>
-                                </td>
-                                <td class="td hidden md:table-cell mono tnum text-xs text-muted">{d.attempt_count}/{d.max_attempts}</td>
-                                <td class="td hidden lg:table-cell"><span class="mono tnum text-muted text-xs" title={formatTimestamp(d.created_at)}>{timeAgo(d.created_at)}</span></td>
-                                <td class="td">
-                                    <div class="flex items-center gap-2">
-                                        {#if d.status === 'failed' || d.status === 'expired'}
-                                            <button
-                                                onclick={() => retrySingleDelivery(d.delivery_id)}
-                                                disabled={retryingDeliveries.has(d.delivery_id)}
-                                                class="btn btn-ghost !px-2 !py-1 !text-xs"
-                                            >
-                                                {retryingDeliveries.has(d.delivery_id) ? 'Retrying…' : 'Retry'}
-                                            </button>
-                                        {/if}
-                                        <a href="/deliveries/{d.delivery_id}" class="btn btn-ghost !px-2 !py-1 !text-xs">Details</a>
-                                    </div>
-                                </td>
-                            </tr>
-                        {/each}
-                    </tbody>
-                </table>
-            </div>
+            <DeliveryTable {deliveries} hide={allConsumers ? [] : ['consumer']} onchange={() => fetchDeliveries()} onerror={(m) => (error = m)} />
         </div>
 
         <CursorPager {pages} shown={deliveries.length} itemLabel="deliveries" onchange={() => fetchDeliveries()} />

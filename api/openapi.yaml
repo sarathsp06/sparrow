@@ -620,8 +620,14 @@ components:
         template_error:
           description: "The payload transform error, when the subscription's template failed to render. Set for both on_transform_error modes: with fail the delivery was not sent; with fallback the default envelope was sent instead."
           type: string
+        webhook_description:
+          description: Description of that webhook. Set in delivery listings.
+          type: string
         webhook_id:
           description: Webhook this delivery was sent to.
+          type: string
+        webhook_url:
+          description: URL of that webhook. Set in delivery listings.
           type: string
       required:
         - delivery_id
