@@ -2601,7 +2601,7 @@
       "file_type": "code",
       "norm_label": ".start_authed()",
       "source_file": "e2e/libs/sparrow_env.py",
-      "source_location": "L64"
+      "source_location": "L66"
     },
     {
       "id": "e2e_libs_sparrow_env_sparrowenvironment_stop",
@@ -2613,7 +2613,7 @@
       "file_type": "code",
       "norm_label": ".stop()",
       "source_file": "e2e/libs/sparrow_env.py",
-      "source_location": "L103"
+      "source_location": "L107"
     },
     {
       "id": "e2e_libs_sparrow_env_sparrowenvironment_stop_authed",
@@ -2625,7 +2625,7 @@
       "file_type": "code",
       "norm_label": ".stop_authed()",
       "source_file": "e2e/libs/sparrow_env.py",
-      "source_location": "L91"
+      "source_location": "L95"
     },
     {
       "id": "e2e_libs_sparrow_env_sparrowenvironment_wait_for_health",
@@ -2637,7 +2637,7 @@
       "file_type": "code",
       "norm_label": "._wait_for_health()",
       "source_file": "e2e/libs/sparrow_env.py",
-      "source_location": "L113"
+      "source_location": "L117"
     },
     {
       "id": "client_verify_php_sparrowverify_sparrowverify_checktimestamp",
@@ -2709,7 +2709,7 @@
       "file_type": "code",
       "norm_label": ".url()",
       "source_file": "e2e/libs/sparrow_env.py",
-      "source_location": "L98"
+      "source_location": "L102"
     },
     {
       "id": "web_src_lib_apiconsole_svelte_settle",
@@ -22165,7 +22165,7 @@
       "source_location": "L31"
     },
     {
-      "id": "e2e_libs_sparrow_env_rationale_65",
+      "id": "e2e_libs_sparrow_env_rationale_67",
       "label": "Start a second Sparrow container with API key auth enabled, reusing Postgres.",
       "_origin": "ast",
       "community": 157,
@@ -22173,7 +22173,7 @@
       "file_type": "rationale",
       "norm_label": "start a second sparrow container with api key auth enabled, reusing postgres.",
       "source_file": "e2e/libs/sparrow_env.py",
-      "source_location": "L65"
+      "source_location": "L67"
     },
     {
       "id": "agents",
@@ -64985,7 +64985,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "e2e/libs/sparrow_env.py",
-      "source_location": "L60",
+      "source_location": "L62",
       "weight": 1.0
     },
     {
@@ -64997,7 +64997,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "e2e/libs/sparrow_env.py",
-      "source_location": "L87",
+      "source_location": "L91",
       "weight": 1.0
     },
     {
@@ -65009,7 +65009,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "e2e/libs/sparrow_env.py",
-      "source_location": "L104",
+      "source_location": "L108",
       "weight": 1.0
     },
     {
@@ -65021,7 +65021,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "e2e/libs/sparrow_env.py",
-      "source_location": "L100",
+      "source_location": "L104",
       "weight": 1.0
     },
     {
@@ -217099,13 +217099,24 @@
     },
     {
       "source": "e2e_libs_sparrow_env_sparrowenvironment",
+      "target": "e2e_libs_sparrow_env_sparrowenvironment_url",
+      "relation": "method",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "e2e/libs/sparrow_env.py",
+      "source_location": "L102",
+      "weight": 1.0
+    },
+    {
+      "source": "e2e_libs_sparrow_env_sparrowenvironment",
       "target": "e2e_libs_sparrow_env_sparrowenvironment_stop",
       "relation": "method",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "e2e/libs/sparrow_env.py",
-      "source_location": "L103",
+      "source_location": "L107",
       "weight": 1.0
     },
     {
@@ -217116,7 +217127,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "e2e/libs/sparrow_env.py",
-      "source_location": "L113",
+      "source_location": "L117",
       "weight": 1.0
     },
     {
@@ -217149,7 +217160,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "e2e/libs/sparrow_env.py",
-      "source_location": "L64",
+      "source_location": "L66",
       "weight": 1.0
     },
     {
@@ -217160,18 +217171,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "e2e/libs/sparrow_env.py",
-      "source_location": "L91",
-      "weight": 1.0
-    },
-    {
-      "source": "e2e_libs_sparrow_env_sparrowenvironment",
-      "target": "e2e_libs_sparrow_env_sparrowenvironment_url",
-      "relation": "method",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "e2e/libs/sparrow_env.py",
-      "source_location": "L98",
+      "source_location": "L95",
       "weight": 1.0
     },
     {
@@ -225612,14 +225612,14 @@
       "weight": 1.0
     },
     {
-      "source": "e2e_libs_sparrow_env_rationale_65",
+      "source": "e2e_libs_sparrow_env_rationale_67",
       "target": "e2e_libs_sparrow_env_sparrowenvironment_start_authed",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "e2e/libs/sparrow_env.py",
-      "source_location": "L65",
+      "source_location": "L67",
       "weight": 1.0
     },
     {
@@ -236597,5 +236597,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "c48a16acc5e7dbc4ad00c2b1444d25be741fa16c"
+  "built_at_commit": "58cff4e8d79d7886b446f9912b72563e9ed4c01f"
 }

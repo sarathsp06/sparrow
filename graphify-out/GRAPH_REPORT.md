@@ -1,7 +1,7 @@
 # Graph Report - sparrow-benchmark-blog-35703d  (2026-10-12)
 
 ## Corpus Check
-- 543 files · ~490,946 words
+- 543 files · ~490,980 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 44 file(s) not represented in the graph (top: .spec 20, (none) 9, .ttf 6)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `c48a16ac`
+- Built from commit: `58cff4e8`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -1169,16 +1169,16 @@ Nodes (3): loadContext(), renderNow(), scheduleRender()
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `SparrowConfig` connect `auth.svelte.ts` to `runtime-config.ts`, `services.ts`?**
-  _High betweenness centrality (0.045) - this node is a cross-community bridge._
+  _High betweenness centrality (0.044) - this node is a cross-community bridge._
 - **What connects `InvalidTimestamp`, `TimestampOutsideTolerance`, `EmptySecret` to the rest of the system?**
   _32 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `github.com/google/uuid.UUID` be split into smaller, more focused modules?**
   _Cohesion score 0.030395136778115502 - nodes in this community are weakly interconnected._
 - **Why does `Use it as a Go library` connect `auth.svelte.ts` to `sources.mdx`?**
-  _High betweenness centrality (0.045) - this node is a cross-community bridge._
+  _High betweenness centrality (0.044) - this node is a cross-community bridge._
 - **Should `context.Context` be split into smaller, more focused modules?**
   _Cohesion score 0.031476997578692496 - nodes in this community are weakly interconnected._
 - **Why does `Configuration` connect `sources.mdx` to `.url`?**
-  _High betweenness centrality (0.045) - this node is a cross-community bridge._
+  _High betweenness centrality (0.044) - this node is a cross-community bridge._
 - **Should `testing.T` be split into smaller, more focused modules?**
   _Cohesion score 0.023732856290995825 - nodes in this community are weakly interconnected._
