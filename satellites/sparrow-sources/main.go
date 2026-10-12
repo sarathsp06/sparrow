@@ -176,7 +176,7 @@ func newWebhookHandler(cfg providers, p sources.Pusher, log *slog.Logger) (http.
 	paths := map[string]string{} // path -> provider, to refuse duplicates
 	mount := func(name, path string, h http.Handler, err error) error {
 		if err != nil {
-			return err
+			return fmt.Errorf("webhook.providers.%w", err) // "webhook.providers.stripe: ..."
 		}
 		if other, dup := paths[path]; dup {
 			return fmt.Errorf("webhook.providers: %s and %s both use path %s", other, name, path)

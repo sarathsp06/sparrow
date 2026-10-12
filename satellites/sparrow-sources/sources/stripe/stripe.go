@@ -22,13 +22,11 @@ import (
 // tolerance is the max age of a Stripe-Signature timestamp.
 const tolerance = 5 * time.Minute
 
-// Config verifies the Stripe-Signature header and republishes each
-// incoming Stripe event as a Sparrow event named
-// "<sparrow_event_prefix>.<stripe event type>".
+// Config is the stripe: provider section of sources.yaml.
 type Config struct {
-	// Path is where the sparrow-sources binary mounts this provider (Handler
-	// itself serves any path); you choose it and
-	// register the matching URL in the Stripe dashboard. Default: /webhooks/stripe.
+	// Path is where the sparrow-sources binary mounts this provider; register
+	// the matching URL in the Stripe dashboard. Default: /webhooks/stripe.
+	// Handler ignores it: mount the handler wherever you like.
 	Path string `yaml:"path"`
 	// SigningSecret is the Stripe "whsec_..." secret used to verify the incoming
 	// webhook's signature.

@@ -17,13 +17,11 @@ import (
 	"github.com/sarathsp06/sparrow/satellites/sparrow-sources/sources"
 )
 
-// Config verifies the X-Hub-Signature-256 header and republishes each
-// incoming GitHub event as a Sparrow event named
-// "<sparrow_event_prefix>.<github event>[.<action>]".
+// Config is the github: provider section of sources.yaml.
 type Config struct {
-	// Path is where the sparrow-sources binary mounts this provider (Handler
-	// itself serves any path); you choose it and
-	// set the matching Payload URL on the GitHub webhook. Default: /webhooks/github.
+	// Path is where the sparrow-sources binary mounts this provider; set the
+	// matching Payload URL on the GitHub webhook. Default: /webhooks/github.
+	// Handler ignores it: mount the handler wherever you like.
 	Path string `yaml:"path"`
 	// Secret is the shared secret configured on the GitHub webhook, used to
 	// verify the incoming signature.

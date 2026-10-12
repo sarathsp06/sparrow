@@ -163,8 +163,8 @@ func TestWebhookHandler(t *testing.T) {
 
 func TestWebhookHandlerConfigErrors(t *testing.T) {
 	cases := map[string]providers{
-		"stripe: signing_secret is required": {Stripe: &stripe.Config{}},
-		"github: secret is required":         {GitHub: &github.Config{}},
+		"webhook.providers.stripe: signing_secret is required": {Stripe: &stripe.Config{}},
+		"webhook.providers.github: secret is required":         {GitHub: &github.Config{}},
 		"stripe and github both use path /hook": {
 			Stripe: &stripe.Config{SigningSecret: "s", Path: "/hook"},
 			GitHub: &github.Config{Secret: "g", Path: "/hook"},

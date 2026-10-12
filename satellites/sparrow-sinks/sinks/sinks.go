@@ -109,6 +109,6 @@ func VerifierFor(secret, publicKeyHex string) (Verifier, error) {
 	case secret != "":
 		return HMAC(secret)
 	default:
-		return nil, errors.New("webhook_secret or signing_public_key is required (top-level or per-sink)")
+		return nil, errors.New("webhook_secret or signing_public_key is required")
 	}
 }
