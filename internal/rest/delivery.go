@@ -24,22 +24,24 @@ type deliveryIDOnlyInput struct {
 }
 
 type deliveryItem struct {
-	DeliveryID      string  `json:"delivery_id" doc:"Delivery id (UUID)."`
-	WebhookID       string  `json:"webhook_id" doc:"Webhook this delivery was sent to."`
-	Consumer        string  `json:"consumer,omitempty" doc:"Consumer of the webhook. Set in delivery listings."`
-	EventID         string  `json:"event_id" doc:"Pushed event occurrence this delivery originated from."`
-	EventName       string  `json:"event_name,omitempty" doc:"Event type of that occurrence, e.g. order.created. Set in delivery listings."`
-	Status          string  `json:"status" enum:"pending,sending,success,failed,retrying,expired,paused" doc:"Current delivery status. paused: created while its subscription was paused; not attempted until retried."`
-	AttemptCount    int     `json:"attempt_count" doc:"Number of delivery attempts made so far."`
-	MaxAttempts     int     `json:"max_attempts" doc:"Maximum attempts allowed before the delivery is marked failed."`
-	ResponseCode    int     `json:"response_code,omitempty" doc:"HTTP status code returned by the endpoint on the most recent attempt, if any."`
-	ResponseBody    string  `json:"response_body,omitempty" doc:"Endpoint response body from the most recent attempt, if capture_response_body is enabled."`
-	ErrorMessage    string  `json:"error_message,omitempty" doc:"Human-readable failure reason from the most recent attempt."`
-	ErrorCategory   string  `json:"error_category,omitempty" enum:"success,client_error,server_error,timeout,dns_error,tls_error,connection_refused,network_error,rate_limited,unexpected_status,template_error,unknown," doc:"Failure classification from the most recent attempt, used to decide retryability. template_error means the subscription's transform failed to render; it is not retried automatically and does not count against the webhook's health."`
-	TemplateError   string  `json:"template_error,omitempty" doc:"The payload transform error, when the subscription's template failed to render. Set for both on_transform_error modes: with fail the delivery was not sent; with fallback the default envelope was sent instead."`
-	CreatedAt       string  `json:"created_at" doc:"Creation timestamp, RFC3339."`
-	LastAttemptedAt *string `json:"last_attempted_at,omitempty" doc:"Timestamp of the most recent attempt, RFC3339."`
-	NextRetryAt     *string `json:"next_retry_at,omitempty" doc:"Timestamp of the next scheduled retry, RFC3339, if one is pending."`
+	DeliveryID         string  `json:"delivery_id" doc:"Delivery id (UUID)."`
+	WebhookID          string  `json:"webhook_id" doc:"Webhook this delivery was sent to."`
+	WebhookDescription string  `json:"webhook_description,omitempty" doc:"Description of that webhook. Set in delivery listings."`
+	WebhookURL         string  `json:"webhook_url,omitempty" doc:"URL of that webhook. Set in delivery listings."`
+	Consumer           string  `json:"consumer,omitempty" doc:"Consumer of the webhook. Set in delivery listings."`
+	EventID            string  `json:"event_id" doc:"Pushed event occurrence this delivery originated from."`
+	EventName          string  `json:"event_name,omitempty" doc:"Event type of that occurrence, e.g. order.created. Set in delivery listings."`
+	Status             string  `json:"status" enum:"pending,sending,success,failed,retrying,expired,paused" doc:"Current delivery status. paused: created while its subscription was paused; not attempted until retried."`
+	AttemptCount       int     `json:"attempt_count" doc:"Number of delivery attempts made so far."`
+	MaxAttempts        int     `json:"max_attempts" doc:"Maximum attempts allowed before the delivery is marked failed."`
+	ResponseCode       int     `json:"response_code,omitempty" doc:"HTTP status code returned by the endpoint on the most recent attempt, if any."`
+	ResponseBody       string  `json:"response_body,omitempty" doc:"Endpoint response body from the most recent attempt, if capture_response_body is enabled."`
+	ErrorMessage       string  `json:"error_message,omitempty" doc:"Human-readable failure reason from the most recent attempt."`
+	ErrorCategory      string  `json:"error_category,omitempty" enum:"success,client_error,server_error,timeout,dns_error,tls_error,connection_refused,network_error,rate_limited,unexpected_status,template_error,unknown," doc:"Failure classification from the most recent attempt, used to decide retryability. template_error means the subscription's transform failed to render; it is not retried automatically and does not count against the webhook's health."`
+	TemplateError      string  `json:"template_error,omitempty" doc:"The payload transform error, when the subscription's template failed to render. Set for both on_transform_error modes: with fail the delivery was not sent; with fallback the default envelope was sent instead."`
+	CreatedAt          string  `json:"created_at" doc:"Creation timestamp, RFC3339."`
+	LastAttemptedAt    *string `json:"last_attempted_at,omitempty" doc:"Timestamp of the most recent attempt, RFC3339."`
+	NextRetryAt        *string `json:"next_retry_at,omitempty" doc:"Timestamp of the next scheduled retry, RFC3339, if one is pending."`
 }
 
 type deliveryOutput struct {
@@ -48,20 +50,22 @@ type deliveryOutput struct {
 
 func toDeliveryItem(dl *store.WebhookDelivery) deliveryItem {
 	item := deliveryItem{
-		DeliveryID:    dl.ID.String(),
-		WebhookID:     dl.WebhookID.String(),
-		Consumer:      dl.Consumer,
-		EventID:       dl.EventID.String(),
-		EventName:     dl.EventName,
-		Status:        string(dl.Status),
-		AttemptCount:  dl.AttemptCount,
-		MaxAttempts:   dl.MaxAttempts,
-		ResponseCode:  dl.ResponseCode,
-		ResponseBody:  dl.ResponseBody,
-		ErrorMessage:  dl.ErrorMessage,
-		ErrorCategory: dl.ErrorCategory,
-		TemplateError: dl.TemplateError,
-		CreatedAt:     dl.CreatedAt.Format(time.RFC3339Nano),
+		DeliveryID:         dl.ID.String(),
+		WebhookID:          dl.WebhookID.String(),
+		WebhookDescription: dl.WebhookDescription,
+		WebhookURL:         dl.WebhookURL,
+		Consumer:           dl.Consumer,
+		EventID:            dl.EventID.String(),
+		EventName:          dl.EventName,
+		Status:             string(dl.Status),
+		AttemptCount:       dl.AttemptCount,
+		MaxAttempts:        dl.MaxAttempts,
+		ResponseCode:       dl.ResponseCode,
+		ResponseBody:       dl.ResponseBody,
+		ErrorMessage:       dl.ErrorMessage,
+		ErrorCategory:      dl.ErrorCategory,
+		TemplateError:      dl.TemplateError,
+		CreatedAt:          dl.CreatedAt.Format(time.RFC3339Nano),
 	}
 	if dl.LastAttemptedAt != nil {
 		s := dl.LastAttemptedAt.Format(time.RFC3339Nano)

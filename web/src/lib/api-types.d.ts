@@ -1563,8 +1563,12 @@ export interface components {
             status: "pending" | "sending" | "success" | "failed" | "retrying" | "expired" | "paused";
             /** @description The payload transform error, when the subscription's template failed to render. Set for both on_transform_error modes: with fail the delivery was not sent; with fallback the default envelope was sent instead. */
             template_error?: string;
+            /** @description Description of that webhook. Set in delivery listings. */
+            webhook_description?: string;
             /** @description Webhook this delivery was sent to. */
             webhook_id: string;
+            /** @description URL of that webhook. Set in delivery listings. */
+            webhook_url?: string;
         };
         DraftTemplateBody: {
             /**

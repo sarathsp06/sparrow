@@ -1,9 +1,9 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { api, unwrap } from '$lib/services';
-  import { getCategoryBadge, formatAPIError } from '$lib/utils';
-  import StatusBadge from '$lib/components/StatusBadge.svelte';
+  import { formatAPIError } from '$lib/utils';
   import CopyableId from '$lib/components/CopyableId.svelte';
+  import DeliveryTable from '$lib/components/DeliveryTable.svelte';
   import CursorPager from '$lib/components/CursorPager.svelte';
   import { CursorPages } from '$lib/cursor-pages.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
@@ -13,7 +13,6 @@
 
   type EventOccurrenceItem = components["schemas"]["EventOccurrenceItem"];
   type DeliveryItem = components["schemas"]["DeliveryItem"];
-  type AttemptItem = components["schemas"]["AttemptItem"];
 
   let event: EventOccurrenceItem | undefined = $state();
   let labels: Record<string, string> = $state({});
@@ -27,13 +26,8 @@
   let pageSize = $state(25);
   const pages = new CursorPages();
 
-  // Expanded delivery attempt rows
-  let expandedDeliveries: Set<string> = $state(new Set());
-  let attemptsByDelivery: Map<string, AttemptItem[]> = $state(new Map());
-  let loadingAttempts: Set<string> = $state(new Set());
 
-  // Retry
-  let retryingDeliveries: Set<string> = $state(new Set());
+  // Re-push
   let repushing = $state(false);
   let repushError = $state('');
   // Sparrow's own sparrow.* events: the server refuses to push them.
@@ -94,23 +88,6 @@
     }
   }
 
-  async function retryDelivery(deliveryId: string) {
-    retryingDeliveries.add(deliveryId);
-    retryingDeliveries = new Set(retryingDeliveries);
-    try {
-      const ns = event?.consumer || consumer || 'default';
-      unwrap(await api.POST('/v1/consumers/{consumer}/deliveries/{delivery_id}:retry', {
-        params: { path: { consumer: ns, delivery_id: deliveryId } },
-      }));
-      await fetchDeliveries();
-    } catch (e: any) {
-      console.error('Failed to retry delivery:', e);
-    } finally {
-      retryingDeliveries.delete(deliveryId);
-      retryingDeliveries = new Set(retryingDeliveries);
-    }
-  }
-
   async function rePushEvent() {
     repushing = true;
     repushError = '';
@@ -128,36 +105,6 @@
     }
   }
 
-  async function toggleDeliveryAttempts(deliveryId: string) {
-    if (expandedDeliveries.has(deliveryId)) {
-      expandedDeliveries.delete(deliveryId);
-      expandedDeliveries = new Set(expandedDeliveries);
-    } else {
-      expandedDeliveries.add(deliveryId);
-      expandedDeliveries = new Set(expandedDeliveries);
-      if (!attemptsByDelivery.has(deliveryId)) {
-        await fetchAttempts(deliveryId);
-      }
-    }
-  }
-
-  async function fetchAttempts(deliveryId: string) {
-    loadingAttempts.add(deliveryId);
-    loadingAttempts = new Set(loadingAttempts);
-    try {
-      const ns = event?.consumer || consumer || 'default';
-      const res = unwrap(await api.GET('/v1/consumers/{consumer}/deliveries/{delivery_id}/attempts', {
-        params: { path: { consumer: ns, delivery_id: deliveryId } },
-      }));
-      attemptsByDelivery.set(deliveryId, res.items || []);
-      attemptsByDelivery = new Map(attemptsByDelivery);
-    } catch (e: any) {
-      console.error('Failed to fetch attempts:', e);
-    } finally {
-      loadingAttempts.delete(deliveryId);
-      loadingAttempts = new Set(loadingAttempts);
-    }
-  }
 </script>
 
 <svelte:head>
@@ -339,122 +286,7 @@
         </div>
       {:else}
         <div class="panel overflow-hidden">
-          <div class="overflow-x-auto">
-            <table class="w-full text-left">
-              <thead>
-                <tr class="border-b border-line">
-                  <th class="th">Delivery ID</th>
-                  <th class="th hidden sm:table-cell">Webhook</th>
-                  <th class="th">Status</th>
-                  <th class="th hidden sm:table-cell">Response</th>
-                  <th class="th hidden md:table-cell">Attempts</th>
-                  <th class="th hidden lg:table-cell">Last Attempt</th>
-                  <th class="th">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each deliveries as delivery}
-                  <tr class="row-line row-hover transition {expandedDeliveries.has(delivery.delivery_id) ? 'bg-black/[0.03]' : ''}">
-                    <td class="td">
-                      <CopyableId id={delivery.delivery_id} href="/deliveries/{delivery.delivery_id}" truncate={12} />
-                      <span class="block sm:hidden mt-0.5"><CopyableId id={delivery.webhook_id} href="/webhooks/{delivery.webhook_id}" truncate={12} /></span>
-                    </td>
-                    <td class="td hidden sm:table-cell">
-                      <CopyableId id={delivery.webhook_id} href="/webhooks/{delivery.webhook_id}" truncate={12} />
-                    </td>
-                    <td class="td">
-                      <div class="flex items-center gap-1.5">
-                        <StatusBadge status={delivery.status} />
-                        {#if delivery.error_category && delivery.error_category !== 'success'}
-                          {@const badge = getCategoryBadge(delivery.error_category)}
-                          <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border {badge.classes}">{badge.label}</span>
-                        {/if}
-                      </div>
-                    </td>
-                    <td class="td hidden sm:table-cell">
-                      <span class="mono tnum text-xs {(delivery.response_code ?? 0) >= 200 && (delivery.response_code ?? 0) < 300 ? 'text-ok' : (delivery.response_code ?? 0) >= 400 ? 'text-bad' : 'text-muted'}">
-                        {delivery.response_code || '—'}
-                      </span>
-                    </td>
-                    <td class="td hidden md:table-cell">
-                      <button
-                        onclick={() => toggleDeliveryAttempts(delivery.delivery_id)}
-                        aria-expanded={expandedDeliveries.has(delivery.delivery_id)}
-                        class="text-xs mono tnum link-beacon font-medium transition"
-                      >
-                        {delivery.attempt_count}/{delivery.max_attempts}
-                        <span class="text-[10px] ml-0.5" aria-hidden="true">{expandedDeliveries.has(delivery.delivery_id) ? '▲' : '▼'}</span>
-                      </button>
-                    </td>
-                    <td class="td text-xs mono tnum text-muted hidden lg:table-cell">{formatTimestamp(delivery.last_attempted_at)}</td>
-                    <td class="td">
-                      <div class="flex items-center gap-2">
-                        {#if delivery.status === 'failed' || delivery.status === 'expired' || (delivery.error_category && delivery.error_category !== 'success')}
-                          <button
-                            onclick={() => retryDelivery(delivery.delivery_id)}
-                            disabled={retryingDeliveries.has(delivery.delivery_id)}
-                            class="btn btn-ghost !px-2 !py-1 text-xs"
-                          >
-                            {retryingDeliveries.has(delivery.delivery_id) ? 'Retrying…' : 'Retry'}
-                          </button>
-                        {/if}
-                        <a href="/deliveries/{delivery.delivery_id}" class="btn btn-ghost !px-2 !py-1 text-xs">Details</a>
-                      </div>
-                    </td>
-                  </tr>
-
-                  {#if expandedDeliveries.has(delivery.delivery_id)}
-                    <tr class="row-line bg-black/[0.015]">
-                      <td colspan="7" class="px-4 py-3">
-                        {#if loadingAttempts.has(delivery.delivery_id)}
-                          <div class="flex items-center justify-center py-3">
-                            <img src={favicon} alt="" aria-hidden="true" class="w-3 h-3 animate-spin mr-2" />
-                            <span class="text-xs text-muted">Loading attempt history…</span>
-                          </div>
-                        {:else if attemptsByDelivery.has(delivery.delivery_id) && (attemptsByDelivery.get(delivery.delivery_id)?.length ?? 0) > 0}
-                          <div class="ml-4 border-l-2 border-line-strong pl-3">
-                            <p class="eyebrow mb-1.5">Attempt History</p>
-                            <div class="space-y-1.5">
-                              {#each attemptsByDelivery.get(delivery.delivery_id) ?? [] as attempt, i}
-                                <div class="flex items-start gap-3 py-1.5 px-2 rounded" style="background:color-mix(in srgb,var(--color-{attempt.success ? 'ok' : 'bad'}) 8%,transparent)">
-                                  <div class="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold tnum" style="color:var(--color-{attempt.success ? 'ok' : 'bad'});background:color-mix(in srgb,var(--color-{attempt.success ? 'ok' : 'bad'}) 15%,transparent)">
-                                    {i + 1}
-                                  </div>
-                                  <div class="flex-1 min-w-0">
-                                    <div class="flex flex-wrap items-center gap-2 text-[11px]">
-                                      <span class="font-medium" style="color:var(--color-{attempt.success ? 'ok' : 'bad'})">
-                                        {attempt.success ? 'Success' : 'Failed'}
-                                      </span>
-                                      {#if attempt.response_code > 0}
-                                        <span class="mono tnum px-1 py-0.5 rounded text-[10px]" style="color:var(--color-{attempt.response_code >= 200 && attempt.response_code < 300 ? 'ok' : 'bad'});background:color-mix(in srgb,var(--color-{attempt.response_code >= 200 && attempt.response_code < 300 ? 'ok' : 'bad'}) 15%,transparent)">
-                                          {attempt.response_code}
-                                        </span>
-                                      {/if}
-                                      {#if attempt.error_category && attempt.error_category !== 'success'}
-                                        {@const badge = getCategoryBadge(attempt.error_category)}
-                                        <span class="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium border {badge.classes}">{badge.label}</span>
-                                      {/if}
-                                      <span class="text-faint mono tnum text-[10px]">{attempt.response_time}ms</span>
-                                      <span class="text-faint mono tnum text-[10px]">{formatTimestamp(attempt.timestamp)}</span>
-                                    </div>
-                                    {#if attempt.error_message}
-                                      <p class="text-[10px] mt-0.5 truncate" style="color:var(--color-bad)" title={attempt.error_message}>{attempt.error_message}</p>
-                                    {/if}
-                                  </div>
-                                </div>
-                              {/each}
-                            </div>
-                          </div>
-                        {:else}
-                          <p class="text-[11px] text-faint ml-4">No attempt history recorded yet.</p>
-                        {/if}
-                      </td>
-                    </tr>
-                  {/if}
-                {/each}
-              </tbody>
-            </table>
-          </div>
+          <DeliveryTable {deliveries} hide={['event', 'consumer']} onchange={fetchDeliveries} onerror={(m) => (deliveriesError = m)} />
         </div>
 
         <CursorPager {pages} shown={deliveries.length} itemLabel="deliveries" onchange={fetchDeliveries} />
