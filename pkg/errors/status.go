@@ -8,21 +8,13 @@ package errors
 type Status int
 
 const (
-	OK Status = iota
-	Canceled
-	Unknown
+	// Internal is the zero value, so an unset Status maps to a 500.
+	Internal Status = iota
 	InvalidArgument
 	DeadlineExceeded
 	NotFound
 	AlreadyExists
-	PermissionDenied
 	ResourceExhausted
 	FailedPrecondition
-	Aborted
-	OutOfRange
-	Unimplemented
-	Internal
 	Unavailable
-	DataLoss
-	Unauthenticated
 )
