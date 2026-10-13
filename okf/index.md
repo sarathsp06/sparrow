@@ -17,5 +17,5 @@ A self-hosted webhook delivery platform with event-driven architecture. Accepts 
 * [Database Schema](/database/schema.md) — tables, relationships, migrations
 * [Configuration](/config/env-vars.md) — environment variables and tuning
 * [Frontend](/frontend/index.md) — SvelteKit UI
-* [DevOps](/devops/index.md) — Docker, Helm, CI/CD
+* [DevOps](/devops/index.md) — Docker, CI/CD
 * [References](/references/index.md) — external dependencies

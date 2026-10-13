@@ -1,12 +1,14 @@
 ---
 type: DevOps Config
 title: CI/CD and Release
-description: GoReleaser-based release automation with conventional commits and cross-platform builds
-tags: [ci-cd, release, goreleaser]
-timestamp: 2026-08-29T00:00:00Z
+description: GitHub Actions CI and the single-tag-push release (GoReleaser, split-module tags, Docker image)
+tags: [ci-cd, release, goreleaser, github-actions]
+timestamp: 2026-10-13T00:00:00Z
 ---
 
 # CI/CD and Release
+
+`AGENTS.md`'s Release section is the source of truth; this page summarizes it.
 
 ## Makefile Targets
 
@@ -15,31 +17,45 @@ timestamp: 2026-08-29T00:00:00Z
 | `build` | Build server binary |
 | `build-ui` | Build SvelteKit frontend |
 | `build-with-ui` | Build server + embedded UI |
-| `test` | `go test -v ./...` |
+| `test` | Root module plus the nested workspace modules |
 | `test-integration` | Integration tests (Docker required) |
 | `lint` | golangci-lint |
-| `generate` | Export the OpenAPI spec from Go (`cmd/openapi-export`), regenerate the Python client, then `go generate` (gowrap OTel wrappers) |
+| `generate` | Export the OpenAPI spec from Go (`cmd/openapi-export`), regenerate the Python client, then `go generate` (gowrap OTel wrappers, pinned as a `tool` in `go.mod`) |
 | `migrate` | Run DB migrations |
 | `release-dry-run` | Test GoReleaser locally |
 | `docker-dev` | Docker compose dev environment |
 
-## GoReleaser (.goreleaser.yml)
+## CI (`.github/workflows/ci.yml`)
 
-- **Builds**: Single `sparrow` binary from `./cmd/server`; CGO_ENABLED=0
-- **Platforms**: linux/darwin/windows × amd64/arm64 (no windows/arm64)
-- **Archives**: `sparrow-{{ .Version }}-{{ .Os }}-{{ .Arch }}` with LICENSE + README
-- **Release Notes**: Generated from conventional commits (feat→Added, fix→Fixed, etc.) via `.goreleaser.yml`'s `changelog:` block — no separate CHANGELOG.md file to maintain
+Runs on pushes and pull requests to `main`, with a read-only `GITHUB_TOKEN`.
 
-## Release Workflow
+- **Lint**: golangci-lint on the root module, `sparrow-sinks` and `sparrow-sources`; govulncheck on each module.
+- **Test**: `go test -race` across the workspace modules against a Postgres service.
+- **UI E2E** (after Test): frontend unit tests and `make test-ui`.
+- **Integration Test** (after Test): `-tags integration` tests with testcontainers.
+
+Third-party actions are pinned to commit SHAs; golangci-lint and govulncheck are pinned to versions.
+
+## Release (`.github/workflows/release.yml`)
+
+A release is one tag push:
 
 ```bash
-git tag v1.x.x
-git push origin main --tags
+git tag vX.Y.Z && git push origin vX.Y.Z
 ```
 
-CI runs GoReleaser which cross-compiles, generates release notes from commit history, and publishes GitHub release + artifacts.
+The workflow runs three jobs:
+
+1. **GoReleaser**: builds the UI, then the server, CLI, `sparrow-sources` and `sparrow-sinks` binaries for linux/darwin/windows × amd64/arm64 (no windows/arm64), and publishes the GitHub release with `checksums.txt`. Archives are `sparrow[-cli|-sources|-sinks]-<version>-<os>-<arch>` (zip on Windows). Release notes come from Conventional Commits via the `changelog:` block.
+2. **Release Split Modules**: `scripts/release-submodules.sh vX.Y.Z --push` tags the separate modules (`pkg/*`, `satellites/*`) under path-prefixed tags.
+3. **Docker Image** (after GoReleaser): multi-arch image pushed to `ghcr.io/<repo>` tagged `X.Y.Z`, `X.Y` and `latest`.
+
+There is no second manual step.
 
 ## Citations
 
+- `AGENTS.md` (Release)
 - `Makefile`
 - `.goreleaser.yml`
+- `.github/workflows/ci.yml`
+- `.github/workflows/release.yml`

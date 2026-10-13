@@ -11,7 +11,7 @@ import (
 // all storage operations. Consumers should prefer the per-domain interfaces
 // (WebhookRepository, SubscriptionRepository, etc.) to minimize dependencies.
 //
-//go:generate gowrap gen -p github.com/sarathsp06/sparrow/internal/webhooks/store -i RepositoryInterface -t ../../../templates/opentelemetry.tmpl -o RepositoryInterface_otel.go -l ""
+//go:generate go tool gowrap gen -g -i RepositoryInterface -t ../../../templates/opentelemetry.tmpl -o RepositoryInterface_otel.go
 type RepositoryInterface interface {
 	Transactor
 	WebhookRepository

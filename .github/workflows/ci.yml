@@ -2,9 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, master, develop ]
+    branches: [ main ]
+
+permissions:
+  contents: read
 
 jobs:
   lint:
@@ -26,28 +29,28 @@ jobs:
           touch internal/ui/dist/.gitkeep
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          version: latest
+          version: v2.14.0
           args: --timeout=5m
 
       # sinks and sources are their own modules; root ./... no longer covers them.
       - name: golangci-lint (sparrow-sinks)
-        uses: golangci/golangci-lint-action@v9
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          version: latest
+          version: v2.14.0
           working-directory: satellites/sparrow-sinks
           args: --timeout=5m
 
       - name: golangci-lint (sparrow-sources)
-        uses: golangci/golangci-lint-action@v9
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          version: latest
+          version: v2.14.0
           working-directory: satellites/sparrow-sources
           args: --timeout=5m
 
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
 
       - name: Run govulncheck
         # govulncheck may panic with Go 1.26 due to upstream x/tools bug
@@ -95,11 +98,15 @@ jobs:
       - name: Install dependencies
         run: go mod download
 
+      # go test skips packages without test files; build the binaries too.
+      - name: Build binaries
+        run: go build ./cmd/... github.com/sarathsp06/sparrow/satellites/sparrow/...
+
       - name: Run tests
         env:
           DATABASE_URL: postgres://testuser:testpass@localhost:5432/testdb?sslmode=disable
         run: |
-          go test -v -race -coverprofile=coverage.txt -covermode=atomic ./... \
+          go test -v -race ./... \
             github.com/sarathsp06/sparrow/satellites/sparrow/... \
             github.com/sarathsp06/sparrow/satellites/recipes/... \
             github.com/sarathsp06/sparrow/satellites/sparrow-sinks/... \
@@ -107,12 +114,6 @@ jobs:
             github.com/sarathsp06/sparrow/pkg/access/... \
             github.com/sarathsp06/sparrow/pkg/signature/... \
             github.com/sarathsp06/sparrow/pkg/template/...
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.txt
-          fail_ci_if_error: false
 
   ui-e2e:
     name: UI E2E
@@ -147,41 +148,10 @@ jobs:
       - name: Run UI browser tests
         run: make test-ui
 
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    needs: [lint, test, ui-e2e]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.26.1'
-          cache: true
-
-      - name: Ensure embedded UI placeholder exists
-        run: |
-          mkdir -p internal/ui/dist
-          touch internal/ui/dist/.gitkeep
-
-      - name: Build server
-        run: go build -v -o bin/server ./cmd/server
-
-      - name: Build migrate
-        run: go build -v -o bin/migrate ./cmd/migrate
-
-      - name: Build benchmark
-        run: go build -v -o bin/benchmark ./cmd/benchmark
-
-      - name: Build CLI
-        run: go build -v -o bin/sparrow ./satellites/sparrow
-
   integration-test:
     name: Integration Test
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [test]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

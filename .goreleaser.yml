@@ -161,8 +161,6 @@ release:
     name: sparrow
   header: |
     ## Sparrow {{ .Tag }}
-  extra_files:
-    - glob: build/sparrow-*.tgz
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"

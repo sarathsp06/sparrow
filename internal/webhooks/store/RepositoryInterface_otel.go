@@ -4,8 +4,6 @@
 
 package store
 
-//go:generate gowrap gen -p github.com/sarathsp06/sparrow/internal/webhooks/store -i RepositoryInterface -t ../../../templates/opentelemetry.tmpl -o RepositoryInterface_otel.go -l ""
-
 import (
 	"context"
 	"time"
