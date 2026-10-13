@@ -55,7 +55,7 @@ need tar
 # one of them contains the binary at its root.
 case "$COMPONENT" in
   cli)     PREFIX="sparrow-cli";     BINARY="sparrow" ;;
-  server)  PREFIX="sparrow";         BINARY="sparrow" ;;
+  server)  PREFIX="sparrow";         BINARY="sparrow-server" ;;
   sinks)   PREFIX="sparrow-sinks";   BINARY="sparrow-sinks" ;;
   sources) PREFIX="sparrow-sources"; BINARY="sparrow-sources" ;;
   *) fail "unknown component '$COMPONENT' (cli, server, sinks or sources)" ;;
@@ -143,7 +143,12 @@ else
 fi
 [ "$ACTUAL" = "$EXPECTED" ] || fail "checksum mismatch for $ARCHIVE (expected $EXPECTED, got $ACTUAL)"
 
-tar -xzf "$TMP/$ARCHIVE" -C "$TMP" "$BINARY" || fail "could not extract $BINARY from $ARCHIVE"
+# Server archives before the rename ship the binary as "sparrow"; install
+# it as sparrow-server all the same so it never replaces the CLI.
+if ! tar -xzf "$TMP/$ARCHIVE" -C "$TMP" "$BINARY" 2>/dev/null; then
+  [ "$COMPONENT" = server ] && tar -xzf "$TMP/$ARCHIVE" -C "$TMP" sparrow && mv "$TMP/sparrow" "$TMP/$BINARY" \
+    || fail "could not extract $BINARY from $ARCHIVE"
+fi
 chmod 0755 "$TMP/$BINARY"
 # Replace atomically so a running copy is not overwritten in place.
 mv -f "$TMP/$BINARY" "$BIN_DIR/$BINARY.tmp.$$" && mv -f "$BIN_DIR/$BINARY.tmp.$$" "$BIN_DIR/$BINARY"

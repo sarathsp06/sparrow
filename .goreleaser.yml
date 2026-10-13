@@ -9,7 +9,8 @@ before:
 builds:
   - id: server
     main: ./cmd/server
-    binary: sparrow
+    # Not "sparrow": that is the CLI, and both land in the same bin dir.
+    binary: sparrow-server
     env:
       - CGO_ENABLED=0
     ldflags:
