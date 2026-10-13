@@ -1136,31 +1136,6 @@ func (_d RepositoryInterfaceWithTracing) ListEventTypeVersions(ctx context.Conte
 	return _d.RepositoryInterface.ListEventTypeVersions(ctx, tenantID, eventName)
 }
 
-// ListEvents implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) ListEvents(ctx context.Context, tenantID uuid.UUID, activeOnly bool) (epa1 []*EventRegistration, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ListEvents")
-	defer func() {
-		if _d._spanDecorator != nil {
-			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":        ctx,
-				"tenantID":   tenantID,
-				"activeOnly": activeOnly}, map[string]interface{}{
-				"epa1": epa1,
-				"err":  err})
-		} else if err != nil {
-			_span.RecordError(err)
-			_span.SetStatus(_codes.Error, err.Error())
-			_span.SetAttributes(
-				attribute.String("event", "error"),
-				attribute.String("message", err.Error()),
-			)
-		}
-
-		_span.End()
-	}()
-	return _d.RepositoryInterface.ListEvents(ctx, tenantID, activeOnly)
-}
-
 // ListEventsPaginated implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) ListEventsPaginated(ctx context.Context, tenantID uuid.UUID, filter EventTypeFilter, limit int, offset int) (epa1 []*EventRegistration, i1 int, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ListEventsPaginated")
@@ -1602,29 +1577,6 @@ func (_d RepositoryInterfaceWithTracing) ResetDeliveriesForRetry(ctx context.Con
 		_span.End()
 	}()
 	return _d.RepositoryInterface.ResetDeliveriesForRetry(ctx, deliveryIDs)
-}
-
-// ResetDeliveryForRetry implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) ResetDeliveryForRetry(ctx context.Context, deliveryID uuid.UUID) (err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ResetDeliveryForRetry")
-	defer func() {
-		if _d._spanDecorator != nil {
-			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":        ctx,
-				"deliveryID": deliveryID}, map[string]interface{}{
-				"err": err})
-		} else if err != nil {
-			_span.RecordError(err)
-			_span.SetStatus(_codes.Error, err.Error())
-			_span.SetAttributes(
-				attribute.String("event", "error"),
-				attribute.String("message", err.Error()),
-			)
-		}
-
-		_span.End()
-	}()
-	return _d.RepositoryInterface.ResetDeliveryForRetry(ctx, deliveryID)
 }
 
 // ResolveAlertRecipients implements RepositoryInterface
