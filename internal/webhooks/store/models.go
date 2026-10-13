@@ -79,13 +79,11 @@ type WebhookRegistration struct {
 }
 
 // MaxDeliveryAttempts returns the total delivery attempts for this webhook:
-// the configured retry count plus the initial attempt, defaulting to 3 when
-// MaxRetries is unset.
+// the configured retry count plus the initial attempt. max_retries 0 means
+// no retries, so a single attempt; the default of 3 retries is applied when
+// the webhook is created, not here.
 func (w *WebhookRegistration) MaxDeliveryAttempts() int {
-	if w.MaxRetries > 0 {
-		return w.MaxRetries + 1
-	}
-	return 3
+	return w.MaxRetries + 1
 }
 
 // EventRecord represents an event that was pushed

@@ -158,3 +158,10 @@ func TestEventRegistration_NilJSONFieldsAreNullSafe(t *testing.T) {
 	require.NoError(t, meta.Scan(nil))
 	assert.Nil(t, meta)
 }
+
+func TestMaxDeliveryAttempts(t *testing.T) {
+	for retries, want := range map[int]int{0: 1, 1: 2, 3: 4, 10: 11} {
+		w := &WebhookRegistration{MaxRetries: retries}
+		assert.Equal(t, want, w.MaxDeliveryAttempts(), "max_retries=%d", retries)
+	}
+}
