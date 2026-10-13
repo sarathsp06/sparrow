@@ -302,7 +302,7 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 		}
 
 		// Reset delivery status
-		if err := w.deliveryRepo.ResetDeliveryForRetry(ctx, deliveryID); err != nil {
+		if err := w.deliveryRepo.ResetDeliveriesForRetry(ctx, []uuid.UUID{deliveryID}); err != nil {
 			w.logger.ErrorContext(ctx, "Failed to reset delivery for retry", "delivery_id", idStr, "error", err)
 			failed++
 			continue

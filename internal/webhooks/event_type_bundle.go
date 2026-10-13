@@ -14,7 +14,6 @@ import (
 
 	"github.com/google/uuid"
 	jsonschema "github.com/kaptinlin/jsonschema"
-	"github.com/sarathsp06/schemagen"
 
 	"github.com/sarathsp06/sparrow"
 	"github.com/sarathsp06/sparrow/internal/tenant"
@@ -163,9 +162,6 @@ func BundleDigest(items []EventTypeDefinition) string {
 // types, sorted by name, and the stamp for the bundle. System event types
 // (sparrow.*) are never exported. An unknown name fails the whole export.
 func (s *WebhookService) ExportEventTypes(ctx context.Context, sel EventTypeExportSelection) ([]EventTypeDefinition, BundleStamp, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.ExportEventTypes")
-	defer span.End()
-
 	selectors := 0
 	if len(sel.Names) > 0 {
 		selectors++
@@ -312,9 +308,6 @@ var errImportRollback = errors.New("import rolled back")
 // schema change is breaking for its subscriptions and AllowBreaking is not
 // set; BlockedBy then says why.
 func (s *WebhookService) ImportEventTypes(ctx context.Context, items []EventTypeDefinition, stamp *BundleStamp, opts EventTypeImportOptions) (*EventTypeImportResult, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.ImportEventTypes")
-	defer span.End()
-
 	if err := validateBundle(items); err != nil {
 		return nil, err
 	}
@@ -430,7 +423,7 @@ func checkTemplates(def EventTypeDefinition, subs []*store.EventSubscription) *T
 		failed := false
 		for _, p := range payloads {
 			ctx := template.NewWebhookTemplateContext("import-check", def.Name, time.Now().UTC().Format(time.RFC3339), 1, p.data)
-			if _, err := engine.TransformPayloadWith(sub.TransformTemplate, ctx, strict); err != nil {
+			if _, err := engine.ExecuteWith(sub.TransformTemplate, ctx, strict); err != nil {
 				check.Failures = append(check.Failures, TemplateCheckFailure{
 					SubscriptionID: sub.ID.String(),
 					Consumer:       sub.Consumer,
@@ -449,23 +442,13 @@ func checkTemplates(def EventTypeDefinition, subs []*store.EventSubscription) *T
 	return check
 }
 
-// generatePayload builds an example payload from a schema: every field when
-// all is true, only required fields otherwise. Generation errors yield an
-// empty payload, which the strict render then exercises.
+// generatePayload is store.SamplePayload, seeded so the import check is
+// repeatable. Generation errors yield an empty payload, which the strict
+// render then exercises.
 func generatePayload(schema map[string]any, all bool) map[string]any {
-	if len(schema) == 0 {
-		return map[string]any{}
-	}
-	b, err := json.Marshal(schema)
+	sample, err := store.SamplePayload(schema, all, 1)
 	if err != nil {
 		return map[string]any{}
 	}
-	sample, err := schemagen.NewGenerator().SetSeed(1).SetGenerateAllFields(all).Generate(b)
-	if err != nil {
-		return map[string]any{}
-	}
-	if m, ok := sample.(map[string]any); ok {
-		return m
-	}
-	return map[string]any{}
+	return sample
 }

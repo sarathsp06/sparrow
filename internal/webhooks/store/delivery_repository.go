@@ -24,7 +24,6 @@ type DeliveryRepository interface {
 	ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]*WebhookDelivery, bool, error)
 	CountDeliveries(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) (int, error)
 	GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, force bool) ([]*WebhookDelivery, error)
-	ResetDeliveryForRetry(ctx context.Context, deliveryID uuid.UUID) error
 	ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uuid.UUID) error
 	UpdateDeliveryTemplateError(ctx context.Context, deliveryID uuid.UUID, msg string) error
 	DeleteDeliveryByID(ctx context.Context, deliveryID uuid.UUID) error
@@ -345,27 +344,7 @@ func (r *Repository) UpdateDeliveryTemplateError(ctx context.Context, deliveryID
 	return storage.Error(err)
 }
 
-// ResetDeliveryForRetry resets a delivery status to pending for retry
-func (r *Repository) ResetDeliveryForRetry(ctx context.Context, deliveryID uuid.UUID) error {
-	query := `
-		UPDATE webhook_deliveries
-		SET status = 'pending',
-		    last_attempted_at = NULL,
-		    next_retry_at = NULL,
-		    response_code = 0,
-		    response_body = '',
-		    error_message = '',
-		    error_category = '',
-		    template_error = NULL
-		WHERE id = $1
-	`
-
-	_, err := r.conn.ExecContext(ctx, query, deliveryID)
-	return storage.Error(err)
-}
-
-// ResetDeliveriesForRetry is ResetDeliveryForRetry for many deliveries in
-// one statement.
+// ResetDeliveriesForRetry resets deliveries to pending for a retry.
 func (r *Repository) ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uuid.UUID) error {
 	if len(deliveryIDs) == 0 {
 		return nil

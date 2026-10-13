@@ -19,7 +19,6 @@ type EventTypeRepository interface {
 	RegisterEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) error
 	GetEventByName(ctx context.Context, tenantID uuid.UUID, eventName string) (*EventRegistration, error)
 	GetEventByNameForUpdate(ctx context.Context, tenantID uuid.UUID, eventName string) (*EventRegistration, error)
-	ListEvents(ctx context.Context, tenantID uuid.UUID, activeOnly bool) ([]*EventRegistration, error)
 	ListEventsPaginated(ctx context.Context, tenantID uuid.UUID, filter EventTypeFilter, limit, offset int) ([]*EventRegistration, int, error)
 	UpdateEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) error
 	AddEventTypeVersion(ctx context.Context, tenantID uuid.UUID, version *EventRegistrationVersion) error
@@ -99,12 +98,6 @@ func (r *Repository) getEventByName(ctx context.Context, tenantID uuid.UUID, eve
 		return nil, storage.Error(err)
 	}
 	return &event, nil
-}
-
-// ListEvents returns all registered events for a tenant
-func (r *Repository) ListEvents(ctx context.Context, tenantID uuid.UUID, activeOnly bool) ([]*EventRegistration, error) {
-	events, _, err := r.ListEventsPaginated(ctx, tenantID, EventTypeFilter{ActiveOnly: activeOnly}, 1000, 0)
-	return events, err
 }
 
 // SystemEventPrefix is the name prefix of Sparrow's own system event types

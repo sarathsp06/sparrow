@@ -296,7 +296,7 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 		var secretHeaders map[string]string
 		var signatureType string
 		var requiresTransform bool
-		var httpCfg *webhooks.HTTPConfigUpdate
+		var httpCfg *webhooks.WebhookHTTPConfig
 
 		if b.Events != nil {
 			mask = append(mask, "events")
@@ -333,14 +333,14 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 		if b.HTTPConfig != nil {
 			mask = append(mask, "http_config")
 			c := b.HTTPConfig
-			httpCfg = &webhooks.HTTPConfigUpdate{
+			httpCfg = &webhooks.WebhookHTTPConfig{
 				MaxRetries:            c.MaxRetries,
 				RetryBackoffSeconds:   c.RetryBackoffSeconds,
 				CaptureResponseBody:   c.CaptureResponseBody,
 				FollowRedirects:       c.FollowRedirects,
 				VerifySSL:             c.VerifySSL,
 				RequestTimeoutSeconds: c.RequestTimeoutSeconds,
-				ExpectedStatusCodes:   c.ExpectedStatusCodes,
+				ExpectedStatusCodes:   webhooks.IntArray(c.ExpectedStatusCodes),
 				UserAgent:             c.UserAgent,
 				ContentType:           c.ContentType,
 				RateLimitRPS:          c.RateLimitRPS,
@@ -353,7 +353,7 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 		if b.Timeout != nil {
 			if httpCfg == nil {
 				mask = append(mask, "http_config")
-				httpCfg = &webhooks.HTTPConfigUpdate{}
+				httpCfg = &webhooks.WebhookHTTPConfig{}
 			}
 			if httpCfg.RequestTimeoutSeconds == 0 {
 				httpCfg.RequestTimeoutSeconds = *b.Timeout

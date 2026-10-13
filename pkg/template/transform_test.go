@@ -44,7 +44,7 @@ func TestTransformPayload(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := engine.TransformPayload(tt.template, tt.data)
+			result, err := engine.ExecuteWith(tt.template, tt.data, ExecOptions{})
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Expected error=%v, got error=%v", tt.wantErr, err)
@@ -80,6 +80,6 @@ func BenchmarkTransformPayload(b *testing.B) {
 	// Pick a random template each iteration to exercise the LRU cache.
 	r := rand.New(rand.NewPCG(1, 2))
 	for b.Loop() {
-		_, _ = engine.TransformPayload(templates[r.IntN(len(templates))], data)
+		_, _ = engine.ExecuteWith(templates[r.IntN(len(templates))], data, ExecOptions{})
 	}
 }

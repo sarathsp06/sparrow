@@ -299,7 +299,7 @@ func RenderTemplatePreview(eventName, transformTemplate string, payload map[stri
 		1,
 		payload,
 	)
-	result, err := engine.TransformPayloadWith(transformTemplate, data, template.ExecOptions{StrictMissingKeys: strict})
+	result, err := engine.ExecuteWith(transformTemplate, data, template.ExecOptions{StrictMissingKeys: strict})
 	if err != nil {
 		return "", svcerrors.Wrapf(err, svcerrors.InvalidArgument, "template transformation failed: %v", err)
 	}
@@ -380,9 +380,6 @@ func (s *WebhookService) DeleteSubscription(ctx context.Context, subscriptionID 
 // sample payload. strict renders missing keys as errors, as a subscription
 // with template_missing_key=error does at delivery time.
 func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, consumer string, strict bool) (string, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.TestSubscriptionTemplate")
-	defer span.End()
-
 	s.logger.InfoContext(ctx, "Processing test subscription template request", "event_name", eventName, "consumer", consumer)
 
 	if eventName == "" {
@@ -410,7 +407,7 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 		event.SamplePayload,
 	)
 
-	result, err := engine.TransformPayloadWith(transformTemplate, data, template.ExecOptions{StrictMissingKeys: strict})
+	result, err := engine.ExecuteWith(transformTemplate, data, template.ExecOptions{StrictMissingKeys: strict})
 	if err != nil {
 		return "", svcerrors.Wrapf(err, svcerrors.InvalidArgument, "template transformation failed: %v", err)
 	}

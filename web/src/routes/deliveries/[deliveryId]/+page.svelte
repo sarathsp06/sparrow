@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { api, unwrap } from '$lib/services';
-  import { getCategoryDisplay, formatAPIError } from '$lib/utils';
+  import { getCategoryDisplay, formatAPIError, formatTimestamp } from '$lib/utils';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
   import CopyableId from '$lib/components/CopyableId.svelte';
   import { onMount } from 'svelte';
@@ -39,12 +39,6 @@
     } catch {
       return body;
     }
-  }
-
-  function formatTimestamp(timestamp: string | null | undefined): string {
-    if (!timestamp) return 'N/A';
-    const d = new Date(timestamp);
-    return isNaN(d.getTime()) ? 'N/A' : d.toLocaleString();
   }
 </script>
 

@@ -1,7 +1,7 @@
 <script lang="ts">
     import type { components } from '$lib/api-types';
     import { api, unwrap } from '$lib/services';
-    import { getCategoryBadge } from '$lib/utils';
+    import { getCategoryBadge, formatTimestamp } from '$lib/utils';
     import favicon from '$lib/assets/favicon.svg';
 
     type AttemptItem = components["schemas"]["AttemptItem"];
@@ -17,12 +17,6 @@
     let attempts: AttemptItem[] = $state([]);
     let loading = $state(true);
     let error = $state('');
-
-    function formatTimestamp(timestamp: string | null | undefined): string {
-        if (!timestamp) return 'N/A';
-        const d = new Date(timestamp);
-        return isNaN(d.getTime()) ? 'N/A' : d.toLocaleString();
-    }
 
     $effect(() => {
         const id = deliveryId;

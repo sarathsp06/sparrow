@@ -339,7 +339,6 @@ func GetMeter(name string) metric.Meter {
 type SparrowMetrics struct {
 	WebhookRegistrations metric.Int64Counter
 	EventsPushed         metric.Int64Counter
-	ActiveWebhooks       metric.Int64UpDownCounter
 }
 
 // NewSparrowMetrics creates application-specific metrics
@@ -362,17 +361,8 @@ func NewSparrowMetrics() (*SparrowMetrics, error) {
 		return nil, err
 	}
 
-	activeWebhooks, err := meter.Int64UpDownCounter(
-		"sparrow_active_webhooks",
-		metric.WithDescription("Current number of active webhook registrations"),
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	return &SparrowMetrics{
 		WebhookRegistrations: webhookRegistrations,
 		EventsPushed:         eventsPushed,
-		ActiveWebhooks:       activeWebhooks,
 	}, nil
 }

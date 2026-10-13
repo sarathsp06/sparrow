@@ -176,15 +176,10 @@ func (c *WebhookClient) Close() error {
 	return nil
 }
 
-// TransformPayload transforms the webhook payload using a template
-func (c *WebhookClient) TransformPayload(tmplStr string, data template.WebhookTemplateContext) ([]byte, error) {
-	return c.tmpl.TransformPayload(tmplStr, data)
-}
-
 // TransformPayloadWith transforms the webhook payload using a template and
 // execution options (for example strict missing-key handling).
 func (c *WebhookClient) TransformPayloadWith(tmplStr string, data template.WebhookTemplateContext, opts template.ExecOptions) ([]byte, error) {
-	return c.tmpl.TransformPayloadWith(tmplStr, data, opts)
+	return c.tmpl.ExecuteWith(tmplStr, data, opts)
 }
 
 // redactSpanURL runs inside the otelhttp transport and overwrites the span's

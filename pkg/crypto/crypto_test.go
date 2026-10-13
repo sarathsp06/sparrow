@@ -23,11 +23,8 @@ func TestNewKeyring_PrimaryAndLookup(t *testing.T) {
 	}, "new")
 	require.NoError(t, err)
 
-	assert.Equal(t, "new", keyring.Primary().ID)
-	_, ok := keyring.Lookup("old")
-	assert.True(t, ok)
-	_, ok = keyring.Lookup("new")
-	assert.True(t, ok)
+	assert.Equal(t, "new", keyring.primaryID)
+	assert.Equal(t, []string{"old", "new"}, keyring.order)
 }
 
 func TestNewKeyring_RejectsUnsafeKeyID(t *testing.T) {
@@ -66,7 +63,7 @@ func TestEncryptDecrypt(t *testing.T) {
 	assert.NotEqual(t, plaintext, ciphertext)
 
 	// Decrypt should recover original
-	decrypted, err := svc.Decrypt(ciphertext)
+	decrypted, err := svc.EnvelopeDecrypt(ciphertext)
 	require.NoError(t, err)
 	assert.Equal(t, plaintext, decrypted)
 }
@@ -85,9 +82,9 @@ func TestEncryptDecrypt_DifferentNonces(t *testing.T) {
 	assert.NotEqual(t, ct1, ct2)
 
 	// Both should decrypt correctly
-	d1, err := svc.Decrypt(ct1)
+	d1, err := svc.EnvelopeDecrypt(ct1)
 	require.NoError(t, err)
-	d2, err := svc.Decrypt(ct2)
+	d2, err := svc.EnvelopeDecrypt(ct2)
 	require.NoError(t, err)
 	assert.Equal(t, d1, d2)
 }
@@ -102,7 +99,7 @@ func TestDecrypt_TamperedData(t *testing.T) {
 	// Tamper with last byte
 	ciphertext[len(ciphertext)-1] ^= 0xFF
 
-	_, err = svc.Decrypt(ciphertext)
+	_, err = svc.EnvelopeDecrypt(ciphertext)
 	assert.Error(t, err)
 }
 
@@ -110,7 +107,7 @@ func TestDecrypt_TooShort(t *testing.T) {
 	svc, err := NewService(testKey())
 	require.NoError(t, err)
 
-	_, err = svc.Decrypt([]byte{envelopeVersionWithKeyID})
+	_, err = svc.EnvelopeDecrypt([]byte{envelopeVersionWithKeyID})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "too short")
 }
@@ -122,7 +119,7 @@ func TestNoEncryptionKey(t *testing.T) {
 	_, err = svc.EnvelopeEncrypt([]byte("data"))
 	assert.ErrorIs(t, err, ErrNoEncryptionKey)
 
-	_, err = svc.Decrypt([]byte("data"))
+	_, err = svc.EnvelopeDecrypt([]byte("data"))
 	assert.ErrorIs(t, err, ErrNoEncryptionKey)
 }
 
@@ -186,7 +183,7 @@ func TestDecrypt_WrongKey(t *testing.T) {
 	require.NoError(t, err)
 
 	// Decrypting with a different key should fail
-	_, err = svc2.Decrypt(ciphertext)
+	_, err = svc2.EnvelopeDecrypt(ciphertext)
 	assert.Error(t, err)
 }
 

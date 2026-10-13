@@ -98,42 +98,30 @@ func (s *WebhookService) cancelBatch(ctx context.Context, batchID string, jobTyp
 // RePushEvents starts async processing of a batch re-push.
 // The batch must exist, belong to the tenant, be of type event_repush, and be in pending status.
 func (s *WebhookService) RePushEvents(ctx context.Context, repushID string) error {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.RePushEvents")
-	defer span.End()
 	return s.startBatch(ctx, repushID, store.BatchTypeEventRepush)
 }
 
 // GetRepushStatus returns the current state of a batch re-push.
 func (s *WebhookService) GetRepushStatus(ctx context.Context, repushID string) (*store.BatchJob, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.GetRepushStatus")
-	defer span.End()
 	return s.loadAndValidateBatch(ctx, repushID, store.BatchTypeEventRepush)
 }
 
 // CancelRepush aborts a pending or in-progress batch re-push.
 func (s *WebhookService) CancelRepush(ctx context.Context, repushID string) error {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.CancelRepush")
-	defer span.End()
 	return s.cancelBatch(ctx, repushID, store.BatchTypeEventRepush)
 }
 
 // RetryDeliveries starts async processing of a batch delivery retry.
 func (s *WebhookService) RetryDeliveries(ctx context.Context, retryID string) error {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.RetryDeliveries")
-	defer span.End()
 	return s.startBatch(ctx, retryID, store.BatchTypeDeliveryRetry)
 }
 
 // GetRetryStatus returns the current state of a batch delivery retry.
 func (s *WebhookService) GetRetryStatus(ctx context.Context, retryID string) (*store.BatchJob, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.GetRetryStatus")
-	defer span.End()
 	return s.loadAndValidateBatch(ctx, retryID, store.BatchTypeDeliveryRetry)
 }
 
 // CancelRetry aborts a pending or in-progress batch delivery retry.
 func (s *WebhookService) CancelRetry(ctx context.Context, retryID string) error {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.CancelRetry")
-	defer span.End()
 	return s.cancelBatch(ctx, retryID, store.BatchTypeDeliveryRetry)
 }

@@ -3,7 +3,6 @@ package webhooks
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -67,143 +66,17 @@ func (s *WebhookService) setWebhookActive(ctx context.Context, webhookID string,
 	return nil
 }
 
-func (s *WebhookService) RegisterWebhook(ctx context.Context, consumer string, events []string, url string, headers map[string]string, timeout int, active bool, description string, secretHeaders map[string]string) (string, time.Time, error) {
-	redactedURL := client.RedactURL(url)
-	ctx, span := s.tracer.Start(ctx, "webhook.register",
-		trace.WithAttributes(
-			attribute.String("consumer", consumer),
-			attribute.StringSlice("events", events),
-			attribute.String("url", redactedURL),
-		),
-	)
-	defer span.End()
-
-	tenantID := tenant.DefaultTenantID
-
-	s.logger.InfoContext(ctx, "Processing webhook registration request",
-		"consumer", consumer,
-		"events", events,
-		"url", redactedURL,
-	)
-
-	if consumer == "" {
-		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
-	}
-	if url == "" {
-		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "URL is required")
-	}
-	if err := ValidateWebhookURL(url, s.networkPolicy); err != nil {
-		return "", time.Time{}, err
-	}
-	if err := validateHeaders("headers", headers); err != nil {
-		return "", time.Time{}, err
-	}
-	if err := validateHeaders("secret_headers", secretHeaders); err != nil {
-		return "", time.Time{}, err
-	}
-	if len(events) > 0 {
-		s.logger.InfoContext(ctx, "Validating event names", "events", events, "contains_empty", slices.Contains(events, ""))
-		if slices.Contains(events, "") {
-			s.logger.ErrorContext(ctx, "Event names validation failed", "events", events)
-			return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "event names cannot be empty")
-		}
-	}
-	if timeout <= 0 {
-		timeout = 30
-	}
-	registration := &store.WebhookRegistration{
-		Consumer:      consumer,
-		URL:           url,
-		Headers:       headers,
-		Timeout:       int(timeout),
-		Active:        active,
-		Description:   description,
-		SignatureType: store.SignatureTypeHMAC,
-		// HTTP config defaults (mirror DefaultWebhookHTTPConfig / DB column
-		// defaults) — the insert writes every column, so zero values would
-		// violate the timeout/backoff check constraints.
-		MaxRetries:            3,
-		RetryBackoffSeconds:   60,
-		FollowRedirects:       true,
-		VerifySSL:             true,
-		RequestTimeoutSeconds: int(timeout),
-		ExpectedStatusCodes:   pq.Int64Array{200, 201, 202, 204},
-		UserAgent:             "Sparrow-Webhook/1.0",
-		ContentType:           "application/json",
-	}
-
-	// Encrypt secret headers if provided
-	if len(secretHeaders) > 0 {
-		encrypted, err := s.EncryptSecretHeaders(secretHeaders)
-		if err != nil {
-			return "", time.Time{}, fmt.Errorf("failed to encrypt secret headers: %w", err)
-		}
-		registration.SecretHeaders = encrypted
-	}
-
-	// Build subscriptions slice for atomic creation
-	var subscriptions []*store.EventSubscription
-	for _, event := range events {
-		subscriptions = append(subscriptions, &store.EventSubscription{
-			EventName: event,
-			Consumer:  consumer,
-		})
-	}
-
-	// Atomically create webhook + all subscriptions in a single transaction
-	if err := s.webhookRepo.RegisterWebhookWithSubscriptions(ctx, tenantID, registration, subscriptions, store.SubscriptionTemplateVersion{}); err != nil {
-		s.logger.ErrorContext(ctx, "Failed to register webhook",
-			"consumer", consumer,
-			"events", events,
-			"url", redactedURL,
-			"error", err,
-		)
-		return "", time.Time{}, fmt.Errorf("failed to register webhook: %w", err)
-	}
-
-	// Always generate a Standard Webhook secret if not provided
-	if registration.WebhookSecret == nil {
-		secret, err := generateWebhookSecret()
-		if err != nil {
-			return "", time.Time{}, fmt.Errorf("failed to generate webhook secret: %w", err)
-		}
-		encSecret, err := s.EncryptWebhookSecret(secret)
-		if err != nil {
-			return "", time.Time{}, fmt.Errorf("failed to encrypt webhook secret: %w", err)
-		}
-		registration.WebhookSecret = encSecret
-		// Update the record with the secret
-		if err := s.webhookRepo.UpdateWebhook(ctx, tenantID, registration); err != nil {
-			s.logger.WarnContext(ctx, "Failed to update webhook with generated secret", "webhook_id", registration.ID, "error", err)
-		}
-	}
-
-	if s.metrics != nil {
-		s.metrics.WebhookRegistrations.Add(ctx, 1)
-		s.metrics.ActiveWebhooks.Add(ctx, 1)
-	}
-	s.logger.InfoContext(ctx, "Webhook registered successfully",
-		"webhook_id", registration.ID,
-		"consumer", consumer,
-		"events", events,
-		"url", redactedURL,
-	)
-	return registration.ID.String(), registration.CreatedAt, nil
-}
-
 // CreateWebhook creates a webhook registration with HTTP configuration support.
 // It returns the registration as stored and the plaintext signing secret,
 // which callers show once: the stored registration only has it encrypted.
 func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*store.WebhookRegistration, string, error) {
 	redactedURL := client.RedactURL(req.URL)
-	ctx, span := s.tracer.Start(ctx, "webhook.create",
-		trace.WithAttributes(
-			attribute.String("consumer", req.Consumer),
-			attribute.StringSlice("events", req.Events),
-			attribute.String("url", redactedURL),
-		),
+	span := trace.SpanFromContext(ctx)
+	span.SetAttributes(
+		attribute.String("consumer", req.Consumer),
+		attribute.StringSlice("events", req.Events),
+		attribute.String("url", redactedURL),
 	)
-	defer span.End()
 
 	s.logger.InfoContext(ctx, "Processing enhanced webhook creation request",
 		"consumer", req.Consumer,
@@ -246,24 +119,13 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		webhookReg.ID = uuid.New().String()
 	}
 
-	// Validate event names exist
+	// Validate event names
 	for _, event := range req.Events {
 		if event == "" {
 			return nil, "", svcerrors.Error(svcerrors.InvalidArgument, "empty event name not allowed")
 		}
 		if err := checkEventForConsumer(req.Consumer, event); err != nil {
 			return nil, "", err
-		}
-		// Check if event is registered
-		events, _, err := s.webhookRepo.ListEventsPaginated(ctx, tenantID, store.EventTypeFilter{}, 1000, 0)
-		if err != nil {
-			s.logger.WarnContext(ctx, "Failed to validate event names", "error", err)
-		} else {
-			if !slices.ContainsFunc(events, func(e *store.EventRegistration) bool {
-				return e.Name == event
-			}) {
-				s.logger.WarnContext(ctx, "Event not registered", "event", event, "consumer", req.Consumer)
-			}
 		}
 	}
 
@@ -399,7 +261,6 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	// Update metrics
 	if s.metrics != nil {
 		s.metrics.WebhookRegistrations.Add(ctx, 1)
-		s.metrics.ActiveWebhooks.Add(ctx, 1)
 	}
 
 	s.logger.InfoContext(ctx, "Enhanced webhook registered successfully",
@@ -513,9 +374,6 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, consumer string, webh
 
 // PauseWebhook temporarily disables webhook deliveries
 func (s *WebhookService) PauseWebhook(ctx context.Context, webhookID string, consumer string, reason string) error {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.PauseWebhook")
-	defer span.End()
-
 	s.logger.InfoContext(ctx, "Pausing webhook", "webhook_id", webhookID, "consumer", consumer, "reason", reason)
 	return s.setWebhookActive(ctx, webhookID, consumer, false)
 }
@@ -531,9 +389,6 @@ type WebhookResumeResult struct {
 // operator or auto-disabled. Deliveries held while it was paused stay paused
 // until retried, like those of a resumed subscription.
 func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, consumer string) (*WebhookResumeResult, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.ResumeWebhook")
-	defer span.End()
-
 	s.logger.InfoContext(ctx, "Resuming webhook", "webhook_id", webhookID, "consumer", consumer)
 	if err := s.setWebhookActive(ctx, webhookID, consumer, true); err != nil {
 		return nil, err
@@ -568,10 +423,7 @@ func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, co
 // fails while any subscription lacks a transform, and a webhook that requires
 // one cannot have its events replaced in bulk (that recreates subscriptions
 // without templates).
-func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID string, consumer string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, requiresTransform bool, updateMask []string) error {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.UpdateWebhookConfig")
-	defer span.End()
-
+func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID string, consumer string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *WebhookHTTPConfig, secretHeaders map[string]string, signatureType string, requiresTransform bool, updateMask []string) error {
 	s.logger.InfoContext(ctx, "Processing update webhook config request",
 		"webhook_id", webhookID,
 		"consumer", consumer,
@@ -853,9 +705,6 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 // secret is readable; every later read masks it. Deliveries signed after the
 // rotation use the new secret, so receivers must be updated with it.
 func (s *WebhookService) RotateWebhookSecret(ctx context.Context, webhookID string, consumer string) (string, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.RotateWebhookSecret")
-	defer span.End()
-
 	if consumer == "" {
 		return "", svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
 	}

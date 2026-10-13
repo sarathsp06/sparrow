@@ -14,7 +14,6 @@ import (
 type DBTX interface {
 	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	NamedExecContext(ctx context.Context, query string, arg interface{}) (sql.Result, error)
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
 }
 

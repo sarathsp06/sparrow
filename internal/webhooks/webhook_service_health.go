@@ -6,6 +6,7 @@ import (
 	"time"
 
 	otelcodes "go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
@@ -58,8 +59,7 @@ type ConsumerStatsData struct {
 
 // GetWebhookHealth retrieves health metrics for a webhook
 func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string, consumer string) (*WebhookHealthData, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.GetWebhookHealth")
-	defer span.End()
+	span := trace.SpanFromContext(ctx)
 
 	s.logger.InfoContext(ctx, "Processing get webhook health request",
 		"webhook_id", webhookID,
@@ -157,8 +157,7 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 // GetHealthSummary counts webhooks by health in one consumer, or across all
 // consumers when consumer is empty.
 func (s *WebhookService) GetHealthSummary(ctx context.Context, consumer string) (*HealthSummaryData, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.GetHealthSummary")
-	defer span.End()
+	span := trace.SpanFromContext(ctx)
 
 	s.logger.InfoContext(ctx, "Processing get health summary request", "consumer", consumer)
 
@@ -198,9 +197,6 @@ func (s *WebhookService) GetHealthSummary(ctx context.Context, consumer string) 
 // GetConsumerStats retrieves statistics for a consumer, or across all
 // consumers if empty.
 func (s *WebhookService) GetConsumerStats(ctx context.Context, consumer string) (*ConsumerStatsData, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.GetConsumerStats")
-	defer span.End()
-
 	s.logger.InfoContext(ctx, "Processing get consumer stats request", "consumer", consumer)
 
 	tenantID := tenant.DefaultTenantID
@@ -232,8 +228,7 @@ func (s *WebhookService) GetConsumerStats(ctx context.Context, consumer string) 
 // ListConsumers returns up to limit consumer names that own a webhook or an
 // event and contain query (case-insensitive), sorted by name.
 func (s *WebhookService) ListConsumers(ctx context.Context, query string, limit int32) ([]string, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.ListConsumers")
-	defer span.End()
+	span := trace.SpanFromContext(ctx)
 
 	l, _ := normalizePagination(int(limit), 0)
 	names, err := s.webhookRepo.ListConsumers(ctx, tenant.DefaultTenantID, query, l)

@@ -59,7 +59,7 @@ func TestTransformPayloadWith_StrictMissingKeys(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := engine.TransformPayload(tt.tmpl, data)
+			got, err := engine.ExecuteWith(tt.tmpl, data, ExecOptions{})
 			if err != nil {
 				t.Fatalf("lenient: unexpected error: %v", err)
 			}
@@ -67,7 +67,7 @@ func TestTransformPayloadWith_StrictMissingKeys(t *testing.T) {
 				t.Errorf("lenient: got %q, want %q", got, tt.lenient)
 			}
 
-			got, err = engine.TransformPayloadWith(tt.tmpl, data, strict)
+			got, err = engine.ExecuteWith(tt.tmpl, data, strict)
 			if tt.strictFail {
 				if err == nil {
 					t.Fatalf("strict: expected an error, got %q", got)
@@ -93,14 +93,14 @@ func TestTransformPayloadWith_CachesStrictAndLenientSeparately(t *testing.T) {
 	tmpl := `{{.payload.missing}}`
 
 	// Warm the cache with the lenient parse first; strict must still fail.
-	if _, err := engine.TransformPayload(tmpl, data); err != nil {
+	if _, err := engine.ExecuteWith(tmpl, data, ExecOptions{}); err != nil {
 		t.Fatalf("lenient: %v", err)
 	}
-	if _, err := engine.TransformPayloadWith(tmpl, data, ExecOptions{StrictMissingKeys: true}); err == nil {
+	if _, err := engine.ExecuteWith(tmpl, data, ExecOptions{StrictMissingKeys: true}); err == nil {
 		t.Fatal("strict render reused the lenient cached template")
 	}
 	// And the lenient parse must not have been turned strict.
-	if _, err := engine.TransformPayload(tmpl, data); err != nil {
+	if _, err := engine.ExecuteWith(tmpl, data, ExecOptions{}); err != nil {
 		t.Fatalf("lenient after strict: %v", err)
 	}
 }

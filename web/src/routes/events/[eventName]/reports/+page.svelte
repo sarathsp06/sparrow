@@ -10,6 +10,7 @@
     import type { components } from '$lib/api-types';
     import { formatAPIError } from '$lib/utils';
     import BatchProgress from '$lib/components/BatchProgress.svelte';
+    import { BatchJob } from '$lib/batch-job.svelte';
     import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 
     type EventOccurrenceItem = components["schemas"]["EventOccurrenceItem"];
@@ -29,17 +30,13 @@
     let createdBeforeFilter = $state('');
 
     // Batch re-push state
-    let repushId = $state('');
-    let batchStatus = $state<{ status: string; total: number; processed: number; failed: number } | undefined>();
+    const repush = new BatchJob('repush', () => consumerFilter.value, (m) => (error = m));
     let preparingRepush = $state(false);
-    let confirmRepush = $state(false);
-    let repushTotal = $state(0);
-    let pollingTimer: ReturnType<typeof setInterval> | undefined;
 
     const eventName = decodeURIComponent(page.params.eventName || '');
 
     onDestroy(() => {
-        if (pollingTimer) clearInterval(pollingTimer);
+        repush.stop();
     });
 
     async function fetchEventDetails() {
@@ -79,11 +76,7 @@
                 },
             }));
             if (prepareRepush) {
-                if (res.repush_id) {
-                    repushId = res.repush_id;
-                    repushTotal = res.repush_total || 0;
-                    confirmRepush = true;
-                } else {
+                if (!repush.prepared(res.repush_id, res.repush_total)) {
                     error = 'No matching events to re-push.';
                 }
                 return;
@@ -125,59 +118,6 @@
             await fetchEventReports(true);
         } finally {
             preparingRepush = false;
-        }
-    }
-
-    async function executeRepush() {
-        confirmRepush = false;
-        if (!repushId) return;
-        // Repush-job routes ignore the path consumer (jobs are id-scoped);
-        // "default" is a placeholder when scope is all-consumers.
-        const ns = consumerFilter.value || 'default';
-        try {
-            const res = unwrap(await api.POST('/v1/consumers/{consumer}/events:rePush', {
-                params: { path: { consumer: ns } },
-                body: { repush_id: repushId },
-            }));
-            batchStatus = { status: res.status, total: res.total, processed: res.processed, failed: res.failed };
-            startPolling();
-        } catch (e: any) {
-            error = formatAPIError(e, 'Failed to start re-push');
-        }
-    }
-
-    function startPolling() {
-        if (pollingTimer) clearInterval(pollingTimer);
-        const ns = consumerFilter.value || 'default';
-        pollingTimer = setInterval(async () => {
-            if (!repushId) { stopPolling(); return; }
-            try {
-                const res = unwrap(await api.GET('/v1/consumers/{consumer}/repush-jobs/{job_id}', {
-                    params: { path: { consumer: ns, job_id: repushId } },
-                }));
-                batchStatus = { status: res.status, total: res.total, processed: res.processed, failed: res.failed };
-                if (res.status === 'completed' || res.status === 'failed' || res.status === 'cancelled') {
-                    stopPolling();
-                }
-            } catch {
-                stopPolling();
-            }
-        }, 2000);
-    }
-
-    function stopPolling() {
-        if (pollingTimer) { clearInterval(pollingTimer); pollingTimer = undefined; }
-    }
-
-    async function cancelRepush() {
-        if (!repushId) return;
-        const ns = consumerFilter.value || 'default';
-        try {
-            await api.POST('/v1/consumers/{consumer}/repush-jobs/{job_id}:cancel', {
-                params: { path: { consumer: ns, job_id: repushId } },
-            });
-        } catch (e: any) {
-            error = formatAPIError(e, 'Failed to cancel re-push');
         }
     }
 
@@ -260,11 +200,11 @@
         </div>
     </div>
 
-    {#if batchStatus}
+    {#if repush.progress}
         <div class="mb-4">
             <BatchProgress
-                batch={batchStatus}
-                oncancel={cancelRepush}
+                batch={repush.progress}
+                oncancel={() => repush.cancel()}
                 ondone={onBatchDone}
             />
         </div>
@@ -295,11 +235,11 @@
 </main>
 
 <ConfirmDialog
-    open={confirmRepush}
+    open={repush.confirming}
     title="Re-push Matching Events"
-    message="This will re-push {repushTotal} matching event{repushTotal !== 1 ? 's' : ''} as new event occurrences. Sparrow re-runs current schema validation, subscription matching, and delivery fan-out. Continue?"
+    message="This will re-push {repush.total} matching event{repush.total !== 1 ? 's' : ''} as new event occurrences. Sparrow re-runs current schema validation, subscription matching, and delivery fan-out. Continue?"
     confirmLabel="Re-push as new events"
     variant="warning"
-    onconfirm={executeRepush}
-    oncancel={() => { confirmRepush = false; repushId = ''; }}
+    onconfirm={() => repush.start()}
+    oncancel={() => repush.dismiss()}
 />

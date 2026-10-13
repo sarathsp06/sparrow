@@ -1,6 +1,5 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
-@plugin '@tailwindcss/typography';
 
 /*
   Sparrow — calm light theme, matching the marketing docs site.

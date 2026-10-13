@@ -14,23 +14,14 @@ import (
 
 // categoryToHTTP maps svcerrors.Status to HTTP status codes.
 var categoryToHTTP = map[svcerrors.Status]int{
-	svcerrors.OK:                 200,
 	svcerrors.InvalidArgument:    400,
-	svcerrors.Unauthenticated:    401,
-	svcerrors.PermissionDenied:   403,
 	svcerrors.NotFound:           404,
 	svcerrors.AlreadyExists:      409,
 	svcerrors.FailedPrecondition: 409,
-	svcerrors.Aborted:            409,
-	svcerrors.OutOfRange:         400,
 	svcerrors.ResourceExhausted:  429,
-	svcerrors.Unimplemented:      501,
 	svcerrors.Unavailable:        503,
 	svcerrors.DeadlineExceeded:   504,
-	svcerrors.Canceled:           499,
 	svcerrors.Internal:           500,
-	svcerrors.Unknown:            500,
-	svcerrors.DataLoss:           500,
 }
 
 // mapError translates a business/storage error into a Huma HTTP error.
@@ -42,7 +33,7 @@ func mapError(ctx context.Context, err error, fallbackMsg string) error {
 	}
 
 	svcErr := svcerrors.Classify(err, fallbackMsg)
-	if svcErr.Status == svcerrors.Internal || svcErr.Status == svcerrors.Unknown {
+	if svcErr.Status == svcerrors.Internal {
 		slog.ErrorContext(ctx, "internal error", "fallback_msg", fallbackMsg, "error", err)
 	}
 	status, ok := categoryToHTTP[svcErr.Status]

@@ -117,7 +117,7 @@ Route-group middleware (API key auth) wraps only the `/v1/*` group (`r.Group` in
 ### Repository / Storage pattern
 
 ```go
-type DBTX interface { GetContext, SelectContext, NamedExecContext, ExecContext }
+type DBTX interface { GetContext, SelectContext, ExecContext }
 type DB interface { DBTX + Ping, Close, Beginx }
 
 // WithConn pattern (used by all repos)

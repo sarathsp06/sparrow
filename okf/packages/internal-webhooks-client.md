@@ -11,7 +11,7 @@ timestamp: 2026-06-22T00:00:00Z
 HTTP delivery client with connection pooling, payload signing, and SSRF
 protection. Template transforms are delegated to `pkg/template`; the client
 re-exports nothing — callers construct `template.WebhookTemplateContext` and
-call `WebhookClient.TransformPayload`.
+call `WebhookClient.TransformPayloadWith`.
 
 ## Key Types
 

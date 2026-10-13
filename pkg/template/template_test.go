@@ -29,7 +29,7 @@ func TestExecuteSimpleTemplate(t *testing.T) {
 	tmpl := `Hello {{.Name}}`
 	data := map[string]any{"Name": "World"}
 
-	result, err := engine.Execute(tmpl, data)
+	result, err := engine.ExecuteWith(tmpl, data, ExecOptions{})
 	if err != nil {
 		t.Fatalf("Unexpected error executing template: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestExecuteSimpleTemplate(t *testing.T) {
 func TestExecuteEmptyTemplate(t *testing.T) {
 	engine := NewTemplateEngine()
 
-	result, err := engine.Execute("", nil)
+	result, err := engine.ExecuteWith("", nil, ExecOptions{})
 	if err != nil {
 		t.Fatalf("Unexpected error with empty template: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestExecuteWithTemplateFunctions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := engine.Execute(tt.template, tt.data)
+			result, err := engine.ExecuteWith(tt.template, tt.data, ExecOptions{})
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
 			}
@@ -157,7 +157,7 @@ func TestExecuteReshapeFunctions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := engine.Execute(tt.template, tt.data)
+			result, err := engine.ExecuteWith(tt.template, tt.data, ExecOptions{})
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
 			}
@@ -183,7 +183,7 @@ func TestReshapeFunctionErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, err := engine.Execute(tt.template, map[string]any{}); err == nil {
+			if _, err := engine.ExecuteWith(tt.template, map[string]any{}, ExecOptions{}); err == nil {
 				t.Errorf("Expected error for %q, got none", tt.template)
 			}
 		})
@@ -196,7 +196,7 @@ func TestExecuteInvalidTemplate(t *testing.T) {
 	tmpl := `{{.Name | invalid_function}}`
 	data := map[string]any{"Name": "World"}
 
-	_, err := engine.Execute(tmpl, data)
+	_, err := engine.ExecuteWith(tmpl, data, ExecOptions{})
 	if err == nil {
 		t.Error("Expected error with invalid template function")
 	}
@@ -209,77 +209,19 @@ func TestTemplateCaching(t *testing.T) {
 	data := map[string]any{"Name": "World"}
 
 	// First execution - should cache
-	result1, err := engine.Execute(tmpl, data)
+	result1, err := engine.ExecuteWith(tmpl, data, ExecOptions{})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
 	// Second execution - should use cache and produce same result
-	result2, err := engine.Execute(tmpl, data)
+	result2, err := engine.ExecuteWith(tmpl, data, ExecOptions{})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
 	if string(result1) != string(result2) {
 		t.Errorf("Expected same result from cached execution, got %q and %q", string(result1), string(result2))
-	}
-}
-
-func TestValidateTemplate(t *testing.T) {
-	engine := NewTemplateEngine()
-
-	tests := []struct {
-		name      string
-		template  string
-		expectErr bool
-	}{
-		{
-			name:      "valid template",
-			template:  `Hello {{.Name}}`,
-			expectErr: false,
-		},
-		{
-			name:      "empty template",
-			template:  "",
-			expectErr: false,
-		},
-		{
-			name:      "invalid syntax",
-			template:  `{{.Name}`,
-			expectErr: true,
-		},
-		{
-			name:      "unclosed action",
-			template:  `Hello {{.Name`,
-			expectErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := engine.ValidateTemplate(tt.template)
-			if (err != nil) != tt.expectErr {
-				t.Errorf("Expected error=%v, got error=%v", tt.expectErr, err)
-			}
-		})
-	}
-}
-
-func TestNewTemplateEngineWithCacheSize(t *testing.T) {
-	maxSize := 50
-	engine := NewTemplateEngineWithCacheSize(maxSize)
-
-	if engine == nil {
-		t.Fatal("Expected non-nil template engine")
-	}
-
-	// Verify engine works with custom cache size
-	result, err := engine.Execute(`Hello {{.Name}}`, map[string]any{"Name": "World"})
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if string(result) != "Hello World" {
-		t.Errorf("Expected 'Hello World', got %q", string(result))
 	}
 }
 
@@ -303,7 +245,7 @@ func TestExecuteComplexTemplate(t *testing.T) {
 		},
 	}
 
-	result, err := engine.Execute(tmpl, data)
+	result, err := engine.ExecuteWith(tmpl, data, ExecOptions{})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -330,7 +272,7 @@ func BenchmarkExecuteSimple(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = engine.Execute(tmpl, data)
+		_, _ = engine.ExecuteWith(tmpl, data, ExecOptions{})
 	}
 }
 
@@ -348,7 +290,7 @@ func BenchmarkExecuteComplex(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = engine.Execute(tmpl, data)
+		_, _ = engine.ExecuteWith(tmpl, data, ExecOptions{})
 	}
 }
 
@@ -360,7 +302,7 @@ func TestExecuteTimeout(t *testing.T) {
 	tmpl := `{{range $a := split "," "a,b,c,d,e,f,g,h,i,j"}}{{range $b := split "," "a,b,c,d,e,f,g,h,i,j"}}{{range $c := split "," "a,b,c,d,e,f,g,h,i,j"}}{{range $d := split "," "a,b,c,d,e,f,g,h,i,j"}}{{range $e := split "," "a,b,c,d,e,f,g,h,i,j"}}{{range $f := split "," "a,b,c,d,e,f,g,h,i,j"}}{{range $g := split "," "a,b,c,d,e,f,g,h,i,j"}}{{$a}}{{end}}{{end}}{{end}}{{end}}{{end}}{{end}}{{end}}`
 
 	start := time.Now()
-	_, err := engine.Execute(tmpl, nil)
+	_, err := engine.ExecuteWith(tmpl, nil, ExecOptions{})
 	elapsed := time.Since(start)
 
 	// Should have errored (either timeout or output size limit)
@@ -386,19 +328,16 @@ func TestRejectsUnboundedLoops(t *testing.T) {
 	}
 	for name, tmpl := range rejected {
 		t.Run(name, func(t *testing.T) {
-			if _, err := engine.Execute(tmpl, map[string]any{"a": []int{1}}); err == nil {
-				t.Errorf("Execute(%q) succeeded, want rejection", tmpl)
-			}
-			if err := engine.ValidateTemplate(tmpl); err == nil {
-				t.Errorf("ValidateTemplate(%q) succeeded, want rejection", tmpl)
+			if _, err := engine.ExecuteWith(tmpl, map[string]any{"a": []int{1}}, ExecOptions{}); err == nil {
+				t.Errorf("ExecuteWith(%q) succeeded, want rejection", tmpl)
 			}
 		})
 	}
 
 	allowed := `{{range $.a}}{{range $.a}}{{range $.a}}x{{end}}{{end}}{{end}}`
-	out, err := engine.Execute(allowed, map[string]any{"a": []int{1, 2}})
+	out, err := engine.ExecuteWith(allowed, map[string]any{"a": []int{1, 2}}, ExecOptions{})
 	if err != nil {
-		t.Fatalf("Execute(%q): %v", allowed, err)
+		t.Fatalf("ExecuteWith(%q): %v", allowed, err)
 	}
 	if string(out) != "xxxxxxxx" {
 		t.Errorf("Execute(%q) = %q, want %q", allowed, out, "xxxxxxxx")

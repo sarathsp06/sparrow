@@ -73,7 +73,7 @@ func TestTemplateReference_ExampleRenders(t *testing.T) {
 		{"id": "ord_2", "total": 1500000.0, "customer": map[string]any{"email": "b@example.com"}},
 	} {
 		data := template.NewWebhookTemplateContext("evt_1", "order.paid", "2026-03-01T12:00:00Z", 1, payload)
-		out, err := engine.TransformPayloadWith(tmpl, data, template.ExecOptions{StrictMissingKeys: true})
+		out, err := engine.ExecuteWith(tmpl, data, template.ExecOptions{StrictMissingKeys: true})
 		if err != nil {
 			t.Fatalf("example does not render: %v", err)
 		}

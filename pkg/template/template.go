@@ -1,12 +1,20 @@
 package template
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"text/template"
 	"text/template/parse"
 	"time"
+
+	lru "github.com/hashicorp/golang-lru/v2"
 )
+
+// cacheSize is the maximum number of parsed templates an engine keeps.
+const cacheSize = 100
 
 // MaxTemplateOutputBytes is the maximum allowed output size from a template
 // execution. Templates producing output larger than this are aborted to
@@ -29,16 +37,9 @@ const MaxRangeNesting = 3
 // limitedWriter wraps a bytes.Buffer and enforces a maximum write size.
 // Once the limit is exceeded, all subsequent writes return an error.
 type limitedWriter struct {
-	buf     writerWithBytes
+	buf     *bytes.Buffer
 	limit   int
 	written int
-}
-
-// writerWithBytes is the write interface needed from bytes.Buffer.
-type writerWithBytes interface {
-	Write(p []byte) (int, error)
-	Len() int
-	Bytes() []byte
 }
 
 func (w *limitedWriter) Write(p []byte) (int, error) {
@@ -53,20 +54,14 @@ func (w *limitedWriter) Write(p []byte) (int, error) {
 // TemplateEngine handles payload transformations using Go templates
 type TemplateEngine struct {
 	funcs template.FuncMap
-	cache *TemplateCache
+	cache *lru.Cache[string, *template.Template]
 }
 
 // NewTemplateEngine creates a new template engine with default helpers
 func NewTemplateEngine() *TemplateEngine {
-	return NewTemplateEngineWithCacheSize(DefaultCacheSize)
-}
-
-// NewTemplateEngineWithCacheSize creates a new template engine with custom cache size
-func NewTemplateEngineWithCacheSize(maxSize int) *TemplateEngine {
-	return &TemplateEngine{
-		funcs: GetFunctionMap(),
-		cache: NewTemplateCache(maxSize),
-	}
+	// lru.New only fails for a non-positive size.
+	cache, _ := lru.New[string, *template.Template](cacheSize)
+	return &TemplateEngine{funcs: GetFunctionMap(), cache: cache}
 }
 
 // ExecOptions controls how a template is executed.
@@ -79,12 +74,6 @@ type ExecOptions struct {
 	// help here: the lookup in `default "x" .payload.plan` fails before
 	// default runs; use `dig "plan" "x" .payload` instead.
 	StrictMissingKeys bool
-}
-
-// Execute processes a template with the given data, rendering missing keys
-// as "<no value>". See ExecuteWith for strict rendering.
-func (e *TemplateEngine) Execute(tmplStr string, data any) ([]byte, error) {
-	return e.ExecuteWith(tmplStr, data, ExecOptions{})
 }
 
 // ExecuteWith processes a template with the given data and options.
@@ -102,8 +91,7 @@ func (e *TemplateEngine) ExecuteWith(tmplStr string, data any, opts ExecOptions)
 		return nil, err
 	}
 
-	// Get buffer from pool
-	buf := getBuffer()
+	buf := bytes.NewBuffer([]byte{}) // non-nil Bytes() even for empty output
 
 	// Wrap with a size-limited writer to prevent runaway output
 	lw := &limitedWriter{buf: buf, limit: MaxTemplateOutputBytes}
@@ -122,22 +110,14 @@ func (e *TemplateEngine) ExecuteWith(tmplStr string, data any, opts ExecOptions)
 
 	select {
 	case err := <-execErr:
-		// Goroutine finished — we own the buffer, safe to pool it.
-		defer putBuffer(buf)
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute template: %w", err)
 		}
 	case <-ctx.Done():
-		// Timeout — the goroutine is still running and writing to buf.
-		// We must NOT return buf to the pool; let it be GC'd when the
-		// goroutine finishes.
 		return nil, fmt.Errorf("template execution timed out after %v (possible infinite loop)", TemplateExecutionTimeout)
 	}
 
-	// Copy bytes since we're returning the buffer to the pool
-	result := make([]byte, buf.Len())
-	copy(result, buf.Bytes())
-	return result, nil
+	return buf.Bytes(), nil
 }
 
 // getOrParseTemplate retrieves a cached template or parses and caches a new
@@ -167,26 +147,9 @@ func (e *TemplateEngine) getOrParseTemplate(tmplStr string, strict bool) (*templ
 	}
 
 	// Add to cache
-	e.cache.Put(key, tmpl)
+	e.cache.Add(key, tmpl)
 
 	return tmpl, nil
-}
-
-// ValidateTemplate validates a template string without executing it
-func (e *TemplateEngine) ValidateTemplate(tmplStr string) error {
-	if tmplStr == "" {
-		return nil
-	}
-
-	tmpl, err := template.New("webhook_validation").Funcs(e.funcs).Parse(tmplStr)
-	if err != nil {
-		return fmt.Errorf("invalid template syntax: %w", err)
-	}
-	if err := checkTemplateLoops(tmpl); err != nil {
-		return fmt.Errorf("invalid template: %w", err)
-	}
-
-	return nil
 }
 
 // checkTemplateLoops rejects loops whose cost does not depend on the payload
@@ -278,15 +241,8 @@ func NewWebhookTemplateContext(eventID, eventName, timestamp string, attempt int
 	}
 }
 
-// TransformPayload applies the template if enabled
-func (e *TemplateEngine) TransformPayload(tmplStr string, data WebhookTemplateContext) ([]byte, error) {
-	return e.TransformPayloadWith(tmplStr, data, ExecOptions{})
-}
-
-// TransformPayloadWith applies the template with the given options.
-func (e *TemplateEngine) TransformPayloadWith(tmplStr string, data WebhookTemplateContext, opts ExecOptions) ([]byte, error) {
-	if tmplStr == "" {
-		return nil, nil
-	}
-	return e.ExecuteWith(tmplStr, data, opts)
+// hashTemplate generates a cache key from the template string
+func hashTemplate(tmplStr string) string {
+	h := sha256.Sum256([]byte(tmplStr))
+	return hex.EncodeToString(h[:])
 }

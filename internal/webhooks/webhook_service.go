@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"go.opentelemetry.io/otel/trace"
 
 	"github.com/sarathsp06/sparrow/internal/observability"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
@@ -23,7 +22,6 @@ type WebhookService struct {
 	webhookRepo   store.RepositoryInterface
 	crypto        *crypto.Service
 	logger        *slog.Logger
-	tracer        trace.Tracer
 	metrics       *observability.SparrowMetrics
 	networkPolicy client.NetworkPolicy
 	// autoRegisterEvents lets a push to an unknown event name create a
@@ -33,11 +31,10 @@ type WebhookService struct {
 
 // WebhookManager manages webhook registrations and their lifecycle.
 type WebhookManager interface {
-	RegisterWebhook(ctx context.Context, consumer string, events []string, url string, headers map[string]string, timeout int, active bool, description string, secretHeaders map[string]string) (string, time.Time, error)
 	CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (reg *store.WebhookRegistration, secret string, err error)
 	UnregisterWebhook(ctx context.Context, webhookID string, consumer string) error
 	ListWebhooks(ctx context.Context, consumer string, webhookID string, event string, activeOnly bool, health string, limit, offset int32) ([]*store.WebhookRegistration, int32, error)
-	UpdateWebhookConfig(ctx context.Context, webhookID string, consumer string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, requiresTransform bool, updateMask []string) error
+	UpdateWebhookConfig(ctx context.Context, webhookID string, consumer string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *WebhookHTTPConfig, secretHeaders map[string]string, signatureType string, requiresTransform bool, updateMask []string) error
 	RotateWebhookSecret(ctx context.Context, webhookID string, consumer string) (string, error)
 	PauseWebhook(ctx context.Context, webhookID string, consumer string, reason string) error
 	ResumeWebhook(ctx context.Context, webhookID string, consumer string) (*WebhookResumeResult, error)
@@ -190,7 +187,6 @@ func NewWebhookService(queueManager queue.JobInserter, webhookRepo store.Reposit
 		webhookRepo: webhookRepo,
 		crypto:      cryptoSvc,
 		logger:      slog.Default().With("component", "webhook-service"),
-		tracer:      observability.GetTracer("sparrow.service.webhook"),
 		metrics:     metrics,
 	}
 	for _, opt := range opts {

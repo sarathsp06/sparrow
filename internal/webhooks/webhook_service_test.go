@@ -113,11 +113,6 @@ func (m *mockRepo) GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUI
 	return args.Get(0).([]*store.WebhookDelivery), args.Error(1)
 }
 
-func (m *mockRepo) ResetDeliveryForRetry(ctx context.Context, deliveryID uuid.UUID) error {
-	args := m.Called(ctx, deliveryID)
-	return args.Error(0)
-}
-
 func (m *mockRepo) ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uuid.UUID) error {
 	args := m.Called(ctx, deliveryIDs)
 	return args.Error(0)
@@ -496,7 +491,7 @@ func TestWebhookService_UpdateWebhookConfig_RejectsOutOfBoundsValues(t *testing.
 
 	// request_timeout_seconds above the 300s create-path bound must be
 	// rejected on update too; UpdateWebhook must never be called.
-	err := service.UpdateWebhookConfig(ctx, webhookID.String(), consumer, nil, "", nil, true, "", &HTTPConfigUpdate{
+	err := service.UpdateWebhookConfig(ctx, webhookID.String(), consumer, nil, "", nil, true, "", &WebhookHTTPConfig{
 		RequestTimeoutSeconds: 86400,
 	}, nil, "", false, []string{"http_config"})
 
