@@ -358,19 +358,18 @@ func (req WebhookRegistrationRequest) ToWebhookRegistration() (*WebhookRegistrat
 		webhook.Active = *req.Active
 	}
 
+	// Start with defaults; provided configuration overrides them.
+	webhook.HTTPConfig = DefaultWebhookHTTPConfig()
 	if req.HTTPConfig != nil {
-		// Start with defaults
-		webhook.HTTPConfig = DefaultWebhookHTTPConfig()
-
-		// Apply provided configuration (this will override defaults)
 		webhook.HTTPConfig.ApplyConfig(req.HTTPConfig)
-
-		// Validate the final configuration
-		if err := webhook.HTTPConfig.ValidateConfig(); err != nil {
-			return nil, fmt.Errorf("invalid HTTP config: %w", err)
-		}
-	} else {
-		webhook.HTTPConfig = DefaultWebhookHTTPConfig()
+	}
+	// The top-level rate_limit_rps is accepted as a shorthand;
+	// http_config.rate_limit_rps wins when both are set.
+	if webhook.HTTPConfig.RateLimitRPS == nil {
+		webhook.HTTPConfig.RateLimitRPS = req.RateLimitRPS
+	}
+	if err := webhook.HTTPConfig.ValidateConfig(); err != nil {
+		return nil, fmt.Errorf("invalid HTTP config: %w", err)
 	}
 
 	return webhook, nil

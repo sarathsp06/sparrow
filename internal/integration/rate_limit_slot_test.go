@@ -52,17 +52,11 @@ func TestAcquireDeliverySlot_BusyBucketDoesNotBurnSlots(t *testing.T) {
 		return at
 	}
 
-	// No state row yet: no rate limit configured.
-	wait, gotRPS, err := repo.AcquireDeliverySlot(ctx, reg.ID)
-	require.NoError(t, err)
-	require.Zero(t, wait)
-	require.Zero(t, gotRPS)
-
-	require.NoError(t, repo.UpsertRateLimitState(ctx, reg.ID))
-
+	// No state row yet (the create-time upsert is skipped here, as when it
+	// fails): the first acquire creates it, so limiting still applies.
 	// Free bucket: granted immediately and the tail advances.
 	interval := time.Duration(float64(time.Second) / rps)
-	wait, gotRPS, err = repo.AcquireDeliverySlot(ctx, reg.ID)
+	wait, gotRPS, err := repo.AcquireDeliverySlot(ctx, reg.ID)
 	require.NoError(t, err)
 	require.Equal(t, rps, gotRPS)
 	require.Zero(t, wait, "first acquire must grant immediately")
@@ -87,4 +81,37 @@ func TestAcquireDeliverySlot_BusyBucketDoesNotBurnSlots(t *testing.T) {
 	require.NoError(t, err)
 	require.Zero(t, wait, "acquire after waiting out the tail must grant")
 	require.True(t, tail().After(grantedTail), "a grant must advance the tail")
+}
+
+// A webhook without a rate limit gets no state row and is never limited.
+func TestAcquireDeliverySlot_NoLimitCreatesNoRow(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := setupTestDB(t, ctx)
+	runMigrations(t, ctx, databaseURL)
+
+	sqlxDB, err := storePg.Open(databaseURL, 3)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = sqlxDB.Close() })
+
+	require.NoError(t, tenant.Bootstrap(ctx, sqlxDB))
+	repo := store.NewRepository(sqlxDB)
+
+	reg := &store.WebhookRegistration{
+		Consumer:              "rate-limit-none-test",
+		URL:                   "https://example.com/hook",
+		Active:                true,
+		SignatureType:         store.SignatureTypeHMAC,
+		RetryBackoffSeconds:   60,
+		RequestTimeoutSeconds: 30,
+	}
+	require.NoError(t, repo.RegisterWebhook(ctx, tenant.DefaultTenantID, reg))
+
+	wait, gotRPS, err := repo.AcquireDeliverySlot(ctx, reg.ID)
+	require.NoError(t, err)
+	require.Zero(t, wait)
+	require.Zero(t, gotRPS)
+	var rows int
+	require.NoError(t, sqlxDB.GetContext(ctx, &rows,
+		`SELECT count(*) FROM webhook_rate_limit_state WHERE webhook_id = $1`, reg.ID))
+	require.Zero(t, rows)
 }

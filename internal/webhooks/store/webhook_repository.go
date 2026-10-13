@@ -519,8 +519,10 @@ func insertSubscription(ctx context.Context, conn storage.DBTX, tenantID uuid.UU
 // caller's clock: a worker whose clock is behind or ahead of Postgres would
 // otherwise snooze a slot it was just granted (burning it) or send while the
 // bucket is busy.
-// If the webhook has no rate limit state row, returns (0, 0, nil) meaning
-// "no rate limit configured — send immediately".
+// A webhook with a rate limit but no state row (the row written at create or
+// update failed, or was never written) gets one here, so a lost upsert
+// cannot switch limiting off. A webhook without a rate limit returns
+// (0, 0, nil): send immediately.
 // ponytail: under READ COMMITTED a concurrent waiter can read a stale tail in
 // the SELECT branch and send one extra delivery; bounded by worker concurrency.
 // Upgrade path: SELECT ... FOR UPDATE in a transaction if strict RPS matters.
@@ -549,13 +551,25 @@ func (r *Repository) AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUI
 		WaitSeconds  float64 `db:"wait_seconds"`
 		RateLimitRPS float64 `db:"rate_limit_rps"`
 	}
-	err := r.conn.GetContext(ctx, &result, query, webhookID)
-	if err != nil {
-		err = storage.Error(err)
-		// No rate limit state row — no limit configured.
-		if storage.IsNotFound(err) {
+	err := storage.Error(r.conn.GetContext(ctx, &result, query, webhookID))
+	if storage.IsNotFound(err) {
+		// No row, or no limit. Create the row only for a limited webhook;
+		// the CTE above cannot see a row inserted in the same statement,
+		// so query again once it exists.
+		res, insErr := r.conn.ExecContext(ctx, `
+			INSERT INTO webhook_rate_limit_state (webhook_id, next_delivery_at)
+			SELECT id, NOW() FROM webhook_registrations WHERE id = $1 AND rate_limit_rps > 0
+			ON CONFLICT (webhook_id) DO NOTHING
+		`, webhookID)
+		if insErr != nil {
+			return 0, 0, storage.Error(insErr)
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
 			return 0, 0, nil
 		}
+		err = storage.Error(r.conn.GetContext(ctx, &result, query, webhookID))
+	}
+	if err != nil {
 		return 0, 0, err
 	}
 

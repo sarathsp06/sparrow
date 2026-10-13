@@ -166,6 +166,37 @@ func TestToWebhookRegistration_RateLimitRPS(t *testing.T) {
 		}
 	})
 
+	t.Run("top-level rate_limit_rps is used when http_config has none", func(t *testing.T) {
+		top, nested := 2.0, 7.0
+		req := WebhookRegistrationRequest{
+			Consumer:     "test",
+			URL:          "https://example.com/webhook",
+			RateLimitRPS: &top,
+		}
+		webhook, err := req.ToWebhookRegistration()
+		if err != nil {
+			t.Fatalf("ToWebhookRegistration() returned error: %v", err)
+		}
+		if webhook.HTTPConfig.RateLimitRPS == nil || *webhook.HTTPConfig.RateLimitRPS != top {
+			t.Fatalf("Expected RateLimitRPS=%v, got %v", top, webhook.HTTPConfig.RateLimitRPS)
+		}
+
+		req.HTTPConfig = &WebhookHTTPConfig{RateLimitRPS: &nested}
+		webhook, err = req.ToWebhookRegistration()
+		if err != nil {
+			t.Fatalf("ToWebhookRegistration() returned error: %v", err)
+		}
+		if *webhook.HTTPConfig.RateLimitRPS != nested {
+			t.Errorf("Expected http_config to win with %v, got %v", nested, *webhook.HTTPConfig.RateLimitRPS)
+		}
+
+		bad := -1.0
+		req = WebhookRegistrationRequest{Consumer: "test", URL: "https://example.com/webhook", RateLimitRPS: &bad}
+		if _, err := req.ToWebhookRegistration(); err == nil {
+			t.Error("Expected error for negative top-level RateLimitRPS, got nil")
+		}
+	})
+
 	t.Run("invalid rate limit rejected", func(t *testing.T) {
 		rps := -1.0
 		req := WebhookRegistrationRequest{
