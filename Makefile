@@ -122,7 +122,6 @@ migrate: ## Run database migrations
 
 clean: ## Clean up all build artifacts (Go, web)
 	rm -rf build dist
-	go clean -modcache
 	rm -rf web/build web/node_modules/.vite
 	rm -rf internal/ui/dist
 	mkdir -p internal/ui/dist && touch internal/ui/dist/.gitkeep
