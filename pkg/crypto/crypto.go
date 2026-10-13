@@ -89,43 +89,6 @@ func NewKeyring(keys []Key, primaryID string) (*Keyring, error) {
 	return kr, nil
 }
 
-// Primary returns the key used for new encryption.
-func (k *Keyring) Primary() Key {
-	if k == nil {
-		return Key{}
-	}
-	key, _ := k.Lookup(k.primaryID)
-	return key
-}
-
-// Lookup returns a key by ID.
-func (k *Keyring) Lookup(id string) (Key, bool) {
-	if k == nil {
-		return Key{}, false
-	}
-	key, ok := k.keys[id]
-	if !ok {
-		return Key{}, false
-	}
-	copyKey := Key{ID: key.ID, Material: append([]byte(nil), key.Material...)}
-	return copyKey, true
-}
-
-// Keys returns every configured key in input order.
-func (k *Keyring) Keys() []Key {
-	if k == nil {
-		return nil
-	}
-	keys := make([]Key, 0, len(k.order))
-	for _, id := range k.order {
-		key, ok := k.Lookup(id)
-		if ok {
-			keys = append(keys, key)
-		}
-	}
-	return keys
-}
-
 type kek struct {
 	id   string
 	aead cipher.AEAD
@@ -160,33 +123,17 @@ func NewServiceFromKeyring(keyring *Keyring) (*Service, error) {
 		return &Service{}, nil
 	}
 
-	primaryKey, ok := keyring.Lookup(keyring.primaryID)
-	if !ok {
-		return nil, fmt.Errorf("crypto: primary key id %q not found in keyring", keyring.primaryID)
-	}
-	primary, err := buildKEK(primaryKey.ID, primaryKey.Material)
-	if err != nil {
-		return nil, fmt.Errorf("crypto: new KEK cipher for %q: %w", primaryKey.ID, err)
-	}
-
-	byID := map[string]*kek{primary.id: primary}
+	byID := make(map[string]*kek, len(keyring.order))
 	for _, id := range keyring.order {
-		if id == primary.id {
-			continue
-		}
-		key, ok := keyring.Lookup(id)
-		if !ok {
-			continue
-		}
-		k, err := buildKEK(key.ID, key.Material)
+		k, err := buildKEK(id, keyring.keys[id].Material)
 		if err != nil {
-			return nil, fmt.Errorf("crypto: new KEK cipher for %q: %w", key.ID, err)
+			return nil, fmt.Errorf("crypto: new KEK cipher for %q: %w", id, err)
 		}
-		byID[k.id] = k
+		byID[id] = k
 	}
 
 	return &Service{
-		primary: primary,
+		primary: byID[keyring.primaryID],
 		byID:    byID,
 	}, nil
 }
@@ -306,10 +253,6 @@ func (s *Service) EnvelopeDecrypt(ciphertext []byte) ([]byte, error) {
 }
 
 func (s *Service) decryptKeyedEnvelope(ciphertext []byte) ([]byte, error) {
-	if len(ciphertext) < 1+1+2+wrappedDEKSize+12+16 {
-		return nil, errors.New("crypto: envelope ciphertext too short")
-	}
-
 	kidLen := int(ciphertext[1])
 	if kidLen <= 0 {
 		return nil, errors.New("crypto: invalid envelope: missing key id")
@@ -388,11 +331,6 @@ func (s *Service) Enabled() bool {
 	return s != nil && s.primary != nil
 }
 
-// Decrypt decrypts ciphertext produced by EnvelopeEncrypt.
-func (s *Service) Decrypt(ciphertext []byte) ([]byte, error) {
-	return s.EnvelopeDecrypt(ciphertext)
-}
-
 // EncryptJSON marshals v to JSON, then encrypts using envelope encryption.
 func (s *Service) EncryptJSON(v any) ([]byte, error) {
 	plaintext, err := json.Marshal(v)
@@ -404,7 +342,7 @@ func (s *Service) EncryptJSON(v any) ([]byte, error) {
 
 // DecryptJSON decrypts ciphertext and unmarshals into v.
 func (s *Service) DecryptJSON(ciphertext []byte, v any) error {
-	plain, err := s.Decrypt(ciphertext)
+	plain, err := s.EnvelopeDecrypt(ciphertext)
 	if err != nil {
 		return err
 	}
@@ -427,7 +365,7 @@ func (s *Service) DecryptString(ciphertext []byte) (string, error) {
 	if len(ciphertext) == 0 {
 		return "", nil
 	}
-	plain, err := s.Decrypt(ciphertext)
+	plain, err := s.EnvelopeDecrypt(ciphertext)
 	if err != nil {
 		return "", err
 	}
