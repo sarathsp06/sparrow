@@ -259,7 +259,6 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	// Update metrics
 	if s.metrics != nil {
 		s.metrics.WebhookRegistrations.Add(ctx, 1)
-		s.metrics.ActiveWebhooks.Add(ctx, 1)
 	}
 
 	s.logger.InfoContext(ctx, "Enhanced webhook registered successfully",
