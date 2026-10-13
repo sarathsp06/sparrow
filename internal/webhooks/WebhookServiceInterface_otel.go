@@ -4,8 +4,6 @@
 
 package webhooks
 
-//go:generate gowrap gen -p github.com/sarathsp06/sparrow/internal/webhooks -i WebhookServiceInterface -t ../../templates/opentelemetry.tmpl -o WebhookServiceInterface_otel.go -l ""
-
 import (
 	"context"
 	"time"

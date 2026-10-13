@@ -51,6 +51,21 @@ require (
 )
 
 require (
+	github.com/Masterminds/goutils v1.1.1 // indirect
+	github.com/Masterminds/semver/v3 v3.1.1 // indirect
+	github.com/Masterminds/sprig/v3 v3.2.2 // indirect
+	github.com/hexdigest/gowrap v1.4.3 // indirect
+	github.com/huandu/xstrings v1.3.2 // indirect
+	github.com/imdario/mergo v0.3.12 // indirect
+	github.com/mitchellh/copystructure v1.1.2 // indirect
+	github.com/mitchellh/reflectwalk v1.0.1 // indirect
+	github.com/shopspring/decimal v1.2.0 // indirect
+	github.com/spf13/cast v1.4.1 // indirect
+	golang.org/x/mod v0.37.0 // indirect
+	golang.org/x/tools v0.47.0 // indirect
+)
+
+require (
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
@@ -148,3 +163,5 @@ replace github.com/sarathsp06/sparrow/pkg/template => ./pkg/template
 replace github.com/sarathsp06/sparrow/satellites/recipes => ./satellites/recipes
 
 replace github.com/sarathsp06/sparrow/satellites/sparrow-sources => ./satellites/sparrow-sources
+
+tool github.com/hexdigest/gowrap/cmd/gowrap

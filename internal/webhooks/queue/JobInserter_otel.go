@@ -4,8 +4,6 @@
 
 package queue
 
-//go:generate gowrap gen -p github.com/sarathsp06/sparrow/internal/webhooks/queue -i JobInserter -t ../../../templates/opentelemetry.tmpl -o JobInserter_otel.go -l ""
-
 import (
 	"context"
 

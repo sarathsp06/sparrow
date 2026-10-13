@@ -119,7 +119,7 @@ type SecretRevealer interface {
 	WebhookSigningPublicKeyHex(encryptedPrivKey []byte) string
 }
 
-//go:generate gowrap gen -i WebhookServiceInterface -t ../../templates/opentelemetry.tmpl -o WebhookServiceInterface_otel.go
+//go:generate go tool gowrap gen -g -i WebhookServiceInterface -t ../../templates/opentelemetry.tmpl -o WebhookServiceInterface_otel.go
 
 // WebhookServiceInterface is the composite of every domain interface, satisfied
 // by *WebhookService. Consumers should depend on the narrow per-domain

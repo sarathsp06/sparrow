@@ -5,6 +5,7 @@
 
 # Documentation (not needed for build)
 docs/
+book/
 
 # Prebuilt binaries (we compile in Docker)
 build/
@@ -17,7 +18,6 @@ build/
 server
 migrate
 server-*
-cmd/generate-docs/
 
 # IDE files
 .vscode/
@@ -44,10 +44,6 @@ Dockerfile*
 .dockerignore
 docker-compose*.yml
 
-# Development-only files
-setup.sh
-examples/
-pkg/testutils/
 
 # Frontend dependencies (installed fresh in Docker)
 web/node_modules/
