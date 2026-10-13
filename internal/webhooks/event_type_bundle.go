@@ -14,7 +14,6 @@ import (
 
 	"github.com/google/uuid"
 	jsonschema "github.com/kaptinlin/jsonschema"
-	"github.com/sarathsp06/schemagen"
 
 	"github.com/sarathsp06/sparrow"
 	"github.com/sarathsp06/sparrow/internal/tenant"
@@ -443,23 +442,13 @@ func checkTemplates(def EventTypeDefinition, subs []*store.EventSubscription) *T
 	return check
 }
 
-// generatePayload builds an example payload from a schema: every field when
-// all is true, only required fields otherwise. Generation errors yield an
-// empty payload, which the strict render then exercises.
+// generatePayload is store.SamplePayload, seeded so the import check is
+// repeatable. Generation errors yield an empty payload, which the strict
+// render then exercises.
 func generatePayload(schema map[string]any, all bool) map[string]any {
-	if len(schema) == 0 {
-		return map[string]any{}
-	}
-	b, err := json.Marshal(schema)
+	sample, err := store.SamplePayload(schema, all, 1)
 	if err != nil {
 		return map[string]any{}
 	}
-	sample, err := schemagen.NewGenerator().SetSeed(1).SetGenerateAllFields(all).Generate(b)
-	if err != nil {
-		return map[string]any{}
-	}
-	if m, ok := sample.(map[string]any); ok {
-		return m
-	}
-	return map[string]any{}
+	return sample
 }

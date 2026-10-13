@@ -11,7 +11,6 @@ import (
 
 	"github.com/google/uuid"
 	jsonschema "github.com/kaptinlin/jsonschema"
-	"github.com/sarathsp06/schemagen"
 	"go.opentelemetry.io/otel/attribute"
 	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
@@ -371,33 +370,6 @@ func (s *WebhookService) GetEventRecord(ctx context.Context, eventID string) (*s
 	}
 
 	return record, webhookCount, successCount, failedCount, pendingCount, nil
-}
-
-// generateSamplePayload generates a sample payload from the given schema using schemagen
-func generateSamplePayload(schema map[string]any) (map[string]any, error) {
-	if len(schema) == 0 {
-		return map[string]any{}, nil
-	}
-
-	// Convert schema to JSON bytes
-	schemaBytes, err := json.Marshal(schema)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal schema: %w", err)
-	}
-
-	// Create generator and generate sample
-	generator := schemagen.NewGenerator().SetGenerateAllFields(true)
-	sample, err := generator.Generate(schemaBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate sample payload: %w", err)
-	}
-
-	// Convert to map[string]any
-	if sampleMap, ok := sample.(map[string]any); ok {
-		return sampleMap, nil
-	}
-
-	return map[string]any{}, nil
 }
 
 // autoRegisterEvent creates a schema-less event type on first push, when

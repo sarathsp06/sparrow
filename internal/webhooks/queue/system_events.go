@@ -2,12 +2,10 @@ package queue
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sarathsp06/schemagen"
 
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
@@ -204,22 +202,13 @@ func pushSystemEvent(ctx context.Context, log *slog.Logger, eventRepo systemEven
 }
 
 // systemEventSamplePayload generates an example payload from a system
-// event's schema for the Push Test Event UI, mirroring
-// WebhookService.generateSamplePayload. Duplicated (rather than shared)
-// because the queue package cannot import webhooks — see pushSystemEvent.
+// event's schema for the Push Test Event UI.
 func systemEventSamplePayload(schema map[string]any) map[string]any {
-	schemaBytes, err := json.Marshal(schema)
+	sample, err := store.SamplePayload(schema, true, 0)
 	if err != nil {
 		return map[string]any{}
 	}
-	sample, err := schemagen.NewGenerator().SetGenerateAllFields(true).Generate(schemaBytes)
-	if err != nil {
-		return map[string]any{}
-	}
-	if sampleMap, ok := sample.(map[string]any); ok {
-		return sampleMap
-	}
-	return map[string]any{}
+	return sample
 }
 
 // emitHealthChangedEvent pushes systemEventHealthChanged when a delivery

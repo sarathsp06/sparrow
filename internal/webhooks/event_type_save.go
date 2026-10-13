@@ -369,7 +369,7 @@ func (s *WebhookService) saveEventTypeTx(ctx context.Context, tx store.Repositor
 // generation failure is not fatal: the definition is saved with an empty
 // sample.
 func (s *WebhookService) samplePayloadFor(ctx context.Context, schema map[string]any) map[string]any {
-	sample, err := generateSamplePayload(schema)
+	sample, err := store.SamplePayload(schema, true, 0)
 	if err != nil {
 		s.logger.WarnContext(ctx, "Failed to generate sample payload, using empty payload", "error", err)
 		return map[string]any{}
