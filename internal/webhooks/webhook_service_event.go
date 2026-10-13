@@ -36,13 +36,11 @@ const eventNameTooLong = "event name must be at most 255 characters"
 // isDuplicate=true and no new event or deliveries are created.
 // Re-push/re-enqueue flows pass nil, so they are never deduplicated.
 func (s *WebhookService) PushEvent(ctx context.Context, consumer string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string, idempotencyKey *string) (string, bool, bool, []string, error) {
-	ctx, span := s.tracer.Start(ctx, "event.push",
-		trace.WithAttributes(
-			attribute.String("consumer", consumer),
-			attribute.String("event", event),
-		),
+	span := trace.SpanFromContext(ctx)
+	span.SetAttributes(
+		attribute.String("consumer", consumer),
+		attribute.String("event", event),
 	)
-	defer span.End()
 
 	s.logger.InfoContext(ctx, "Processing push event request",
 		"consumer", consumer,
@@ -270,12 +268,10 @@ func (s *WebhookService) PushEvent(ctx context.Context, consumer string, event s
 // consumer, event name, metadata, and labels. The payload is validated against
 // the CURRENT event type schema. Returns a new event_id and any warnings.
 func (s *WebhookService) RePushEvent(ctx context.Context, eventID string) (string, []string, error) {
-	ctx, span := s.tracer.Start(ctx, "event.repush",
-		trace.WithAttributes(
-			attribute.String("original_event_id", eventID),
-		),
+	span := trace.SpanFromContext(ctx)
+	span.SetAttributes(
+		attribute.String("original_event_id", eventID),
 	)
-	defer span.End()
 
 	s.logger.InfoContext(ctx, "Processing single event re-push",
 		"original_event_id", eventID,
@@ -335,12 +331,10 @@ func (s *WebhookService) RePushEvent(ctx context.Context, eventID string) (strin
 
 // GetEventRecord retrieves a single pushed event instance by UUID with delivery statistics.
 func (s *WebhookService) GetEventRecord(ctx context.Context, eventID string) (*store.EventRecord, int32, int32, int32, int32, error) {
-	ctx, span := s.tracer.Start(ctx, "event.get_record",
-		trace.WithAttributes(
-			attribute.String("event_id", eventID),
-		),
+	span := trace.SpanFromContext(ctx)
+	span.SetAttributes(
+		attribute.String("event_id", eventID),
 	)
-	defer span.End()
 
 	tenantID := tenant.DefaultTenantID
 
@@ -433,9 +427,6 @@ func (s *WebhookService) autoRegisterEvent(ctx context.Context, tenantID uuid.UU
 // RegisterEvent registers a new event type at version 1. It fails with
 // AlreadyExists if the name is taken; use UpdateEvent to change a type.
 func (s *WebhookService) RegisterEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (string, time.Time, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.RegisterEvent")
-	defer span.End()
-
 	s.logger.InfoContext(ctx, "Processing event registration request", "name", name, "description", description)
 	res, err := s.saveEventType(ctx, EventTypeDefinition{
 		Name:        name,
@@ -456,9 +447,6 @@ func (s *WebhookService) RegisterEvent(ctx context.Context, name string, descrip
 // checkEventForConsumer): Sparrow's own sparrow.* events for the system
 // consumer, tenant event types for any other consumer or none.
 func (s *WebhookService) ListEvents(ctx context.Context, activeOnly bool, consumer string, limit, offset int32) ([]*store.EventRegistration, int32, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.ListEvents")
-	defer span.End()
-
 	s.logger.InfoContext(ctx, "Processing list events request",
 		"active_only", activeOnly, "consumer", consumer, "limit", limit, "offset", offset)
 
@@ -489,9 +477,6 @@ func (s *WebhookService) ListEvents(ctx context.Context, activeOnly bool, consum
 // A breaking schema change (see ClassifySchemaChange) to an event type that
 // subscriptions receive fails with FailedPrecondition unless allowBreaking.
 func (s *WebhookService) UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool, allowBreaking bool) (*EventTypeSaveResult, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.UpdateEvent")
-	defer span.End()
-
 	s.logger.InfoContext(ctx, "Processing event update request", "name", name)
 	res, err := s.saveEventType(ctx, EventTypeDefinition{
 		Name:        name,
@@ -510,9 +495,6 @@ func (s *WebhookService) UpdateEvent(ctx context.Context, name string, descripti
 
 // ListEventTypeVersions returns every version of an event type, newest first.
 func (s *WebhookService) ListEventTypeVersions(ctx context.Context, name string) ([]*store.EventRegistrationVersion, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.ListEventTypeVersions")
-	defer span.End()
-
 	if _, err := s.GetEvent(ctx, name); err != nil {
 		return nil, err
 	}
@@ -525,9 +507,6 @@ func (s *WebhookService) ListEventTypeVersions(ctx context.Context, name string)
 
 // GetEventTypeVersion returns one version of an event type.
 func (s *WebhookService) GetEventTypeVersion(ctx context.Context, name string, version int) (*store.EventRegistrationVersion, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.GetEventTypeVersion")
-	defer span.End()
-
 	if name == "" {
 		return nil, svcerrors.Error(svcerrors.InvalidArgument, "event name is required")
 	}
@@ -543,9 +522,6 @@ func (s *WebhookService) GetEventTypeVersion(ctx context.Context, name string, v
 
 // GetEvent retrieves an event registration by name
 func (s *WebhookService) GetEvent(ctx context.Context, name string) (*store.EventRegistration, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.GetEvent")
-	defer span.End()
-
 	s.logger.InfoContext(ctx, "Processing get event request", "name", name)
 	if name == "" {
 		return nil, svcerrors.Error(svcerrors.InvalidArgument, "event name is required")
@@ -640,8 +616,7 @@ func ValidateJSONSchema(schema map[string]any, payload map[string]any) error {
 // Supports filtering by consumer, event name, schema_valid, labels, and time range.
 // When PrepareRepush is true, snapshots all matching event IDs into a batch job and returns the batch ID.
 func (s *WebhookService) ListEventReports(ctx context.Context, filter store.EventReportFilter) (*EventReportPage, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.ListEventReports")
-	defer span.End()
+	span := trace.SpanFromContext(ctx)
 
 	s.logger.InfoContext(ctx, "Processing list event reports request",
 		"consumer", filter.Consumer,

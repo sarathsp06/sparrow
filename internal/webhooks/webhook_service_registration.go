@@ -70,14 +70,12 @@ func (s *WebhookService) setWebhookActive(ctx context.Context, webhookID string,
 // CreateWebhook creates a webhook registration with HTTP configuration support
 func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*WebhookRegistration, error) {
 	redactedURL := client.RedactURL(req.URL)
-	ctx, span := s.tracer.Start(ctx, "webhook.create",
-		trace.WithAttributes(
-			attribute.String("consumer", req.Consumer),
-			attribute.StringSlice("events", req.Events),
-			attribute.String("url", redactedURL),
-		),
+	span := trace.SpanFromContext(ctx)
+	span.SetAttributes(
+		attribute.String("consumer", req.Consumer),
+		attribute.StringSlice("events", req.Events),
+		attribute.String("url", redactedURL),
 	)
-	defer span.End()
 
 	s.logger.InfoContext(ctx, "Processing enhanced webhook creation request",
 		"consumer", req.Consumer,
@@ -395,9 +393,6 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, consumer string, webh
 
 // PauseWebhook temporarily disables webhook deliveries
 func (s *WebhookService) PauseWebhook(ctx context.Context, webhookID string, consumer string, reason string) error {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.PauseWebhook")
-	defer span.End()
-
 	s.logger.InfoContext(ctx, "Pausing webhook", "webhook_id", webhookID, "consumer", consumer, "reason", reason)
 	return s.setWebhookActive(ctx, webhookID, consumer, false)
 }
@@ -413,9 +408,6 @@ type WebhookResumeResult struct {
 // operator or auto-disabled. Deliveries held while it was paused stay paused
 // until retried, like those of a resumed subscription.
 func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, consumer string) (*WebhookResumeResult, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.ResumeWebhook")
-	defer span.End()
-
 	s.logger.InfoContext(ctx, "Resuming webhook", "webhook_id", webhookID, "consumer", consumer)
 	if err := s.setWebhookActive(ctx, webhookID, consumer, true); err != nil {
 		return nil, err
@@ -451,9 +443,6 @@ func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, co
 // one cannot have its events replaced in bulk (that recreates subscriptions
 // without templates).
 func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID string, consumer string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, requiresTransform bool, updateMask []string) error {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.UpdateWebhookConfig")
-	defer span.End()
-
 	s.logger.InfoContext(ctx, "Processing update webhook config request",
 		"webhook_id", webhookID,
 		"consumer", consumer,
@@ -735,9 +724,6 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 // secret is readable; every later read masks it. Deliveries signed after the
 // rotation use the new secret, so receivers must be updated with it.
 func (s *WebhookService) RotateWebhookSecret(ctx context.Context, webhookID string, consumer string) (string, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.RotateWebhookSecret")
-	defer span.End()
-
 	if consumer == "" {
 		return "", svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
 	}

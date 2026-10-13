@@ -163,9 +163,6 @@ func BundleDigest(items []EventTypeDefinition) string {
 // types, sorted by name, and the stamp for the bundle. System event types
 // (sparrow.*) are never exported. An unknown name fails the whole export.
 func (s *WebhookService) ExportEventTypes(ctx context.Context, sel EventTypeExportSelection) ([]EventTypeDefinition, BundleStamp, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.ExportEventTypes")
-	defer span.End()
-
 	selectors := 0
 	if len(sel.Names) > 0 {
 		selectors++
@@ -312,9 +309,6 @@ var errImportRollback = errors.New("import rolled back")
 // schema change is breaking for its subscriptions and AllowBreaking is not
 // set; BlockedBy then says why.
 func (s *WebhookService) ImportEventTypes(ctx context.Context, items []EventTypeDefinition, stamp *BundleStamp, opts EventTypeImportOptions) (*EventTypeImportResult, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.ImportEventTypes")
-	defer span.End()
-
 	if err := validateBundle(items); err != nil {
 		return nil, err
 	}

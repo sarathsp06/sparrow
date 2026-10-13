@@ -16,9 +16,6 @@ import (
 // GetDeliveryStatus gets the status of a webhook delivery.
 // When consumer is empty, looks up by delivery ID alone.
 func (s *WebhookService) GetDeliveryStatus(ctx context.Context, deliveryID string, consumer string) (*store.WebhookDelivery, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.GetDeliveryStatus")
-	defer span.End()
-
 	s.logger.InfoContext(ctx, "Getting webhook delivery status",
 		"delivery_id", deliveryID,
 		"consumer", consumer)
@@ -48,9 +45,6 @@ func (s *WebhookService) GetDeliveryStatus(ctx context.Context, deliveryID strin
 // GetDeliveryAttempts retrieves individual attempt history for a delivery.
 // Returns all recorded health events for the delivery, ordered by timestamp ascending.
 func (s *WebhookService) GetDeliveryAttempts(ctx context.Context, deliveryID string) ([]*store.WebhookHealthEvent, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.GetDeliveryAttempts")
-	defer span.End()
-
 	tenantID := tenant.DefaultTenantID
 
 	s.logger.InfoContext(ctx, "Getting delivery attempts", "delivery_id", deliveryID, "tenant_id", tenantID.String())
@@ -78,9 +72,6 @@ func (s *WebhookService) GetDeliveryAttempts(ctx context.Context, deliveryID str
 // subscription, and time range via the DeliveryFilter struct.
 // When PrepareRetry is true, snapshots all matching delivery IDs into a batch job and returns the batch ID.
 func (s *WebhookService) ListDeliveries(ctx context.Context, filter store.DeliveryFilter) (*DeliveryPage, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.ListDeliveries")
-	defer span.End()
-
 	s.logger.InfoContext(ctx, "Listing deliveries",
 		"consumer", filter.Consumer,
 		"webhook_id", filter.WebhookID,
@@ -152,9 +143,6 @@ const retryChunkSize = 1000
 
 // RetryDelivery manually retries failed or pending webhook deliveries
 func (s *WebhookService) RetryDelivery(ctx context.Context, consumer string, deliveryID string, webhookID string, force bool) ([]string, int32, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.RetryDelivery")
-	defer span.End()
-
 	s.logger.InfoContext(ctx, "Processing retry delivery request",
 		"delivery_id", deliveryID,
 		"webhook_id", webhookID,

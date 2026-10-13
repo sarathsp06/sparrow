@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"go.opentelemetry.io/otel/trace"
 
 	"github.com/sarathsp06/sparrow/internal/observability"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
@@ -23,7 +22,6 @@ type WebhookService struct {
 	webhookRepo   store.RepositoryInterface
 	crypto        *crypto.Service
 	logger        *slog.Logger
-	tracer        trace.Tracer
 	metrics       *observability.SparrowMetrics
 	networkPolicy client.NetworkPolicy
 	// autoRegisterEvents lets a push to an unknown event name create a
@@ -189,7 +187,6 @@ func NewWebhookService(queueManager queue.JobInserter, webhookRepo store.Reposit
 		webhookRepo: webhookRepo,
 		crypto:      cryptoSvc,
 		logger:      slog.Default().With("component", "webhook-service"),
-		tracer:      observability.GetTracer("sparrow.service.webhook"),
 		metrics:     metrics,
 	}
 	for _, opt := range opts {
