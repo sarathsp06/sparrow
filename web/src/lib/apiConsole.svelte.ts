@@ -32,14 +32,19 @@ export const apiConsole = {
   },
 };
 
+/** Wraps a value in single quotes for a POSIX shell, escaping any ' inside it. */
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
 export function toCurl(entry: ApiLogEntry): string {
-  const parts = [`curl '${entry.url}'`];
+  const parts = [`curl ${shellQuote(entry.url)}`];
   if (entry.method !== "GET") parts.push(`  --request ${entry.method}`);
   for (const [name, value] of entry.headers) {
     const shown = name.toLowerCase() === "x-api-key" ? "YOUR_API_KEY" : value;
-    parts.push(`  --header '${name}: ${shown}'`);
+    parts.push(`  --header ${shellQuote(`${name}: ${shown}`)}`);
   }
-  if (entry.body) parts.push(`  --data '${entry.body}'`);
+  if (entry.body) parts.push(`  --data ${shellQuote(entry.body)}`);
   return parts.join(" \\\n");
 }
 
@@ -59,7 +64,7 @@ export const apiLogMiddleware: Middleware = {
     if (request.body) {
       try {
         body = await request.clone().text();
-        // Pretty-print JSON bodies; stays valid inside the curl single quotes.
+        // Pretty-print JSON bodies; toCurl shell-quotes them.
         body = JSON.stringify(JSON.parse(body), null, 2);
       } catch {
         // best-effort only; keep whatever we managed to read
