@@ -16,6 +16,7 @@
   import HeldDeliveriesNotice from '$lib/components/HeldDeliveriesNotice.svelte';
   import SubscriptionManager from '$lib/components/SubscriptionManager.svelte';
   import BatchProgress from '$lib/components/BatchProgress.svelte';
+  import { BatchJob } from '$lib/batch-job.svelte';
   import SigningSecretReveal from '$lib/components/SigningSecretReveal.svelte';
   import AlertConfigs from '$lib/components/AlertConfigs.svelte';
   import { consumerLabel } from '$lib/consumer.svelte';
@@ -99,12 +100,8 @@
   let deliveryCreatedBeforeFilter = $state('');
 
   // Batch retry state
-  let retryId = $state('');
-  let batchStatus = $state<{ status: string; total: number; processed: number; failed: number } | undefined>();
+  const retry = new BatchJob('retry', () => webhook?.consumer ?? '', (m) => (error = m));
   let preparingRetry = $state(false);
-  let confirmRetry = $state(false);
-  let retryTotal = $state(0);
-  let pollingTimer: ReturnType<typeof setInterval> | undefined;
 
   const webhookId = page.params.webhookId ?? '';
 
@@ -120,7 +117,7 @@
   );
 
   onDestroy(() => {
-    if (pollingTimer) clearInterval(pollingTimer);
+    retry.stop();
   });
 
   async function fetchData() {
@@ -488,11 +485,7 @@
           },
         },
       }));
-      if (res.retry_id) {
-        retryId = res.retry_id;
-        retryTotal = res.retry_total || 0;
-        confirmRetry = true;
-      } else {
+      if (!retry.prepared(res.retry_id, res.retry_total)) {
         error = 'No matching deliveries to retry.';
       }
     } catch (e: any) {
@@ -500,66 +493,6 @@
     } finally {
       preparingRetry = false;
     }
-  }
-
-  async function executeRetry() {
-    confirmRetry = false;
-    if (!retryId || !webhook) return;
-    try {
-      const res = unwrap(await api.POST('/v1/consumers/{consumer}/deliveries:retryBatch', {
-        params: { path: { consumer: webhook.consumer } },
-        body: { repush_id: retryId },
-      }));
-      batchStatus = { status: res.status, total: res.total, processed: res.processed, failed: res.failed };
-      startRetryPolling();
-    } catch (e: any) {
-      error = formatAPIError(e, 'Failed to start retry');
-    }
-  }
-
-  function startRetryPolling() {
-    if (pollingTimer) clearInterval(pollingTimer);
-    pollingTimer = setInterval(async () => {
-      if (!retryId || !webhook) { stopRetryPolling(); return; }
-      try {
-        const res = unwrap(await api.GET('/v1/consumers/{consumer}/retry-jobs/{job_id}', {
-          params: { path: { consumer: webhook.consumer, job_id: retryId } },
-        }));
-        batchStatus = { status: res.status, total: res.total, processed: res.processed, failed: res.failed };
-        if (res.status === 'completed' || res.status === 'failed' || res.status === 'cancelled') {
-          stopRetryPolling();
-        }
-      } catch {
-        stopRetryPolling();
-      }
-    }, 2000);
-  }
-
-  function stopRetryPolling() {
-    if (pollingTimer) { clearInterval(pollingTimer); pollingTimer = undefined; }
-  }
-
-  async function cancelRetryBatch() {
-    if (!retryId || !webhook) return;
-    try {
-      await api.POST('/v1/consumers/{consumer}/retry-jobs/{job_id}:cancel', {
-        params: { path: { consumer: webhook.consumer, job_id: retryId } },
-      });
-    } catch (e: any) {
-      error = formatAPIError(e, 'Failed to cancel retry');
-    }
-  }
-
-  // Dismissing the confirm dialog cancels the prepared snapshot so it
-  // doesn't linger as a pending batch job. Best effort: it expires anyway.
-  function dismissRetry() {
-    confirmRetry = false;
-    const id = retryId;
-    retryId = '';
-    if (!id || !webhook) return;
-    api.POST('/v1/consumers/{consumer}/retry-jobs/{job_id}:cancel', {
-      params: { path: { consumer: webhook.consumer, job_id: id } },
-    }).catch(() => {});
   }
 
   function onBatchDone() {
@@ -934,11 +867,11 @@
           </div>
         </div>
 
-        {#if batchStatus}
+        {#if retry.progress}
           <div class="mb-4">
             <BatchProgress
-              batch={batchStatus}
-              oncancel={cancelRetryBatch}
+              batch={retry.progress}
+              oncancel={() => retry.cancel()}
               ondone={onBatchDone}
             />
           </div>
@@ -1310,11 +1243,11 @@
 />
 
 <ConfirmDialog
-  open={confirmRetry}
+  open={retry.confirming}
   title="Re-deliver Matching Deliveries"
-  message="This will retry {retryTotal} matching deliver{retryTotal !== 1 ? 'ies' : 'y'} for this webhook. Sparrow re-sends the stored deliveries; it does not create new events. Continue?"
+  message="This will retry {retry.total} matching deliver{retry.total !== 1 ? 'ies' : 'y'} for this webhook. Sparrow re-sends the stored deliveries; it does not create new events. Continue?"
   confirmLabel="Re-deliver"
   variant="warning"
-  onconfirm={executeRetry}
-  oncancel={dismissRetry}
+  onconfirm={() => retry.start()}
+  oncancel={() => retry.dismiss()}
 />
