@@ -28,7 +28,6 @@ func main() {
 	}
 
 	log.InfoContext(ctx, "Starting database migration",
-		"database_url", databaseURL,
 		"direction", *direction,
 	)
 
