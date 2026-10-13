@@ -107,12 +107,11 @@ func setupEnv(t *testing.T) *testEnv {
 	require.NoError(t, err)
 
 	// 4. Create sqlx pool for application queries
-	sqlxDB, err := storePg.Open(databaseURL, 3,
-		storePg.WithMaxOpenConnections(10),
-		storePg.WithMaxIdleConnections(10),
-		storePg.WithConnectionMaxLifeTime(5*time.Minute),
-	)
+	sqlxDB, err := storePg.Open(databaseURL, 3)
 	require.NoError(t, err)
+	sqlxDB.SetMaxOpenConns(10)
+	sqlxDB.SetMaxIdleConns(10)
+	sqlxDB.SetConnMaxLifetime(5 * time.Minute)
 
 	// 5. Create repositories
 	webhookRepo := store.NewRepository(sqlxDB)

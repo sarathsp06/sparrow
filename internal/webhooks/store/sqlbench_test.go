@@ -40,11 +40,12 @@ func TestSQLBench(t *testing.T) {
 			t.Fatalf("bad SQLBENCH_RUNS %q", v)
 		}
 	}
-	db, err := postgres.Open(dsn, 1, postgres.WithMaxOpenConnections(1))
+	db, err := postgres.Open(dsn, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close() //nolint:errcheck
+	db.SetMaxOpenConns(1)
 	r := NewRepository(db)
 	ctx := context.Background()
 	tid := tenant.DefaultTenantID

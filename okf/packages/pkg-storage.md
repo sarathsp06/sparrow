@@ -16,7 +16,6 @@ Abstracts database access with DBTX/DB interfaces and PostgreSQL error translati
 type DBTX interface {
     GetContext(ctx, dest, query, args...) error
     SelectContext(ctx, dest, query, args...) error
-    NamedExecContext(ctx, query, arg) (sql.Result, error)
     ExecContext(ctx, query, args...) (sql.Result, error)
 }
 

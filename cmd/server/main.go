@@ -145,16 +145,15 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	sqlxDB, err := postgres.Open(cfg.DatabaseURL, 3,
-		postgres.WithMaxOpenConnections(25),
-		postgres.WithMaxIdleConnections(25),
-		postgres.WithConnectionMaxLifeTime(5*time.Minute),
-		postgres.WithSetConnMaxIdleTime(5*time.Minute),
-	)
+	sqlxDB, err := postgres.Open(cfg.DatabaseURL, 3)
 	if err != nil {
 		log.Fatalf("Failed to open sqlx database: %v", err)
 	}
 	defer sqlxDB.Close() //nolint:errcheck
+	sqlxDB.SetMaxOpenConns(25)
+	sqlxDB.SetMaxIdleConns(25)
+	sqlxDB.SetConnMaxLifetime(5 * time.Minute)
+	sqlxDB.SetConnMaxIdleTime(5 * time.Minute)
 
 	// Bootstrap default tenant (must exist from migrations)
 	if err := tenant.Bootstrap(ctx, sqlxDB); err != nil {
