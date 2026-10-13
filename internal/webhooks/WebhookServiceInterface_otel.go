@@ -171,15 +171,16 @@ func (_d WebhookServiceInterfaceWithTracing) CreateSubscription(ctx context.Cont
 }
 
 // CreateWebhook implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (wp1 *WebhookRegistration, err error) {
+func (_d WebhookServiceInterfaceWithTracing) CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (reg *store.WebhookRegistration, secret string, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.CreateWebhook")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
 				"ctx": ctx,
 				"req": req}, map[string]interface{}{
-				"wp1": wp1,
-				"err": err})
+				"reg":    reg,
+				"secret": secret,
+				"err":    err})
 		} else if err != nil {
 			_span.RecordError(err)
 			_span.SetStatus(_codes.Error, err.Error())

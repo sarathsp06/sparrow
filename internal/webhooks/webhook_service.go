@@ -34,7 +34,7 @@ type WebhookService struct {
 // WebhookManager manages webhook registrations and their lifecycle.
 type WebhookManager interface {
 	RegisterWebhook(ctx context.Context, consumer string, events []string, url string, headers map[string]string, timeout int, active bool, description string, secretHeaders map[string]string) (string, time.Time, error)
-	CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*WebhookRegistration, error)
+	CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (reg *store.WebhookRegistration, secret string, err error)
 	UnregisterWebhook(ctx context.Context, webhookID string, consumer string) error
 	ListWebhooks(ctx context.Context, consumer string, webhookID string, event string, activeOnly bool, health string, limit, offset int32) ([]*store.WebhookRegistration, int32, error)
 	UpdateWebhookConfig(ctx context.Context, webhookID string, consumer string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, requiresTransform bool, updateMask []string) error

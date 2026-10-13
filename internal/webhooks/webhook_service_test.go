@@ -515,7 +515,7 @@ func TestWebhookService_RequiresTransform(t *testing.T) {
 
 	t.Run("create webhook with events needs a template", func(t *testing.T) {
 		service := NewWebhookService(nil, new(mockRepo), nil)
-		_, err := service.CreateWebhook(ctx, WebhookRegistrationRequest{
+		_, _, err := service.CreateWebhook(ctx, WebhookRegistrationRequest{
 			Consumer: consumer, URL: "https://example.com/hook", Events: []string{"order.created"}, RequiresTransform: true,
 		})
 		var svcErr *svcerrors.ServiceError

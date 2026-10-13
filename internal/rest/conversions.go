@@ -175,39 +175,3 @@ func derefString(s *string) string {
 	}
 	return *s
 }
-
-// toWebhookOutFromDomain converts the webhooks-package WebhookRegistration
-// (returned fresh at creation time, secret shown once) into the REST shape.
-func toWebhookOutFromDomain(reg *webhooks.WebhookRegistration, svc webhooks.SecretRevealer) WebhookOut {
-	codes := make([]int32, len(reg.HTTPConfig.ExpectedStatusCodes))
-	for i, c := range reg.HTTPConfig.ExpectedStatusCodes {
-		codes[i] = int32(c)
-	}
-	return WebhookOut{
-		WebhookID:         reg.ID,
-		Consumer:          reg.Consumer,
-		Events:            []string(reg.Events),
-		URL:               reg.URL,
-		Active:            reg.Active,
-		Description:       reg.Description,
-		Health:            reg.Health,
-		SignatureType:     reg.SignatureType,
-		SigningPublicKey:  svc.WebhookSigningPublicKeyHex(reg.Ed25519EncryptedPrivateKey),
-		RequiresTransform: reg.RequiresTransform,
-		HTTPConfig: WebhookHTTPConfigOut{
-			MaxRetries:            webhooks.DerefIntOr(reg.HTTPConfig.MaxRetries, 3),
-			RetryBackoffSeconds:   reg.HTTPConfig.RetryBackoffSeconds,
-			CaptureResponseBody:   webhooks.DerefBoolOr(reg.HTTPConfig.CaptureResponseBody, false),
-			FollowRedirects:       webhooks.DerefBoolOr(reg.HTTPConfig.FollowRedirects, true),
-			VerifySSL:             webhooks.DerefBoolOr(reg.HTTPConfig.VerifySSL, true),
-			RequestTimeoutSeconds: reg.HTTPConfig.RequestTimeoutSeconds,
-			ExpectedStatusCodes:   codes,
-			WebhookSecret:         reg.HTTPConfig.WebhookSecret, // shown once, plaintext, at creation
-			UserAgent:             reg.HTTPConfig.UserAgent,
-			ContentType:           reg.HTTPConfig.ContentType,
-			RateLimitRPS:          reg.HTTPConfig.RateLimitRPS,
-		},
-		CreatedAt: reg.CreatedAt.Format(time.RFC3339Nano),
-		UpdatedAt: reg.UpdatedAt.Format(time.RFC3339Nano),
-	}
-}

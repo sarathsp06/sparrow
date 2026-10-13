@@ -224,11 +224,13 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 		if p, ok := httpauth.FromContext(ctx); ok && (p.Root || p.TokenID != "") {
 			req.TemplateMeta.SavedBy = p.Name
 		}
-		reg, err := svc.CreateWebhook(ctx, req)
+		reg, secret, err := svc.CreateWebhook(ctx, req)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to register webhook")
 		}
-		return &webhookOutput{Body: toWebhookOutFromDomain(reg, svc)}, nil
+		out := toWebhookOut(reg, in.Body.Events, svc)
+		out.HTTPConfig.WebhookSecret = secret // shown once, plaintext, at creation
+		return &webhookOutput{Body: out}, nil
 	})
 
 	huma.Register(api, huma.Operation{

@@ -191,8 +191,10 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, consumer string, e
 	return registration.ID.String(), registration.CreatedAt, nil
 }
 
-// CreateWebhook creates a webhook registration with HTTP configuration support
-func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*WebhookRegistration, error) {
+// CreateWebhook creates a webhook registration with HTTP configuration support.
+// It returns the registration as stored and the plaintext signing secret,
+// which callers show once: the stored registration only has it encrypted.
+func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*store.WebhookRegistration, string, error) {
 	redactedURL := client.RedactURL(req.URL)
 	ctx, span := s.tracer.Start(ctx, "webhook.create",
 		trace.WithAttributes(
@@ -212,31 +214,31 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	tenantID := tenant.DefaultTenantID
 
 	if req.Consumer == "" {
-		return nil, svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
+		return nil, "", svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
 	}
 
 	// Validate webhook URL against SSRF
 	if err := ValidateWebhookURL(req.URL, s.networkPolicy); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if err := validateHeaders("headers", stringHeaders(req.Headers)); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if err := validateHeaders("secret_headers", req.SecretHeaders); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	if err := req.TemplateSettings.validate(); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if req.RequiresTransform && len(req.Events) > 0 && strings.TrimSpace(req.TransformTemplate) == "" {
-		return nil, svcerrors.Error(svcerrors.InvalidArgument, "requires_transform is set, so transform_template is required for the subscriptions created from events (or register without events and add each subscription with its own template)")
+		return nil, "", svcerrors.Error(svcerrors.InvalidArgument, "requires_transform is set, so transform_template is required for the subscriptions created from events (or register without events and add each subscription with its own template)")
 	}
 
 	// Convert request to internal webhook registration
 	webhookReg, err := req.ToWebhookRegistration()
 	if err != nil {
-		return nil, svcerrors.Wrapf(err, svcerrors.InvalidArgument, "invalid webhook configuration: %v", err)
+		return nil, "", svcerrors.Wrapf(err, svcerrors.InvalidArgument, "invalid webhook configuration: %v", err)
 	}
 
 	// Generate ID if not provided
@@ -247,10 +249,10 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	// Validate event names exist
 	for _, event := range req.Events {
 		if event == "" {
-			return nil, svcerrors.Error(svcerrors.InvalidArgument, "empty event name not allowed")
+			return nil, "", svcerrors.Error(svcerrors.InvalidArgument, "empty event name not allowed")
 		}
 		if err := checkEventForConsumer(req.Consumer, event); err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		// Check if event is registered
 		events, _, err := s.webhookRepo.ListEventsPaginated(ctx, tenantID, store.EventTypeFilter{}, 1000, 0)
@@ -267,7 +269,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 
 	webhookID, err := parseUUID(webhookReg.ID, "webhook ID")
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	// Convert internal webhook to store model for database operation
@@ -313,21 +315,21 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	if webhookReg.HTTPConfig.WebhookSecret != "" {
 		encSecret, err := s.EncryptWebhookSecret(webhookReg.HTTPConfig.WebhookSecret)
 		if err != nil {
-			return nil, fmt.Errorf("failed to encrypt webhook secret: %w", err)
+			return nil, "", fmt.Errorf("failed to encrypt webhook secret: %w", err)
 		}
 		storeWebhook.WebhookSecret = encSecret
 	} else {
 		// Auto-generate a secret if missing to ensure all webhooks are signed
 		secret, err := generateWebhookSecret()
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate webhook secret: %w", err)
+			return nil, "", fmt.Errorf("failed to generate webhook secret: %w", err)
 		}
 		encSecret, err := s.EncryptWebhookSecret(secret)
 		if err != nil {
-			return nil, fmt.Errorf("failed to encrypt generated webhook secret: %w", err)
+			return nil, "", fmt.Errorf("failed to encrypt generated webhook secret: %w", err)
 		}
 		storeWebhook.WebhookSecret = encSecret
-		webhookReg.HTTPConfig.WebhookSecret = secret // Return the plain secret in the response
+		webhookReg.HTTPConfig.WebhookSecret = secret // returned in plaintext once
 	}
 
 	// Generate Ed25519 keypair only when signature_type is "ed25519".
@@ -335,7 +337,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	if sigType == store.SignatureTypeEd25519 {
 		encPrivKey, err := s.generateEncryptedEd25519Key()
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		storeWebhook.Ed25519PrivateKey = encPrivKey
 	}
@@ -344,7 +346,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	if len(req.SecretHeaders) > 0 {
 		encrypted, err := s.EncryptSecretHeaders(req.SecretHeaders)
 		if err != nil {
-			return nil, fmt.Errorf("failed to encrypt secret headers: %w", err)
+			return nil, "", fmt.Errorf("failed to encrypt secret headers: %w", err)
 		}
 		storeWebhook.SecretHeaders = encrypted
 	}
@@ -380,7 +382,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		)
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "failed to register webhook")
-		return nil, fmt.Errorf("failed to register webhook: %w", err)
+		return nil, "", fmt.Errorf("failed to register webhook: %w", err)
 	}
 
 	// Initialize rate limit state if rate limiting is configured
@@ -410,15 +412,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 
 	span.SetStatus(otelcodes.Ok, "webhook created successfully")
 
-	// Attach encrypted Ed25519 key and the actual persisted timestamps so the
-	// handler returns what was stored, not zero-value placeholders (F-009).
-	webhookReg.Ed25519EncryptedPrivateKey = storeWebhook.Ed25519PrivateKey
-	webhookReg.SignatureType = string(storeWebhook.SignatureType)
-	webhookReg.RequiresTransform = storeWebhook.RequiresTransform
-	webhookReg.CreatedAt = storeWebhook.CreatedAt
-	webhookReg.UpdatedAt = storeWebhook.UpdatedAt
-
-	return webhookReg, nil
+	return storeWebhook, webhookReg.HTTPConfig.WebhookSecret, nil
 }
 
 // UnregisterWebhook removes a webhook registration
