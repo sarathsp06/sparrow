@@ -1,7 +1,7 @@
 <script lang="ts">
     import type { components } from '$lib/api-types';
     import { api, unwrap } from '$lib/services';
-    import { getCategoryBadge, formatAPIError, timeAgo } from '$lib/utils';
+    import { getCategoryBadge, formatAPIError, timeAgo, formatTimestamp } from '$lib/utils';
     import { consumerLabel } from '$lib/consumer.svelte';
     import { isSystemConsumer } from '$lib/system';
     import StatusBadge from './StatusBadge.svelte';
@@ -57,12 +57,6 @@
             retrying.delete(id);
             retrying = new Set(retrying);
         }
-    }
-
-    function formatTimestamp(timestamp: string | null | undefined): string {
-        if (!timestamp) return 'N/A';
-        const d = new Date(timestamp);
-        return isNaN(d.getTime()) ? 'N/A' : d.toLocaleString();
     }
 
     function codeColor(code: number | undefined): string {

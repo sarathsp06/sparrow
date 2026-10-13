@@ -1,7 +1,7 @@
 <script lang="ts">
     import type { components } from '$lib/api-types';
     import { api, unwrap } from '$lib/services';
-    import { timeAgo } from '$lib/utils';
+    import { timeAgo, formatTimestamp } from '$lib/utils';
     import CopyableId from './CopyableId.svelte';
     import EmptyState from './EmptyState.svelte';
     import DeliveryTable from './DeliveryTable.svelte';
@@ -23,12 +23,6 @@
     let expandedRows: Set<string> = $state(new Set());
     let deliveriesByEvent: Map<string, DeliveryItem[]> = $state(new Map());
     let loadingDeliveries: Set<string> = $state(new Set());
-
-    function formatTimestamp(timestamp: string | null | undefined): string {
-        if (!timestamp) return 'N/A';
-        const d = new Date(timestamp);
-        return isNaN(d.getTime()) ? 'N/A' : d.toLocaleString();
-    }
 
     function formatPayload(payload: any): string {
         if (!payload) return 'N/A';
@@ -69,7 +63,6 @@
             loadingDeliveries = new Set(loadingDeliveries);
         }
     }
-
 </script>
 
 {#if eventReports.length === 0}

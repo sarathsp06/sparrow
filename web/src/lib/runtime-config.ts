@@ -15,9 +15,6 @@ export interface SparrowConfig {
   apiKey?: string;
 }
 
-/** localStorage key holding an API key the operator typed into the sign-in prompt. */
-export const API_KEY_STORAGE_KEY = "sparrow_api_key";
-
 /**
  * Resolves the API base URL with no trailing slash. An empty string means
  * "same origin as the UI" (openapi-fetch then issues root-relative paths).

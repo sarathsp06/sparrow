@@ -200,6 +200,13 @@ function timeAgo(timestamp: string | null | undefined): string {
   return d.toLocaleDateString();
 }
 
+/** Locale date and time for a timestamp, or "N/A" when missing or invalid. */
+function formatTimestamp(timestamp: string | null | undefined): string {
+  if (!timestamp) return "N/A";
+  const d = new Date(timestamp);
+  return isNaN(d.getTime()) ? "N/A" : d.toLocaleString();
+}
+
 export {
   ERROR_CATEGORIES,
   JSONSchemaMetaSchema,
@@ -212,4 +219,5 @@ export {
   safeAjvValidator,
   toJSONObject,
   timeAgo,
+  formatTimestamp,
 };

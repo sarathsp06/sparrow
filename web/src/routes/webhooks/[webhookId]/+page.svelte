@@ -2,7 +2,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import { api, unwrap } from '$lib/services';
-  import { ERROR_CATEGORIES, formatAPIError } from '$lib/utils';
+  import { ERROR_CATEGORIES, formatAPIError, formatTimestamp } from '$lib/utils';
   import { onMount, onDestroy } from 'svelte';
   import type { components } from '$lib/api-types';
   type DeliveryStatus = components['schemas']['DeliveryItem']['status'];
@@ -108,7 +108,6 @@
 
   const webhookId = page.params.webhookId ?? '';
 
-
   // The events this webhook is subscribed to, for the Event filter.
   let subscribedEvents = $derived([...new Set(subscriptions.map((s) => s.event_name))].sort());
 
@@ -123,12 +122,6 @@
   onDestroy(() => {
     if (pollingTimer) clearInterval(pollingTimer);
   });
-
-  function formatTimestamp(timestamp: string | null | undefined): string {
-    if (!timestamp) return 'N/A';
-    const d = new Date(timestamp);
-    return isNaN(d.getTime()) ? 'N/A' : d.toLocaleString();
-  }
 
   async function fetchData() {
     if (!webhookId) return;

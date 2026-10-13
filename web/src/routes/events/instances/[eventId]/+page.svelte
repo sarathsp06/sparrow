@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { api, unwrap } from '$lib/services';
-  import { formatAPIError } from '$lib/utils';
+  import { formatAPIError, formatTimestamp } from '$lib/utils';
   import CopyableId from '$lib/components/CopyableId.svelte';
   import DeliveryTable from '$lib/components/DeliveryTable.svelte';
   import CursorPager from '$lib/components/CursorPager.svelte';
@@ -25,7 +25,6 @@
   let deliveriesError = $state('');
   let pageSize = $state(25);
   const pages = new CursorPages();
-
 
   // Re-push
   let repushing = $state(false);
@@ -73,12 +72,6 @@
     }
   }
 
-  function formatTimestamp(timestamp: string | null | undefined): string {
-    if (!timestamp) return 'N/A';
-    const d = new Date(timestamp);
-    return isNaN(d.getTime()) ? 'N/A' : d.toLocaleString();
-  }
-
   function formatPayload(payload: any): string {
     if (!payload) return 'N/A';
     try {
@@ -104,7 +97,6 @@
       repushing = false;
     }
   }
-
 </script>
 
 <svelte:head>
