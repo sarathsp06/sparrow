@@ -3,7 +3,6 @@ package webhooks
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -118,24 +117,13 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		webhookReg.ID = uuid.New().String()
 	}
 
-	// Validate event names exist
+	// Validate event names
 	for _, event := range req.Events {
 		if event == "" {
 			return nil, svcerrors.Error(svcerrors.InvalidArgument, "empty event name not allowed")
 		}
 		if err := checkEventForConsumer(req.Consumer, event); err != nil {
 			return nil, err
-		}
-		// Check if event is registered
-		events, _, err := s.webhookRepo.ListEventsPaginated(ctx, tenantID, store.EventTypeFilter{}, 1000, 0)
-		if err != nil {
-			s.logger.WarnContext(ctx, "Failed to validate event names", "error", err)
-		} else {
-			if !slices.ContainsFunc(events, func(e *store.EventRegistration) bool {
-				return e.Name == event
-			}) {
-				s.logger.WarnContext(ctx, "Event not registered", "event", event, "consumer", req.Consumer)
-			}
 		}
 	}
 
@@ -442,7 +430,7 @@ func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, co
 // fails while any subscription lacks a transform, and a webhook that requires
 // one cannot have its events replaced in bulk (that recreates subscriptions
 // without templates).
-func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID string, consumer string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, requiresTransform bool, updateMask []string) error {
+func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID string, consumer string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *WebhookHTTPConfig, secretHeaders map[string]string, signatureType string, requiresTransform bool, updateMask []string) error {
 	s.logger.InfoContext(ctx, "Processing update webhook config request",
 		"webhook_id", webhookID,
 		"consumer", consumer,

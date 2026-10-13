@@ -496,7 +496,7 @@ func TestWebhookService_UpdateWebhookConfig_RejectsOutOfBoundsValues(t *testing.
 
 	// request_timeout_seconds above the 300s create-path bound must be
 	// rejected on update too; UpdateWebhook must never be called.
-	err := service.UpdateWebhookConfig(ctx, webhookID.String(), consumer, nil, "", nil, true, "", &HTTPConfigUpdate{
+	err := service.UpdateWebhookConfig(ctx, webhookID.String(), consumer, nil, "", nil, true, "", &WebhookHTTPConfig{
 		RequestTimeoutSeconds: 86400,
 	}, nil, "", false, []string{"http_config"})
 

@@ -1,12 +1,8 @@
 package webhooks
 
 import (
-	"database/sql/driver"
-	"encoding/json"
 	"fmt"
 	"time"
-
-	"github.com/lib/pq"
 
 	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
 )
@@ -90,26 +86,6 @@ func DefaultWebhookHTTPConfig() WebhookHTTPConfig {
 		UserAgent:             "Sparrow-Webhook/1.0",
 		ContentType:           "application/json",
 	}
-}
-
-// GetRequestTimeout returns the request timeout as a time.Duration
-func (config WebhookHTTPConfig) GetRequestTimeout() time.Duration {
-	return time.Duration(config.RequestTimeoutSeconds) * time.Second
-}
-
-// GetRetryBackoff returns the retry backoff as a time.Duration
-func (config WebhookHTTPConfig) GetRetryBackoff() time.Duration {
-	return time.Duration(config.RetryBackoffSeconds) * time.Second
-}
-
-// IsSuccessStatusCode checks if the given status code is considered successful
-func (config WebhookHTTPConfig) IsSuccessStatusCode(statusCode int) bool {
-	for _, code := range config.ExpectedStatusCodes {
-		if code == statusCode {
-			return true
-		}
-	}
-	return false
 }
 
 // ValidateConfig validates the HTTP configuration
@@ -204,116 +180,11 @@ func (config *WebhookHTTPConfig) ApplyConfig(other *WebhookHTTPConfig) {
 // StringArray is a wrapper for PostgreSQL string arrays
 type StringArray []string
 
-// Scan implements the sql.Scanner interface
-func (a *StringArray) Scan(value any) error {
-	if value == nil {
-		*a = nil
-		return nil
-	}
-
-	switch v := value.(type) {
-	case []byte:
-		return json.Unmarshal(v, a)
-	case string:
-		return json.Unmarshal([]byte(v), a)
-	case pq.StringArray:
-		*a = StringArray(v)
-		return nil
-	default:
-		return fmt.Errorf("cannot scan %T into StringArray", value)
-	}
-}
-
-// Value implements the driver.Valuer interface
-func (a StringArray) Value() (driver.Value, error) {
-	if a == nil {
-		return nil, nil
-	}
-	return pq.StringArray(a).Value()
-}
-
 // IntArray is a wrapper for PostgreSQL integer arrays
 type IntArray []int
 
-// Scan implements the sql.Scanner interface
-func (a *IntArray) Scan(value any) error {
-	if value == nil {
-		*a = nil
-		return nil
-	}
-
-	switch v := value.(type) {
-	case []byte:
-		return json.Unmarshal(v, a)
-	case string:
-		return json.Unmarshal([]byte(v), a)
-	case pq.Int64Array:
-		*a = make(IntArray, len(v))
-		for i, val := range v {
-			(*a)[i] = int(val)
-		}
-		return nil
-	default:
-		return fmt.Errorf("cannot scan %T into IntArray", value)
-	}
-}
-
-// Value implements the driver.Valuer interface
-func (a IntArray) Value() (driver.Value, error) {
-	if a == nil {
-		return nil, nil
-	}
-
-	int64Array := make(pq.Int64Array, len(a))
-	for i, val := range a {
-		int64Array[i] = int64(val)
-	}
-	return int64Array.Value()
-}
-
 // JSONBMap is a wrapper for PostgreSQL JSONB maps
 type JSONBMap map[string]any
-
-// Scan implements the sql.Scanner interface
-func (m *JSONBMap) Scan(value any) error {
-	if value == nil {
-		*m = nil
-		return nil
-	}
-
-	switch v := value.(type) {
-	case []byte:
-		return json.Unmarshal(v, m)
-	case string:
-		return json.Unmarshal([]byte(v), m)
-	default:
-		return fmt.Errorf("cannot scan %T into JSONBMap", value)
-	}
-}
-
-// Value implements the driver.Valuer interface
-func (m JSONBMap) Value() (driver.Value, error) {
-	if m == nil {
-		return nil, nil
-	}
-	return json.Marshal(m)
-}
-
-// HTTPConfigUpdate represents HTTP configuration fields that can be updated.
-// Used as an optional parameter in UpdateWebhookConfig to apply http_config changes.
-type HTTPConfigUpdate struct {
-	MaxRetries            *int
-	RetryBackoffSeconds   int
-	CaptureResponseBody   *bool
-	FollowRedirects       *bool
-	VerifySSL             *bool
-	RequestTimeoutSeconds int
-	ExpectedStatusCodes   []int
-	WebhookSecret         string
-	UserAgent             string
-	ContentType           string
-	RateLimitRPS          *float64
-}
 
 // WebhookRegistrationRequest represents a request to create/update a webhook registration
 type WebhookRegistrationRequest struct {
