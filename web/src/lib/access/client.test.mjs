@@ -76,3 +76,12 @@ test("exchangeKey keeps a pasted token after checking it", async () => {
 test("exchangeKey keeps the key when the server cannot mint tokens", async () => {
   assert.deepEqual(await exchangeKey("", "master-key", "n", stub(404, {}).fn), { kind: "keep" });
 });
+
+test("exchangeKey never keeps a master key the server failed to exchange", async () => {
+  assert.deepEqual(await exchangeKey("", "master-key", "n", stub(405, {}).fn), { kind: "keep" });
+  for (const status of [403, 500, 502]) {
+    const res = await exchangeKey("", "master-key", "n", stub(status, { detail: "boom" }).fn);
+    assert.deepEqual(res, { kind: "failed", message: "boom" }, `status ${status}`);
+  }
+  assert.match((await exchangeKey("", "master-key", "n", stub(503, {}).fn)).message, /503/);
+});

@@ -98,7 +98,9 @@ export type ExchangeResult =
   /** The key was wrong. */
   | { kind: "rejected"; reason?: RejectReason }
   /** Store the key as typed: it is already a token, or the server cannot mint tokens (older server). */
-  | { kind: "keep" };
+  | { kind: "keep" }
+  /** The server could not mint a token; nothing may be stored. */
+  | { kind: "failed"; message: string };
 
 /**
  * Swaps a pasted master key for a named, revocable browser token
@@ -121,5 +123,10 @@ export async function exchangeKey(apiBase: string, key: string, name: string, fe
     const body = (await res.json()) as { secret: string; token: { id: string } };
     return { kind: "token", secret: body.secret, tokenId: body.token.id };
   }
-  return { kind: "keep" };
+  // Only a server without the tokens endpoint gets the key stored as typed.
+  // Any other answer (a 5xx, a 403 for a consumer token, a proxy error) must
+  // not fall back to storing the master key in the browser.
+  if (res.status === 404 || res.status === 405) return { kind: "keep" };
+  const body = (await res.json().catch(() => ({}))) as { detail?: string; message?: string };
+  return { kind: "failed", message: body.detail || body.message || `Could not sign in (${res.status}). Try again.` };
 }

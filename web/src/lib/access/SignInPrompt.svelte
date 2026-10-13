@@ -28,6 +28,10 @@
         error = rejectMessage(res.reason, true);
         return;
       }
+      if (res.kind === "failed") {
+        error = res.message;
+        return;
+      }
       if (res.kind === "token") auth.save(res.secret, res.tokenId);
       else auth.save(value);
       // Reload so every page re-fetches with the new credential.
