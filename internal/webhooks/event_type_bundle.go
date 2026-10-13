@@ -423,7 +423,7 @@ func checkTemplates(def EventTypeDefinition, subs []*store.EventSubscription) *T
 		failed := false
 		for _, p := range payloads {
 			ctx := template.NewWebhookTemplateContext("import-check", def.Name, time.Now().UTC().Format(time.RFC3339), 1, p.data)
-			if _, err := engine.TransformPayloadWith(sub.TransformTemplate, ctx, strict); err != nil {
+			if _, err := engine.ExecuteWith(sub.TransformTemplate, ctx, strict); err != nil {
 				check.Failures = append(check.Failures, TemplateCheckFailure{
 					SubscriptionID: sub.ID.String(),
 					Consumer:       sub.Consumer,

@@ -299,7 +299,7 @@ func RenderTemplatePreview(eventName, transformTemplate string, payload map[stri
 		1,
 		payload,
 	)
-	result, err := engine.TransformPayloadWith(transformTemplate, data, template.ExecOptions{StrictMissingKeys: strict})
+	result, err := engine.ExecuteWith(transformTemplate, data, template.ExecOptions{StrictMissingKeys: strict})
 	if err != nil {
 		return "", svcerrors.Wrapf(err, svcerrors.InvalidArgument, "template transformation failed: %v", err)
 	}
@@ -407,7 +407,7 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 		event.SamplePayload,
 	)
 
-	result, err := engine.TransformPayloadWith(transformTemplate, data, template.ExecOptions{StrictMissingKeys: strict})
+	result, err := engine.ExecuteWith(transformTemplate, data, template.ExecOptions{StrictMissingKeys: strict})
 	if err != nil {
 		return "", svcerrors.Wrapf(err, svcerrors.InvalidArgument, "template transformation failed: %v", err)
 	}
