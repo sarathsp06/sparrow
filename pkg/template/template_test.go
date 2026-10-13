@@ -374,3 +374,33 @@ func TestExecuteTimeout(t *testing.T) {
 		t.Errorf("Template execution took %v, expected to be interrupted within %v", elapsed, maxExpected)
 	}
 }
+
+func TestRejectsUnboundedLoops(t *testing.T) {
+	engine := NewTemplateEngine()
+
+	rejected := map[string]string{
+		"integer literal":        `{{range 2000000000}}{{end}}`,
+		"parenthesised literal":  `{{range $i := (2000000000)}}{{end}}`,
+		"literal inside define":  `{{define "x"}}{{range 10}}{{end}}{{end}}{{template "x"}}`,
+		"nesting past the limit": `{{range $.a}}{{range $.a}}{{range $.a}}{{range $.a}}{{end}}{{end}}{{end}}{{end}}`,
+	}
+	for name, tmpl := range rejected {
+		t.Run(name, func(t *testing.T) {
+			if _, err := engine.Execute(tmpl, map[string]any{"a": []int{1}}); err == nil {
+				t.Errorf("Execute(%q) succeeded, want rejection", tmpl)
+			}
+			if err := engine.ValidateTemplate(tmpl); err == nil {
+				t.Errorf("ValidateTemplate(%q) succeeded, want rejection", tmpl)
+			}
+		})
+	}
+
+	allowed := `{{range $.a}}{{range $.a}}{{range $.a}}x{{end}}{{end}}{{end}}`
+	out, err := engine.Execute(allowed, map[string]any{"a": []int{1, 2}})
+	if err != nil {
+		t.Fatalf("Execute(%q): %v", allowed, err)
+	}
+	if string(out) != "xxxxxxxx" {
+		t.Errorf("Execute(%q) = %q, want %q", allowed, out, "xxxxxxxx")
+	}
+}

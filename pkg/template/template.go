@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"text/template"
+	"text/template/parse"
 	"time"
 )
 
@@ -12,11 +13,18 @@ import (
 // prevent denial-of-service via crafted templates.
 const MaxTemplateOutputBytes = 1 * 1024 * 1024 // 1 MB
 
-// TemplateExecutionTimeout limits CPU time for template execution.
-// Go's text/template has no built-in cancellation, so we run Execute in
-// a goroutine and abandon it on timeout. This prevents a malicious
-// template with tight loops from monopolising a worker indefinitely.
+// TemplateExecutionTimeout bounds how long a caller waits for a template.
+// Go's text/template has no cancellation, so Execute runs in a goroutine
+// that is abandoned on timeout and keeps running until it finishes or hits
+// MaxTemplateOutputBytes. The timeout therefore frees the caller, not the
+// CPU: loops that produce no output are rejected at parse time instead
+// (see checkTemplateLoops).
 const TemplateExecutionTimeout = 5 * time.Second
+
+// MaxRangeNesting is the deepest allowed nesting of range actions. Each
+// level multiplies the iteration count, so deep nesting over even modest
+// payload arrays can spin for a very long time without writing output.
+const MaxRangeNesting = 3
 
 // limitedWriter wraps a bytes.Buffer and enforces a maximum write size.
 // Once the limit is exceeded, all subsequent writes return an error.
@@ -100,11 +108,10 @@ func (e *TemplateEngine) ExecuteWith(tmplStr string, data any, opts ExecOptions)
 	// Wrap with a size-limited writer to prevent runaway output
 	lw := &limitedWriter{buf: buf, limit: MaxTemplateOutputBytes}
 
-	// SEC: Run template execution with a CPU timeout. Go's text/template
-	// has no cancellation support, so we run Execute in a goroutine and
-	// abandon it if it exceeds the deadline. The goroutine will eventually
-	// terminate when it hits the output size limit or completes, but the
-	// caller is not blocked past the timeout.
+	// SEC: Wait at most TemplateExecutionTimeout. Go's text/template has no
+	// cancellation, so on timeout the goroutine is abandoned and keeps
+	// running until it completes or hits the output size limit. Loops that
+	// could run without output are rejected at parse time (checkTemplateLoops).
 	ctx, cancel := context.WithTimeout(context.Background(), TemplateExecutionTimeout)
 	defer cancel()
 
@@ -152,6 +159,9 @@ func (e *TemplateEngine) getOrParseTemplate(tmplStr string, strict bool) (*templ
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse template: %w", err)
 	}
+	if err := checkTemplateLoops(tmpl); err != nil {
+		return nil, fmt.Errorf("failed to parse template: %w", err)
+	}
 	if strict {
 		tmpl = tmpl.Option("missingkey=error")
 	}
@@ -168,12 +178,85 @@ func (e *TemplateEngine) ValidateTemplate(tmplStr string) error {
 		return nil
 	}
 
-	_, err := template.New("webhook_validation").Funcs(e.funcs).Parse(tmplStr)
+	tmpl, err := template.New("webhook_validation").Funcs(e.funcs).Parse(tmplStr)
 	if err != nil {
 		return fmt.Errorf("invalid template syntax: %w", err)
 	}
+	if err := checkTemplateLoops(tmpl); err != nil {
+		return fmt.Errorf("invalid template: %w", err)
+	}
 
 	return nil
+}
+
+// checkTemplateLoops rejects loops whose cost does not depend on the payload
+// and cannot be stopped once started: range over an integer literal
+// ({{range 2000000000}}{{end}} spins without output, so neither the output
+// limit nor the abandoned-goroutine timeout ends it) and range nested deeper
+// than MaxRangeNesting. It walks every template defined in the parse,
+// including {{define}} blocks.
+func checkTemplateLoops(tmpl *template.Template) error {
+	for _, t := range tmpl.Templates() {
+		if t.Tree == nil {
+			continue
+		}
+		if err := checkLoopNode(t.Root, 0); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func checkLoopNode(node parse.Node, depth int) error {
+	switch n := node.(type) {
+	case *parse.ListNode:
+		if n == nil {
+			return nil
+		}
+		for _, c := range n.Nodes {
+			if err := checkLoopNode(c, depth); err != nil {
+				return err
+			}
+		}
+	case *parse.RangeNode:
+		if depth+1 > MaxRangeNesting {
+			return fmt.Errorf("range nested deeper than %d levels", MaxRangeNesting)
+		}
+		if rangesOverNumberLiteral(n.Pipe) {
+			return fmt.Errorf("range over an integer literal is not allowed")
+		}
+		if err := checkLoopNode(n.List, depth+1); err != nil {
+			return err
+		}
+		return checkLoopNode(n.ElseList, depth)
+	case *parse.IfNode:
+		if err := checkLoopNode(n.List, depth); err != nil {
+			return err
+		}
+		return checkLoopNode(n.ElseList, depth)
+	case *parse.WithNode:
+		if err := checkLoopNode(n.List, depth); err != nil {
+			return err
+		}
+		return checkLoopNode(n.ElseList, depth)
+	}
+	return nil
+}
+
+// rangesOverNumberLiteral reports whether a range pipeline is a bare number,
+// possibly parenthesised: {{range 5}} or {{range (5)}}.
+func rangesOverNumberLiteral(pipe *parse.PipeNode) bool {
+	for pipe != nil && len(pipe.Cmds) == 1 && len(pipe.Cmds[0].Args) == 1 {
+		switch arg := pipe.Cmds[0].Args[0].(type) {
+		case *parse.NumberNode:
+			return true
+		case *parse.PipeNode:
+			pipe = arg
+		default:
+			return false
+		}
+	}
+	return false
 }
 
 // WebhookTemplateContext is the data context passed to Go templates.
