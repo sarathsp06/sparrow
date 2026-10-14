@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 
-	"github.com/sarathsp06/sparrow/pkg/storage"
+	"github.com/sarathsp06/sparrow/internal/storage"
 )
 
 // DeliveryRepository defines operations for the webhook delivery lifecycle:

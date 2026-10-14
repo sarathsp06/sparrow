@@ -11,11 +11,11 @@ import (
 
 	"github.com/google/uuid"
 
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
+	"github.com/sarathsp06/sparrow/internal/storage"
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
-	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
-	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
 // ReservedEventPrefix is the event name prefix reserved for Sparrow's own

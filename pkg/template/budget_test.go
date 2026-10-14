@@ -28,7 +28,7 @@ func TestExecuteStopsRunawayTemplates(t *testing.T) {
 		{"nested loops over a payload array", `{{range .payload.items}}{{range $.payload.items}}{{range $.payload.items}}{{end}}{{end}}{{end}}`, "loop iterations"},
 		{"exponential template recursion", `{{define "a"}}{{if lt (len .) 12}}{{$n := print . "x"}}{{template "a" $n}}{{template "a" $n}}{{template "a" $n}}{{template "a" $n}}{{end}}{{end}}{{template "a" ""}}`, "loop iterations"},
 	}
-	engine := NewTemplateEngine()
+	engine := New()
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
@@ -68,7 +68,7 @@ func TestExecuteBudgetKeepsNormalTemplates(t *testing.T) {
 		{"define and template", `{{define "x"}}<{{.}}>{{end}}{{template "x" "y"}}`, "<y>", false},
 		{"print builtins", `{{print "a" 1}} {{println "b"}}{{html "<"}} {{js "'"}} {{urlquery "a b"}}`, "a1 b\n&lt; \\' a+b", false},
 	}
-	engine := NewTemplateEngine()
+	engine := New()
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			out, err := engine.ExecuteWith(tc.tmpl, map[string]any{"payload": payload}, ExecOptions{StrictMissingKeys: tc.strict})
@@ -85,7 +85,7 @@ func TestExecuteBudgetKeepsNormalTemplates(t *testing.T) {
 // Concurrent executions share a fixed number of slots; every caller still
 // gets its result, and a template that is stopped frees its slot.
 func TestExecuteBoundsConcurrency(t *testing.T) {
-	engine := NewTemplateEngine()
+	engine := New()
 	n := 4 * cap(execSlots)
 	var wg sync.WaitGroup
 	errs := make(chan error, n)

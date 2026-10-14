@@ -1,5 +1,5 @@
 // Package pgstore is a PostgreSQL access.Store using database/sql. Create the
-// tables with Schema (or copy it into your migrations).
+// tables with Schema() (or copy it into your migrations).
 package pgstore
 
 import (
@@ -14,12 +14,16 @@ import (
 	"github.com/sarathsp06/sparrow/pkg/access"
 )
 
-// Schema creates the access_tokens and access_invites tables: SchemaParts
-// joined, in order. Apply the parts as separate migrations when upgrading.
-var Schema = strings.Join(SchemaParts, "\n")
+// Schema returns the DDL that creates the access_tokens and access_invites
+// tables: SchemaParts joined, in order. Apply the parts as separate migrations
+// when upgrading.
+func Schema() string { return strings.Join(SchemaParts(), "\n") }
 
-// SchemaParts are the schema changes in the order they were introduced.
-var SchemaParts = []string{schemaBase, schemaIdempotency, schemaExternalID}
+// SchemaParts returns the schema changes in the order they were introduced.
+// Each call returns a new slice.
+func SchemaParts() []string {
+	return []string{schemaBase, schemaIdempotency, schemaExternalID}
+}
 
 //go:embed schema.sql
 var schemaBase string

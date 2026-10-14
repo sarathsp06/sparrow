@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"log/slog"
@@ -18,14 +19,17 @@ import (
 	slogotel "github.com/remychantenay/slog-otel"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
+	"github.com/sarathsp06/sparrow"
 	"github.com/sarathsp06/sparrow/internal/accessauth"
 	"github.com/sarathsp06/sparrow/internal/ai"
 	"github.com/sarathsp06/sparrow/internal/config"
+	"github.com/sarathsp06/sparrow/internal/crypto"
 	"github.com/sarathsp06/sparrow/internal/health"
 	"github.com/sarathsp06/sparrow/internal/middleware"
 	"github.com/sarathsp06/sparrow/internal/migration"
 	"github.com/sarathsp06/sparrow/internal/observability"
 	"github.com/sarathsp06/sparrow/internal/rest"
+	"github.com/sarathsp06/sparrow/internal/storage/postgres"
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/ui"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
@@ -33,11 +37,17 @@ import (
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"github.com/sarathsp06/sparrow/pkg/access/httpauth"
-	"github.com/sarathsp06/sparrow/pkg/crypto"
-	"github.com/sarathsp06/sparrow/pkg/storage/postgres"
 )
 
 func main() {
+	showVersion := flag.Bool("version", false, "print the version and exit")
+	migrateOnly := flag.Bool("migrate", false, "run database migrations and exit (for a pre-deploy job)")
+	flag.Parse()
+	if *showVersion {
+		fmt.Println("sparrow-server", sparrow.Version)
+		return
+	}
+
 	// Load .env file if present, but only outside production.
 	// In production containers a .env file should not exist, but if one
 	// is accidentally present it could silently override critical env vars
@@ -119,6 +129,9 @@ func main() {
 		log.Fatalf("Failed to run database migrations: %v", err)
 	}
 	fmt.Println("✅ Database migrations completed")
+	if *migrateOnly {
+		return
+	}
 
 	// Create database connection pool for River queue workers.
 	// River runs 45 concurrent workers (20 events + 20 webhooks + 5 default)

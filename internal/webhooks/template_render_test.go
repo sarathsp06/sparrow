@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
 	"github.com/sarathsp06/sparrow/pkg/template"
 )
 
@@ -15,7 +15,7 @@ func TestTemplateRenderError(t *testing.T) {
 		err  error
 		want svcerrors.Status
 	}{
-		{fmt.Errorf("x: %w", template.ErrTemplateBusy), svcerrors.Unavailable},
+		{fmt.Errorf("x: %w", template.ErrBusy), svcerrors.Unavailable},
 		{errors.New("failed to execute template: boom"), svcerrors.InvalidArgument},
 	} {
 		var se *svcerrors.ServiceError

@@ -121,6 +121,7 @@ export default defineConfig({
             { slug: 'reference/error-classification' },
             { slug: 'reference/architecture' },
             { slug: 'reference/security' },
+            { slug: 'reference/compatibility' },
             { slug: 'reference/layered-architecture' },
           ],
         },
@@ -128,6 +129,7 @@ export default defineConfig({
           label: 'Deployment',
           items: [
             { slug: 'deployment/production' },
+            { slug: 'deployment/upgrading-to-1-0' },
             { slug: 'deployment/docker-compose' },
             { slug: 'deployment/access' },
             { slug: 'deployment/separate-ui' },

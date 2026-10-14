@@ -33,17 +33,20 @@ This keeps release notes grouped and readable.
 
 ## Release Process
 
-Releases are triggered by pushing a semantic version tag. CI builds frontend + backend artifacts and publishes via GoReleaser.
+A release is one tag push from an up-to-date `main`; `.github/workflows/release.yml` does the rest:
 
 ```bash
-# create a release tag
-git tag vX.Y.Z
-
-# push main and tags
-git push origin main --tags
+git tag v1.2.3
+git push origin v1.2.3
 ```
 
-If the tag already exists remotely, bump to the next version and push that tag.
+The workflow runs the full CI suite first. Only when it passes does GoReleaser build the server, CLI, `sparrow-sinks` and `sparrow-sources` binaries, attach an SBOM per archive and a cosign-signed `checksums.txt`, and publish the GitHub release. After that, the split Go modules (`pkg/*`, `satellites/*`) get their path-prefixed tags (`pkg/signature/v1.2.3`, ...) via `scripts/release-submodules.sh`, and the Docker image is pushed to GHCR with provenance and an SBOM.
+
+- Push only the tag. Don't push `main --tags`, and don't run `scripts/release-submodules.sh --push` yourself: the workflow creates those tags, and the Go module proxy caches a tag forever, so a bad one can't be taken back.
+- **Release candidates**: tag `v1.2.3-rc.1`. GoReleaser marks it as a pre-release, Docker gets `1.2.3-rc.1` but not `latest`, and the split modules are tagged `-rc.1` too (Go never resolves `@latest` to a pre-release).
+- **Never move or delete a pushed tag.** If a release is broken, fix forward with the next patch version.
+- Check `goreleaser check` and `make release-dry-run` (a `--snapshot` build, nothing published) before tagging when the release config changed.
+- Release notes come from Conventional Commit subjects, so write them for users. Mark breaking changes with `!` (`feat!:`) and say what to do in the body. See the [compatibility policy](https://sarathsp06.github.io/sparrow/reference/compatibility/) for what counts as breaking.
 
 ## Notes
 

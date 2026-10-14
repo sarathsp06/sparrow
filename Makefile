@@ -4,8 +4,10 @@
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 OUTPUT ?= build/server-$(GOOS)-$(GOARCH)
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-SEMVER  ?= $(shell git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0-dev")
+# No leading "v": goreleaser and the Docker build embed the bare version too, and
+# event type bundles compare it as an exact string.
+VERSION ?= $(shell git describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null | sed 's/^v//' || echo "dev")
+SEMVER  ?= $(shell git describe --tags --match 'v[0-9]*' --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0-dev")
 LDFLAGS := -s -w -X github.com/sarathsp06/sparrow.Version=$(VERSION)
 IMAGE_E2E ?= sparrow:e2e
 
@@ -21,11 +23,11 @@ build-cli: ## Build the sparrow CLI binary for current OS/arch
 
 build-sources: ## Build the sparrow-sources binary for current OS/arch
 	mkdir -p build
-	go build -trimpath -ldflags "-s -w" -o build/sparrow-sources-$(GOOS)-$(GOARCH) ./satellites/sparrow-sources
+	go build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o build/sparrow-sources-$(GOOS)-$(GOARCH) ./satellites/sparrow-sources
 
 build-sinks: ## Build the sparrow-sinks binary for current OS/arch
 	mkdir -p build
-	go build -trimpath -ldflags "-s -w" -o build/sparrow-sinks-$(GOOS)-$(GOARCH) ./satellites/sparrow-sinks
+	go build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o build/sparrow-sinks-$(GOOS)-$(GOARCH) ./satellites/sparrow-sinks
 
 build-all: build build-cli build-sources build-sinks ## Build server, CLI, sources, and sinks binaries
 
@@ -35,7 +37,7 @@ build-ui: ## Build the frontend for embedding in the Go binary
 build-with-ui: build-ui build ## Build frontend + server binary with embedded UI
 
 release-dry-run: build-ui ## Test GoReleaser locally (no publish)
-	goreleaser release --snapshot --clean
+	goreleaser release --snapshot --clean --skip=sign # keyless signing needs CI's OIDC token; SBOMs need syft
 
 docker-dev: ## Run the development environment with Docker Compose (builds from source)
 	docker compose -f docker-compose.dev.yml up -d --build
@@ -133,9 +135,6 @@ generate: ## Export the OpenAPI spec from Go and regenerate client SDKs
 	uvx openapi-python-client generate --path api/openapi.yaml --output-path client/python --overwrite
 	go generate ./...
 
-book: ## Build the Svelte 5 tutorial PDF with Typst
-	typst compile --font-path book/fonts book/tutorial.typ book/svelte5-tutorial.pdf
-
 bench-sql: ## Seed a large synthetic DB and time the heavy queries (SCALE=0.1 for a quick run; needs Postgres from `make dev-db`)
 	scripts/sqlbench/run.sh --scale $(or $(SCALE),1)
 
@@ -148,4 +147,4 @@ fmt: ## Format the code
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-cli build-sources build-sinks build-all build-ui client-python docker-build-e2e build-with-ui release-dry-run run dev-db test test-integration test-ui test-e2e test-e2e-spec test-e2e-tag test-e2e-parallel test-e2e-report test-e2e-setup clean generate docker-dev docker-purge migrate lint fmt run-web book help
+.PHONY: build build-cli build-sources build-sinks build-all build-ui client-python docker-build-e2e build-with-ui release-dry-run run dev-db test test-integration test-ui test-e2e test-e2e-spec test-e2e-tag test-e2e-parallel test-e2e-report test-e2e-setup clean generate docker-dev docker-purge migrate lint fmt run-web help

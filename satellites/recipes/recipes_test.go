@@ -21,8 +21,8 @@ var paramToken = regexp.MustCompile(`\{\{param "([^"]+)"\}\}`)
 
 // sampleContext mirrors what Sparrow passes to transform templates per
 // delivery (see internal/webhooks/queue/webhook_worker.go).
-func sampleContext() template.WebhookTemplateContext {
-	return template.NewWebhookTemplateContext(
+func sampleContext() template.WebhookContext {
+	return template.NewWebhookContext(
 		"evt_0195c2a1",
 		"user.created",
 		time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC).Format(time.RFC3339),
@@ -70,7 +70,7 @@ func TestRecipes(t *testing.T) {
 		t.Fatalf("embedded recipes = %d, want %d", len(embedded), len(files))
 	}
 
-	engine := template.NewTemplateEngine()
+	engine := template.New()
 
 	for _, file := range files {
 		t.Run(strings.TrimSuffix(file, ".yaml"), func(t *testing.T) {
@@ -185,14 +185,14 @@ func TestPagerdutyRecipe_Severity(t *testing.T) {
 		t.Fatal(err)
 	}
 	tmpl := substituteParams(r.Subscription.TransformTemplate, r.Params)
-	engine := template.NewTemplateEngine()
+	engine := template.New()
 
 	for payloadSev, want := range map[string]string{"critical": "critical", "": "dummy-severity"} {
 		payload := map[string]any{"service": "api"}
 		if payloadSev != "" {
 			payload["severity"] = payloadSev
 		}
-		ctx := template.NewWebhookTemplateContext("evt_pd1", "incident.opened",
+		ctx := template.NewWebhookContext("evt_pd1", "incident.opened",
 			time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC).Format(time.RFC3339), 1, payload)
 		out, err := engine.ExecuteWith(tmpl, ctx, strictRender)
 		if err != nil {

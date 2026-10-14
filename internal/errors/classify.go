@@ -3,7 +3,7 @@ package errors
 import (
 	"errors"
 
-	"github.com/sarathsp06/sparrow/pkg/storage"
+	"github.com/sarathsp06/sparrow/internal/storage"
 )
 
 // Classify converts any error into a client-safe *ServiceError.

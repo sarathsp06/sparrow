@@ -4,8 +4,8 @@ import (
 	"net/url"
 	"strings"
 
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
-	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
 )
 
 // ValidateWebhookURL validates a webhook URL to prevent SSRF attacks.

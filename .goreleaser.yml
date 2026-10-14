@@ -2,6 +2,14 @@
 
 version: 2
 
+# Only vX.Y.Z tags are releases. The split modules' path-prefixed tags
+# (pkg/signature/vX.Y.Z, ...) sit on the same or nearby commits and must never
+# be picked as the current or previous tag.
+git:
+  ignore_tags:
+    - "pkg/*"
+    - "satellites/*"
+
 before:
   hooks:
     - go mod tidy
@@ -50,7 +58,7 @@ builds:
     env:
       - CGO_ENABLED=0
     ldflags:
-      - -w -s
+      - -w -s -X main.version={{ .Version }}
     goos:
       - linux
       - darwin
@@ -68,7 +76,7 @@ builds:
     env:
       - CGO_ENABLED=0
     ldflags:
-      - -w -s
+      - -w -s -X main.version={{ .Version }}
     goos:
       - linux
       - darwin
@@ -132,6 +140,27 @@ archives:
 checksum:
   name_template: "checksums.txt"
 
+# An SPDX SBOM per archive (needs syft on PATH).
+sboms:
+  - artifacts: archive
+
+# Keyless cosign signature of checksums.txt, which covers every archive and
+# SBOM. Needs cosign on PATH and an OIDC token (id-token: write in CI).
+# Verify with:
+#   cosign verify-blob --bundle checksums.txt.sigstore.json \
+#     --certificate-identity-regexp '^https://github.com/sarathsp06/sparrow/' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+#     checksums.txt
+signs:
+  - cmd: cosign
+    signature: "${artifact}.sigstore.json"
+    args:
+      - sign-blob
+      - "--bundle=${signature}"
+      - "${artifact}"
+      - "--yes"
+    artifacts: checksum
+
 changelog:
   sort: asc
   filters:
@@ -160,6 +189,8 @@ release:
   github:
     owner: sarathsp06
     name: sparrow
+  # vX.Y.Z-rc.N is published as a pre-release, never as "latest".
+  prerelease: auto
   header: |
     ## Sparrow {{ .Tag }}
 

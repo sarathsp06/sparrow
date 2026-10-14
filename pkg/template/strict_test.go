@@ -6,8 +6,8 @@ import (
 )
 
 func TestTransformPayloadWith_StrictMissingKeys(t *testing.T) {
-	engine := NewTemplateEngine()
-	data := NewWebhookTemplateContext("evt_1", "order.created", "2026-09-30T00:00:00Z", 1, map[string]any{
+	engine := New()
+	data := NewWebhookContext("evt_1", "order.created", "2026-09-30T00:00:00Z", 1, map[string]any{
 		"order_id": "o-1",
 		"customer": map[string]any{"name": "Ada"},
 	})
@@ -88,8 +88,8 @@ func TestTransformPayloadWith_StrictMissingKeys(t *testing.T) {
 }
 
 func TestTransformPayloadWith_CachesStrictAndLenientSeparately(t *testing.T) {
-	engine := NewTemplateEngine()
-	data := NewWebhookTemplateContext("e", "n", "t", 1, map[string]any{})
+	engine := New()
+	data := NewWebhookContext("e", "n", "t", 1, map[string]any{})
 	tmpl := `{{.payload.missing}}`
 
 	// Warm the cache with the lenient parse first; strict must still fail.

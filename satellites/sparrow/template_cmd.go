@@ -51,8 +51,8 @@ func runTemplateTest(out io.Writer, file, eventName, payloadArg, missingKey stri
 		return err
 	}
 
-	engine := template.NewTemplateEngine()
-	rendered, err := engine.ExecuteWith(string(tmpl), template.NewWebhookTemplateContext(
+	engine := template.New()
+	rendered, err := engine.ExecuteWith(string(tmpl), template.NewWebhookContext(
 		"evt_sample", eventName, time.Now().UTC().Format(time.RFC3339), 1, payload),
 		template.ExecOptions{StrictMissingKeys: missingKey == "error"})
 	if err != nil {

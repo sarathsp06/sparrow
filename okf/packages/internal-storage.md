@@ -1,12 +1,12 @@
 ---
 type: Go Package
-title: pkg/storage
+title: internal/storage
 description: Database abstraction — DBTX/DB interfaces, WithTransaction helper, PG error translation
 tags: [database, abstraction, leaf]
 timestamp: 2026-06-22T00:00:00Z
 ---
 
-# pkg/storage
+# internal/storage
 
 Abstracts database access with DBTX/DB interfaces and PostgreSQL error translation.
 
@@ -42,4 +42,4 @@ type DB interface {
 
 ## Citations
 
-- `pkg/storage/storage.go`, `pkg/storage/errors.go`
+- `internal/storage/storage.go`, `internal/storage/errors.go`

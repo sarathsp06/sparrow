@@ -54,6 +54,7 @@ metadata:
   name: sparrow
 spec:
   replicas: 2          # safe: migrations use Postgres advisory locks; River queue is Postgres-backed
+                       # each replica uses up to 75 Postgres connections (see below)
   selector:
     matchLabels:
       app: sparrow
@@ -99,6 +100,8 @@ spec:
               cpu: "1"
               memory: 512Mi
 ```
+
+Each replica opens up to 75 Postgres connections, so two replicas already exceed Postgres' default `max_connections = 100`. Size it for `75 × (replicas + maxSurge)` plus headroom; see the [connection budget](/sparrow/deployment/upgrading-to-1-0/#postgres-connection-budget). Large instances should also run migrations in a [pre-deploy Job](/sparrow/deployment/upgrading-to-1-0/#run-migrations-before-the-rollout-on-large-instances).
 
 ### Service
 

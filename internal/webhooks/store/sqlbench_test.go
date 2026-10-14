@@ -13,8 +13,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/sarathsp06/sparrow/internal/storage/postgres"
 	"github.com/sarathsp06/sparrow/internal/tenant"
-	"github.com/sarathsp06/sparrow/pkg/storage/postgres"
 )
 
 // TestSQLBench times the repository's heavy read paths against a database

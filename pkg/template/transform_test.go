@@ -6,19 +6,19 @@ import (
 )
 
 func TestTransformPayload(t *testing.T) {
-	engine := NewTemplateEngine()
+	engine := New()
 
 	tests := []struct {
 		name     string
 		template string
-		data     WebhookTemplateContext
+		data     WebhookContext
 		expected string
 		wantErr  bool
 	}{
 		{
 			name:     "simple template",
 			template: `{"event": "{{.event_name}}"}`,
-			data: WebhookTemplateContext{
+			data: WebhookContext{
 				"event_name": "user.created",
 			},
 			expected: `{"event": "user.created"}`,
@@ -27,7 +27,7 @@ func TestTransformPayload(t *testing.T) {
 		{
 			name:     "with payload",
 			template: `{"user_id": "{{.payload.user_id}}"}`,
-			data: WebhookTemplateContext{
+			data: WebhookContext{
 				"payload": map[string]any{"user_id": "123"},
 			},
 			expected: `{"user_id": "123"}`,
@@ -36,7 +36,7 @@ func TestTransformPayload(t *testing.T) {
 		{
 			name:     "empty template",
 			template: "",
-			data:     WebhookTemplateContext{},
+			data:     WebhookContext{},
 			expected: "",
 			wantErr:  false,
 		},
@@ -62,14 +62,14 @@ func TestTransformPayload(t *testing.T) {
 }
 
 func BenchmarkTransformPayload(b *testing.B) {
-	engine := NewTemplateEngine()
+	engine := New()
 	templates := []string{
 		`{"event": "{{.event_name}}", "id": "{{.event_id}}"}`,
 		`{"event": "{{.payload.event}}", "id": "{{.event_id}}"}`,
 		`{"event": "{{.event_name | upper}}", "id": "{{.event_id | lower}}"}`,
 	}
 
-	data := WebhookTemplateContext{
+	data := WebhookContext{
 		"event_id":   "event-123",
 		"event_name": "user.created",
 		"payload": map[string]any{

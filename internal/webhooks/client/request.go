@@ -18,8 +18,8 @@ import (
 	"github.com/google/uuid"
 
 	sparrow "github.com/sarathsp06/sparrow"
+	"github.com/sarathsp06/sparrow/internal/crypto"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
-	"github.com/sarathsp06/sparrow/pkg/crypto"
 )
 
 // DeliveryRequest represents the data needed to send a webhook

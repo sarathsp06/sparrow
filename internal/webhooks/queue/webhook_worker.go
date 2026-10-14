@@ -19,13 +19,13 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
-	sparrowerrors "github.com/sarathsp06/sparrow/pkg/errors"
+	sparrowerrors "github.com/sarathsp06/sparrow/internal/errors"
 
+	"github.com/sarathsp06/sparrow/internal/crypto"
 	"github.com/sarathsp06/sparrow/internal/observability"
+	"github.com/sarathsp06/sparrow/internal/storage"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
-	"github.com/sarathsp06/sparrow/pkg/crypto"
-	"github.com/sarathsp06/sparrow/pkg/storage"
 	"github.com/sarathsp06/sparrow/pkg/template"
 )
 
@@ -565,7 +565,7 @@ func (w *WebhookWorker) renderPayload(ctx context.Context, log *slog.Logger, job
 		return envelope()
 	}
 
-	body, renderErr := w.client.TransformPayloadWith(subscription.TransformTemplate, template.NewWebhookTemplateContext(
+	body, renderErr := w.client.TransformPayloadWith(subscription.TransformTemplate, template.NewWebhookContext(
 		args.EventID,
 		eventRecord.Event,
 		time.Now().UTC().Format(time.RFC3339),
@@ -575,7 +575,7 @@ func (w *WebhookWorker) renderPayload(ctx context.Context, log *slog.Logger, job
 	if renderErr == nil {
 		return body, false, nil
 	}
-	if errors.Is(renderErr, template.ErrTemplateBusy) {
+	if errors.Is(renderErr, template.ErrBusy) {
 		// Load, not a fault in the template: leave the delivery for River
 		// to retry.
 		return nil, false, fmt.Errorf("render transform: %w", renderErr)

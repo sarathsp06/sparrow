@@ -3,7 +3,7 @@ package template
 import "testing"
 
 func TestTitleFunc(t *testing.T) {
-	fn, ok := GetFunctionMap()["title"].(func(string) string)
+	fn, ok := FuncMap()["title"].(func(string) string)
 	if !ok {
 		t.Fatal("title function missing or has unexpected signature")
 	}

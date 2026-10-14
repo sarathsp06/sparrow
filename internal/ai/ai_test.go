@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
 )
 
 // fakeModel serves the Messages API shape: each call pops the next canned

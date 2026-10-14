@@ -12,10 +12,10 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/sarathsp06/sparrow/internal/accessauth"
+	"github.com/sarathsp06/sparrow/internal/crypto"
 	"github.com/sarathsp06/sparrow/internal/rest"
 	"github.com/sarathsp06/sparrow/pkg/access"
 	"github.com/sarathsp06/sparrow/pkg/access/memstore"
-	"github.com/sarathsp06/sparrow/pkg/crypto"
 )
 
 type mintedToken struct {

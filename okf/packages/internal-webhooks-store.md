@@ -8,7 +8,7 @@ timestamp: 2026-06-22T00:00:00Z
 
 # internal/webhooks/store
 
-The repository layer that [depends on](/packages/pkg-storage.md) for database access.
+The repository layer that [depends on](/packages/internal-storage.md) for database access.
 
 ## Key Types
 

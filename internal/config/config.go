@@ -20,8 +20,8 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 
+	"github.com/sarathsp06/sparrow/internal/crypto"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
-	"github.com/sarathsp06/sparrow/pkg/crypto"
 )
 
 // Config holds all server configuration populated from environment variables.

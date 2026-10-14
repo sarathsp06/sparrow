@@ -24,4 +24,4 @@ Used to encrypt sensitive fields stored in the database:
 
 ## Citations
 
-- `pkg/crypto/` — implementation
+- `internal/crypto/` — implementation

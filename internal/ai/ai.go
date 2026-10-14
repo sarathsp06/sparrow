@@ -19,7 +19,7 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go/option"
 
-	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
 )
 
 // Renderer dry-runs a template against payload as a delivery of eventName

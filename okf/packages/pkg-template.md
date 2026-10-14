@@ -14,9 +14,9 @@ core delivery worker and the out-of-tree satellites (`satellites/recipes`,
 
 ## Key Types
 
-- `TemplateEngine` — Go `text/template` execution through one method, `ExecuteWith(tmpl, data, ExecOptions)`; 1 MB output limit, 5s CPU timeout, LRU of parsed templates keyed by SHA-256 of the source (`hashicorp/golang-lru/v2`)
-- `WebhookTemplateContext` — snake_case fields (`event_id`, `event_name`, `timestamp`, `attempt`, `payload`) passed to every transform
-- `GetTemplateFunctions()` / `GetFunctionMap()` — utility funcs available in templates (`upper`, `json`, …)
+- `Engine` (`New()`) — Go `text/template` execution through one method, `ExecuteWith(tmpl, data, ExecOptions)`; 1 MB output limit, 5s CPU timeout, LRU of parsed templates keyed by SHA-256 of the source (`hashicorp/golang-lru/v2`)
+- `WebhookContext` — snake_case fields (`event_id`, `event_name`, `timestamp`, `attempt`, `payload`) passed to every transform
+- `Functions()` / `FuncMap()` — utility funcs available in templates (`upper`, `json`, …)
 
 ## Consumers
 

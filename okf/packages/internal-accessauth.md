@@ -33,7 +33,7 @@ Sparrow's adapter for `pkg/access`. Everything generic (issuing, hashing, redeem
 
 ## Tests
 
-- `TestMigrationMatchesPgstoreSchema` — enforces that `db/migrations/000027_access_tokens.up.sql` contains `pgstore.Schema` verbatim.
+- `TestMigrationMatchesPgstoreSchema` — enforces that `db/migrations/000027_access_tokens.up.sql` contains `pgstore.Schema()` verbatim.
 - `TestTTLRules` — validates lifetime defaults and limits.
 - `TestMasterKeyIsRootInDefaultTenant` — verifies the master key authenticates as a full-access root principal.
 - `TestPgstoreConformance` — runs `storetest.Run` against real Postgres in a throwaway schema.

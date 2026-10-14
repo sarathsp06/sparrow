@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
 )
 
 // EncryptSecretHeaders encrypts a plaintext secret headers map to bytes for storage.

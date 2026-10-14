@@ -34,7 +34,7 @@ func loadSendgridTemplate(t *testing.T) string {
 // per opted-in recipient, and a subject naming the new health state.
 func TestSendgridRecipe_HealthChanged(t *testing.T) {
 	tmpl := loadSendgridTemplate(t)
-	ctx := template.NewWebhookTemplateContext(
+	ctx := template.NewWebhookContext(
 		"evt_health1", "sparrow.webhook.health_changed",
 		time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC).Format(time.RFC3339), 1,
 		map[string]any{
@@ -50,7 +50,7 @@ func TestSendgridRecipe_HealthChanged(t *testing.T) {
 		},
 	)
 
-	out, err := template.NewTemplateEngine().ExecuteWith(tmpl, ctx, strictRender)
+	out, err := template.New().ExecuteWith(tmpl, ctx, strictRender)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestSendgridRecipe_HealthChanged(t *testing.T) {
 // sparrow.webhook.delivery_failed payload and checks the same contract.
 func TestSendgridRecipe_DeliveryFailed(t *testing.T) {
 	tmpl := loadSendgridTemplate(t)
-	ctx := template.NewWebhookTemplateContext(
+	ctx := template.NewWebhookContext(
 		"evt_fail1", "sparrow.webhook.delivery_failed",
 		time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC).Format(time.RFC3339), 1,
 		map[string]any{
@@ -101,7 +101,7 @@ func TestSendgridRecipe_DeliveryFailed(t *testing.T) {
 		},
 	)
 
-	out, err := template.NewTemplateEngine().ExecuteWith(tmpl, ctx, strictRender)
+	out, err := template.New().ExecuteWith(tmpl, ctx, strictRender)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestSendgridRecipe_DeliveryFailed(t *testing.T) {
 // auto-disabled and the body carries the reason.
 func TestSendgridRecipe_WebhookDisabled(t *testing.T) {
 	tmpl := loadSendgridTemplate(t)
-	ctx := template.NewWebhookTemplateContext(
+	ctx := template.NewWebhookContext(
 		"evt_off1", "sparrow.webhook.disabled",
 		time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC).Format(time.RFC3339), 1,
 		map[string]any{
@@ -151,7 +151,7 @@ func TestSendgridRecipe_WebhookDisabled(t *testing.T) {
 		},
 	)
 
-	out, err := template.NewTemplateEngine().ExecuteWith(tmpl, ctx, strictRender)
+	out, err := template.New().ExecuteWith(tmpl, ctx, strictRender)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -175,13 +175,13 @@ func TestSendgridRecipe_WebhookDisabled(t *testing.T) {
 // the sole recipient and the subject must name the event, not a system alert.
 func TestSendgridRecipe_CustomEvent(t *testing.T) {
 	tmpl := loadSendgridTemplate(t)
-	ctx := template.NewWebhookTemplateContext(
+	ctx := template.NewWebhookContext(
 		"evt_custom1", "order.created",
 		time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC).Format(time.RFC3339), 1,
 		map[string]any{"order_id": "ord_1", "total": 42.5},
 	)
 
-	out, err := template.NewTemplateEngine().ExecuteWith(tmpl, ctx, strictRender)
+	out, err := template.New().ExecuteWith(tmpl, ctx, strictRender)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}

@@ -12,16 +12,16 @@ import (
 	"unicode"
 )
 
-// TemplateFunc represents a template utility function with enhanced documentation
-type TemplateFunc struct {
+// Func represents a template utility function with enhanced documentation
+type Func struct {
 	Name        string
 	Func        any
 	Description string
 }
 
-// GetTemplateFunctions returns all available template utility functions with comprehensive documentation
-func GetTemplateFunctions() []TemplateFunc {
-	return []TemplateFunc{
+// Functions returns all available template utility functions with comprehensive documentation
+func Functions() []Func {
+	return []Func{
 		{
 			Name: "json",
 			Func: func(v any) (string, error) {
@@ -432,10 +432,10 @@ func GetTemplateFunctions() []TemplateFunc {
 	}
 }
 
-// GetFunctionMap returns a template.FuncMap with all utility functions
-func GetFunctionMap() template.FuncMap {
+// FuncMap returns a template.FuncMap with all utility functions
+func FuncMap() template.FuncMap {
 	funcMap := make(template.FuncMap)
-	for _, tf := range GetTemplateFunctions() {
+	for _, tf := range Functions() {
 		funcMap[tf.Name] = tf.Func
 	}
 	return funcMap

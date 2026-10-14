@@ -13,26 +13,26 @@ import (
 	"time"
 )
 
-// MaxTemplateSteps bounds one execution's range iterations plus template
+// MaxSteps bounds one execution's range iterations plus template
 // invocations. Every range body and every template body starts with a step,
 // so nested loops over a large payload and recursive {{template}} calls stop
 // here instead of spinning.
-const MaxTemplateSteps = 1_000_000
+const MaxSteps = 1_000_000
 
-// MaxTemplateWorkBytes bounds the bytes one execution's helpers may produce
+// MaxWorkBytes bounds the bytes one execution's helpers may produce
 // on the way to the output: strings built by print, printf, json, replace,
 // repeat, ... and lists or maps built by list, dict and append. Without it a
 // template can double a string held in a variable ({{$s = print $s $s}}) far
-// past MaxTemplateOutputBytes without writing a byte.
-const MaxTemplateWorkBytes = 16 << 20 // 16 MiB
+// past MaxOutputBytes without writing a byte.
+const MaxWorkBytes = 16 << 20 // 16 MiB
 
 // maxPrintfWidth bounds the width and precision of a printf verb: fmt pads
 // in memory, so "%999999999d" allocates a gigabyte from a tiny template.
 const maxPrintfWidth = 1000
 
-// ErrTemplateBusy is returned when no execution slot frees up within
-// TemplateExecutionTimeout. It says nothing about the template: retry later.
-var ErrTemplateBusy = errors.New("too many templates are rendering; try again")
+// ErrBusy is returned when no execution slot frees up within
+// ExecutionTimeout. It says nothing about the template: retry later.
+var ErrBusy = errors.New("too many templates are rendering; try again")
 
 // execSlots bounds concurrent template executions across all engines in the
 // process. A slot is held until the execution really ends, including one the
@@ -62,8 +62,8 @@ func (b *budget) step() error {
 		return errStopped
 	}
 	b.steps++
-	if b.steps > MaxTemplateSteps {
-		return fmt.Errorf("template exceeded %d loop iterations and template calls", MaxTemplateSteps)
+	if b.steps > MaxSteps {
+		return fmt.Errorf("template exceeded %d loop iterations and template calls", MaxSteps)
 	}
 	return nil
 }
@@ -73,16 +73,16 @@ func (b *budget) charge(n int) error {
 	if b.stopped.Load() {
 		return errStopped
 	}
-	if n > MaxTemplateWorkBytes-b.bytes {
-		b.bytes = MaxTemplateWorkBytes
-		return fmt.Errorf("template built more than %d bytes of intermediate values", MaxTemplateWorkBytes)
+	if n > MaxWorkBytes-b.bytes {
+		b.bytes = MaxWorkBytes
+		return fmt.Errorf("template built more than %d bytes of intermediate values", MaxWorkBytes)
 	}
 	b.bytes += n
 	return nil
 }
 
 // remaining is how many bytes may still be charged.
-func (b *budget) remaining() int { return MaxTemplateWorkBytes - b.bytes }
+func (b *budget) remaining() int { return MaxWorkBytes - b.bytes }
 
 func (b *budget) str(s string, err error) (string, error) {
 	if err != nil {

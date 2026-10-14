@@ -45,7 +45,7 @@ it imports nothing from Sparrow) that any application can use. Concepts:
 - **Invites** — stored, single-use, expiring. Redeeming one creates a token.
 
 Subpackages: `memstore` (in-memory, tests), `pgstore` (Postgres via
-`database/sql`, ships `pgstore.Schema`), `storetest` (conformance suite every
+`database/sql`, ships `pgstore.Schema()`), `storetest` (conformance suite every
 Store implementation must pass), `httpauth` (net/http adapter:
 `Credential()` reads `Authorization: Bearer` or `X-API-Key`, never query
 params; `Authenticator` + `Middleware`; `WriteError` with structured 401
@@ -135,7 +135,7 @@ networks should set it to `false`.
 - **`pkg/access` is a separate Go module** with its own release tag
   (`pkg/access/vX.Y.Z`), managed by `scripts/release-submodules.sh`.
 - **Migration 000027** creates `access_tokens` and `access_invites` tables;
-  a test enforces the migration matches `pgstore.Schema` exactly.
+  a test enforces the migration matches `pgstore.Schema()` exactly.
 
 ## Alternatives considered
 
