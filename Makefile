@@ -4,8 +4,10 @@
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 OUTPUT ?= build/server-$(GOOS)-$(GOARCH)
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-SEMVER  ?= $(shell git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0-dev")
+# No leading "v": goreleaser and the Docker build embed the bare version too, and
+# event type bundles compare it as an exact string.
+VERSION ?= $(shell git describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null | sed 's/^v//' || echo "dev")
+SEMVER  ?= $(shell git describe --tags --match 'v[0-9]*' --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0-dev")
 LDFLAGS := -s -w -X github.com/sarathsp06/sparrow.Version=$(VERSION)
 IMAGE_E2E ?= sparrow:e2e
 
@@ -21,11 +23,11 @@ build-cli: ## Build the sparrow CLI binary for current OS/arch
 
 build-sources: ## Build the sparrow-sources binary for current OS/arch
 	mkdir -p build
-	go build -trimpath -ldflags "-s -w" -o build/sparrow-sources-$(GOOS)-$(GOARCH) ./satellites/sparrow-sources
+	go build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o build/sparrow-sources-$(GOOS)-$(GOARCH) ./satellites/sparrow-sources
 
 build-sinks: ## Build the sparrow-sinks binary for current OS/arch
 	mkdir -p build
-	go build -trimpath -ldflags "-s -w" -o build/sparrow-sinks-$(GOOS)-$(GOARCH) ./satellites/sparrow-sinks
+	go build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o build/sparrow-sinks-$(GOOS)-$(GOARCH) ./satellites/sparrow-sinks
 
 build-all: build build-cli build-sources build-sinks ## Build server, CLI, sources, and sinks binaries
 

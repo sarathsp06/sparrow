@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"log/slog"
@@ -18,6 +19,7 @@ import (
 	slogotel "github.com/remychantenay/slog-otel"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
+	"github.com/sarathsp06/sparrow"
 	"github.com/sarathsp06/sparrow/internal/accessauth"
 	"github.com/sarathsp06/sparrow/internal/ai"
 	"github.com/sarathsp06/sparrow/internal/config"
@@ -38,6 +40,13 @@ import (
 )
 
 func main() {
+	showVersion := flag.Bool("version", false, "print the version and exit")
+	flag.Parse()
+	if *showVersion {
+		fmt.Println("sparrow-server", sparrow.Version)
+		return
+	}
+
 	// Load .env file if present, but only outside production.
 	// In production containers a .env file should not exist, but if one
 	// is accidentally present it could silently override critical env vars

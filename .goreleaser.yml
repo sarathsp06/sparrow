@@ -50,7 +50,7 @@ builds:
     env:
       - CGO_ENABLED=0
     ldflags:
-      - -w -s
+      - -w -s -X main.version={{ .Version }}
     goos:
       - linux
       - darwin
@@ -68,7 +68,7 @@ builds:
     env:
       - CGO_ENABLED=0
     ldflags:
-      - -w -s
+      - -w -s -X main.version={{ .Version }}
     goos:
       - linux
       - darwin
