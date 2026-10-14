@@ -2196,9 +2196,9 @@
     "semantic_hash": ""
   },
   "satellites/sparrow/mcp.go": {
-    "mtime": 1791910428.7202291,
-    "seen": 1791959915.032376,
-    "ast_hash": "e103f799659de0c0878e7c630c09ff39",
+    "mtime": 1791963775.4039483,
+    "seen": 1791979128.343189,
+    "ast_hash": "4a0b07bf513e300a896c42aa28aea927",
     "semantic_hash": ""
   },
   "satellites/sparrow/mcp_listen.go": {
@@ -3078,9 +3078,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/cli.mdx": {
-    "mtime": 1791959487.6973414,
-    "seen": 1791959915.032449,
-    "ast_hash": "fbcb7b3a289c35e56e5fe7eea77fc0b5",
+    "mtime": 1791963765.347358,
+    "seen": 1791979128.3432808,
+    "ast_hash": "bb6867ed1c3620ae19bbc40e6754dda5",
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/index.mdx": {

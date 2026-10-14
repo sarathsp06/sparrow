@@ -543,8 +543,7 @@ applies: the server must allow private-network delivery URLs for a local
 receiver.
 
 Every tool returns the REST API response unchanged, so the fields match the
-[API reference](/sparrow/reference/api/). Connection flags, `SPARROW_*` env
-vars and the config file apply as for every other command.
+[API reference](/sparrow/reference/api/).
 
 Register it in your MCP client's server config. Most clients use this shape:
 
@@ -561,6 +560,52 @@ Register it in your MCP client's server config. Most clients use this shape:
 
 Add `"--allow-write"` to `args` to let the agent push, subscribe, apply
 recipes and run a local receiver.
+
+#### Authentication
+
+`sparrow mcp` has no key of its own. It is a stdio server: the MCP client
+starts it as a child process and talks to it over stdin/stdout, so it opens no
+port and only the client that launched it can call it. Each tool call is a
+REST request to Sparrow, and the server authenticates that request exactly as
+it does for any other `sparrow` command.
+
+So the key the agent needs is the server's: whatever `--api-key`,
+`SPARROW_API_KEY` or `api_key` in `~/.sparrow/config.yaml` resolves to
+([Configuration](#configuration)), sent as `X-API-Key`. If the server has no
+`SPARROW_API_KEY` set, `/v1` is open and the MCP server works without one,
+which is why a local `make run` setup needs no key.
+
+Against a server that requires a key, give the agent its own
+[access token](#sparrow-tokens) rather than the master key, so you can see its
+use under LAST USED and revoke it on its own:
+
+```bash
+sparrow tokens create --name claude-mcp --ttl 30d
+```
+
+```json
+{
+  "mcpServers": {
+    "sparrow": {
+      "command": "sparrow",
+      "args": ["mcp", "--url", "https://sparrow.internal", "--consumer", "default"],
+      "env": { "SPARROW_API_KEY": "<token>" }
+    }
+  }
+}
+```
+
+Use a tenant-wide token (no `--consumer`). Consumer tokens only work through
+the portal API, so every tool call made with one gets a 403. The token
+sets what the agent can reach; `--allow-write` only controls which tools it is
+offered. If an agent should never change anything, leave `--allow-write` off.
+The token still has full write access, so anyone who has it can make writes
+with other tools.
+
+If `~/.sparrow/config.yaml` already holds a key, `sparrow mcp` picks it up
+with no `env` entry. Set `SPARROW_API_KEY` in `env` anyway when the agent should
+use a different credential from the one you use in the terminal; the
+environment wins over the config file.
 
 ### `sparrow version`
 

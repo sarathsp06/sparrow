@@ -25,8 +25,12 @@ Register it as a stdio server in your MCP client's config, for example:
   {"mcpServers": {"sparrow": {"command": "sparrow",
     "args": ["mcp", "--url", "http://localhost:8080", "--consumer", "default"]}}}
 
-Connection flags, SPARROW_* env vars and ~/.config/sparrow apply as for every
-other command.
+There is no separate MCP key: stdio opens no port, and each tool call is a REST
+request authenticated like any other command, with the key from --api-key,
+SPARROW_API_KEY or ~/.sparrow/config.yaml. Against a server that requires one,
+give the agent its own tenant-wide token (sparrow tokens create --name mcp) in
+the client's "env": {"SPARROW_API_KEY": "..."}; consumer tokens get 403 on /v1.
+--allow-write limits the tools offered, not what the token can do.
 `
 
 func newMCPCmd() *cobra.Command {
