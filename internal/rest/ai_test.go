@@ -3,6 +3,7 @@ package rest_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -117,8 +118,43 @@ func TestDraftTemplate_DisabledIs503(t *testing.T) {
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status %d, want 503: %s", rec.Code, rec.Body)
 	}
-	if !strings.Contains(rec.Body.String(), "SPARROW_AI_API_KEY") {
+	if !strings.Contains(rec.Body.String(), "SPARROW_AI_ENABLED") {
 		t.Fatalf("body should tell the operator how to enable it: %s", rec.Body)
+	}
+}
+
+// Drafting switched on with a missing provider setting keeps the server up:
+// capabilities report the problem, the draft answers 503 naming it, and the
+// copy-and-paste prompt still works.
+func TestDraftTemplate_EnabledButMisconfigured(t *testing.T) {
+	r := chi.NewRouter()
+	svc := eventOnlyService{events: map[string]*store.EventRegistration{
+		"order.created": {Name: "order.created", Schema: map[string]any{"type": "object"}, SamplePayload: map[string]any{"id": "ord_1"}},
+	}}
+	problem := errors.New("SPARROW_AI_ENABLED=true but SPARROW_AI_API_KEY is not set")
+	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{ConfigErr: problem})
+
+	var caps struct {
+		AIDrafting struct {
+			Enabled    bool   `json:"enabled"`
+			Problem    string `json:"problem"`
+			PromptOnly bool   `json:"prompt_only"`
+		} `json:"ai_drafting"`
+	}
+	rec := do(r, http.MethodGet, "/v1/capabilities", "")
+	_ = json.Unmarshal(rec.Body.Bytes(), &caps)
+	if !caps.AIDrafting.Enabled || caps.AIDrafting.PromptOnly || caps.AIDrafting.Problem != problem.Error() {
+		t.Fatalf("capabilities = %+v, want enabled with the problem", caps.AIDrafting)
+	}
+
+	rec = do(r, http.MethodPost, "/v1/subscriptions:draftTemplate", `{"event_name":"order.created","instructions":"just the id"}`)
+	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "SPARROW_AI_API_KEY is not set") {
+		t.Fatalf("draft = %d %s, want 503 naming the missing setting", rec.Code, rec.Body)
+	}
+
+	rec = do(r, http.MethodPost, "/v1/subscriptions:draftTemplatePrompt", `{"event_name":"order.created","instructions":"just the id"}`)
+	if rec.Code != 200 {
+		t.Fatalf("prompt = %d %s, want 200", rec.Code, rec.Body)
 	}
 }
 

@@ -81,11 +81,11 @@ No variables set: prompt-only mode. `GET /v1/capabilities` reports `ai_drafting.
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `SPARROW_AI_ENABLED` | `false` forces drafting off (provider vars ignored, not validated); `true` requires a configured provider (anthropic: key; openai: base URL + model) or startup fails; unset/empty/`-`: on when a provider is configured. `Config.AIEnabled`/`AISwitchedOff` | -- |
+| `SPARROW_AI_ENABLED` | The switch for Draft with AI (default off). `true` makes the provider vars required; a missing one is reported by `POST /v1/subscriptions:draftTemplate` (503) and `GET /v1/capabilities` (`ai_drafting.problem`), never at startup. Copy prompt works either way. `Config.AIEnabled`/`AIConfigError` | `false` |
 | `SPARROW_AI_PROVIDER` | `anthropic` (Anthropic SDK) or `openai` (plain HTTP to any OpenAI-compatible `/v1/chat/completions`: Ollama, vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI) | `anthropic` |
-| `SPARROW_AI_API_KEY` | Provider key. Enables drafting for `anthropic`; optional Bearer token for `openai`. `GET /v1/capabilities` reports `ai_drafting.{enabled,provider,model}` | -- |
+| `SPARROW_AI_API_KEY` | Provider key. Required for `anthropic` when `SPARROW_AI_ENABLED=true`; optional Bearer token for `openai`. `GET /v1/capabilities` reports `ai_drafting.{enabled,provider,model}` | -- |
 | `SPARROW_AI_MODEL` | Model id. Required for `openai` | `claude-haiku-4-5` (anthropic) |
-| `SPARROW_AI_BASE_URL` | API base URL. Required for `openai` (enables drafting); optional gateway override for `anthropic` | -- |
+| `SPARROW_AI_BASE_URL` | API base URL. Required for `openai` when `SPARROW_AI_ENABLED=true`; optional gateway override for `anthropic` | -- |
 | `SPARROW_AI_TIMEOUT` | Budget for one draft incl. repair rounds; lifts the 30s write timeout for that request only; 504 when exceeded | `3m` |
 
 ## Database Pools

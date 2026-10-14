@@ -269,7 +269,7 @@ func main() {
 	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(cfg.AllowPrivateNetworks), webhooks.WithAllowedNetworks(cfg.AllowedNetworkList()), webhooks.WithAutoRegisterEvents(cfg.AutoRegisterEvents))
 	tracedWebhookService := webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, "")
 
-	// AI-assisted template drafting is opt-in (SPARROW_AI_*). Drafts are
+	// AI-assisted template drafting is opt-in (SPARROW_AI_ENABLED). Drafts are
 	// verified through the same dry-run the editor's preview uses. The
 	// prompt endpoint and its docs_url fetch work without a provider, so an
 	// install with no AI still gets a copy-and-paste prompt.
@@ -277,6 +277,9 @@ func main() {
 	fetch := ai.NewDocFetcher(client.NetworkPolicy{AllowPrivate: cfg.AllowPrivateNetworks, AllowedNetworks: cfg.AllowedNetworkList()})
 	aiDeps := rest.AIDeps{Fetch: fetch, Timeout: cfg.AITimeout}
 	if cfg.AIEnabled() {
+		aiDeps.ConfigErr = cfg.AIConfigError()
+	}
+	if cfg.AIEnabled() && aiDeps.ConfigErr == nil {
 		helpers := make([]ai.HelperFunc, 0)
 		for _, f := range tracedWebhookService.GetTemplateFunctions() {
 			helpers = append(helpers, ai.HelperFunc{Name: f.Name, Description: f.Description})
@@ -288,9 +291,10 @@ func main() {
 		}
 		drafter, err := ai.New(ai.Config{Provider: ai.Provider(cfg.AIProviderName()), APIKey: cfg.AIAPIKey, Model: cfg.AIModelOrDefault(), BaseURL: cfg.AIBaseURL}, render, helpers, fetch)
 		if err != nil {
-			log.Fatalf("Failed to configure AI drafting: %v", err)
+			aiDeps.ConfigErr = err
+		} else {
+			aiDeps.Drafter = drafter
 		}
-		aiDeps.Drafter = drafter
 	}
 
 	// Create chi router for the REST API, health endpoints, and embedded UI.
@@ -403,12 +407,13 @@ func main() {
 	} else {
 		fmt.Println("   Auth: disabled (set SPARROW_API_KEY to enable)")
 	}
-	if cfg.AIEnabled() {
+	switch {
+	case aiDeps.Drafter != nil:
 		fmt.Printf("   AI drafting: enabled (%s via %s)\n", cfg.AIModelOrDefault(), cfg.AIProviderName())
-	} else if cfg.AISwitchedOff() {
-		fmt.Println("   AI drafting: off (SPARROW_AI_ENABLED=false; the editor offers a copy-and-paste prompt)")
-	} else {
-		fmt.Println("   AI drafting: prompt-only (the editor offers a copy-and-paste prompt; set SPARROW_AI_API_KEY, or SPARROW_AI_PROVIDER=openai with SPARROW_AI_BASE_URL, to draft in place)")
+	case aiDeps.ConfigErr != nil:
+		fmt.Printf("   AI drafting: enabled but not usable: %v\n", aiDeps.ConfigErr)
+	default:
+		fmt.Println("   AI drafting: off (set SPARROW_AI_ENABLED=true to draft in place; the copy-and-paste prompt works either way)")
 	}
 	if otelShutdown != nil {
 		fmt.Printf("   OTLP endpoint: %s\n", otelConfig.OTLPEndpoint)

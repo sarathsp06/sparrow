@@ -202,17 +202,17 @@ type Config struct {
 	// Env: SPARROW_AI_PROVIDER
 	AIProvider string `envconfig:"SPARROW_AI_PROVIDER" default:"anthropic"`
 
-	// AISwitch turns AI-assisted template drafting on or off regardless of
-	// the provider settings: unset means on when a provider is configured,
-	// "false" keeps it off with the key and URL left in place, and "true"
-	// refuses to start unless a provider is configured.
-	// Env: SPARROW_AI_ENABLED
-	AISwitch string `envconfig:"SPARROW_AI_ENABLED" default:""`
+	// AIDrafting turns AI-assisted template drafting ("Draft with AI" and
+	// POST /v1/subscriptions:draftTemplate) on. It is the only switch: the
+	// provider settings below are read only when it is true, and a missing
+	// or bad one is reported by the draft endpoint (AIConfigError), not at
+	// startup. The copy-and-paste prompt works either way.
+	// Env: SPARROW_AI_ENABLED (default false)
+	AIDrafting bool `envconfig:"SPARROW_AI_ENABLED" default:"false"`
 
-	// AIAPIKey is the provider API key. For the anthropic provider setting
-	// it enables the feature (POST /v1/subscriptions:draftTemplate and the
-	// "Draft with AI" panel). For the openai provider it is sent as a Bearer
-	// token when set.
+	// AIAPIKey is the provider API key: required for the anthropic provider
+	// when AIDrafting is on, and sent as a Bearer token for the openai
+	// provider when set.
 	// Env: SPARROW_AI_API_KEY
 	AIAPIKey string `envconfig:"SPARROW_AI_API_KEY" default:""`
 
@@ -355,21 +355,28 @@ func (c *Config) Validate() error {
 	if c.EventRetentionDays < 0 {
 		return fmt.Errorf("SPARROW_EVENT_RETENTION_DAYS: must be >= 0, got %d", c.EventRetentionDays)
 	}
-	on, err := c.aiSwitch()
-	if err != nil {
-		return err
-	}
-	if on != nil && *on && !c.aiConfigured() {
-		return fmt.Errorf("SPARROW_AI_ENABLED=true but no AI provider is configured: set SPARROW_AI_API_KEY (anthropic) or SPARROW_AI_BASE_URL and SPARROW_AI_MODEL (openai)")
+	return nil
+}
+
+// AIConfigError reports what is missing or wrong in the provider settings
+// when drafting is on, or nil when a draft can be attempted. The server
+// still starts: the draft endpoint answers with this error, so a deploy
+// with drafting on and a forgotten key keeps the copy-and-paste prompt.
+func (c *Config) AIConfigError() error {
+	if !c.AIDrafting {
+		return nil
 	}
 	switch c.aiProvider() {
 	case "anthropic":
-	case "openai":
-		if c.AIBaseURL == "" && c.AIEnabled() {
-			return fmt.Errorf("SPARROW_AI_BASE_URL is required when SPARROW_AI_PROVIDER=openai (e.g. http://localhost:11434/v1)")
+		if c.AIAPIKey == "" {
+			return fmt.Errorf("SPARROW_AI_ENABLED=true but SPARROW_AI_API_KEY is not set (required for SPARROW_AI_PROVIDER=anthropic)")
 		}
-		if c.AIEnabled() && strings.TrimSpace(c.AIModel) == "" {
-			return fmt.Errorf("SPARROW_AI_MODEL is required when SPARROW_AI_PROVIDER=openai (e.g. llama3.2, qwen2.5-coder, gpt-4o-mini)")
+	case "openai":
+		if c.AIBaseURL == "" {
+			return fmt.Errorf("SPARROW_AI_ENABLED=true but SPARROW_AI_BASE_URL is not set (required for SPARROW_AI_PROVIDER=openai, e.g. http://localhost:11434/v1)")
+		}
+		if strings.TrimSpace(c.AIModel) == "" {
+			return fmt.Errorf("SPARROW_AI_ENABLED=true but SPARROW_AI_MODEL is not set (required for SPARROW_AI_PROVIDER=openai, e.g. llama3.2, qwen2.5-coder, gpt-4o-mini)")
 		}
 	default:
 		return fmt.Errorf("SPARROW_AI_PROVIDER: %q is not supported (want anthropic or openai)", c.AIProvider)
@@ -403,41 +410,8 @@ func (c *Config) aiProvider() string {
 // AIProviderName returns the effective provider: "anthropic" or "openai".
 func (c *Config) AIProviderName() string { return c.aiProvider() }
 
-// aiSwitch parses SPARROW_AI_ENABLED: nil when unset, else its value.
-func (c *Config) aiSwitch() (*bool, error) {
-	if isBlank(c.AISwitch) {
-		return nil, nil
-	}
-	on, err := strconv.ParseBool(strings.TrimSpace(c.AISwitch))
-	if err != nil {
-		return nil, fmt.Errorf("SPARROW_AI_ENABLED: %q is not a boolean (want true or false; leave it unset, empty or \"-\" to follow the provider settings)", c.AISwitch)
-	}
-	return &on, nil
-}
-
-// AIEnabled reports whether AI-assisted template drafting is on: a provider
-// is configured and SPARROW_AI_ENABLED is not false.
-func (c *Config) AIEnabled() bool {
-	return !c.AISwitchedOff() && c.aiConfigured()
-}
-
-// AISwitchedOff reports whether SPARROW_AI_ENABLED=false turned drafting off.
-func (c *Config) AISwitchedOff() bool {
-	on, _ := c.aiSwitch()
-	return on != nil && !*on
-}
-
-// aiConfigured reports whether a provider is configured: an API key for the
-// anthropic provider, or a base URL (key optional) for an OpenAI-compatible
-// server.
-func (c *Config) aiConfigured() bool {
-	switch c.aiProvider() {
-	case "openai":
-		return c.AIBaseURL != "" || c.AIAPIKey != ""
-	default:
-		return c.AIAPIKey != ""
-	}
-}
+// AIEnabled reports whether SPARROW_AI_ENABLED turned drafting on.
+func (c *Config) AIEnabled() bool { return c.AIDrafting }
 
 // AIModelOrDefault returns the configured model, or the provider default.
 func (c *Config) AIModelOrDefault() string {
@@ -484,6 +458,12 @@ func (c *Config) Warnings() []string {
 	}
 	if ids := c.zeroEncryptionKeyIDs(); len(ids) > 0 && !c.IsProduction() {
 		warnings = append(warnings, fmt.Sprintf("SPARROW_ENCRYPTION_KEYS: key %s is all zeros, the published development key — anyone can decrypt webhook secrets stored with it, and production refuses it (generate one with: openssl rand -hex 32)", strings.Join(ids, ", ")))
+	}
+	if !c.AIDrafting && (c.AIAPIKey != "" || c.AIBaseURL != "") {
+		warnings = append(warnings, "SPARROW_AI_API_KEY or SPARROW_AI_BASE_URL is set but SPARROW_AI_ENABLED is not true, so Draft with AI is off (the copy-and-paste prompt still works); set SPARROW_AI_ENABLED=true to turn it on")
+	}
+	if err := c.AIConfigError(); err != nil {
+		warnings = append(warnings, err.Error()+"; POST /v1/subscriptions:draftTemplate answers 503 with this message until it is fixed")
 	}
 	if v, set := os.LookupEnv("SPARROW_UI_INJECT_KEY"); set && !isBlank(v) {
 		warnings = append(warnings, "SPARROW_UI_INJECT_KEY is no longer supported and is ignored — the UI never receives the API key; sign in with the key, an access token, or an invite link")

@@ -79,6 +79,28 @@ So **don't remove a key from the ring**, even after switching the primary. Any w
 
 Retiring a key will become safe once Sparrow ships a tool that rewraps existing data under the primary key; its release notes will say so. Until then, treat every key that has ever been primary as permanent, and back up the whole keyring: lose it and the encrypted secrets are gone for good.
 
+## AI drafting needs `SPARROW_AI_ENABLED=true`
+
+Before 1.0, setting `SPARROW_AI_API_KEY` (or `SPARROW_AI_BASE_URL` for an
+OpenAI-compatible server) was enough to turn on **Draft with AI**. In 1.0,
+`SPARROW_AI_ENABLED` is the switch and defaults to off. If you use drafting,
+add:
+
+```bash
+SPARROW_AI_ENABLED=true
+```
+
+Without it the editor offers **Copy prompt** only, and startup logs a warning
+that a key is set but drafting is off. With it, a missing provider setting no
+longer stops the server: the draft request answers `503` naming the setting.
+See [Turning drafting on and off](/sparrow/getting-started/configuration/#turning-drafting-on-and-off).
+
+## Empty and `-` values mean unset
+
+A variable set to an empty value or a lone `-` now counts as unset, so its
+default applies. Before, an empty typed variable (`SPARROW_AI_TIMEOUT=`) stopped
+startup, and `SPARROW_AI_API_KEY=-` counted as a key.
+
 ## Event type bundles
 
 A bundle exported from a 0.x server and imported into 1.0 shows a "version differs" warning: the stamp records the exact server version that exported it. The import still works. Export again from 1.0 to clear it.

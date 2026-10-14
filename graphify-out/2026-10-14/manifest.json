@@ -90,9 +90,9 @@
     "semantic_hash": ""
   },
   "cmd/server/main.go": {
-    "mtime": 1791992656.0599027,
-    "seen": 1791992789.631074,
-    "ast_hash": "3cc51257dfd36e41381d4c1b28f74ac2",
+    "mtime": 1791993184.3160853,
+    "seen": 1791993276.310873,
+    "ast_hash": "d366934eb27380afd0af211c84f10e6f",
     "semantic_hash": ""
   },
   "db/migrations.go": {
@@ -990,15 +990,15 @@
     "semantic_hash": ""
   },
   "internal/config/config.go": {
-    "mtime": 1791992656.07666,
-    "seen": 1791992789.6311522,
-    "ast_hash": "d31b27651e767deca1fd6c037124e456",
+    "mtime": 1791993184.3162894,
+    "seen": 1791993276.311038,
+    "ast_hash": "e75341bdf559a9ab1f6048d558b65378",
     "semantic_hash": ""
   },
   "internal/config/config_test.go": {
-    "mtime": 1791992655.3958316,
-    "seen": 1791992789.6311529,
-    "ast_hash": "8dd421702d64dd5d0f3ca0e39d1af02f",
+    "mtime": 1791993242.0821905,
+    "seen": 1791993276.311038,
+    "ast_hash": "f0c59ce1642b6cdda825ec51d0cd8d69",
     "semantic_hash": ""
   },
   "internal/health/checker.go": {
@@ -2748,9 +2748,9 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1791992656.0592637,
-    "seen": 1791992789.631329,
-    "ast_hash": "cf1092e61c65fb814bce6e2f42ba6f00",
+    "mtime": 1791993228.3137429,
+    "seen": 1791993276.311263,
+    "ast_hash": "9d5aec86373801a354023783e723a08b",
     "semantic_hash": ""
   },
   "CONTRIBUTING.md": {
@@ -2880,9 +2880,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/configuration.md": {
-    "mtime": 1791992656.061163,
-    "seen": 1791992789.631341,
-    "ast_hash": "d26c4fb14b424f35cce6b79de7c686b9",
+    "mtime": 1791993211.3182096,
+    "seen": 1791993276.311278,
+    "ast_hash": "d24e4535ffe898c3dcb2164f95a113ae",
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/for-decision-makers.mdx": {

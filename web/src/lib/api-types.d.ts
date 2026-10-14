@@ -1016,7 +1016,7 @@ export interface paths {
         put?: never;
         /**
          * Draft a transform template with AI
-         * @description Drafts a transform_template from a plain-language description, grounded in the event type's JSON Schema and sample payload, the template helper catalog, and optionally a shipped recipe's destination format or an example body the receiver expects. Every draft is rendered against the sample payload (as POST /v1/subscriptions:testTemplate does) and repaired until it renders, so the returned template is known to work. Nothing is saved: put the template into a subscription's transform_template. Requires AI drafting to be configured on the server (SPARROW_AI_API_KEY for Anthropic, or SPARROW_AI_PROVIDER=openai with SPARROW_AI_BASE_URL for any OpenAI-compatible server); otherwise 503. Only the sample payload (registered or provided in the request), the schema, and the request's own text are sent to the model, never stored events, headers, or secrets.
+         * @description Drafts a transform_template from a plain-language description, grounded in the event type's JSON Schema and sample payload, the template helper catalog, and optionally a shipped recipe's destination format or an example body the receiver expects. Every draft is rendered against the sample payload (as POST /v1/subscriptions:testTemplate does) and repaired until it renders, so the returned template is known to work. Nothing is saved: put the template into a subscription's transform_template. Requires SPARROW_AI_ENABLED=true and the provider settings (SPARROW_AI_API_KEY for Anthropic, or SPARROW_AI_PROVIDER=openai with SPARROW_AI_BASE_URL and SPARROW_AI_MODEL for any OpenAI-compatible server); otherwise 503, naming the missing setting. Only the sample payload (registered or provided in the request), the schema, and the request's own text are sent to the model, never stored events, headers, or secrets.
          */
         post: operations["draftSubscriptionTemplate"];
         delete?: never;
@@ -1171,11 +1171,13 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         AIDraftingStruct: {
-            /** @description True when the server is started with SPARROW_AI_API_KEY and POST /v1/subscriptions:draftTemplate is usable. */
+            /** @description True when the server is started with SPARROW_AI_ENABLED=true. POST /v1/subscriptions:draftTemplate is usable unless problem is set. */
             enabled: boolean;
             /** @description Model id used for drafting, when enabled. */
             model?: string;
-            /** @description True when no provider is configured: POST /v1/subscriptions:draftTemplatePrompt still builds the prompt for pasting into any chat assistant, while :draftTemplate answers 503. */
+            /** @description Why drafting is enabled but not usable: a missing or invalid provider setting. POST /v1/subscriptions:draftTemplate answers 503 with this text. */
+            problem?: string;
+            /** @description True when drafting is off. POST /v1/subscriptions:draftTemplatePrompt builds the prompt for pasting into any chat assistant whatever this says. */
             prompt_only: boolean;
             /**
              * @description Chat API behind drafting: anthropic, or openai for any OpenAI-compatible server (Ollama, vLLM, OpenRouter, OpenAI).

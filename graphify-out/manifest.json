@@ -1,14 +1,14 @@
 {
   ".claude/launch.json": {
-    "mtime": 1791321899.7460108,
-    "seen": 1791992789.631059,
+    "mtime": 1791993825.2822793,
+    "seen": 1791993872.356164,
     "ast_hash": "0203dbe8e54e755167bb4089dddc69c9",
     "semantic_hash": ""
   },
   "api/openapi.json": {
-    "mtime": 1791820911.8014777,
-    "seen": 1791992789.631063,
-    "ast_hash": "6694db017464e647a0bb1b0a1a4b6e86",
+    "mtime": 1791993618.123425,
+    "seen": 1791993872.3561668,
+    "ast_hash": "37fd25333bb0192f5e85b19730d053cf",
     "semantic_hash": ""
   },
   "build.go": {
@@ -90,9 +90,9 @@
     "semantic_hash": ""
   },
   "cmd/server/main.go": {
-    "mtime": 1791993184.3160853,
-    "seen": 1791993276.310873,
-    "ast_hash": "d366934eb27380afd0af211c84f10e6f",
+    "mtime": 1791993549.0259748,
+    "seen": 1791993872.3561769,
+    "ast_hash": "062afc284ff8b06b77615413ef722865",
     "semantic_hash": ""
   },
   "db/migrations.go": {
@@ -990,15 +990,15 @@
     "semantic_hash": ""
   },
   "internal/config/config.go": {
-    "mtime": 1791993184.3162894,
-    "seen": 1791993276.311038,
-    "ast_hash": "e75341bdf559a9ab1f6048d558b65378",
+    "mtime": 1791993709.1988344,
+    "seen": 1791993872.356253,
+    "ast_hash": "51e4108fcc37fa0d282ef5f5dee9de20",
     "semantic_hash": ""
   },
   "internal/config/config_test.go": {
-    "mtime": 1791993242.0821905,
-    "seen": 1791993276.311038,
-    "ast_hash": "f0c59ce1642b6cdda825ec51d0cd8d69",
+    "mtime": 1791993600.478517,
+    "seen": 1791993872.3562539,
+    "ast_hash": "20db17ae62b38e1d41da35b5aaeb13ea",
     "semantic_hash": ""
   },
   "internal/health/checker.go": {
@@ -1212,15 +1212,15 @@
     "semantic_hash": ""
   },
   "internal/rest/ai.go": {
-    "mtime": 1791661885.5388706,
-    "seen": 1791992789.631181,
-    "ast_hash": "0e61f1c6da34b93ac8a5e4b543bad461",
+    "mtime": 1791993549.0264308,
+    "seen": 1791993872.356281,
+    "ast_hash": "e4587d8b439368b7a4a7a075a0730254",
     "semantic_hash": ""
   },
   "internal/rest/ai_test.go": {
-    "mtime": 1791661885.5389943,
-    "seen": 1791992789.6311822,
-    "ast_hash": "768a3a3056b37551962c9cc991da63a2",
+    "mtime": 1791993616.5553994,
+    "seen": 1791993872.356282,
+    "ast_hash": "1c18f3bc937aa5032133782af6813292",
     "semantic_hash": ""
   },
   "internal/rest/ai_timeout_test.go": {
@@ -2316,9 +2316,9 @@
     "semantic_hash": ""
   },
   "web/src/lib/api-types.d.ts": {
-    "mtime": 1791820911.8198807,
-    "seen": 1791992789.631289,
-    "ast_hash": "67060fb7c9386d05a6a73afb81f83af2",
+    "mtime": 1791993638.0350552,
+    "seen": 1791993872.3563929,
+    "ast_hash": "7a38e7c09f27a7bcf6fd670f2e2926b6",
     "semantic_hash": ""
   },
   "web/src/lib/apiConsole.svelte.ts": {
@@ -2460,9 +2460,9 @@
     "semantic_hash": ""
   },
   "web/src/lib/components/TemplateEditor.svelte": {
-    "mtime": 1791321899.828017,
-    "seen": 1791992789.6313019,
-    "ast_hash": "ae913163fce57fc060a76206b2e0a189",
+    "mtime": 1791993653.418074,
+    "seen": 1791993872.356407,
+    "ast_hash": "caa16def3c8498201f750792bfa1276e",
     "semantic_hash": ""
   },
   "web/src/lib/components/TransformSettings.svelte": {
@@ -2748,9 +2748,9 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1791993228.3137429,
-    "seen": 1791993276.311263,
-    "ast_hash": "9d5aec86373801a354023783e723a08b",
+    "mtime": 1791993697.238087,
+    "seen": 1791993872.356435,
+    "ast_hash": "eb795be436dc279fc69c7b7ce0461020",
     "semantic_hash": ""
   },
   "CONTRIBUTING.md": {
@@ -2766,9 +2766,9 @@
     "semantic_hash": ""
   },
   "api/openapi.yaml": {
-    "mtime": 1791820911.8020127,
-    "seen": 1791992789.631331,
-    "ast_hash": "c8d4e0e36680ebafb2aa9503b13ce9e8",
+    "mtime": 1791993618.1170235,
+    "seen": 1791993872.356437,
+    "ast_hash": "f6b4ca30176368e51b317c01b7effe4f",
     "semantic_hash": ""
   },
   "client/README.md": {
@@ -2880,9 +2880,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/configuration.md": {
-    "mtime": 1791993211.3182096,
-    "seen": 1791993276.311278,
-    "ast_hash": "d24e4535ffe898c3dcb2164f95a113ae",
+    "mtime": 1791993681.904983,
+    "seen": 1791993872.356447,
+    "ast_hash": "489220fe703fcdda8dc35c9269b973ac",
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/for-decision-makers.mdx": {
@@ -3408,9 +3408,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/deployment/upgrading-to-1-0.md": {
-    "mtime": 1791992656.060963,
-    "seen": 1791992789.631341,
-    "ast_hash": "a037b9d44a15bc74d17897b356386806",
+    "mtime": 1791993697.2378414,
+    "seen": 1791993872.356447,
+    "ast_hash": "736d9b52cd51d6a3a5319f2708c5407a",
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/compatibility.md": {

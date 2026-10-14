@@ -129,52 +129,56 @@ func TestAIConfig(t *testing.T) {
 		return &Config{HTTPPort: "8080", DatabaseURL: "postgres://localhost/x", EncryptionKeys: []string{"main=" + strings.Repeat("00", 32)}, EncryptionPrimaryKeyID: "main", MaxCapturedResponseBytes: 1024, MaxBodyBytes: 1 << 20}
 	}
 	cases := []struct {
-		name    string
-		mut     func(c *Config)
-		wantErr string
-		enabled bool
-		model   string
+		name       string
+		mut        func(c *Config)
+		enabled    bool
+		problem    string // substring of AIConfigError, "" for none
+		model      string
+		warnAIVars bool
 	}{
-		{"unset is off", func(c *Config) {}, "", false, "claude-haiku-4-5"},
-		{"anthropic key enables with default model", func(c *Config) { c.AIAPIKey = "k" }, "", true, "claude-haiku-4-5"},
-		{"anthropic explicit model", func(c *Config) { c.AIAPIKey = "k"; c.AIModel = "claude-sonnet-5-5" }, "", true, "claude-sonnet-5-5"},
-		{"openai without base url is off", func(c *Config) { c.AIProvider = "openai" }, "", false, ""},
-		{"openai with base url needs model", func(c *Config) { c.AIProvider = "openai"; c.AIBaseURL = "http://localhost:11434/v1" }, "SPARROW_AI_MODEL is required", true, ""},
+		{"off by default", func(c *Config) {}, false, "", "claude-haiku-4-5", false},
+		{"a key alone does not turn it on", func(c *Config) { c.AIAPIKey = "k" }, false, "", "claude-haiku-4-5", true},
+		{"anthropic on with key", func(c *Config) { c.AIDrafting = true; c.AIAPIKey = "k" }, true, "", "claude-haiku-4-5", false},
+		{"anthropic explicit model", func(c *Config) { c.AIDrafting = true; c.AIAPIKey = "k"; c.AIModel = "claude-sonnet-5-5" }, true, "", "claude-sonnet-5-5", false},
+		{"anthropic on without key", func(c *Config) { c.AIDrafting = true }, true, "SPARROW_AI_API_KEY is not set", "claude-haiku-4-5", false},
+		{"openai on without base url", func(c *Config) { c.AIDrafting = true; c.AIProvider = "openai"; c.AIAPIKey = "k"; c.AIModel = "m" }, true, "SPARROW_AI_BASE_URL is not set", "m", false},
+		{"openai on without model", func(c *Config) {
+			c.AIDrafting = true
+			c.AIProvider = "openai"
+			c.AIBaseURL = "http://localhost:11434/v1"
+		}, true, "SPARROW_AI_MODEL is not set", "", false},
 		{"openai local server, no key", func(c *Config) {
+			c.AIDrafting = true
 			c.AIProvider = "openai"
 			c.AIBaseURL = "http://localhost:11434/v1"
 			c.AIModel = "llama3.2"
-		}, "", true, "llama3.2"},
-		{"openai key without base url", func(c *Config) { c.AIProvider = "openai"; c.AIAPIKey = "k"; c.AIModel = "m" }, "SPARROW_AI_BASE_URL is required", true, "m"},
-		{"unknown provider", func(c *Config) { c.AIProvider = "gemini" }, "not supported", false, ""},
-		{"bad base url", func(c *Config) { c.AIAPIKey = "k"; c.AIBaseURL = "localhost:11434" }, "not an absolute URL", true, "claude-haiku-4-5"},
-		{"switch false turns a configured provider off", func(c *Config) { c.AIAPIKey = "k"; c.AISwitch = "false" }, "", false, "claude-haiku-4-5"},
-		{"switch false skips openai requirements", func(c *Config) {
-			c.AIProvider = "openai"
-			c.AIBaseURL = "http://localhost:11434/v1"
-			c.AISwitch = "false"
-		}, "", false, ""},
-		{"switch true with a provider", func(c *Config) { c.AIAPIKey = "k"; c.AISwitch = "true" }, "", true, "claude-haiku-4-5"},
-		{"switch true without a provider", func(c *Config) { c.AISwitch = "true" }, "no AI provider is configured", false, "claude-haiku-4-5"},
-		{"switch dash follows the provider", func(c *Config) { c.AIAPIKey = "k"; c.AISwitch = "-" }, "", true, "claude-haiku-4-5"},
-		{"switch not a boolean", func(c *Config) { c.AISwitch = "maybe" }, "not a boolean", false, "claude-haiku-4-5"},
+		}, true, "", "llama3.2", false},
+		{"unknown provider", func(c *Config) { c.AIDrafting = true; c.AIProvider = "gemini" }, true, "not supported", "", false},
+		{"bad base url", func(c *Config) { c.AIDrafting = true; c.AIAPIKey = "k"; c.AIBaseURL = "localhost:11434" }, true, "not an absolute URL", "claude-haiku-4-5", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			c := base()
 			tc.mut(c)
-			err := c.Validate()
-			switch {
-			case tc.wantErr == "" && err != nil:
-				t.Fatalf("Validate() = %v", err)
-			case tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)):
-				t.Fatalf("Validate() = %v, want containing %q", err, tc.wantErr)
+			if err := c.Validate(); err != nil {
+				t.Fatalf("Validate() = %v; AI settings must never stop startup", err)
 			}
 			if c.AIEnabled() != tc.enabled {
 				t.Fatalf("AIEnabled() = %v, want %v", c.AIEnabled(), tc.enabled)
 			}
+			err := c.AIConfigError()
+			switch {
+			case tc.problem == "" && err != nil:
+				t.Fatalf("AIConfigError() = %v", err)
+			case tc.problem != "" && (err == nil || !strings.Contains(err.Error(), tc.problem)):
+				t.Fatalf("AIConfigError() = %v, want containing %q", err, tc.problem)
+			}
 			if c.AIModelOrDefault() != tc.model {
 				t.Fatalf("AIModelOrDefault() = %q, want %q", c.AIModelOrDefault(), tc.model)
+			}
+			warned := strings.Contains(strings.Join(c.Warnings(), "\n"), "SPARROW_AI_ENABLED is not true")
+			if warned != tc.warnAIVars {
+				t.Fatalf("warning about AI vars without the switch = %v, want %v", warned, tc.warnAIVars)
 			}
 		})
 	}

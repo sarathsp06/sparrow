@@ -109,9 +109,9 @@ addresses unless you allow them.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SPARROW_AI_ENABLED` | unset | `false` turns drafting off with the provider settings left in place; `true` requires a configured provider and stops startup without one. Unset, empty or `-`: on whenever a provider is configured. See [Turning drafting on and off](#turning-drafting-on-and-off). |
+| `SPARROW_AI_ENABLED` | `false` | The on/off switch for **Draft with AI**. `true` turns it on; the provider variables below are then required, and a missing one makes the draft request fail with a message naming it (the server still starts). Unset, empty, `-` or `false`: off. **Copy prompt** works either way. See [Turning drafting on and off](#turning-drafting-on-and-off). |
 | `SPARROW_AI_PROVIDER` | `anthropic` | `anthropic` or `openai` (any OpenAI-compatible server). |
-| `SPARROW_AI_API_KEY` | unset | Provider API key. Required for `anthropic`; optional for a local `openai` server. |
+| `SPARROW_AI_API_KEY` | unset | Provider API key. Required for `anthropic`; optional for a local `openai` server. Read only when `SPARROW_AI_ENABLED=true`. |
 | `SPARROW_AI_MODEL` | `claude-haiku-4-5` for `anthropic` | Model name. Required for `openai`. |
 | `SPARROW_AI_BASE_URL` | unset | API root. Required for `openai`; optional proxy override for `anthropic`. |
 | `SPARROW_AI_TIMEOUT` | `3m` | Longest one draft may take, repair rounds included; past it the request answers 504. A reverse proxy in front of Sparrow needs a read timeout at least this long. |
@@ -233,11 +233,11 @@ pool metrics (`db_sql_*`) come from the OpenTelemetry instrumentation.
 The subscription template editor can help write a `transform_template`. It
 works at two levels:
 
-- **With no AI variables set**, the editor offers **Copy prompt for AI**
+- **Always**, the editor offers **Copy prompt**
   (`POST /v1/subscriptions:draftTemplatePrompt`): a prompt grounded in the event
   type's schema and sample payload and in Sparrow's template helpers, to paste
   into any chat assistant.
-- **With a provider configured**, it adds **Draft with AI**
+- **With `SPARROW_AI_ENABLED=true`** and a provider configured, it adds **Draft with AI**
   (`POST /v1/subscriptions:draftTemplate`). You describe the body the receiver
   should get (optionally with an example body, a sample payload, a shipped
   recipe's format, or a documentation URL), and Sparrow drafts the template,
@@ -255,6 +255,7 @@ deliveries, so private and cloud metadata addresses are refused unless allowed.
 ### Anthropic
 
 ```bash
+SPARROW_AI_ENABLED=true
 SPARROW_AI_API_KEY=sk-ant-...
 # SPARROW_AI_MODEL=claude-haiku-4-5   # the default; raise it if drafts often need repairs
 # SPARROW_AI_BASE_URL=https://llm-gateway.internal   # only for a gateway or proxy
@@ -265,53 +266,48 @@ SPARROW_AI_API_KEY=sk-ant-...
 Ollama, vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI and others:
 
 ```bash
+SPARROW_AI_ENABLED=true
 SPARROW_AI_PROVIDER=openai
 SPARROW_AI_BASE_URL=http://localhost:11434/v1   # Ollama; e.g. http://vllm:8000/v1, https://openrouter.ai/api/v1
 SPARROW_AI_MODEL=qwen2.5-coder:7b               # the name the server serves
 # SPARROW_AI_API_KEY=...                        # sent as a Bearer token when set
 ```
 
-With `openai`, setting a key without `SPARROW_AI_BASE_URL` stops the server at
-startup.
 
 ### Turning drafting on and off
 
-Drafting is on when a provider is configured, and `SPARROW_AI_ENABLED`
-overrides that:
+`SPARROW_AI_ENABLED` is the only switch. The provider variables configure
+drafting but never turn it on by themselves.
 
 | `SPARROW_AI_ENABLED` | Result |
 |----------------------|--------|
-| unset, empty or `-` | On if a provider is configured (below), otherwise prompt-only. |
-| `false` | Off: prompt-only, even with a key or base URL set. The provider variables are ignored and not validated, so you can leave them in place. |
-| `true` | On. The provider variables below **must** be set, or the server refuses to start. |
+| unset, empty, `-` or `false` | **Off.** The editor shows **Copy prompt** only. Provider variables are ignored, so you can leave a key in place. |
+| `true` | **On.** The editor shows **Draft with AI** next to **Copy prompt**. The provider variables below must be set. |
 
-What "a configured provider" needs, and so what `SPARROW_AI_ENABLED=true`
-requires:
+With `SPARROW_AI_ENABLED=true`, these must be set, or drafting fails:
 
 | Provider | Must be set | Optional |
 |----------|-------------|----------|
 | `anthropic` (default) | `SPARROW_AI_API_KEY` | `SPARROW_AI_MODEL` (default `claude-haiku-4-5`), `SPARROW_AI_BASE_URL` (gateway or proxy) |
 | `openai` | `SPARROW_AI_PROVIDER=openai`, `SPARROW_AI_BASE_URL`, `SPARROW_AI_MODEL` | `SPARROW_AI_API_KEY` (sent as a Bearer token) |
 
-Any other value of `SPARROW_AI_ENABLED` (not `true`, `false`, `1`, `0`,
-empty or `-`) stops startup too. The startup banner says which mode is
-active: `enabled (<model> via <provider>)`, `off (SPARROW_AI_ENABLED=false)`
-or `prompt-only`.
+A missing or invalid provider setting does not stop the server. Instead:
 
-To turn drafting **off**, do either of these:
+- `POST /v1/subscriptions:draftTemplate` answers `503` with a message naming
+  the setting, e.g. `AI drafting is enabled but not usable:
+  SPARROW_AI_ENABLED=true but SPARROW_AI_API_KEY is not set`.
+- `GET /v1/capabilities` reports `ai_drafting.enabled: true` with the same text
+  in `ai_drafting.problem`, and the editor shows it in the AI panel.
+- The startup banner and a startup warning say the same.
+- **Copy prompt** keeps working.
 
-```bash
-SPARROW_AI_ENABLED=false   # keeps the key and URL in place
-SPARROW_AI_API_KEY=-       # anthropic: no key means off; "-" works where an empty value can't be stored
-```
+The same happens for an unknown `SPARROW_AI_PROVIDER` or a
+`SPARROW_AI_BASE_URL` that is not an absolute URL. A value of
+`SPARROW_AI_ENABLED` that is not a boolean (`true`/`false`, `1`/`0`) stops
+startup, like any other malformed variable.
 
-With `openai`, blanking the key is not enough, because a base URL alone turns
-drafting on: blank `SPARROW_AI_BASE_URL` as well, or use
-`SPARROW_AI_ENABLED=false`.
-
-To turn it **on**, configure a provider as shown above. Add
-`SPARROW_AI_ENABLED=true` when a missing key should stop the deploy rather
-than quietly fall back to prompt-only.
+If a key or base URL is set while `SPARROW_AI_ENABLED` is not `true`, startup
+logs a warning that **Draft with AI** is off.
 
 ## Default Tenant
 
