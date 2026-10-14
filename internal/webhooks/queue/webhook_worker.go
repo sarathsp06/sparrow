@@ -124,6 +124,19 @@ func (w *WebhookWorker) NextRetry(job *river.Job[WebhookArgs]) time.Time {
 	return time.Now().Add(delay)
 }
 
+// jobTimeoutMargin is the time a delivery job gets on top of the longest
+// request timeout, for loading the webhook and recording the attempt.
+const jobTimeoutMargin = time.Minute
+
+// Timeout lets a delivery outlive the longest request timeout a webhook may
+// set. With River's 60s default a receiver slower than that cancelled the job
+// before the HTTP client gave up, so no attempt was ever recorded and the
+// delivery stayed pending. The HTTP client enforces the webhook's own timeout;
+// this is only the backstop.
+func (w *WebhookWorker) Timeout(*river.Job[WebhookArgs]) time.Duration {
+	return client.MaxRequestTimeout + jobTimeoutMargin
+}
+
 // holdReason returns why a delivery must be held instead of sent, or "" to
 // send it. Fan-out and the delivery worker both record it on the held
 // delivery, so the UI can say why it was not sent.

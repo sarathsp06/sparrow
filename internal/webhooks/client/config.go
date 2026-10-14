@@ -29,6 +29,10 @@ type Config struct {
 	MaxCapturedResponseBytes int64
 }
 
+// MaxRequestTimeout is the longest a delivery may wait for a receiver: the
+// upper bound of request_timeout_seconds and of a subscription's timeout.
+const MaxRequestTimeout = 300 * time.Second
+
 // DefaultMaxCapturedResponseBytes is the full-capture storage limit (1 MiB).
 const DefaultMaxCapturedResponseBytes = 1 << 20
 

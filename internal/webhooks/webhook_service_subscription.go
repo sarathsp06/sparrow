@@ -92,6 +92,9 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, even
 	if err := validateHeaders("headers", headers); err != nil {
 		return "", time.Time{}, err
 	}
+	if err := validateSubscriptionTimeout(timeout); err != nil {
+		return "", time.Time{}, err
+	}
 
 	tenantID := tenant.DefaultTenantID
 
@@ -230,6 +233,9 @@ func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID 
 		return err
 	}
 	if err := validateHeaders("headers", headers); err != nil {
+		return err
+	}
+	if err := validateSubscriptionTimeout(timeout); err != nil {
 		return err
 	}
 

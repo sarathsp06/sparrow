@@ -352,6 +352,22 @@ func TestPrepareDeliveryRequestDefaultTimeout(t *testing.T) {
 	}
 }
 
+// A subscription timeout stored before it was validated is clamped to
+// MaxRequestTimeout, so a delivery never outlives its River job.
+func TestPrepareDeliveryRequestClampsTimeout(t *testing.T) {
+	webhook := &store.WebhookRegistration{ID: uuid.New(), URL: "https://example.com/webhook", RequestTimeoutSeconds: 30}
+	sub := &store.EventSubscription{Timeout: 86400}
+	event := &store.EventRecord{ID: uuid.New(), Event: "user.created", Consumer: "default"}
+
+	dr, err := PrepareDeliveryRequest(webhook, sub, event, "delivery-123", []byte(`{}`), nil)
+	if err != nil {
+		t.Fatalf("PrepareDeliveryRequest returned error: %v", err)
+	}
+	if dr.Timeout != MaxRequestTimeout {
+		t.Errorf("Timeout = %v, want %v", dr.Timeout, MaxRequestTimeout)
+	}
+}
+
 // TestPrepareDeliveryRequestFailsClosedOnDecryptError asserts that when a
 // webhook has a configured signing secret that cannot be decrypted (e.g. the
 // encryption key was rotated), PrepareDeliveryRequest returns an error instead

@@ -20,6 +20,18 @@ import (
 // progressUpdateInterval controls how often the worker flushes progress counters to the DB.
 const progressUpdateInterval = 25
 
+// batchJobTimeout bounds one run of a batch job. A batch holds up to
+// MaxBatchSize items, each a few queries and a job insert; River's 60s
+// default cut large batches short. A run that is cut short anyway (timeout
+// or shutdown) records its progress and the retry resumes after it. It stays
+// well below River's RescueStuckJobsAfter (1h), past which a running job is
+// considered stuck and queued again.
+const batchJobTimeout = 30 * time.Minute
+
+// batchFinalWriteTimeout bounds the progress and status writes made after
+// the job context is done, so they still land when the job was cancelled.
+const batchFinalWriteTimeout = 10 * time.Second
+
 // BatchJobWorker processes batch jobs (event re-push and delivery retry).
 // It reads item IDs from the batch_jobs row and dispatches each one.
 type BatchJobWorker struct {
@@ -42,6 +54,11 @@ func NewBatchJobWorker(batchRepo store.BatchRepository, eventRepo store.EventRep
 		logger:       slog.Default().With("component", "batch-job-worker"),
 		jobInserter:  jobInserter,
 	}
+}
+
+// Timeout overrides River's 60s default; see batchJobTimeout.
+func (w *BatchJobWorker) Timeout(*river.Job[BatchJobArgs]) time.Duration {
+	return batchJobTimeout
 }
 
 // setTerminalStatus CAS-transitions the batch from processing to a terminal
@@ -107,13 +124,18 @@ func (w *BatchJobWorker) Work(ctx context.Context, job *river.Job[BatchJobArgs])
 		"job_type", batch.JobType,
 		"total_items", len(data.ItemIDs))
 
+	// Items already counted belong to an earlier run of this job that was
+	// cut short (timeout, shutdown); resume after them instead of handling
+	// them twice. Progress is flushed in order, so the count is a prefix.
+	items := data.ItemIDs[min(batch.Processed+batch.Failed, len(data.ItemIDs)):]
+
 	var processed, failed int
 
 	switch batch.JobType {
 	case store.BatchTypeEventRepush:
-		processed, failed = w.processEventRepush(ctx, tenantID, batchID, data.ItemIDs)
+		processed, failed = w.processEventRepush(ctx, tenantID, batchID, items)
 	case store.BatchTypeDeliveryRetry:
-		processed, failed = w.processDeliveryRetry(ctx, tenantID, batchID, batch.Consumer, data.ItemIDs)
+		processed, failed = w.processDeliveryRetry(ctx, tenantID, batchID, batch.Consumer, items)
 	default:
 		if statusErr := w.setTerminalStatus(ctx, batchID, store.BatchStatusFailed); statusErr != nil {
 			w.logger.ErrorContext(ctx, "Failed to mark batch failed", "error", statusErr, "batch_id", args.BatchID)
@@ -121,9 +143,21 @@ func (w *BatchJobWorker) Work(ctx context.Context, job *river.Job[BatchJobArgs])
 		return fmt.Errorf("unknown batch job type: %s", batch.JobType)
 	}
 
+	// The job context may be done (timeout, shutdown): the remaining writes
+	// still have to land, or the batch stays processing with lost progress.
+	jobErr := ctx.Err()
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), batchFinalWriteTimeout)
+	defer cancel()
+
 	// Final progress flush
 	if err := w.batchRepo.UpdateBatchJobProgress(ctx, batchID, processed, failed); err != nil {
 		w.logger.ErrorContext(ctx, "Failed to update final batch progress", "error", err)
+	}
+	if jobErr != nil {
+		// Cut short: River retries the job, which resumes after the
+		// flushed progress.
+		w.logger.WarnContext(ctx, "Batch job interrupted, will resume", "batch_id", args.BatchID, "error", jobErr)
+		return fmt.Errorf("batch job %s interrupted: %w", args.BatchID, jobErr)
 	}
 
 	// Re-read the batch from DB to get cumulative totals for the terminal
@@ -165,6 +199,9 @@ func (w *BatchJobWorker) Work(ctx context.Context, job *river.Job[BatchJobArgs])
 // processEventRepush re-pushes each event by loading the original record and enqueuing a new event job.
 func (w *BatchJobWorker) processEventRepush(ctx context.Context, tenantID, batchID uuid.UUID, itemIDs []string) (processed, failed int) {
 	for i, idStr := range itemIDs {
+		if ctx.Err() != nil {
+			return processed, failed // job timed out or is shutting down
+		}
 		// Check cancellation periodically
 		if i > 0 && i%progressUpdateInterval == 0 {
 			batch, err := w.batchRepo.GetBatchJob(ctx, tenantID, batchID)
@@ -172,10 +209,11 @@ func (w *BatchJobWorker) processEventRepush(ctx context.Context, tenantID, batch
 				w.logger.InfoContext(ctx, "Batch cancelled mid-processing", "batch_id", batchID, "processed_so_far", processed)
 				return processed, failed
 			}
-			// Flush progress
-			_ = w.batchRepo.UpdateBatchJobProgress(ctx, batchID, processed, failed)
-			processed = 0
-			failed = 0
+			// Flush progress. On error keep counting: the counters carry
+			// over to the next flush, so the resume point stays exact.
+			if err := w.batchRepo.UpdateBatchJobProgress(ctx, batchID, processed, failed); err == nil {
+				processed, failed = 0, 0
+			}
 		}
 
 		eventID, err := uuid.Parse(idStr)
@@ -263,6 +301,9 @@ func (w *BatchJobWorker) processEventRepush(ctx context.Context, tenantID, batch
 // processDeliveryRetry resets and re-enqueues each delivery for retry.
 func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, batchID uuid.UUID, consumer string, itemIDs []string) (processed, failed int) {
 	for i, idStr := range itemIDs {
+		if ctx.Err() != nil {
+			return processed, failed // job timed out or is shutting down
+		}
 		// Check cancellation periodically
 		if i > 0 && i%progressUpdateInterval == 0 {
 			batch, err := w.batchRepo.GetBatchJob(ctx, tenantID, batchID)
@@ -270,10 +311,11 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 				w.logger.InfoContext(ctx, "Batch cancelled mid-processing", "batch_id", batchID, "processed_so_far", processed)
 				return processed, failed
 			}
-			// Flush progress
-			_ = w.batchRepo.UpdateBatchJobProgress(ctx, batchID, processed, failed)
-			processed = 0
-			failed = 0
+			// Flush progress. On error keep counting: the counters carry
+			// over to the next flush, so the resume point stays exact.
+			if err := w.batchRepo.UpdateBatchJobProgress(ctx, batchID, processed, failed); err == nil {
+				processed, failed = 0, 0
+			}
 		}
 
 		deliveryID, err := uuid.Parse(idStr)

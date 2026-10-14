@@ -236,6 +236,9 @@ func PrepareDeliveryRequest(
 	if timeout == 0 {
 		timeout = 30 * time.Second // Default
 	}
+	// Rows written before the subscription timeout was validated may hold
+	// anything; never wait longer than the delivery job is allowed to run.
+	timeout = min(timeout, MaxRequestTimeout)
 
 	// Decrypt webhook secret for HMAC signing. A configured-but-undecryptable
 	// secret is a hard error (fail-closed) so we never deliver unsigned.

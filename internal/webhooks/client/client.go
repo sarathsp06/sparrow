@@ -73,22 +73,18 @@ func NewWebhookClient(config *Config) *WebhookClient {
 	return &WebhookClient{
 		httpClient: &http.Client{
 			Transport:     instrumented,
-			Timeout:       config.Timeout,
 			CheckRedirect: checkRedirect,
 		},
 		noRedirectClient: &http.Client{
 			Transport:     instrumented,
-			Timeout:       config.Timeout,
 			CheckRedirect: noRedirect,
 		},
 		insecureClient: &http.Client{
 			Transport:     insecureInstrumented,
-			Timeout:       config.Timeout,
 			CheckRedirect: checkRedirect,
 		},
 		insecureNoRedirectClient: &http.Client{
 			Transport:     insecureInstrumented,
-			Timeout:       config.Timeout,
 			CheckRedirect: noRedirect,
 		},
 		tmpl:   template.NewTemplateEngine(),
@@ -112,15 +108,21 @@ func (c *WebhookClient) Send(ctx context.Context, req *DeliveryRequest) (*http.R
 		return nil, 0, err
 	}
 
-	// Apply per-webhook request timeout if set, overriding the global client
-	// timeout. The cancel must NOT run when Send returns: the caller reads
-	// the body afterwards, and net/http closes a keep-alive connection whose
-	// request context is cancelled before the body hits EOF. Cancelling here
-	// made every delivery open a fresh TCP (and TLS) connection. Instead the
+	// Apply the per-webhook request timeout, or the client default without
+	// one. It is the only timeout: an http.Client.Timeout would silently cap
+	// every webhook's request_timeout_seconds at the client default. The
+	// cancel must NOT run when Send returns: the caller reads the body
+	// afterwards, and net/http closes a keep-alive connection whose request
+	// context is cancelled before the body hits EOF. Cancelling here made
+	// every delivery open a fresh TCP (and TLS) connection. Instead the
 	// cancel is tied to resp.Body.Close.
+	timeout := req.Timeout
+	if timeout <= 0 {
+		timeout = c.config.Timeout
+	}
 	cancel := context.CancelFunc(func() {})
-	if req.Timeout > 0 {
-		ctx, cancel = context.WithTimeout(ctx, req.Timeout)
+	if timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, timeout)
 		httpReq = httpReq.WithContext(ctx)
 	}
 
