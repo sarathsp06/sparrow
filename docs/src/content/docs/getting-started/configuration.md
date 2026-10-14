@@ -44,6 +44,7 @@ Grouped by what they control. Durations use Go syntax: `90s`, `20ms`, `1m`,
 | `SPARROW_LOG_LEVEL` | `info` | Lowest level the server logs: `debug`, `info`, `warn` or `error`. `info` writes a line for every event and delivery; `warn` keeps only problems and saves that work on a busy instance. Logs are JSON on stdout (and exported through OpenTelemetry when it is enabled). An unknown value stops startup. |
 | `ENVIRONMENT` | unset | Set `production` to reject cross-origin requests unless `CORS_ALLOWED_ORIGINS` allows them, to require a 32+ character `SPARROW_API_KEY`, and to tag logs and telemetry. Any other value behaves as development. |
 | `CORS_ALLOWED_ORIGINS` | unset | Comma-separated browser origins allowed to call the API, e.g. `https://ui.example.com`. Needed when the UI is [hosted separately](/sparrow/deployment/separate-ui/). Unset: every origin is allowed, except with `ENVIRONMENT=production`, where none is. |
+| `SPARROW_SHUTDOWN_TIMEOUT` | `10s` | Budget for a graceful shutdown on `SIGTERM`/`SIGINT`. `/ready` turns `503` at once, in-flight HTTP requests finish, then the queue stops taking jobs and waits for running ones; deliveries still running near the end are cancelled and retried later (a cancelled attempt is not recorded as a failure). Keep it below the orchestrator's kill deadline (Kubernetes: `terminationGracePeriodSeconds`, 30s by default). |
 | `SPARROW_MAX_BODY_BYTES` | `5242880` (5 MiB) | Largest accepted request body; larger ones get `413`. Minimum 1 MiB. |
 
 ### Access

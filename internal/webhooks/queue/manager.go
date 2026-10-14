@@ -157,11 +157,28 @@ func (m *Manager) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop stops the queue processing
+// Stop shuts the queue down within ctx's deadline. It first stops fetching
+// and waits for running jobs (a soft stop) for most of the budget, then
+// cancels the jobs still running and waits for them to return (River retries
+// them later; a cancelled delivery records no attempt). The pool is closed
+// last, once no job can use it.
 func (m *Manager) Stop(ctx context.Context) error {
-	_ = m.client.Stop(ctx)
+	softCtx, cancelSoft := context.WithCancel(ctx)
+	if deadline, ok := ctx.Deadline(); ok {
+		// Leave a fifth of the budget for cancelled jobs to unwind.
+		softCtx, cancelSoft = context.WithDeadline(ctx, deadline.Add(-time.Until(deadline)/5))
+	}
+	err := m.client.Stop(softCtx)
+	cancelSoft()
+	if err != nil {
+		m.logger.WarnContext(ctx, "Jobs still running at the end of the soft stop, cancelling them", "error", err)
+		err = m.client.StopAndCancel(ctx)
+		if err != nil {
+			m.logger.ErrorContext(ctx, "Queue did not stop before the shutdown deadline", "error", err)
+		}
+	}
 	m.dbPool.Close()
-	return nil
+	return err
 }
 
 func (m *Manager) GetJobInserter() JobInserter {

@@ -236,7 +236,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create queue manager: %v", err)
 	}
-	defer func() { _ = queueManager.Stop(ctx) }()
 	if cfg.AutoDisableAfter > 0 {
 		fmt.Printf("⏸️  Webhooks auto-disable after %s of failures (min %d in a row)\n", cfg.AutoDisableAfter, autoDisable.MinFailures)
 	}
@@ -402,10 +401,12 @@ func main() {
 	fmt.Println("   Press Ctrl+C to stop...")
 	<-sigChan
 
-	fmt.Println("\n🛑 Shutting down...")
+	fmt.Printf("\n🛑 Shutting down (up to %s)...\n", cfg.ShutdownTimeoutOrDefault())
 
-	// Graceful shutdown
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// Graceful shutdown: one budget for everything. Readiness goes first so
+	// load balancers stop sending traffic while in-flight work finishes.
+	healthChecker.SetDraining()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeoutOrDefault())
 	defer cancel()
 
 	// Shutdown HTTP server
@@ -413,7 +414,9 @@ func main() {
 		log.Printf("HTTP server shutdown error: %v", err)
 	}
 
-	_ = queueManager.Stop(shutdownCtx)
+	if err := queueManager.Stop(shutdownCtx); err != nil {
+		log.Printf("Queue shutdown error: %v", err)
+	}
 	fmt.Println("👋 Shutdown complete")
 }
 

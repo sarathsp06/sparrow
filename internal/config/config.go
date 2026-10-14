@@ -171,6 +171,15 @@ type Config struct {
 	// Env: SPARROW_HEALTH_EVAL_INTERVAL (Go duration, default "1m")
 	HealthEvalInterval time.Duration `envconfig:"SPARROW_HEALTH_EVAL_INTERVAL" default:"1m"`
 
+	// ShutdownTimeout is the whole budget for a graceful shutdown on SIGTERM
+	// or SIGINT: /ready turns 503, in-flight HTTP requests finish, then the
+	// queue stops taking jobs and waits for running ones. Jobs still running
+	// near the end of the budget are cancelled and retried later. Keep it
+	// below the orchestrator's kill deadline (Kubernetes:
+	// terminationGracePeriodSeconds, 30s by default).
+	// Env: SPARROW_SHUTDOWN_TIMEOUT (Go duration, default "10s")
+	ShutdownTimeout time.Duration `envconfig:"SPARROW_SHUTDOWN_TIMEOUT" default:"10s"`
+
 	// MetricsEnabled serves the OpenTelemetry metrics in Prometheus text
 	// format at GET /metrics (unauthenticated, like /health), independent of
 	// OTLP export.
@@ -248,6 +257,18 @@ func (c *Config) SlogLevel() (slog.Level, error) {
 	return level, nil
 }
 
+// DefaultShutdownTimeout is SPARROW_SHUTDOWN_TIMEOUT's default.
+const DefaultShutdownTimeout = 10 * time.Second
+
+// ShutdownTimeoutOrDefault returns ShutdownTimeout, or the default when it is
+// unset (a Config built in code without envconfig defaults).
+func (c *Config) ShutdownTimeoutOrDefault() time.Duration {
+	if c.ShutdownTimeout <= 0 {
+		return DefaultShutdownTimeout
+	}
+	return c.ShutdownTimeout
+}
+
 // IsProduction returns true when Environment is set to "production".
 func (c *Config) IsProduction() bool {
 	return c.Environment == "production"
@@ -291,6 +312,9 @@ func (c *Config) Validate() error {
 	}
 	if c.AutoDisableMinFailures < 0 {
 		return fmt.Errorf("SPARROW_AUTO_DISABLE_MIN_FAILURES: must be >= 0, got %d", c.AutoDisableMinFailures)
+	}
+	if c.ShutdownTimeout < 0 {
+		return fmt.Errorf("SPARROW_SHUTDOWN_TIMEOUT: must be > 0, got %s", c.ShutdownTimeout)
 	}
 	if c.EventRetentionDays < 0 {
 		return fmt.Errorf("SPARROW_EVENT_RETENTION_DAYS: must be >= 0, got %d", c.EventRetentionDays)

@@ -70,6 +70,8 @@ func TestValidate(t *testing.T) {
 		{"auto-disable off", func(c *Config) { c.AutoDisableAfter = 0 }, ""},
 		{"negative auto-disable failure minimum", func(c *Config) { c.AutoDisableMinFailures = -1 }, "SPARROW_AUTO_DISABLE_MIN_FAILURES"},
 		{"body limit below minimum", func(c *Config) { c.MaxBodyBytes = 1024 }, "SPARROW_MAX_BODY_BYTES"},
+		{"negative shutdown timeout", func(c *Config) { c.ShutdownTimeout = -time.Second }, "SPARROW_SHUTDOWN_TIMEOUT"},
+		{"custom shutdown timeout", func(c *Config) { c.ShutdownTimeout = 25 * time.Second }, ""},
 	}
 
 	for _, tt := range tests {
@@ -170,5 +172,14 @@ func TestSlogLevel(t *testing.T) {
 	}
 	if _, err := (&Config{LogLevel: "trace"}).SlogLevel(); err == nil {
 		t.Error("SlogLevel(\"trace\") should fail")
+	}
+}
+
+func TestShutdownTimeoutOrDefault(t *testing.T) {
+	if got := (&Config{}).ShutdownTimeoutOrDefault(); got != DefaultShutdownTimeout {
+		t.Errorf("unset = %s, want %s", got, DefaultShutdownTimeout)
+	}
+	if got := (&Config{ShutdownTimeout: 25 * time.Second}).ShutdownTimeoutOrDefault(); got != 25*time.Second {
+		t.Errorf("25s = %s", got)
 	}
 }

@@ -235,7 +235,7 @@ Give each person and CI job their own access token instead of sharing `SPARROW_A
 - [ ] `DATABASE_URL` points to a managed Postgres with `sslmode=require` or stronger.
 - [ ] Image tag pinned to a release (not `latest`).
 - [ ] Container runs as non-root (UID 65532), read-only filesystem, no privilege escalation, all capabilities dropped.
-- [ ] Liveness (`/health`) and readiness (`/ready`) probes configured.
+- [ ] Liveness (`/health`) and readiness (`/ready`) probes configured. `/health` only says the process is up, so a database outage never restarts pods; `/ready` checks the database and answers `503` from the moment shutdown starts. Set `SPARROW_SHUTDOWN_TIMEOUT` below `terminationGracePeriodSeconds`.
 - [ ] Prometheus scraping `/metrics` (or OTLP export configured), with alerts on delivery success rate, `sparrow_queue_jobs` backlog, and `sparrow_webhooks_auto_disabled_total`. `/metrics` needs no API key: keep it off public networks, or set `SPARROW_METRICS_ENABLED=false`.
 - [ ] `SPARROW_AUTO_DISABLE_AFTER` reviewed (default 5 days of failures pauses a webhook; deliveries are held, not dropped) and an alert config opted into `sparrow.webhook.disabled`.
 - [ ] Exposed only through an internal ingress or VPN -- never a public LoadBalancer.
