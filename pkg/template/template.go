@@ -21,12 +21,12 @@ const cacheSize = 100
 // prevent denial-of-service via crafted templates.
 const MaxTemplateOutputBytes = 1 * 1024 * 1024 // 1 MB
 
-// TemplateExecutionTimeout bounds how long a caller waits for a template.
-// Go's text/template has no cancellation, so Execute runs in a goroutine
-// that is abandoned on timeout and keeps running until it finishes or hits
-// MaxTemplateOutputBytes. The timeout therefore frees the caller, not the
-// CPU: loops that produce no output are rejected at parse time instead
-// (see checkTemplateLoops).
+// TemplateExecutionTimeout bounds how long a caller waits for a template,
+// including the wait for an execution slot. Go's text/template has no
+// cancellation, so Execute runs in a goroutine; on timeout the caller stops
+// waiting and the execution ends at its next loop iteration, template call or
+// string-building helper (see budget.go). MaxTemplateSteps and
+// MaxTemplateWorkBytes bound what it can do until then.
 const TemplateExecutionTimeout = 5 * time.Second
 
 // MaxRangeNesting is the deepest allowed nesting of range actions. Each
@@ -53,6 +53,9 @@ func (w *limitedWriter) Write(p []byte) (int, error) {
 
 // TemplateEngine handles payload transformations using Go templates
 type TemplateEngine struct {
+	// base is the documented helper set; funcs adds the budget-aware
+	// replacements, which each execution rebinds to its own budget.
+	base  template.FuncMap
 	funcs template.FuncMap
 	cache *lru.Cache[string, *template.Template]
 }
@@ -61,7 +64,15 @@ type TemplateEngine struct {
 func NewTemplateEngine() *TemplateEngine {
 	// lru.New only fails for a non-positive size.
 	cache, _ := lru.New[string, *template.Template](cacheSize)
-	return &TemplateEngine{funcs: GetFunctionMap(), cache: cache}
+	base := GetFunctionMap()
+	funcs := make(template.FuncMap, len(base))
+	for name, fn := range base {
+		funcs[name] = fn
+	}
+	for name, fn := range budgetFuncs(&budget{}, base) {
+		funcs[name] = fn
+	}
+	return &TemplateEngine{base: base, funcs: funcs, cache: cache}
 }
 
 // ExecOptions controls how a template is executed.
@@ -77,9 +88,10 @@ type ExecOptions struct {
 }
 
 // ExecuteWith processes a template with the given data and options.
-// Output is limited to MaxTemplateOutputBytes and execution time is limited
-// to TemplateExecutionTimeout to prevent denial-of-service via crafted
-// templates that consume unbounded CPU or produce unbounded output.
+// Output is limited to MaxTemplateOutputBytes, work to MaxTemplateSteps and
+// MaxTemplateWorkBytes, and the wait to TemplateExecutionTimeout, to prevent
+// denial-of-service via crafted templates that consume unbounded CPU or
+// memory. It returns ErrTemplateBusy when no execution slot frees up in time.
 func (e *TemplateEngine) ExecuteWith(tmplStr string, data any, opts ExecOptions) ([]byte, error) {
 	if tmplStr == "" {
 		return nil, nil
@@ -96,16 +108,33 @@ func (e *TemplateEngine) ExecuteWith(tmplStr string, data any, opts ExecOptions)
 	// Wrap with a size-limited writer to prevent runaway output
 	lw := &limitedWriter{buf: buf, limit: MaxTemplateOutputBytes}
 
-	// SEC: Wait at most TemplateExecutionTimeout. Go's text/template has no
-	// cancellation, so on timeout the goroutine is abandoned and keeps
-	// running until it completes or hits the output size limit. Loops that
-	// could run without output are rejected at parse time (checkTemplateLoops).
 	ctx, cancel := context.WithTimeout(context.Background(), TemplateExecutionTimeout)
 	defer cancel()
 
+	select {
+	case execSlots <- struct{}{}:
+	case <-ctx.Done():
+		return nil, ErrTemplateBusy
+	}
+
+	// Each execution gets its own budget: the cached template is shared, so
+	// the budget-aware helpers are rebound on a clone (which shares the
+	// parse trees).
+	b := &budget{}
+	run, err := tmpl.Clone()
+	if err != nil {
+		<-execSlots
+		return nil, fmt.Errorf("failed to execute template: %w", err)
+	}
+	run.Funcs(budgetFuncs(b, e.base))
+
+	// SEC: Go's text/template has no cancellation. On timeout the caller
+	// stops waiting and sets stopped, which ends the execution at its next
+	// step or helper call; the slot is released only when it really ends.
 	execErr := make(chan error, 1)
 	go func() {
-		execErr <- tmpl.Execute(lw, data)
+		defer func() { <-execSlots }()
+		execErr <- run.Execute(lw, data)
 	}()
 
 	select {
@@ -114,6 +143,7 @@ func (e *TemplateEngine) ExecuteWith(tmplStr string, data any, opts ExecOptions)
 			return nil, fmt.Errorf("failed to execute template: %w", err)
 		}
 	case <-ctx.Done():
+		b.stopped.Store(true)
 		return nil, fmt.Errorf("template execution timed out after %v (possible infinite loop)", TemplateExecutionTimeout)
 	}
 
@@ -142,6 +172,7 @@ func (e *TemplateEngine) getOrParseTemplate(tmplStr string, strict bool) (*templ
 	if err := checkTemplateLoops(tmpl); err != nil {
 		return nil, fmt.Errorf("failed to parse template: %w", err)
 	}
+	instrument(tmpl)
 	if strict {
 		tmpl = tmpl.Option("missingkey=error")
 	}
@@ -152,11 +183,9 @@ func (e *TemplateEngine) getOrParseTemplate(tmplStr string, strict bool) (*templ
 	return tmpl, nil
 }
 
-// checkTemplateLoops rejects loops whose cost does not depend on the payload
-// and cannot be stopped once started: range over an integer literal
-// ({{range 2000000000}}{{end}} spins without output, so neither the output
-// limit nor the abandoned-goroutine timeout ends it) and range nested deeper
-// than MaxRangeNesting. It walks every template defined in the parse,
+// checkTemplateLoops rejects at parse time what the budget would only stop at
+// run time: range over an integer literal ({{range 2000000000}}{{end}}) and
+// range nested deeper than MaxRangeNesting. It walks every template defined in the parse,
 // including {{define}} blocks.
 func checkTemplateLoops(tmpl *template.Template) error {
 	for _, t := range tmpl.Templates() {

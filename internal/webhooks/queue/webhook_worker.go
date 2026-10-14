@@ -567,6 +567,11 @@ func (w *WebhookWorker) renderPayload(ctx context.Context, log *slog.Logger, job
 	if renderErr == nil {
 		return body, false, nil
 	}
+	if errors.Is(renderErr, template.ErrTemplateBusy) {
+		// Load, not a fault in the template: leave the delivery for River
+		// to retry.
+		return nil, false, fmt.Errorf("render transform: %w", renderErr)
+	}
 
 	msg := renderErr.Error()
 	if err := w.deliveryRepo.UpdateDeliveryTemplateError(ctx, deliveryID, msg); err != nil {

@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -307,7 +308,7 @@ func RenderTemplatePreview(eventName, transformTemplate string, payload map[stri
 	)
 	result, err := engine.ExecuteWith(transformTemplate, data, template.ExecOptions{StrictMissingKeys: strict})
 	if err != nil {
-		return "", svcerrors.Wrapf(err, svcerrors.InvalidArgument, "template transformation failed: %v", err)
+		return "", templateRenderError(err)
 	}
 	return string(result), nil
 }
@@ -415,7 +416,7 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 
 	result, err := engine.ExecuteWith(transformTemplate, data, template.ExecOptions{StrictMissingKeys: strict})
 	if err != nil {
-		return "", svcerrors.Wrapf(err, svcerrors.InvalidArgument, "template transformation failed: %v", err)
+		return "", templateRenderError(err)
 	}
 
 	return string(result), nil
@@ -431,4 +432,13 @@ func (s *WebhookService) GetTemplateFunctions() []TemplateFunctionInfo {
 		}
 	}
 	return res
+}
+
+// templateRenderError maps a dry-run render failure: a busy engine is a
+// temporary condition (503), anything else is the template's fault (400).
+func templateRenderError(err error) error {
+	if errors.Is(err, template.ErrTemplateBusy) {
+		return svcerrors.Wrap(err, svcerrors.Unavailable, err.Error())
+	}
+	return svcerrors.Wrapf(err, svcerrors.InvalidArgument, "template transformation failed: %v", err)
 }

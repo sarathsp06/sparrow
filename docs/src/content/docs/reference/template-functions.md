@@ -92,8 +92,12 @@ current time, so outputs that show the time differ from the ones here.
 4. **No output escaping.** Unlike `html/template`, nothing is escaped for you.
    Use `json` for JSON bodies and `urlencode` for form-encoded ones.
 
-Rendering is also capped: output over 1 MB or a render taking more than 5
-seconds fails the delivery.
+Rendering is also capped: output over 1 MB, a render taking more than 5
+seconds, more than 1,000,000 loop iterations and template calls, or more than
+16 MB of strings and lists built along the way (by `print`, `printf`, `json`,
+`replace`, `list`, `dict`, ...) fails the delivery. `range` iterates arrays and
+maps only, never an integer, and `printf` widths and precisions are limited
+to 1000.
 
 ## A complete template
 
