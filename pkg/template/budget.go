@@ -19,6 +19,11 @@ import (
 // here instead of spinning.
 const MaxSteps = 1_000_000
 
+// stepLimit is MaxSteps; tests lower it so they check that the budget stops a
+// runaway template without depending on how fast the machine runs 1M steps
+// (the race detector makes that several times slower).
+var stepLimit = MaxSteps
+
 // MaxWorkBytes bounds the bytes one execution's helpers may produce
 // on the way to the output: strings built by print, printf, json, replace,
 // repeat, ... and lists or maps built by list, dict and append. Without it a
@@ -62,8 +67,8 @@ func (b *budget) step() error {
 		return errStopped
 	}
 	b.steps++
-	if b.steps > MaxSteps {
-		return fmt.Errorf("template exceeded %d loop iterations and template calls", MaxSteps)
+	if b.steps > stepLimit {
+		return fmt.Errorf("template exceeded %d loop iterations and template calls", stepLimit)
 	}
 	return nil
 }

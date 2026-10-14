@@ -35517,7 +35517,7 @@
       "file_type": "code",
       "norm_label": "budgetfuncs()",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L187"
+      "source_location": "L192"
     },
     {
       "id": "pkg_template_budget_command",
@@ -35528,7 +35528,7 @@
       "file_type": "code",
       "norm_label": "command()",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L351"
+      "source_location": "L356"
     },
     {
       "id": "pkg_template_budget_instrument",
@@ -35539,7 +35539,7 @@
       "file_type": "code",
       "norm_label": "instrument()",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L316"
+      "source_location": "L321"
     },
     {
       "id": "pkg_template_budget_instrumentnode",
@@ -35550,7 +35550,7 @@
       "file_type": "code",
       "norm_label": "instrumentnode()",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L326"
+      "source_location": "L331"
     },
     {
       "id": "pkg_template_budget_sizeof",
@@ -35561,7 +35561,7 @@
       "file_type": "code",
       "norm_label": "sizeof()",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L100"
+      "source_location": "L105"
     },
     {
       "id": "pkg_template_budget_stepaction",
@@ -35572,7 +35572,7 @@
       "file_type": "code",
       "norm_label": "stepaction()",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L356"
+      "source_location": "L361"
     },
     {
       "id": "pkg_template_template_checkloopnode",
@@ -35726,7 +35726,7 @@
       "file_type": "code",
       "norm_label": "budget",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L52"
+      "source_location": "L57"
     },
     {
       "id": "template_budget_charge",
@@ -35737,7 +35737,7 @@
       "file_type": "code",
       "norm_label": ".charge()",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L72"
+      "source_location": "L77"
     },
     {
       "id": "template_budget_chargevalue",
@@ -35748,7 +35748,7 @@
       "file_type": "code",
       "norm_label": ".chargevalue()",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L141"
+      "source_location": "L146"
     },
     {
       "id": "template_budget_remaining",
@@ -35759,7 +35759,7 @@
       "file_type": "code",
       "norm_label": ".remaining()",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L85"
+      "source_location": "L90"
     },
     {
       "id": "template_budget_step",
@@ -35770,7 +35770,7 @@
       "file_type": "code",
       "norm_label": ".step()",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L60"
+      "source_location": "L65"
     },
     {
       "id": "template_budget_str",
@@ -35781,7 +35781,7 @@
       "file_type": "code",
       "norm_label": ".str()",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L87"
+      "source_location": "L92"
     },
     {
       "id": "template_engine_executewith",
@@ -65793,7 +65793,7 @@
       "file_type": "code",
       "norm_label": "atoi()",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L176"
+      "source_location": "L181"
     },
     {
       "id": "pkg_template_budget_checkprintfformat",
@@ -65804,7 +65804,7 @@
       "file_type": "code",
       "norm_label": "checkprintfformat()",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L148"
+      "source_location": "L153"
     },
     {
       "id": "pkg_template_budget_test",
@@ -65826,7 +65826,7 @@
       "file_type": "code",
       "norm_label": "testcheckprintfformat()",
       "source_file": "pkg/template/budget_test.go",
-      "source_location": "L109"
+      "source_location": "L113"
     },
     {
       "id": "pkg_template_functions",
@@ -84626,7 +84626,7 @@
       "file_type": "code",
       "norm_label": "testexecuteboundsconcurrency()",
       "source_file": "pkg/template/budget_test.go",
-      "source_location": "L87"
+      "source_location": "L91"
     },
     {
       "id": "pkg_template_budget_test_testexecutebudgetkeepsnormaltemplates",
@@ -84637,7 +84637,7 @@
       "file_type": "code",
       "norm_label": "testexecutebudgetkeepsnormaltemplates()",
       "source_file": "pkg/template/budget_test.go",
-      "source_location": "L50"
+      "source_location": "L54"
     },
     {
       "id": "pkg_template_budget_test_testexecutestopsrunawaytemplates",
@@ -113619,7 +113619,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L193",
+      "source_location": "L198",
       "weight": 1.0
     },
     {
@@ -113631,7 +113631,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L208",
+      "source_location": "L213",
       "weight": 1.0
     },
     {
@@ -113643,7 +113643,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L234",
+      "source_location": "L239",
       "weight": 1.0
     },
     {
@@ -113655,7 +113655,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L235",
+      "source_location": "L240",
       "weight": 1.0
     },
     {
@@ -113667,7 +113667,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L274",
+      "source_location": "L279",
       "weight": 1.0
     },
     {
@@ -113679,7 +113679,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L163",
+      "source_location": "L168",
       "weight": 1.0
     },
     {
@@ -113691,7 +113691,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L321",
+      "source_location": "L326",
       "weight": 1.0
     },
     {
@@ -113703,7 +113703,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L322",
+      "source_location": "L327",
       "weight": 1.0
     },
     {
@@ -113715,7 +113715,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L336",
+      "source_location": "L341",
       "weight": 1.0
     },
     {
@@ -113727,7 +113727,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L340",
+      "source_location": "L345",
       "weight": 1.0
     },
     {
@@ -113739,7 +113739,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L358",
+      "source_location": "L363",
       "weight": 1.0
     },
     {
@@ -117795,7 +117795,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L142",
+      "source_location": "L147",
       "weight": 1.0
     },
     {
@@ -117807,7 +117807,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L142",
+      "source_location": "L147",
       "weight": 1.0
     },
     {
@@ -117819,7 +117819,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L142",
+      "source_location": "L147",
       "weight": 1.0
     },
     {
@@ -117831,7 +117831,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L91",
+      "source_location": "L96",
       "weight": 1.0
     },
     {
@@ -132423,7 +132423,7 @@
       "confidence_score": 1.0,
       "context": "field",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L55",
+      "source_location": "L60",
       "weight": 1.0
     },
     {
@@ -232482,7 +232482,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L187",
+      "source_location": "L192",
       "weight": 1.0
     },
     {
@@ -232494,7 +232494,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L351",
+      "source_location": "L356",
       "weight": 1.0
     },
     {
@@ -232506,7 +232506,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L316",
+      "source_location": "L321",
       "weight": 1.0
     },
     {
@@ -232518,7 +232518,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L326",
+      "source_location": "L331",
       "weight": 1.0
     },
     {
@@ -232530,7 +232530,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L356",
+      "source_location": "L361",
       "weight": 1.0
     },
     {
@@ -232542,7 +232542,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "pkg/template/budget_test.go",
-      "source_location": "L109",
+      "source_location": "L113",
       "weight": 1.0
     },
     {
@@ -232554,7 +232554,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "pkg/template/budget_test.go",
-      "source_location": "L87",
+      "source_location": "L91",
       "weight": 1.0
     },
     {
@@ -232566,7 +232566,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "pkg/template/budget_test.go",
-      "source_location": "L50",
+      "source_location": "L54",
       "weight": 1.0
     },
     {
@@ -253410,7 +253410,7 @@
       "confidence_score": 1.0,
       "context": "return_type",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L187",
+      "source_location": "L192",
       "weight": 1.0
     },
     {
@@ -253422,7 +253422,7 @@
       "confidence_score": 1.0,
       "context": "return_type",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L351",
+      "source_location": "L356",
       "weight": 1.0
     },
     {
@@ -253434,7 +253434,7 @@
       "confidence_score": 1.0,
       "context": "return_type",
       "source_file": "pkg/template/budget.go",
-      "source_location": "L356",
+      "source_location": "L361",
       "weight": 1.0
     },
     {
@@ -289178,7 +289178,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "pkg/template/budget.go",
-      "source_location": "L100",
+      "source_location": "L105",
       "weight": 1.0
     },
     {
@@ -289189,7 +289189,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "pkg/template/budget.go",
-      "source_location": "L148",
+      "source_location": "L153",
       "weight": 1.0
     },
     {
@@ -289200,7 +289200,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "pkg/template/budget.go",
-      "source_location": "L176",
+      "source_location": "L181",
       "weight": 1.0
     },
     {
@@ -289211,7 +289211,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "pkg/template/budget.go",
-      "source_location": "L187",
+      "source_location": "L192",
       "weight": 1.0
     },
     {
@@ -289222,7 +289222,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "pkg/template/budget.go",
-      "source_location": "L316",
+      "source_location": "L321",
       "weight": 1.0
     },
     {
@@ -289233,7 +289233,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "pkg/template/budget.go",
-      "source_location": "L326",
+      "source_location": "L331",
       "weight": 1.0
     },
     {
@@ -289244,7 +289244,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "pkg/template/budget.go",
-      "source_location": "L351",
+      "source_location": "L356",
       "weight": 1.0
     },
     {
@@ -289255,7 +289255,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "pkg/template/budget.go",
-      "source_location": "L356",
+      "source_location": "L361",
       "weight": 1.0
     },
     {
@@ -289266,7 +289266,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "pkg/template/budget.go",
-      "source_location": "L52",
+      "source_location": "L57",
       "weight": 1.0
     },
     {
@@ -289277,7 +289277,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "pkg/template/budget_test.go",
-      "source_location": "L109",
+      "source_location": "L113",
       "weight": 1.0
     },
     {
@@ -289299,7 +289299,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "pkg/template/budget_test.go",
-      "source_location": "L50",
+      "source_location": "L54",
       "weight": 1.0
     },
     {
@@ -289310,7 +289310,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "pkg/template/budget_test.go",
-      "source_location": "L87",
+      "source_location": "L91",
       "weight": 1.0
     },
     {
@@ -320495,7 +320495,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "pkg/template/budget.go",
-      "source_location": "L141",
+      "source_location": "L146",
       "weight": 1.0
     },
     {
@@ -320506,7 +320506,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "pkg/template/budget.go",
-      "source_location": "L60",
+      "source_location": "L65",
       "weight": 1.0
     },
     {
@@ -320517,7 +320517,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "pkg/template/budget.go",
-      "source_location": "L72",
+      "source_location": "L77",
       "weight": 1.0
     },
     {
@@ -320528,7 +320528,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "pkg/template/budget.go",
-      "source_location": "L85",
+      "source_location": "L90",
       "weight": 1.0
     },
     {
@@ -320539,7 +320539,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "pkg/template/budget.go",
-      "source_location": "L87",
+      "source_location": "L92",
       "weight": 1.0
     },
     {
@@ -334053,7 +334053,7 @@
       "confidence_score": 0.85,
       "context": "call",
       "source_file": "pkg/template/budget_test.go",
-      "source_location": "L114",
+      "source_location": "L118",
       "weight": 1.0
     },
     {
@@ -334065,7 +334065,7 @@
       "confidence_score": 0.85,
       "context": "call",
       "source_file": "pkg/template/budget_test.go",
-      "source_location": "L88",
+      "source_location": "L92",
       "weight": 1.0
     },
     {
@@ -334077,7 +334077,7 @@
       "confidence_score": 0.85,
       "context": "call",
       "source_file": "pkg/template/budget_test.go",
-      "source_location": "L71",
+      "source_location": "L75",
       "weight": 1.0
     },
     {
@@ -334089,7 +334089,7 @@
       "confidence_score": 0.85,
       "context": "call",
       "source_file": "pkg/template/budget_test.go",
-      "source_location": "L31",
+      "source_location": "L35",
       "weight": 1.0
     },
     {
@@ -363753,5 +363753,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "f9fde8e3409c9ae90dc87b3955e56cba47598dd9"
+  "built_at_commit": "d9f5f51c2868436aa5bab820cb60c48fab3eac5c"
 }

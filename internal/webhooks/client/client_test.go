@@ -439,7 +439,7 @@ func TestDeliverySpansDoNotExportSecretURLs(t *testing.T) {
 	}
 	for _, s := range spans {
 		for _, kv := range s.Attributes() {
-			if v := kv.Value.Emit(); strings.Contains(v, "SUPERSECRET") || strings.Contains(v, "ALSOSECRET") {
+			if v := kv.Value.String(); strings.Contains(v, "SUPERSECRET") || strings.Contains(v, "ALSOSECRET") {
 				t.Fatalf("span %q attribute %s leaks the webhook URL: %s", s.Name(), kv.Key, v)
 			}
 			if kv.Key == "url.full" && !strings.HasSuffix(kv.Value.AsString(), "/…") {

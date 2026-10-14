@@ -16,7 +16,7 @@ import (
 
 func TestFanOutDeliveryIDIsDeterministic(t *testing.T) {
 	event, sub := uuid.New(), uuid.New()
-	if FanOutDeliveryID(event, sub) != FanOutDeliveryID(event, sub) {
+	if a, b := FanOutDeliveryID(event, sub), FanOutDeliveryID(event, sub); a != b {
 		t.Fatal("same event and subscription gave different delivery IDs")
 	}
 	if FanOutDeliveryID(event, sub) == FanOutDeliveryID(event, uuid.New()) ||
