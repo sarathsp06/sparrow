@@ -14,6 +14,7 @@
 # Usage:
 #   scripts/release-submodules.sh vX.Y.Z          # dry run: print the plan only
 #   scripts/release-submodules.sh vX.Y.Z --push   # tag and push each module for real
+#   scripts/release-submodules.sh vX.Y.Z-rc.1 --push  # release candidate (semver pre-release: never @latest)
 #
 # Safe to re-run: any module already tagged at the requested version is skipped.
 set -euo pipefail
@@ -22,8 +23,8 @@ VERSION="${1:?usage: $0 vX.Y.Z [--push]}"
 PUSH=0
 [[ "${2:-}" == "--push" ]] && PUSH=1
 
-if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-	echo "error: version must look like vX.Y.Z, got: $VERSION" >&2
+if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; then
+	echo "error: version must look like vX.Y.Z or vX.Y.Z-rc.N, got: $VERSION" >&2
 	exit 1
 fi
 
