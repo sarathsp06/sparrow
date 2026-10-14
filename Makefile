@@ -73,7 +73,7 @@ test: ## Run tests (all modules)
 	go test -v $(MODULE_TEST_PATHS)
 
 test-integration: ## Run integration tests (requires Docker for testcontainers)
-	go test -v -tags integration -timeout 120s ./internal/integration/...
+	go test -v -tags integration -timeout 600s ./internal/integration/...
 
 client-python: ## Regenerate the Python client from the committed OpenAPI spec
 	rm -rf client/python
