@@ -1,6 +1,6 @@
 module github.com/sarathsp06/sparrow/satellites/sparrow-sinks
 
-go 1.26.1
+go 1.27.2
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.47.0
@@ -26,6 +26,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.50.0 // indirect
 	github.com/aws/smithy-go v1.28.1 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
+	github.com/rogpeppe/go-internal v1.14.1 // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
 
 replace github.com/sarathsp06/sparrow/pkg/signature => ../../pkg/signature

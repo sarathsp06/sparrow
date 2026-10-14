@@ -3,7 +3,7 @@
 # image with no network access: everything the build, tests and reproducers need
 # is fetched here. See threat_model.md next to this file.
 FROM node:22-bookworm AS node
-FROM golang:1.26.1-bookworm
+FROM golang:1.27.2-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive \
     GOTOOLCHAIN=local \
