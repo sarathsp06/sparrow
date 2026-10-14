@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
 )
 
 // openAIClient talks to any OpenAI-compatible chat completions endpoint over

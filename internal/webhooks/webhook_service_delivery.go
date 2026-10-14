@@ -7,10 +7,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
-	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
 )
 
 // GetDeliveryStatus gets the status of a webhook delivery.

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
 )
 
 // WebhookRegistration represents a webhook registration with HTTP configuration

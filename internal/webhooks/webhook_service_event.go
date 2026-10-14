@@ -15,11 +15,11 @@ import (
 	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
+	"github.com/sarathsp06/sparrow/internal/storage"
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
-	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
-	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
 // maxEventNameLength matches the VARCHAR(255) event-name columns. Postgres

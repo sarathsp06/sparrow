@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/sarathsp06/sparrow/pkg/storage"
+	"github.com/sarathsp06/sparrow/internal/storage"
 )
 
 // HealthRepository defines operations for webhook health tracking.

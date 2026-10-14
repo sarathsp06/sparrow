@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	cryptosvc "github.com/sarathsp06/sparrow/internal/crypto"
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
-	cryptosvc "github.com/sarathsp06/sparrow/pkg/crypto"
-	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
 )
 
 type mockJobInserter struct {

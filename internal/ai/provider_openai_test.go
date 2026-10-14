@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
 )
 
 // fakeOpenAI serves /v1/chat/completions the way Ollama, vLLM or OpenAI do.

@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 
-	"github.com/sarathsp06/sparrow/pkg/storage"
+	"github.com/sarathsp06/sparrow/internal/storage"
 )
 
 // SubscriptionRepository defines operations for event subscriptions.

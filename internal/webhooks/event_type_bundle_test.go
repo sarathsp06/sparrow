@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/sarathsp06/sparrow"
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
-	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
 )
 
 func TestBundleDigest_IgnoresFormattingAndKeyOrder(t *testing.T) {

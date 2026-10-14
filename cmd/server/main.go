@@ -21,11 +21,13 @@ import (
 	"github.com/sarathsp06/sparrow/internal/accessauth"
 	"github.com/sarathsp06/sparrow/internal/ai"
 	"github.com/sarathsp06/sparrow/internal/config"
+	"github.com/sarathsp06/sparrow/internal/crypto"
 	"github.com/sarathsp06/sparrow/internal/health"
 	"github.com/sarathsp06/sparrow/internal/middleware"
 	"github.com/sarathsp06/sparrow/internal/migration"
 	"github.com/sarathsp06/sparrow/internal/observability"
 	"github.com/sarathsp06/sparrow/internal/rest"
+	"github.com/sarathsp06/sparrow/internal/storage/postgres"
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/ui"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
@@ -33,8 +35,6 @@ import (
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"github.com/sarathsp06/sparrow/pkg/access/httpauth"
-	"github.com/sarathsp06/sparrow/pkg/crypto"
-	"github.com/sarathsp06/sparrow/pkg/storage/postgres"
 )
 
 func main() {

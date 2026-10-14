@@ -1,12 +1,12 @@
 ---
 type: Go Package
-title: pkg/errors
+title: internal/errors
 description: Error classification with 10 categories for webhook delivery outcomes, plus client-safe service errors
 tags: [errors, classification, leaf]
 timestamp: 2026-08-29T00:00:00Z
 ---
 
-# pkg/errors
+# internal/errors
 
 Classifies webhook delivery errors into 10 categories (`category.go`, `ErrorCategory`) and provides a client-safe `ServiceError` (`service.go`) tagged with a local `Status` enum (`status.go`) for REST status-code mapping — replaces the gRPC status codes used before the REST/OpenAPI migration.
 
@@ -35,4 +35,4 @@ Classifies webhook delivery errors into 10 categories (`category.go`, `ErrorCate
 
 ## Citations
 
-- `pkg/errors/` — 5 files (`category.go`, `category_test.go`, `service.go`, `service_test.go`, `status.go`)
+- `internal/errors/` — 5 files (`category.go`, `category_test.go`, `service.go`, `service_test.go`, `status.go`)

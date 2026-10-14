@@ -1,12 +1,12 @@
 ---
 type: Go Package
-title: pkg/crypto
+title: internal/crypto
 description: Envelope encryption (AES-256-GCM with per-record DEK) for webhook secrets and Ed25519 keys
 tags: [crypto, encryption, security]
 timestamp: 2026-06-22T00:00:00Z
 ---
 
-# pkg/crypto
+# internal/crypto
 
 Envelope encryption service. Each `Encrypt` call generates a random 256-bit Data Encryption Key (DEK), encrypts plaintext with AES-256-GCM using the DEK, then wraps the DEK with the primary KEK from the `SPARROW_ENCRYPTION_KEYS` keyring.
 
@@ -25,4 +25,4 @@ Ciphertext carries a key ID for deterministic decrypt during rotations.
 
 ## Citations
 
-- `pkg/crypto/` — 4 files
+- `internal/crypto/` — 4 files
