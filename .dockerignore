@@ -5,7 +5,6 @@
 
 # Documentation (not needed for build)
 docs/
-book/
 
 # Prebuilt binaries (we compile in Docker)
 build/
