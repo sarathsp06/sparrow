@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"time"
@@ -18,10 +19,11 @@ import (
 
 // Manager handles the River queue management
 type Manager struct {
-	client  *river.Client[pgx.Tx]
-	workers *river.Workers
-	dbPool  *pgxpool.Pool
-	logger  *slog.Logger
+	client   *river.Client[pgx.Tx]
+	txClient *river.Client[*sql.Tx]
+	workers  *river.Workers
+	dbPool   *pgxpool.Pool
+	logger   *slog.Logger
 }
 
 // WorkerPoolConfig sizes the River queues. Zero values take the defaults.
@@ -104,11 +106,18 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 		return nil, fmt.Errorf("failed to create River client: %w", err)
 	}
 
+	txClient, err := NewTxInsertClient()
+	if err != nil {
+		dbPool.Close()
+		return nil, fmt.Errorf("failed to create River insert client: %w", err)
+	}
+
 	manager := &Manager{
-		client:  riverClient,
-		workers: riverWorkers,
-		dbPool:  dbPool,
-		logger:  slog.Default().With("component", "queue-manager"),
+		client:   riverClient,
+		txClient: txClient,
+		workers:  riverWorkers,
+		dbPool:   dbPool,
+		logger:   slog.Default().With("component", "queue-manager"),
 	}
 
 	// Add workers with explicit generic types.
@@ -156,5 +165,5 @@ func (m *Manager) Stop(ctx context.Context) error {
 }
 
 func (m *Manager) GetJobInserter() JobInserter {
-	return NewJobInserterWithTracing(NewJobInserter(m.client), "")
+	return NewJobInserterWithTracing(NewJobInserter(m.client, m.txClient), "")
 }

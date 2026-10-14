@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -35,6 +36,16 @@ func NewEventProcessingWorker(subscriptionRepo store.SubscriptionRepository, eve
 		logger:           slog.Default().With("component", "event-processing-worker"),
 		jobInserter:      jobInserter,
 	}
+}
+
+// fanOutNamespace scopes the delivery IDs fan-out derives.
+var fanOutNamespace = uuid.MustParse("6f1d4c52-8b0e-4f3a-9c41-5a2e7d9b0c13")
+
+// FanOutDeliveryID is the ID of the delivery fan-out creates for an event and
+// a subscription: the same pair always yields the same ID, which makes the
+// insert idempotent.
+func FanOutDeliveryID(eventID, subscriptionID uuid.UUID) uuid.UUID {
+	return uuid.NewSHA1(fanOutNamespace, append(eventID[:], subscriptionID[:]...))
 }
 
 // Work processes an event and creates webhook delivery jobs
@@ -103,16 +114,17 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 		expiresAt = time.Now().Add(time.Duration(args.TTLSeconds) * time.Second)
 	}
 
-	// Build all deliveries and job args in memory first, then batch-insert.
+	// Build all deliveries and job args in memory first, then insert both in
+	// one transaction.
 	deliveries := make([]*store.WebhookDelivery, 0, len(subscriptions))
-	jobArgs := make([]river.JobArgs, 0, len(subscriptions))
+	jobArgs := make(map[uuid.UUID]river.JobArgs, len(subscriptions))
 	paused := 0
 
 	for _, result := range subscriptions {
 		sub := result.Subscription
 		webhook := result.Webhook
 
-		deliveryID := uuid.New()
+		deliveryID := FanOutDeliveryID(eventID, sub.ID)
 
 		maxAttempts := webhook.MaxDeliveryAttempts()
 
@@ -137,7 +149,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 			continue
 		}
 
-		jobArgs = append(jobArgs, &WebhookArgs{
+		jobArgs[deliveryID] = &WebhookArgs{
 			TenantID:            args.TenantID,
 			DeliveryID:          deliveryID.String(),
 			WebhookID:           webhook.ID.String(),
@@ -147,57 +159,39 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 			Consumer:            args.Consumer,
 			MaxAttempts:         maxAttempts,
 			RetryBackoffSeconds: webhook.RetryBackoffSeconds,
-		})
+		}
 	}
 
-	// Batch-insert all delivery records (single multi-row INSERT).
-	if err := w.deliveryRepo.BatchCreateDeliveries(ctx, tenantID, deliveries); err != nil {
-		w.logger.ErrorContext(ctx, "Failed to batch-create delivery records", "error", err, "count", len(deliveries))
-		return fmt.Errorf("batch create deliveries: %w", err)
-	}
-
-	// Batch-insert all River jobs (single InsertMany call).
-	// ponytail: delivery rows (sqlx) and River jobs (pgx) are inserted in
-	// separate transactions with delete-based compensation. Upgrade path:
-	// run both on a single pgx connection and use river.InsertManyTx.
-	if len(jobArgs) == 0 {
-		w.logger.InfoContext(ctx, "All matching subscriptions or webhooks are paused; deliveries recorded as paused",
-			"event_id", args.EventID, "paused", paused)
-		return nil
-	}
-	if _, err := w.jobInserter.BatchInsert(ctx, jobArgs); err != nil {
-		w.logger.ErrorContext(ctx, "Failed to batch-insert webhook delivery jobs",
-			"error", err,
-			"count", len(jobArgs),
-		)
-		// Compensation: remove orphaned delivery records since the jobs
-		// that would process them could not be created.
-		var undeleted []uuid.UUID
-		// Paused rows go too: River retries the whole fan-out, which
-		// recreates them.
-		for _, d := range deliveries {
-			if delErr := w.deliveryRepo.DeleteDeliveryByID(ctx, d.ID); delErr != nil {
-				w.logger.ErrorContext(ctx, "Failed to delete orphaned delivery record",
-					"error", delErr,
-					"delivery_id", d.ID,
-				)
-				undeleted = append(undeleted, d.ID)
+	// Delivery rows and their River jobs commit together: a crash or error
+	// in between leaves neither, and River retries the fan-out. Rows that a
+	// previous run of this job already committed are skipped with their
+	// jobs, so a retried fan-out never delivers twice.
+	queued := 0
+	inserted, err := w.deliveryRepo.CreateFanOutDeliveries(ctx, tenantID, deliveries,
+		func(ctx context.Context, tx *sql.Tx, inserted []*store.WebhookDelivery) error {
+			jobs := make([]river.JobArgs, 0, len(inserted))
+			for _, d := range inserted {
+				if args, ok := jobArgs[d.ID]; ok {
+					jobs = append(jobs, args)
+				}
 			}
-		}
-		if len(undeleted) > 0 {
-			// Compensation itself failed. Return the original error so River
-			// retries the whole job — duplicate deliveries are preferable to
-			// silently-stuck pending rows.
-			w.logger.ErrorContext(ctx, "COMPENSATION FAILED: orphaned delivery records remain after job-insert failure",
-				"event_id", args.EventID,
-				"delivery_ids", undeleted,
-			)
-		}
-		return fmt.Errorf("batch insert jobs: %w", err)
+			queued = len(jobs)
+			if len(jobs) == 0 {
+				return nil
+			}
+			return w.jobInserter.BatchInsertTx(ctx, tx, jobs)
+		})
+	if err != nil {
+		w.logger.ErrorContext(ctx, "Failed to create deliveries and their jobs", "error", err, "count", len(deliveries))
+		return fmt.Errorf("create fan-out deliveries: %w", err)
+	}
+	if skipped := len(deliveries) - len(inserted); skipped > 0 {
+		w.logger.WarnContext(ctx, "Skipped deliveries an earlier run of this fan-out already created",
+			"event_id", args.EventID, "skipped", skipped)
 	}
 
 	w.logger.InfoContext(ctx, "Scheduled webhook deliveries",
-		"count", len(jobArgs),
+		"count", queued,
 		"paused", paused,
 		"consumer", args.Consumer,
 		"event", args.Event,

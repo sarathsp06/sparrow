@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -16,7 +17,7 @@ import (
 // creation, status transitions, retries, filtering, and attempt history.
 type DeliveryRepository interface {
 	CreateDelivery(ctx context.Context, tenantID uuid.UUID, delivery *WebhookDelivery) error
-	BatchCreateDeliveries(ctx context.Context, tenantID uuid.UUID, deliveries []*WebhookDelivery) error
+	CreateFanOutDeliveries(ctx context.Context, tenantID uuid.UUID, deliveries []*WebhookDelivery, enqueue FanOutEnqueuer) ([]*WebhookDelivery, error)
 	UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage, errorCategory string) error
 	RecordDeliveryAttempt(ctx context.Context, attempt DeliveryAttempt) error
 	HoldDelivery(ctx context.Context, deliveryID uuid.UUID, reason string) error
@@ -26,7 +27,6 @@ type DeliveryRepository interface {
 	GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, force bool) ([]*WebhookDelivery, error)
 	ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uuid.UUID) error
 	UpdateDeliveryTemplateError(ctx context.Context, deliveryID uuid.UUID, msg string) error
-	DeleteDeliveryByID(ctx context.Context, deliveryID uuid.UUID) error
 	GetDeliveryAttempts(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID) ([]*WebhookHealthEvent, error)
 }
 
@@ -62,23 +62,47 @@ func (r *Repository) CreateDelivery(ctx context.Context, tenantID uuid.UUID, del
 	return storage.Error(err)
 }
 
-// BatchCreateDeliveries inserts multiple webhook delivery records in a single
-// multi-row INSERT statement. This is the batch counterpart of CreateDelivery
-// and is used by the fan-out loop to avoid N sequential round-trips.
+// FanOutEnqueuer queues the jobs for deliveries inside the transaction that
+// inserted them, so a delivery row never exists without its job or the
+// reverse.
+type FanOutEnqueuer func(ctx context.Context, tx *sql.Tx, inserted []*WebhookDelivery) error
+
+// CreateFanOutDeliveries inserts an event's deliveries and, in the same
+// transaction, hands the ones that were new to enqueue. Delivery IDs are
+// deterministic per (event, subscription), so a fan-out that runs again
+// (River retrying it after a crash, or after a lost completion) skips the
+// rows it already wrote, and their jobs, instead of delivering twice.
 // tenantID is accepted for interface consistency.
-func (r *Repository) BatchCreateDeliveries(ctx context.Context, tenantID uuid.UUID, deliveries []*WebhookDelivery) error {
+func (r *Repository) CreateFanOutDeliveries(ctx context.Context, tenantID uuid.UUID, deliveries []*WebhookDelivery, enqueue FanOutEnqueuer) ([]*WebhookDelivery, error) {
 	if len(deliveries) == 0 {
-		return nil
+		return nil, nil
 	}
-
-	// Single delivery — fall through to the simple path to avoid builder overhead.
-	if len(deliveries) == 1 {
-		return r.CreateDelivery(ctx, tenantID, deliveries[0])
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return nil, fmt.Errorf("begin fan-out transaction: %w", err)
 	}
+	defer func() { _ = tx.Rollback() }()
 
-	// Build a multi-row INSERT:
-	//   INSERT INTO webhook_deliveries (id, webhook_id, event_id, subscription_id, status, attempt_count, max_attempts, expires_at, response_code, response_body, error_message, request_body)
-	//   VALUES ($1,$2,...,$12), ($13,$14,...,$24), ...
+	inserted, err := r.WithConn(tx).insertNewDeliveries(ctx, deliveries)
+	if err != nil {
+		return nil, err
+	}
+	if len(inserted) > 0 {
+		if err := enqueue(ctx, tx.Tx, inserted); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, storage.Error(err)
+	}
+	return inserted, nil
+}
+
+// insertNewDeliveries inserts deliveries in a single multi-row INSERT,
+// skipping IDs that already exist, and returns the ones it inserted.
+func (r *Repository) insertNewDeliveries(ctx context.Context, deliveries []*WebhookDelivery) ([]*WebhookDelivery, error) {
+	// INSERT INTO webhook_deliveries (id, webhook_id, ..., request_body)
+	//   VALUES ($1,...,$12), ($13,...,$24), ... ON CONFLICT (id) DO NOTHING RETURNING id
 	const cols = 12
 	valueGroups := make([]string, 0, len(deliveries))
 	args := make([]any, 0, len(deliveries)*cols)
@@ -108,18 +132,28 @@ func (r *Repository) BatchCreateDeliveries(ctx context.Context, tenantID uuid.UU
 	}
 
 	query := `INSERT INTO webhook_deliveries (id, webhook_id, event_id, subscription_id, status, attempt_count, max_attempts, expires_at, response_code, response_body, error_message, request_body)
-		VALUES ` + strings.Join(valueGroups, ",")
+		VALUES ` + strings.Join(valueGroups, ",") + `
+		ON CONFLICT (id) DO NOTHING
+		RETURNING id`
 
-	_, err := r.conn.ExecContext(ctx, query, args...)
-	return storage.Error(err)
-}
-
-// DeleteDeliveryByID removes a delivery record by its ID. Used as a compensation
-// action when a River job insert fails after the delivery was already created.
-func (r *Repository) DeleteDeliveryByID(ctx context.Context, deliveryID uuid.UUID) error {
-	query := `DELETE FROM webhook_deliveries WHERE id = $1`
-	_, err := r.conn.ExecContext(ctx, query, deliveryID)
-	return storage.Error(err)
+	var ids []uuid.UUID
+	if err := r.conn.SelectContext(ctx, &ids, query, args...); err != nil {
+		return nil, storage.Error(err)
+	}
+	if len(ids) == len(deliveries) {
+		return deliveries, nil
+	}
+	isNew := make(map[uuid.UUID]bool, len(ids))
+	for _, id := range ids {
+		isNew[id] = true
+	}
+	inserted := make([]*WebhookDelivery, 0, len(ids))
+	for _, d := range deliveries {
+		if isNew[d.ID] {
+			inserted = append(inserted, d)
+		}
+	}
+	return inserted, nil
 }
 
 // UpdateDeliveryStatus records the outcome of a webhook delivery attempt.

@@ -3,6 +3,7 @@ package webhooks
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"strings"
 	"testing"
 	"time"
@@ -40,6 +41,10 @@ func (m *mockJobInserter) BatchInsert(ctx context.Context, args []river.JobArgs)
 		return nil, callArgs.Error(1)
 	}
 	return res.([]*rivertype.JobInsertResult), callArgs.Error(1)
+}
+
+func (m *mockJobInserter) BatchInsertTx(ctx context.Context, tx *sql.Tx, args []river.JobArgs) error {
+	return m.Called(ctx, tx, args).Error(0)
 }
 
 type mockRepo struct {

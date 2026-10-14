@@ -17,6 +17,7 @@ require (
 	github.com/prometheus/client_golang v1.24.1
 	github.com/remychantenay/slog-otel v1.3.5
 	github.com/riverqueue/river v0.33.0
+	github.com/riverqueue/river/riverdriver/riverdatabasesql v0.33.0
 	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.33.0
 	github.com/riverqueue/river/rivertype v0.33.0
 	github.com/rs/cors v1.11.1
