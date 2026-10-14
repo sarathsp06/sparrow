@@ -41,6 +41,7 @@ import (
 
 func main() {
 	showVersion := flag.Bool("version", false, "print the version and exit")
+	migrateOnly := flag.Bool("migrate", false, "run database migrations and exit (for a pre-deploy job)")
 	flag.Parse()
 	if *showVersion {
 		fmt.Println("sparrow-server", sparrow.Version)
@@ -128,6 +129,9 @@ func main() {
 		log.Fatalf("Failed to run database migrations: %v", err)
 	}
 	fmt.Println("✅ Database migrations completed")
+	if *migrateOnly {
+		return
+	}
 
 	// Create database connection pool for River queue workers.
 	// River runs 45 concurrent workers (20 events + 20 webhooks + 5 default)
