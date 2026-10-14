@@ -2,7 +2,6 @@ package rest
 
 import (
 	"context"
-	"github.com/sarathsp06/sparrow/pkg/access/httpauth"
 	"net/http"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	"github.com/sarathsp06/sparrow/pkg/access/httpauth"
 )
 
 type createSubscriptionBody struct {
