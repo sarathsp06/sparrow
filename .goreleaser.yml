@@ -2,6 +2,14 @@
 
 version: 2
 
+# Only vX.Y.Z tags are releases. The split modules' path-prefixed tags
+# (pkg/signature/vX.Y.Z, ...) sit on the same or nearby commits and must never
+# be picked as the current or previous tag.
+git:
+  ignore_tags:
+    - "pkg/*"
+    - "satellites/*"
+
 before:
   hooks:
     - go mod tidy
