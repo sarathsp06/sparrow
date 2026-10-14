@@ -20,7 +20,7 @@ timestamp: 2026-10-13T00:00:00Z
 | `test` | Root module plus the nested workspace modules |
 | `test-integration` | Integration tests (Docker required) |
 | `lint` | golangci-lint |
-| `generate` | Export the OpenAPI spec from Go (`cmd/openapi-export`), regenerate the Python client, then `go generate` (gowrap OTel wrappers, pinned as a `tool` in `go.mod`) |
+| `generate` | Export the OpenAPI spec from Go (`cmd/openapi-export`), then `go generate`; no client is generated (users generate theirs from the spec) (gowrap OTel wrappers, pinned as a `tool` in `go.mod`) |
 | `migrate` | Run DB migrations |
 | `release-dry-run` | Test GoReleaser locally |
 | `docker-dev` | Docker compose dev environment |

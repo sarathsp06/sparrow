@@ -23,7 +23,7 @@
 | Lint | `make lint` | golangci-lint, 15m timeout |
 | Format | `make fmt` | `goimports -local github.com/sarathsp06/sparrow/ -w .` |
 | Run migrations | `make migrate` | Also runs automatically on server startup |
-| Generate spec + clients | `make generate` | Exports OpenAPI from Go, regenerates the Python client, then `go generate ./...` |
+| Generate spec | `make generate` | Exports OpenAPI from Go, then `go generate ./...`. No client is generated or committed: users generate theirs from `api/openapi.yaml` (`make client-python` builds the git-ignored one the e2e suite uses) |
 | OTel wrapper codegen | `go generate ./...` | Uses gowrap for OTel tracing wrappers |
 
 ## Architecture
@@ -180,7 +180,7 @@ huma.Register(api, huma.Operation{
 ## Known Gaps
 
 - No scheduled/delayed webhooks (not in Svix OSS either)
-- Limited client SDKs (Python only; generate others from `api/openapi.yaml` on demand)
+- No published client SDKs, by design: clients are generated from `api/openapi.yaml` (also served at `/openapi.yaml` and attached to each release). Only `pkg/signature` and the `client/verify/` samples are hand-written
 - **No inbound API rate limiting.** Sparrow does not throttle its own `/v1/*` API — put a reverse proxy in front of it if the API is reachable from untrusted networks. (Outbound *delivery* rate limiting per webhook — `rate_limit_rps` / `webhook_rate_limit_state` — is unrelated and unaffected; it protects receivers from being hammered, not Sparrow's inbound API.)
 
 ## graphify

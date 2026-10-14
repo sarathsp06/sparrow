@@ -191,6 +191,10 @@ release:
     name: sparrow
   # vX.Y.Z-rc.N is published as a pre-release, never as "latest".
   prerelease: auto
+  # The API contract of this release, for generating clients against it.
+  extra_files:
+    - glob: ./api/openapi.yaml
+    - glob: ./api/openapi.json
   header: |
     ## Sparrow {{ .Tag }}
 

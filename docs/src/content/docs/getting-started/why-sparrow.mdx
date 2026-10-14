@@ -67,7 +67,7 @@ The table below compares Sparrow with the main alternatives for webhook delivery
 | **Web dashboard** | Embedded SvelteKit | Included | Included | Included | Console | No |
 | **Tracing & metrics** | OpenTelemetry (traces + metrics + logs, job-level propagation) + built-in Prometheus `/metrics` | Logging | Prometheus metrics | Dashboard | CloudWatch | Manual |
 | **SSRF protection** | Built-in (private IPs, redirects) | Built-in controls (plus proxy best practices) | Built-in controls / IP filtering | Managed | N/A | Manual |
-| **Client SDKs** | Python (generated); Go signature library; verification examples in 8 languages | Broad coverage | Multiple | Multiple | All AWS SDKs | 0 |
+| **Client SDKs** | Generated from the OpenAPI 3.1 spec, any language; Go signature library; verification examples in 8 languages | Broad coverage | Multiple | Multiple | All AWS SDKs | 0 |
 | **Consumer app portal** | Yes (embeddable, token-scoped) | Yes (embeddable) | Yes (Portal Links) | Yes (Outpost/managed) | No | No |
 | **Multi-region / HA story** | PostgreSQL-native HA + stateless workers | Vendor/infra-managed | Vendor/infra-managed | Vendor-managed | Global managed service | Manual |
 | **Multi-tenant SaaS mode** | No (single-tenant focus) | Yes | Yes | Yes | Yes | Manual |
@@ -103,7 +103,7 @@ Since Svix is the closest competitor architecturally, here's a deeper look:
 
 ### Where alternatives are stronger
 
-- **Client SDK breadth** -- Sparrow ships a generated Python client today (plus a Go signature verification library and examples in 8 languages). Some alternatives provide broader first-party SDK coverage.
+- **First-party SDKs** -- Sparrow publishes no SDK packages: you generate a client from its OpenAPI spec with a standard generator (plus a Go signature verification library and examples in 8 languages). Some alternatives ship maintained SDKs you install from a package registry.
 - **Multi-tenant SaaS mode** -- Svix, Convoy, and Hookdeck are designed for SaaS platforms where each customer manages their own webhooks. Sparrow is designed for teams running their own infrastructure.
 - **Managed cloud offering** -- Svix Cloud and Hookdeck handle infrastructure for you. Sparrow is self-hosted only.
 - **JavaScript transforms** -- Convoy and Hookdeck use JavaScript for payload transformation, which is more familiar to many web developers. Sparrow uses Go templates (see *Payload transformation* above for why); the trade-off is that familiarity, and anything a template can't express needs a receiver of your own.
