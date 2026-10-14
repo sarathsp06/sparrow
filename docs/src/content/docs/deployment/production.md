@@ -231,7 +231,7 @@ Give each person and CI job their own access token instead of sharing `SPARROW_A
 ## Production checklist
 
 - [ ] `ENVIRONMENT=production` and `SPARROW_API_KEY` set (at least 32 characters; `openssl rand -hex 32`).
-- [ ] Encryption keyring (`SPARROW_ENCRYPTION_KEYS` + `SPARROW_ENCRYPTION_PRIMARY_KEY_ID`) generated with `openssl rand -hex 32` and stored in a secret manager. Back it up -- lose it and encrypted webhook secrets are unrecoverable.
+- [ ] Encryption keyring (`SPARROW_ENCRYPTION_KEYS` + `SPARROW_ENCRYPTION_PRIMARY_KEY_ID`) generated with `openssl rand -hex 32` and stored in a secret manager. With `ENVIRONMENT=production` Sparrow refuses to start with the all-zeros development key. Back it up -- lose it and encrypted webhook secrets are unrecoverable.
 - [ ] `DATABASE_URL` points to a managed Postgres with `sslmode=require` or stronger.
 - [ ] Image tag pinned to a release (not `latest`).
 - [ ] Container runs as non-root (UID 65532), read-only filesystem, no privilege escalation, all capabilities dropped.

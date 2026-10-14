@@ -70,6 +70,14 @@ func TestValidate(t *testing.T) {
 		{"auto-disable off", func(c *Config) { c.AutoDisableAfter = 0 }, ""},
 		{"negative auto-disable failure minimum", func(c *Config) { c.AutoDisableMinFailures = -1 }, "SPARROW_AUTO_DISABLE_MIN_FAILURES"},
 		{"body limit below minimum", func(c *Config) { c.MaxBodyBytes = 1024 }, "SPARROW_MAX_BODY_BYTES"},
+		{"all-zeros key in production", func(c *Config) {
+			c.Environment = "production"
+			c.APIKey = strings.Repeat("k", 32)
+			c.EncryptionKeys = []string{"old=" + strings.Repeat("0", 64), "new=" + strings.Repeat("ab", 32)}
+		}, "all zeros"},
+		{"all-zeros key outside production", func(c *Config) {
+			c.EncryptionKeys = []string{"new=" + strings.Repeat("0", 64)}
+		}, ""},
 		{"negative shutdown timeout", func(c *Config) { c.ShutdownTimeout = -time.Second }, "SPARROW_SHUTDOWN_TIMEOUT"},
 		{"custom shutdown timeout", func(c *Config) { c.ShutdownTimeout = 25 * time.Second }, ""},
 	}
@@ -181,5 +189,21 @@ func TestShutdownTimeoutOrDefault(t *testing.T) {
 	}
 	if got := (&Config{ShutdownTimeout: 25 * time.Second}).ShutdownTimeoutOrDefault(); got != 25*time.Second {
 		t.Errorf("25s = %s", got)
+	}
+}
+
+// Outside production an all-zeros key starts, but with a warning naming it.
+func TestWarningsZeroEncryptionKey(t *testing.T) {
+	cfg := validConfig()
+	cfg.EncryptionKeys = []string{"new=" + strings.Repeat("0", 64)}
+	var found bool
+	for _, w := range cfg.Warnings() {
+		found = found || (strings.Contains(w, "all zeros") && strings.Contains(w, "new"))
+	}
+	if !found {
+		t.Fatalf("Warnings() = %v, want one about the all-zeros key", cfg.Warnings())
+	}
+	if w := validConfig().Warnings(); len(w) != 0 {
+		t.Fatalf("a real key should not warn: %v", w)
 	}
 }

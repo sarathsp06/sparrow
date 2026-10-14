@@ -8,6 +8,7 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"log/slog"
 	"net"
@@ -283,6 +284,9 @@ func (c *Config) Validate() error {
 	if _, err := c.EncryptionKeyring(); err != nil {
 		return err
 	}
+	if ids := c.zeroEncryptionKeyIDs(); c.IsProduction() && len(ids) > 0 {
+		return fmt.Errorf("SPARROW_ENCRYPTION_KEYS: key %s is all zeros, the published development key; generate a real one with: openssl rand -hex 32", strings.Join(ids, ", "))
+	}
 	if c.DatabaseURL == "" {
 		return fmt.Errorf("DATABASE_URL is required")
 	}
@@ -415,10 +419,35 @@ func (c *Config) Warnings() []string {
 	if c.APIKey != "" && len(c.APIKey) < MinAPIKeyLength && !c.IsProduction() {
 		warnings = append(warnings, fmt.Sprintf("SPARROW_API_KEY is shorter than %d characters — fine for local testing, but production refuses it (generate one with: openssl rand -hex 32)", MinAPIKeyLength))
 	}
+	if ids := c.zeroEncryptionKeyIDs(); len(ids) > 0 && !c.IsProduction() {
+		warnings = append(warnings, fmt.Sprintf("SPARROW_ENCRYPTION_KEYS: key %s is all zeros, the published development key — anyone can decrypt webhook secrets stored with it, and production refuses it (generate one with: openssl rand -hex 32)", strings.Join(ids, ", ")))
+	}
 	if _, set := os.LookupEnv("SPARROW_UI_INJECT_KEY"); set {
 		warnings = append(warnings, "SPARROW_UI_INJECT_KEY is no longer supported and is ignored — the UI never receives the API key; sign in with the key, an access token, or an invite link")
 	}
 	return warnings
+}
+
+// zeroEncryptionKeyIDs returns the IDs of keyring keys that are all zeros:
+// the development default in scripts/dev-env.sh and the compose files,
+// public and so no secret at all. Malformed entries are skipped; Validate
+// reports them.
+func (c *Config) zeroEncryptionKeyIDs() []string {
+	var ids []string
+	for _, entry := range c.EncryptionKeys {
+		id, raw, ok := strings.Cut(strings.TrimSpace(entry), "=")
+		if !ok {
+			continue
+		}
+		key, err := crypto.ParseKey(strings.TrimSpace(raw))
+		if err != nil || len(key) == 0 {
+			continue
+		}
+		if bytes.Count(key, []byte{0}) == len(key) {
+			ids = append(ids, strings.TrimSpace(id))
+		}
+	}
+	return ids
 }
 
 // validatePort checks that a port string is a valid TCP port number (1-65535).
