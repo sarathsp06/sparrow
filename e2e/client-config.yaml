@@ -1,0 +1,5 @@
+# openapi-python-client settings for the e2e suite's client (make client-python).
+# The client is checked in under e2e/client/ because the Gauge steps import it;
+# it is test code, not a published SDK.
+project_name_override: sparrow-e2e-client
+package_name_override: sparrow_client

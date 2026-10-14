@@ -2742,15 +2742,15 @@
     "semantic_hash": ""
   },
   ".goreleaser.yml": {
-    "mtime": 1791992656.058894,
-    "seen": 1791992789.631328,
-    "ast_hash": "735483798797a896cdcdf28c63d4ff57",
+    "mtime": 1791996414.932655,
+    "seen": 1791996455.214249,
+    "ast_hash": "09258ceacd20404914a4f970a7169227",
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1791993697.238087,
-    "seen": 1791993872.356435,
-    "ast_hash": "eb795be436dc279fc69c7b7ce0461020",
+    "mtime": 1791996414.932825,
+    "seen": 1791996455.214251,
+    "ast_hash": "52cb0d6d765e3359f2a0ffe0ab886af4",
     "semantic_hash": ""
   },
   "CONTRIBUTING.md": {
@@ -2772,9 +2772,9 @@
     "semantic_hash": ""
   },
   "client/README.md": {
-    "mtime": 1791321899.8474987,
-    "seen": 1791992789.631331,
-    "ast_hash": "be0e37f4647239b6467281515ecfb8a0",
+    "mtime": 1791996437.2767076,
+    "seen": 1791996455.2142541,
+    "ast_hash": "8a06dc03da676db2a0ec60f8b34959dc",
     "semantic_hash": ""
   },
   "deploy/docker-compose.yml": {
@@ -2910,9 +2910,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/why-sparrow.mdx": {
-    "mtime": 1791661885.457145,
-    "seen": 1791992789.631344,
-    "ast_hash": "a3a0b621bc52557c69379ccfe8924d8f",
+    "mtime": 1791996420.9290621,
+    "seen": 1791996455.214266,
+    "ast_hash": "7ff9d0a2d299f321d11e94ce3766484f",
     "semantic_hash": ""
   },
   "docs/src/content/docs/guides/event-type-export-import.mdx": {
@@ -2964,9 +2964,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/client-libraries.mdx": {
-    "mtime": 1791321899.8306482,
-    "seen": 1791992789.631349,
-    "ast_hash": "8ad915d2ebb6466c6fae95bd920d5ebf",
+    "mtime": 1791996437.2763717,
+    "seen": 1791996455.214271,
+    "ast_hash": "450891580b286fc14e1102ced6dcf328",
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/error-classification.md": {

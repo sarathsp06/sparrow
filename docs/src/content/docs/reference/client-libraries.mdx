@@ -31,8 +31,7 @@ curl -X POST "http://localhost:8080/v1/consumers/payments/events?event=invoice.p
 
 ## Generating a client
 
-Sparrow publishes **no SDK packages**, and none is checked into its
-repository. Generate the client in your own project, from the spec of the
+Sparrow publishes **no SDK packages**. Generate the client in your own project, from the spec of the
 Sparrow version you run, with a standard generator. That keeps the client
 exactly in step with your server, in your language, with no SDK release to
 wait for.
@@ -116,8 +115,10 @@ go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest \
 
 Treat generated code as build output: don't edit it by hand, regenerate it.
 
-Sparrow's own tests use the Python client the same way: `make client-python`
-generates it into the git-ignored `client/python/` for the e2e suite.
+Sparrow's own end-to-end suite works the same way. Its Python client is
+generated from `api/openapi.yaml` (`make client-python`) and **checked in at
+`e2e/client/`, only because the e2e tests import it**. It is test code, not a
+supported SDK: don't depend on it, generate your own.
 
 ## Hand-written code
 

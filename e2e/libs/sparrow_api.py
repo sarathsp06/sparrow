@@ -9,8 +9,9 @@ import sys
 import time
 from pathlib import Path
 
-# The generated client lives at client/python/sparrow_client (repo-relative).
-_CLIENT_ROOT = Path(__file__).resolve().parents[2] / "client" / "python"
+# The generated client is checked in at e2e/client/sparrow_client because these
+# steps import it; regenerate it with `make client-python` (or `make generate`).
+_CLIENT_ROOT = Path(__file__).resolve().parents[1] / "client"
 if str(_CLIENT_ROOT) not in sys.path:
     sys.path.insert(0, str(_CLIENT_ROOT))
 

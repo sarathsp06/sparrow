@@ -852,9 +852,9 @@
     "semantic_hash": ""
   },
   "e2e/libs/sparrow_api.py": {
-    "mtime": 1791321899.8175616,
-    "seen": 1791992789.6311412,
-    "ast_hash": "6fa77e7503d19e216124467d7b4a467a",
+    "mtime": 1791996567.6408365,
+    "seen": 1791997029.04185,
+    "ast_hash": "4560eb44463d5a5c433562d5bec44c17",
     "semantic_hash": ""
   },
   "e2e/libs/sparrow_env.py": {
@@ -2748,9 +2748,9 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1791996414.932825,
-    "seen": 1791996455.214251,
-    "ast_hash": "52cb0d6d765e3359f2a0ffe0ab886af4",
+    "mtime": 1791996607.0812562,
+    "seen": 1791997029.043314,
+    "ast_hash": "3ae61c21cadfc154faff9cace3642c2b",
     "semantic_hash": ""
   },
   "CONTRIBUTING.md": {
@@ -2772,9 +2772,9 @@
     "semantic_hash": ""
   },
   "client/README.md": {
-    "mtime": 1791996437.2767076,
-    "seen": 1791996455.2142541,
-    "ast_hash": "8a06dc03da676db2a0ec60f8b34959dc",
+    "mtime": 1791996607.0807128,
+    "seen": 1791997029.0433338,
+    "ast_hash": "9b30f79c03217960296118f25f65ee17",
     "semantic_hash": ""
   },
   "deploy/docker-compose.yml": {
@@ -2964,9 +2964,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/client-libraries.mdx": {
-    "mtime": 1791996437.2763717,
-    "seen": 1791996455.214271,
-    "ast_hash": "450891580b286fc14e1102ced6dcf328",
+    "mtime": 1791996607.0805218,
+    "seen": 1791997029.043467,
+    "ast_hash": "7665915415c06cf6c026f8e6faf74835",
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/error-classification.md": {
@@ -3513,6 +3513,1536 @@
     "mtime": 1791992702.4623704,
     "seen": 1791992789.631243,
     "ast_hash": "985bfc5295e6ff00952f45d7401623b3",
+    "semantic_hash": ""
+  },
+  "e2e/client/pyproject.toml": {
+    "mtime": 1791996554.1486726,
+    "seen": 1791997029.041079,
+    "ast_hash": "c071acf8bf2eeeabaca16396563da7f2",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/__init__.py": {
+    "mtime": 1791996554.4310014,
+    "seen": 1791997029.041087,
+    "ast_hash": "dde1beb9fc5ca6ad03e4157be9e994e9",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/__init__.py": {
+    "mtime": 1791996554.4314091,
+    "seen": 1791997029.041091,
+    "ast_hash": "8be67d920ff8562fddba0d33a9c2fe75",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/access/__init__.py": {
+    "mtime": 1791996554.4318783,
+    "seen": 1791997029.0410938,
+    "ast_hash": "4d66e75e1f19797fa7b570a00749fdf1",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/access/cancel_invite.py": {
+    "mtime": 1791996554.4323432,
+    "seen": 1791997029.041097,
+    "ast_hash": "8f733a756eff7aa95cee0e7746c228e2",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/access/create_invite.py": {
+    "mtime": 1791996554.4326344,
+    "seen": 1791997029.041101,
+    "ast_hash": "3856befb1aff94584e9cca25ccea5ab7",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/access/create_token.py": {
+    "mtime": 1791996554.4298427,
+    "seen": 1791997029.0411048,
+    "ast_hash": "840695a03ae6cc63f362d4f3da83ae79",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/access/get_who_am_i.py": {
+    "mtime": 1791996554.430062,
+    "seen": 1791997029.041108,
+    "ast_hash": "b63ffcfbb8e861935aa70592873a21b8",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/access/list_invites.py": {
+    "mtime": 1791996554.430391,
+    "seen": 1791997029.041112,
+    "ast_hash": "3b5028a4e545c2035a3963ef692ea4bd",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/access/list_tokens.py": {
+    "mtime": 1791996554.4308968,
+    "seen": 1791997029.041116,
+    "ast_hash": "d0dc4bdd47e5508c4865c7c059610b3d",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/access/revoke_token.py": {
+    "mtime": 1791996554.4296103,
+    "seen": 1791997029.0411189,
+    "ast_hash": "2a62e81352102791feb05382e908de0f",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/alert_configs/__init__.py": {
+    "mtime": 1791996554.429879,
+    "seen": 1791997029.0411232,
+    "ast_hash": "4d66e75e1f19797fa7b570a00749fdf1",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/alert_configs/create_alert_config.py": {
+    "mtime": 1791996554.430564,
+    "seen": 1791997029.0411258,
+    "ast_hash": "4b424314ae3b13b70265f6d525d27d3f",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/alert_configs/delete_alert_config.py": {
+    "mtime": 1791996554.4308877,
+    "seen": 1791997029.0411289,
+    "ast_hash": "c4c824acc37cea37c30dc757fd0af6c9",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/alert_configs/list_alert_configs.py": {
+    "mtime": 1791996554.4296465,
+    "seen": 1791997029.041132,
+    "ast_hash": "e870685b8f121c90ab40925876f6d7a9",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/deliveries/__init__.py": {
+    "mtime": 1791996554.429832,
+    "seen": 1791997029.041135,
+    "ast_hash": "4d66e75e1f19797fa7b570a00749fdf1",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/deliveries/cancel_delivery_retry_job.py": {
+    "mtime": 1791996554.430498,
+    "seen": 1791997029.041138,
+    "ast_hash": "e356dc4491fecfe3407745b9d6eba77f",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/deliveries/get_delivery.py": {
+    "mtime": 1791996554.4307864,
+    "seen": 1791997029.041143,
+    "ast_hash": "dfb045c5ceedc38d02aca8179f5bc42d",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/deliveries/get_delivery_attempts.py": {
+    "mtime": 1791996554.4312844,
+    "seen": 1791997029.041146,
+    "ast_hash": "0bc710f1c78ddbd2dd1e394d3e4a95fb",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/deliveries/get_delivery_attempts_global.py": {
+    "mtime": 1791996554.4318817,
+    "seen": 1791997029.0411499,
+    "ast_hash": "5c68093ad7d9cca520c9b0ec440f0c37",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/deliveries/get_delivery_global.py": {
+    "mtime": 1791996554.4325924,
+    "seen": 1791997029.041153,
+    "ast_hash": "e09c7c075b93838e8e114cdb4e593493",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/deliveries/get_delivery_retry_job.py": {
+    "mtime": 1791996554.4329486,
+    "seen": 1791997029.041156,
+    "ast_hash": "69b1294761f5305a787f0be2fd443b46",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/deliveries/list_deliveries.py": {
+    "mtime": 1791996554.433223,
+    "seen": 1791997029.041159,
+    "ast_hash": "f1a51b6d67f45e63df1caa9ff385f05e",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/deliveries/list_deliveries_global.py": {
+    "mtime": 1791996554.4340732,
+    "seen": 1791997029.041163,
+    "ast_hash": "09d5ed923202b4f2e5201a5215574088",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/deliveries/retry_deliveries_by_webhook.py": {
+    "mtime": 1791996554.4348104,
+    "seen": 1791997029.041166,
+    "ast_hash": "df66d72dd162902de7138c9ed8e04cf1",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/deliveries/retry_delivery.py": {
+    "mtime": 1791996554.4352572,
+    "seen": 1791997029.041169,
+    "ast_hash": "ee0de8c62720e5001823d66744d3b049",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/deliveries/retry_delivery_global.py": {
+    "mtime": 1791996554.4347944,
+    "seen": 1791997029.041173,
+    "ast_hash": "1dadf2ef0efa63d69e31c16d0533b8a9",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/deliveries/start_delivery_retry_job.py": {
+    "mtime": 1791996554.4357204,
+    "seen": 1791997029.041176,
+    "ast_hash": "70784e28a870892d63c2a108c4a20f7d",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/event_types/__init__.py": {
+    "mtime": 1791996554.435217,
+    "seen": 1791997029.0411782,
+    "ast_hash": "4d66e75e1f19797fa7b570a00749fdf1",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/event_types/export_event_types.py": {
+    "mtime": 1791996554.4357843,
+    "seen": 1791997029.041182,
+    "ast_hash": "29705986ddee132a4f257555469286f6",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/event_types/get_event_type.py": {
+    "mtime": 1791996554.4296777,
+    "seen": 1791997029.0411851,
+    "ast_hash": "e89f464d33794c6e86c2e75242ecab22",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/event_types/get_event_type_version.py": {
+    "mtime": 1791996554.4302921,
+    "seen": 1791997029.041188,
+    "ast_hash": "29f96981d71f48a17c3fc947d55b2623",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/event_types/import_event_types.py": {
+    "mtime": 1791996554.4306846,
+    "seen": 1791997029.0411909,
+    "ast_hash": "46ea87f07f74529e7d1b1519ff51e39c",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/event_types/list_event_type_versions.py": {
+    "mtime": 1791996554.4310706,
+    "seen": 1791997029.041194,
+    "ast_hash": "5d1c14f20f25890a9e9cb9c096b47228",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/event_types/list_event_types.py": {
+    "mtime": 1791996554.4316568,
+    "seen": 1791997029.041197,
+    "ast_hash": "7ae3a96e96337926cf233017fce63635",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/event_types/register_event_type.py": {
+    "mtime": 1791996554.4323711,
+    "seen": 1791997029.0412009,
+    "ast_hash": "2f4b415b7759855a74d2951c5d17277b",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/event_types/update_event_type.py": {
+    "mtime": 1791996554.4328353,
+    "seen": 1791997029.041203,
+    "ast_hash": "c3fee6f3c941bf87c580fa18f6d7f69b",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/event_types/validate_event_payload.py": {
+    "mtime": 1791996554.433415,
+    "seen": 1791997029.0412061,
+    "ast_hash": "32fb4f1dfa9335b8e16f64eeca69d354",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/events/__init__.py": {
+    "mtime": 1791996554.433619,
+    "seen": 1791997029.041209,
+    "ast_hash": "4d66e75e1f19797fa7b570a00749fdf1",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/events/cancel_event_repush_job.py": {
+    "mtime": 1791996554.433967,
+    "seen": 1791997029.0412118,
+    "ast_hash": "4a34323ba598b6e719f6298be7adcc13",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/events/get_event_occurrence.py": {
+    "mtime": 1791996554.4344556,
+    "seen": 1791997029.041214,
+    "ast_hash": "104f9e467faf567b70387a0f720d92ae",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/events/get_event_repush_job.py": {
+    "mtime": 1791996554.4347732,
+    "seen": 1791997029.041217,
+    "ast_hash": "e4acb58eba6fe4c03009b4d64aeebf0a",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/events/list_event_occurrences.py": {
+    "mtime": 1791996554.4355495,
+    "seen": 1791997029.0412202,
+    "ast_hash": "032288f9aa885714a06f2596e1fc59c6",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/events/list_event_occurrences_global.py": {
+    "mtime": 1791996554.4362144,
+    "seen": 1791997029.0412228,
+    "ast_hash": "c2be038de14eb84f91c39d960238419a",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/events/push_event.py": {
+    "mtime": 1791996554.436968,
+    "seen": 1791997029.041226,
+    "ast_hash": "6de6778518951a428c317188dbcf99e3",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/events/repush_event.py": {
+    "mtime": 1791996554.4368508,
+    "seen": 1791997029.04123,
+    "ast_hash": "73998b055d2fa787061310df12ff1836",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/events/start_event_repush_job.py": {
+    "mtime": 1791996554.4348361,
+    "seen": 1791997029.0412328,
+    "ast_hash": "e8fa3578d3836b8430de0c605109b2ed",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/health/__init__.py": {
+    "mtime": 1791996554.4350927,
+    "seen": 1791997029.0412369,
+    "ast_hash": "4d66e75e1f19797fa7b570a00749fdf1",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/health/get_health_summary.py": {
+    "mtime": 1791996554.4358492,
+    "seen": 1791997029.041239,
+    "ast_hash": "15e71569c1f473da0846dc0de62ef8df",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/health/get_webhook_health.py": {
+    "mtime": 1791996554.4365163,
+    "seen": 1791997029.0412421,
+    "ast_hash": "9e08e9a5c5abc0ac4d86c61a7cfa3831",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/health/list_webhooks_by_health.py": {
+    "mtime": 1791996554.4370186,
+    "seen": 1791997029.041245,
+    "ast_hash": "ee4ce85a9ff538ca9678727dac2afb3f",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/recipes/__init__.py": {
+    "mtime": 1791996554.4370203,
+    "seen": 1791997029.041249,
+    "ast_hash": "4d66e75e1f19797fa7b570a00749fdf1",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/recipes/list_recipes.py": {
+    "mtime": 1791996554.4369776,
+    "seen": 1791997029.0412512,
+    "ast_hash": "15ae5ee5fa4e610a280b870502d9a729",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/subscriptions/__init__.py": {
+    "mtime": 1791996554.4368215,
+    "seen": 1791997029.0412538,
+    "ast_hash": "4d66e75e1f19797fa7b570a00749fdf1",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/subscriptions/build_subscription_template_prompt.py": {
+    "mtime": 1791996554.4362724,
+    "seen": 1791997029.041257,
+    "ast_hash": "d36c41c591ff9eb5508b5fbc6d108abd",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/subscriptions/create_subscription.py": {
+    "mtime": 1791996554.4366965,
+    "seen": 1791997029.041261,
+    "ast_hash": "1abea971ebaa0f338cbb6daf25761ada",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/subscriptions/delete_subscription.py": {
+    "mtime": 1791996554.4364781,
+    "seen": 1791997029.041264,
+    "ast_hash": "ef6b2681b496c9d2ffbae73c443d240f",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/subscriptions/draft_subscription_template.py": {
+    "mtime": 1791996554.4367256,
+    "seen": 1791997029.041267,
+    "ast_hash": "ae52f1852f95c8e11cb8dbf154df4495",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/subscriptions/get_subscription.py": {
+    "mtime": 1791996554.4359975,
+    "seen": 1791997029.04127,
+    "ast_hash": "d278ee919547a5741ef2d2832e1e63eb",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/subscriptions/list_subscription_template_versions.py": {
+    "mtime": 1791996554.4365027,
+    "seen": 1791997029.041273,
+    "ast_hash": "84e45e5f71d79616041e90624eadf821",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/subscriptions/list_subscriptions.py": {
+    "mtime": 1791996554.4365768,
+    "seen": 1791997029.041276,
+    "ast_hash": "797aa6743d880fd71711d9584268cd76",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/subscriptions/list_subscriptions_global.py": {
+    "mtime": 1791996554.4366012,
+    "seen": 1791997029.041279,
+    "ast_hash": "4e6a95a100ed80645ce8e6cfec75d7f0",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/subscriptions/pause_subscription.py": {
+    "mtime": 1791996554.4296741,
+    "seen": 1791997029.041282,
+    "ast_hash": "f34b3a2939c2cb4e113302cec65dc329",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/subscriptions/resume_subscription.py": {
+    "mtime": 1791996554.4302332,
+    "seen": 1791997029.041285,
+    "ast_hash": "4fe9087796258018d0feed3f43076a8f",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/subscriptions/test_subscription_template.py": {
+    "mtime": 1791996554.4304423,
+    "seen": 1791997029.0412889,
+    "ast_hash": "797c1be7c9b520225d0bb121337e8840",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/subscriptions/update_subscription.py": {
+    "mtime": 1791996554.4309213,
+    "seen": 1791997029.041292,
+    "ast_hash": "7911cc2088a387cd545d32b4735f344d",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/webhooks/__init__.py": {
+    "mtime": 1791996554.4311237,
+    "seen": 1791997029.041295,
+    "ast_hash": "4d66e75e1f19797fa7b570a00749fdf1",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/webhooks/delete_webhook.py": {
+    "mtime": 1791996554.43184,
+    "seen": 1791997029.041298,
+    "ast_hash": "5bb91eb194ee2549b8f07cca8949670c",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/webhooks/get_consumer_stats.py": {
+    "mtime": 1791996554.4323325,
+    "seen": 1791997029.041301,
+    "ast_hash": "799b26311fb83a4d9f686beee2bb872d",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/webhooks/get_global_stats.py": {
+    "mtime": 1791996554.4326153,
+    "seen": 1791997029.041304,
+    "ast_hash": "71fe8515614ac750c5ee595c8fa1e7cd",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/webhooks/get_template_functions.py": {
+    "mtime": 1791996554.4318073,
+    "seen": 1791997029.041307,
+    "ast_hash": "c3137b7944b1a22bbf1e07b94add7550",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/webhooks/get_webhook.py": {
+    "mtime": 1791996554.4323018,
+    "seen": 1791997029.0413098,
+    "ast_hash": "a77ce47249855ff322cf490734aa4f1c",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/webhooks/list_consumers.py": {
+    "mtime": 1791996554.4328063,
+    "seen": 1791997029.041313,
+    "ast_hash": "67622aa1964970aa1db769708f3a4fa7",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/webhooks/list_webhooks.py": {
+    "mtime": 1791996554.4331467,
+    "seen": 1791997029.041316,
+    "ast_hash": "3ca926f56a22ad8c7ffc6a7bb6a4ea87",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/webhooks/pause_webhook.py": {
+    "mtime": 1791996554.4328277,
+    "seen": 1791997029.041319,
+    "ast_hash": "041bc63e4518921c834c79dc9a5e6de0",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/webhooks/register_webhook.py": {
+    "mtime": 1791996554.4334671,
+    "seen": 1791997029.041322,
+    "ast_hash": "f4fd40e3a3bc51be9cc940d5a4ee6145",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/webhooks/resume_webhook.py": {
+    "mtime": 1791996554.4339762,
+    "seen": 1791997029.041325,
+    "ast_hash": "81812a22861769a77b4165da4c21c49d",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/webhooks/rotate_webhook_secret.py": {
+    "mtime": 1791996554.4343488,
+    "seen": 1791997029.0413282,
+    "ast_hash": "eec830a4ead52a1f721b5dfe268f641f",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/api/webhooks/update_webhook.py": {
+    "mtime": 1791996554.4314072,
+    "seen": 1791997029.041331,
+    "ast_hash": "c0143b2bc008f58b53d70ae5fad6d785",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/client.py": {
+    "mtime": 1791996554.4321148,
+    "seen": 1791997029.041334,
+    "ast_hash": "79a3f11eb62f04b155ec10508be16074",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/errors.py": {
+    "mtime": 1791996554.4324665,
+    "seen": 1791997029.041336,
+    "ast_hash": "c2538b8003fd6396e1e242def557c81a",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/__init__.py": {
+    "mtime": 1791996554.4334004,
+    "seen": 1791997029.041339,
+    "ast_hash": "8e784df3a2fa009e0590180932fea72e",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/ai_drafting_struct.py": {
+    "mtime": 1791996554.4339364,
+    "seen": 1791997029.041342,
+    "ast_hash": "a53e417a8df28929a6647fc8799829f6",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/ai_drafting_struct_provider.py": {
+    "mtime": 1791996554.3942087,
+    "seen": 1791997029.0413451,
+    "ast_hash": "15b80347cf3bc33c567505fdf33c7f9b",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/alert_config_item.py": {
+    "mtime": 1791996554.4343905,
+    "seen": 1791997029.041348,
+    "ast_hash": "47c8ed24a6f3c0fef51e89cd08676110",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/alert_delivery_struct.py": {
+    "mtime": 1791996554.4345758,
+    "seen": 1791997029.0413508,
+    "ast_hash": "d3fbc1dc96c12db427e2de0958eb1bb0",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/attempt_item.py": {
+    "mtime": 1791996554.4349859,
+    "seen": 1791997029.041354,
+    "ast_hash": "ced8f8d22040a112a18ded0ec79035c1",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/attempt_item_error_category.py": {
+    "mtime": 1791996554.3915148,
+    "seen": 1791997029.041357,
+    "ast_hash": "be481722b830b57e78172ad5a9b1eedc",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/attempts_output_body.py": {
+    "mtime": 1791996554.4356833,
+    "seen": 1791997029.04136,
+    "ast_hash": "e429bdd475e1d540b99ef6ebeb72f8e0",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/batch_job_output_body.py": {
+    "mtime": 1791996554.4359357,
+    "seen": 1791997029.0413618,
+    "ast_hash": "b823f89278ff94ef7d1981a440a5e297",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/batch_job_output_body_job_type.py": {
+    "mtime": 1791996554.3879783,
+    "seen": 1791997029.041365,
+    "ast_hash": "de4519ba67f82354a93c56e0b2992932",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/batch_job_output_body_status.py": {
+    "mtime": 1791996554.3883352,
+    "seen": 1791997029.041367,
+    "ast_hash": "265b232d5a02f9e17eb92b4b2be4b825",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/bundle_item.py": {
+    "mtime": 1791996554.436313,
+    "seen": 1791997029.0413702,
+    "ast_hash": "b1faaf93c51d686fdd2b59d02dbd0ad7",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/bundle_item_event_schema.py": {
+    "mtime": 1791996554.4361873,
+    "seen": 1791997029.041373,
+    "ast_hash": "af1d1c306c3af66c7a14119b57a50f09",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/bundle_item_metadata.py": {
+    "mtime": 1791996554.4295096,
+    "seen": 1791997029.041375,
+    "ast_hash": "aa569de011dd8dc6b8b1748e7b9a96ca",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/bundle_stamp_body.py": {
+    "mtime": 1791996554.4298384,
+    "seen": 1791997029.041378,
+    "ast_hash": "b43cd8328e2935f3c4945b6038fe3720",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/capabilities_output_body.py": {
+    "mtime": 1791996554.430007,
+    "seen": 1791997029.0413811,
+    "ast_hash": "342c36554b8a422f8f8dc745a8116772",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/consumer_hint.py": {
+    "mtime": 1791996554.4301636,
+    "seen": 1791997029.041413,
+    "ast_hash": "3f6d1d9a9adda0f26cfdd22668037e23",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/consumer_item.py": {
+    "mtime": 1791996554.4306862,
+    "seen": 1791997029.041417,
+    "ast_hash": "c70e96c5d0191077812879f1a6575ff0",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/consumer_stats_output_body.py": {
+    "mtime": 1791996554.4311008,
+    "seen": 1791997029.0414212,
+    "ast_hash": "d740edd424017224af35d514195c4c2e",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/create_alert_config_body.py": {
+    "mtime": 1791996554.4315925,
+    "seen": 1791997029.041423,
+    "ast_hash": "512cbfc007d6c156f9aed58b330b5730",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/create_invite_body.py": {
+    "mtime": 1791996554.4320858,
+    "seen": 1791997029.041426,
+    "ast_hash": "3691f09500922441acdb10b887801c9f",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/create_invite_output_body.py": {
+    "mtime": 1791996554.4325056,
+    "seen": 1791997029.041429,
+    "ast_hash": "26d94a9e64183ae4dead2faa2b339e66",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/create_subscription_body.py": {
+    "mtime": 1791996554.4329789,
+    "seen": 1791997029.0414321,
+    "ast_hash": "1045b1036c104f0f4f37c66373652b01",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/create_subscription_body_headers.py": {
+    "mtime": 1791996554.4334266,
+    "seen": 1791997029.041434,
+    "ast_hash": "e392a5cc070501049bbc42f0d058cf2b",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/create_subscription_body_label_filters.py": {
+    "mtime": 1791996554.4336872,
+    "seen": 1791997029.041437,
+    "ast_hash": "7650225b2fbe45ad84d97b696f40755c",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/create_subscription_body_on_transform_error.py": {
+    "mtime": 1791996554.3990152,
+    "seen": 1791997029.04144,
+    "ast_hash": "2ff7fbc54c68a8e515815c0edc2c0d3d",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/create_subscription_body_template_missing_key.py": {
+    "mtime": 1791996554.3992364,
+    "seen": 1791997029.0414422,
+    "ast_hash": "166adde86647d581d3a1402ecd6466cf",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/create_token_body.py": {
+    "mtime": 1791996554.4338655,
+    "seen": 1791997029.041445,
+    "ast_hash": "ad68a4d7672f2b7e11009c19d0f75308",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/create_token_output_body.py": {
+    "mtime": 1791996554.4342136,
+    "seen": 1791997029.0414479,
+    "ast_hash": "a2d3a1201493c610b2f145b9acff6934",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/cursor_pagination_output.py": {
+    "mtime": 1791996554.4334362,
+    "seen": 1791997029.041451,
+    "ast_hash": "2a9ce543c4a0ee49636343ae593e1eb0",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/delivery_item.py": {
+    "mtime": 1791996554.4341843,
+    "seen": 1791997029.041454,
+    "ast_hash": "d6fc965ad027170ab59542f0865f71c6",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/delivery_item_error_category.py": {
+    "mtime": 1791996554.3995242,
+    "seen": 1791997029.041457,
+    "ast_hash": "74dc98f7bf5c32ed3c6ac017d0600ab6",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/delivery_item_status.py": {
+    "mtime": 1791996554.3997805,
+    "seen": 1791997029.04146,
+    "ast_hash": "fa08c4136daf550d6d3b64decd633152",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/draft_template_body.py": {
+    "mtime": 1791996554.4347465,
+    "seen": 1791997029.041462,
+    "ast_hash": "032a4bb71192811f27a91c191e19bb1f",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/draft_template_body_sample_payload.py": {
+    "mtime": 1791996554.4351006,
+    "seen": 1791997029.041466,
+    "ast_hash": "6f0f6745c7163cbaccdc1900a0d24be6",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/draft_template_output_body.py": {
+    "mtime": 1791996554.435286,
+    "seen": 1791997029.041468,
+    "ast_hash": "7275b2e2256b2b2250234ac4f4d239ca",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/draft_template_output_body_sample_source.py": {
+    "mtime": 1791996554.4025402,
+    "seen": 1791997029.041471,
+    "ast_hash": "8501f100016f42c530570713b8d5aabc",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/draft_template_prompt_output_body.py": {
+    "mtime": 1791996554.4354837,
+    "seen": 1791997029.041474,
+    "ast_hash": "9319a432383340659f4b76501a440cbe",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/draft_template_prompt_output_body_sample_source.py": {
+    "mtime": 1791996554.402382,
+    "seen": 1791997029.0414772,
+    "ast_hash": "d4372ec078c1bf7d47fa07d5b83566e9",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/error_detail.py": {
+    "mtime": 1791996554.435789,
+    "seen": 1791997029.0414789,
+    "ast_hash": "542da0a877291c882450066e1b58f864",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/error_model.py": {
+    "mtime": 1791996554.4365983,
+    "seen": 1791997029.041482,
+    "ast_hash": "4e712279e0fd660bbecbca3ac6b5d180",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_occurrence_item.py": {
+    "mtime": 1791996554.4358716,
+    "seen": 1791997029.041485,
+    "ast_hash": "a18487b5bd2730f6cc151681269478bc",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_occurrence_item_labels.py": {
+    "mtime": 1791996554.436026,
+    "seen": 1791997029.041488,
+    "ast_hash": "79d27a26cc582a1f38dbbc6ebb25c243",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_occurrence_item_metadata.py": {
+    "mtime": 1791996554.4359446,
+    "seen": 1791997029.0414898,
+    "ast_hash": "5c5114788542478f3ca0a48b037861a4",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_occurrence_item_payload.py": {
+    "mtime": 1791996554.4362035,
+    "seen": 1791997029.041493,
+    "ast_hash": "dd8467e4218f771c100ebb4d37164b2b",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_type_body.py": {
+    "mtime": 1791996554.4298716,
+    "seen": 1791997029.041495,
+    "ast_hash": "5390003a763122cce5340c0288c966a9",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_type_body_event_schema.py": {
+    "mtime": 1791996554.4300246,
+    "seen": 1791997029.0414982,
+    "ast_hash": "a495bc09fd93011fbd6e1cc59237cf89",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_type_body_metadata.py": {
+    "mtime": 1791996554.4302318,
+    "seen": 1791997029.0414999,
+    "ast_hash": "8070b4b66b81e96245a5dcfd9ee719f3",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_type_bundle.py": {
+    "mtime": 1791996554.430433,
+    "seen": 1791997029.041503,
+    "ast_hash": "5b8ddac9166c9a6fa06e0438f9f68069",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_type_bundle_api_version.py": {
+    "mtime": 1791996554.3936574,
+    "seen": 1791997029.041506,
+    "ast_hash": "b383c61df645a690698e7621170fd25f",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_type_bundle_kind.py": {
+    "mtime": 1791996554.3940008,
+    "seen": 1791997029.0415092,
+    "ast_hash": "c9e29b83d0291338d2b0a6c5de68f78e",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_type_change.py": {
+    "mtime": 1791996554.4312277,
+    "seen": 1791997029.041512,
+    "ast_hash": "c3eaeaa1f60a45ccc0b56b0c40199e26",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_type_change_action.py": {
+    "mtime": 1791996554.3949873,
+    "seen": 1791997029.041515,
+    "ast_hash": "df12e9ac6c190c62ae44c5d9bd45f17a",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_type_change_active_change.py": {
+    "mtime": 1791996554.3951292,
+    "seen": 1791997029.041518,
+    "ast_hash": "2973f8d788ba8049ec463161998a4093",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_type_item.py": {
+    "mtime": 1791996554.4318998,
+    "seen": 1791997029.04152,
+    "ast_hash": "c53aab502f63058361ebfa8d0f840f65",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_type_item_event_schema.py": {
+    "mtime": 1791996554.4320962,
+    "seen": 1791997029.041523,
+    "ast_hash": "bcdd0f991b864c9c24c7b4969d553c5d",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_type_item_metadata.py": {
+    "mtime": 1791996554.4325092,
+    "seen": 1791997029.041525,
+    "ast_hash": "c11f4bfd922c1a1b175737740ac6d8df",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_type_item_sample_payload.py": {
+    "mtime": 1791996554.4329207,
+    "seen": 1791997029.041528,
+    "ast_hash": "7e8b3fe9b1e5f8873519f7b44f808763",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_type_version_item.py": {
+    "mtime": 1791996554.433702,
+    "seen": 1791997029.0415308,
+    "ast_hash": "446a6d4c145d1df353a6cb48412a31b0",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_type_version_item_event_schema.py": {
+    "mtime": 1791996554.4342344,
+    "seen": 1791997029.041534,
+    "ast_hash": "d51b15c78091a54c7268bc467ee3f974",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/event_type_version_item_sample_payload.py": {
+    "mtime": 1791996554.4322913,
+    "seen": 1791997029.041537,
+    "ast_hash": "6fd1c49ceb99eff1c1dda73072f3ea94",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/export_event_types_input_body.py": {
+    "mtime": 1791996554.4325147,
+    "seen": 1791997029.041539,
+    "ast_hash": "29c9c181965ceebe05ce1de113806802",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/health_rules.py": {
+    "mtime": 1791996554.432729,
+    "seen": 1791997029.0415418,
+    "ast_hash": "c141f0e30c7b45f8e0d2bef488115d1b",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/health_summary_output_body.py": {
+    "mtime": 1791996554.4334111,
+    "seen": 1791997029.041545,
+    "ast_hash": "146646f748b0fa34f9c1b03d51262071",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/import_event_types_input_body.py": {
+    "mtime": 1791996554.4339635,
+    "seen": 1791997029.041547,
+    "ast_hash": "07d374db9c610a5e15c056689eca1542",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/import_event_types_input_body_acknowledge_type_0_item.py": {
+    "mtime": 1791996554.399236,
+    "seen": 1791997029.0415502,
+    "ast_hash": "dd6bee2d171e37e229386553a8baa32c",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/import_event_types_input_body_api_version.py": {
+    "mtime": 1791996554.399369,
+    "seen": 1791997029.0415528,
+    "ast_hash": "9078e976b2f201522190849c0e8f22b5",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/import_event_types_input_body_kind.py": {
+    "mtime": 1791996554.399574,
+    "seen": 1791997029.041556,
+    "ast_hash": "e52681fdd82e23998f526f73a05aab5e",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/import_event_types_input_body_subscription_policy.py": {
+    "mtime": 1791996554.4000351,
+    "seen": 1791997029.041558,
+    "ast_hash": "86609642382d7d226c5fea1e3cdb9bc5",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/import_event_types_output_body.py": {
+    "mtime": 1791996554.4347706,
+    "seen": 1791997029.0415611,
+    "ast_hash": "209fe08c42d4bd2890c4b6e3d7f02f03",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/import_item_result.py": {
+    "mtime": 1791996554.4355867,
+    "seen": 1791997029.041564,
+    "ast_hash": "1cd2cb37d5824f7d77249cda24f9dd8a",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/import_item_result_action.py": {
+    "mtime": 1791996554.4015822,
+    "seen": 1791997029.041567,
+    "ast_hash": "008d0890e2548a8f9677ebb760cb0d28",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/import_item_result_active_change.py": {
+    "mtime": 1791996554.4002538,
+    "seen": 1791997029.04157,
+    "ast_hash": "c96ee7a0f872cf208cba85729b3d68e9",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/invite_out.py": {
+    "mtime": 1791996554.4361548,
+    "seen": 1791997029.041572,
+    "ast_hash": "1cf233ab64e6c5929af1625ee8141f0f",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/invite_out_status.py": {
+    "mtime": 1791996554.4007027,
+    "seen": 1791997029.041575,
+    "ast_hash": "a0278c41cf8013be734cb7a5c8873079",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/list_alert_configs_output_body.py": {
+    "mtime": 1791996554.4363682,
+    "seen": 1791997029.041578,
+    "ast_hash": "15061279b947d6b850123713a5ef8b2f",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/list_consumers_output_body.py": {
+    "mtime": 1791996554.4299407,
+    "seen": 1791997029.04158,
+    "ast_hash": "6c6d7b52e0db350adeb576615c94025d",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/list_deliveries_global_status.py": {
+    "mtime": 1791996554.3931766,
+    "seen": 1791997029.041583,
+    "ast_hash": "822e8fd8bbfd69d1d579df0d8dc985bc",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/list_deliveries_output_body.py": {
+    "mtime": 1791996554.4302883,
+    "seen": 1791997029.041585,
+    "ast_hash": "656fbc7c0ec7e0466230e61ab0258f45",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/list_deliveries_status.py": {
+    "mtime": 1791996554.3942778,
+    "seen": 1791997029.041588,
+    "ast_hash": "bf424af60a0a186cdf848b33b9178f34",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/list_event_occurrences_output_body.py": {
+    "mtime": 1791996554.430508,
+    "seen": 1791997029.041591,
+    "ast_hash": "a0c93f884ee0ee276d23629eefcb0d36",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/list_event_type_versions_output_body.py": {
+    "mtime": 1791996554.4307199,
+    "seen": 1791997029.041593,
+    "ast_hash": "6932bd3f912ae17281d62ae47fb4e85e",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/list_event_types_output_body.py": {
+    "mtime": 1791996554.431299,
+    "seen": 1791997029.041597,
+    "ast_hash": "d4975795ba74eb24d0a8c69b36fa31d0",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/list_invites_output_body.py": {
+    "mtime": 1791996554.4319296,
+    "seen": 1791997029.041599,
+    "ast_hash": "8db75760246111458472b05b2e5dc748",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/list_recipes_output_body.py": {
+    "mtime": 1791996554.4299388,
+    "seen": 1791997029.041603,
+    "ast_hash": "5e500fdf560ad6c61714e650a5cf0e69",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/list_subscriptions_output_body.py": {
+    "mtime": 1791996554.430168,
+    "seen": 1791997029.0416052,
+    "ast_hash": "a1a95f5ad88d7c672f0265314d865ca6",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/list_template_versions_output_body.py": {
+    "mtime": 1791996554.4308617,
+    "seen": 1791997029.0416079,
+    "ast_hash": "de08c09cc4b07d92aef1d0e76dca35b9",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/list_tokens_output_body.py": {
+    "mtime": 1791996554.431367,
+    "seen": 1791997029.04161,
+    "ast_hash": "f77899d2912fe631cd760d2231a27427",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/list_webhooks_by_health_health.py": {
+    "mtime": 1791996554.3985014,
+    "seen": 1791997029.041613,
+    "ast_hash": "b447c9cdbe4fb43b61191fa296d3da4c",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/list_webhooks_health.py": {
+    "mtime": 1791996554.3986735,
+    "seen": 1791997029.041615,
+    "ast_hash": "27d7a82d92aa4256ee0e23f0cad2c103",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/list_webhooks_output_body.py": {
+    "mtime": 1791996554.4317842,
+    "seen": 1791997029.0416179,
+    "ast_hash": "a80c2ffc05f8dc0a4c1fda5ef746607d",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/pagination_output.py": {
+    "mtime": 1791996554.4322112,
+    "seen": 1791997029.041621,
+    "ast_hash": "e25589d7db4cc2912520cbcf0f291b3f",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/param.py": {
+    "mtime": 1791996554.429615,
+    "seen": 1791997029.041624,
+    "ast_hash": "fc998ce4f0c7bc4e7bd4da6b120df09b",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/patch_subscription_body.py": {
+    "mtime": 1791996554.4300983,
+    "seen": 1791997029.041627,
+    "ast_hash": "5cef87dcc8afa23e4bbe17de4a5acd66",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/patch_subscription_body_headers.py": {
+    "mtime": 1791996554.430381,
+    "seen": 1791997029.04163,
+    "ast_hash": "c9a0411dc6041379495d1e51fa82d896",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/patch_subscription_body_label_filters.py": {
+    "mtime": 1791996554.4307444,
+    "seen": 1791997029.041632,
+    "ast_hash": "6e05d169ab97b11a598392351fc5c1ea",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/patch_subscription_body_on_transform_error.py": {
+    "mtime": 1791996554.3985612,
+    "seen": 1791997029.041635,
+    "ast_hash": "2f927516f640552c900af51340bacacf",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/patch_subscription_body_template_missing_key.py": {
+    "mtime": 1791996554.3986964,
+    "seen": 1791997029.041638,
+    "ast_hash": "5a29a07aaac119d4a7f95c6579604dfa",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/patch_subscription_body_template_source.py": {
+    "mtime": 1791996554.3988185,
+    "seen": 1791997029.041641,
+    "ast_hash": "51286e37b29e245dfa6c3f155d7f3c9a",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/patch_webhook_body.py": {
+    "mtime": 1791996554.4315007,
+    "seen": 1791997029.041644,
+    "ast_hash": "b718a24618087b29406b4fcff5a1dbb4",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/patch_webhook_body_headers.py": {
+    "mtime": 1791996554.4311395,
+    "seen": 1791997029.041646,
+    "ast_hash": "bad3e45b76472bfaa959288bc59c0c89",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/patch_webhook_body_secret_headers.py": {
+    "mtime": 1791996554.4317186,
+    "seen": 1791997029.0416489,
+    "ast_hash": "f8676c9a2c12ef1bc229c0ee4f611f2c",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/pause_subscription_input_body.py": {
+    "mtime": 1791996554.4321775,
+    "seen": 1791997029.041652,
+    "ast_hash": "45472d59fae255b4ec959fab9de7e70d",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/push_event_body.py": {
+    "mtime": 1791996554.4326231,
+    "seen": 1791997029.041655,
+    "ast_hash": "56846a893ab51473ec7a54636c971bf8",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/push_event_body_labels.py": {
+    "mtime": 1791996554.4333665,
+    "seen": 1791997029.0416582,
+    "ast_hash": "bbfa6f65827410751c6bd290ea8de4e4",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/push_event_body_metadata.py": {
+    "mtime": 1791996554.43359,
+    "seen": 1791997029.041661,
+    "ast_hash": "d87435bfd1fa2b6b3e311358f0b410d7",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/push_event_body_payload.py": {
+    "mtime": 1791996554.433794,
+    "seen": 1791997029.041664,
+    "ast_hash": "d3a842f631746276f0f3a4dbd62759c1",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/push_event_output_body.py": {
+    "mtime": 1791996554.4342363,
+    "seen": 1791997029.041666,
+    "ast_hash": "8f8065953b52366107d58b558698169c",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/recipe.py": {
+    "mtime": 1791996554.4301558,
+    "seen": 1791997029.0416691,
+    "ast_hash": "5f1b597efb992c558224d3ba3f79ab0f",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/register_webhook_body.py": {
+    "mtime": 1791996554.430556,
+    "seen": 1791997029.041672,
+    "ast_hash": "02add4a72cd04711f1950d4837850d7b",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/register_webhook_body_headers.py": {
+    "mtime": 1791996554.4311383,
+    "seen": 1791997029.041674,
+    "ast_hash": "65335faca5c731a13967994c37eb65b3",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/register_webhook_body_on_transform_error.py": {
+    "mtime": 1791996554.392977,
+    "seen": 1791997029.041677,
+    "ast_hash": "d0d8d8b151b57ae5a7e18f1cfa326875",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/register_webhook_body_secret_headers.py": {
+    "mtime": 1791996554.4314373,
+    "seen": 1791997029.0416791,
+    "ast_hash": "cf63adc886bb83a4f599e6cee71a8d68",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/register_webhook_body_signature_type.py": {
+    "mtime": 1791996554.393452,
+    "seen": 1791997029.041683,
+    "ast_hash": "8c8f305273c6c8872ab83ae5960f4024",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/register_webhook_body_template_missing_key.py": {
+    "mtime": 1791996554.393556,
+    "seen": 1791997029.041687,
+    "ast_hash": "c6c93418d76348b5f00d5251d32a72cc",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/register_webhook_body_template_source.py": {
+    "mtime": 1791996554.3937879,
+    "seen": 1791997029.0416892,
+    "ast_hash": "44c3d427b3e1614d7980047bb98aa6cf",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/repush_batch_input_body.py": {
+    "mtime": 1791996554.431913,
+    "seen": 1791997029.041692,
+    "ast_hash": "48518c6a077926f11edb9d89c4d424c5",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/repush_event_output_body.py": {
+    "mtime": 1791996554.4322984,
+    "seen": 1791997029.0416949,
+    "ast_hash": "872d79ebd8ca72f3315f38a7bd3ebcb9",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/resume_subscription_output_body.py": {
+    "mtime": 1791996554.4330466,
+    "seen": 1791997029.041698,
+    "ast_hash": "582b1c36810f9de56ab1aae4ee0e9649",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/resume_subscription_output_body_headers.py": {
+    "mtime": 1791996554.433641,
+    "seen": 1791997029.041701,
+    "ast_hash": "e7e286433f9c6b731aecd1259ec8b451",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/resume_subscription_output_body_label_filters.py": {
+    "mtime": 1791996554.4341779,
+    "seen": 1791997029.041704,
+    "ast_hash": "14899dbaed4cc041606a6645ad130527",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/resume_subscription_output_body_method.py": {
+    "mtime": 1791996554.3968606,
+    "seen": 1791997029.041706,
+    "ast_hash": "5cac80542cd8040314984140543983f6",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/resume_subscription_output_body_on_transform_error.py": {
+    "mtime": 1791996554.3969877,
+    "seen": 1791997029.041709,
+    "ast_hash": "046b5c1b3d5502082b1dd3bcfaec8487",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/resume_subscription_output_body_template_missing_key.py": {
+    "mtime": 1791996554.3971272,
+    "seen": 1791997029.041712,
+    "ast_hash": "6cbb8d15c9324e71be5741db0dbe7e2f",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/resume_webhook_output_body.py": {
+    "mtime": 1791996554.434684,
+    "seen": 1791997029.041714,
+    "ast_hash": "b652f76045297596b613a333709969cb",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/retry_deliveries_by_webhook_input_body.py": {
+    "mtime": 1791996554.435082,
+    "seen": 1791997029.041717,
+    "ast_hash": "10a97612f15a618a7496d7974958854f",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/retry_output_body.py": {
+    "mtime": 1791996554.4356835,
+    "seen": 1791997029.0417202,
+    "ast_hash": "78303b5e641697a9f5458e7996131140",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/rotate_webhook_secret_output_body.py": {
+    "mtime": 1791996554.4358788,
+    "seen": 1791997029.041722,
+    "ast_hash": "f6da55ac97ddfcf99a2d9f73502e0f20",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/schema_compatibility_item.py": {
+    "mtime": 1791996554.4360886,
+    "seen": 1791997029.041725,
+    "ast_hash": "b2deef0d2d47ceb2f7c0ab90b086ece8",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/schema_compatibility_item_result.py": {
+    "mtime": 1791996554.40419,
+    "seen": 1791997029.041727,
+    "ast_hash": "e6f4e4aff48e19f8ca8109b122fbab29",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/stamp_check_item.py": {
+    "mtime": 1791996554.4363146,
+    "seen": 1791997029.0417302,
+    "ast_hash": "70e01f249b349d08671bdf26f370494a",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/stamp_check_item_status.py": {
+    "mtime": 1791996554.403429,
+    "seen": 1791997029.041732,
+    "ast_hash": "cd9dc5ad71c52d6729be42469a29cbb2",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/subscription.py": {
+    "mtime": 1791996554.4366095,
+    "seen": 1791997029.041735,
+    "ast_hash": "a164e7e3988674921d1fb46dde9e590b",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/subscription_item.py": {
+    "mtime": 1791996554.437198,
+    "seen": 1791997029.0417368,
+    "ast_hash": "42bb4cb7544c8768a3b409fd37127398",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/subscription_item_headers.py": {
+    "mtime": 1791996554.4370482,
+    "seen": 1791997029.04174,
+    "ast_hash": "1941d08a9c360b69e6ed3f768d945f4e",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/subscription_item_label_filters.py": {
+    "mtime": 1791996554.4371662,
+    "seen": 1791997029.041743,
+    "ast_hash": "68b5ae85caec04bf331183591d6c5656",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/subscription_item_method.py": {
+    "mtime": 1791996554.403176,
+    "seen": 1791997029.041745,
+    "ast_hash": "f95e131454bb319b7092ed2bac3ef925",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/subscription_item_on_transform_error.py": {
+    "mtime": 1791996554.4032874,
+    "seen": 1791997029.041748,
+    "ast_hash": "1600502a8e0451ec30168d033d6352f7",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/subscription_item_template_missing_key.py": {
+    "mtime": 1791996554.4032545,
+    "seen": 1791997029.04175,
+    "ast_hash": "ec38bb223011429417e6b44bbf3564a8",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/template_check_item.py": {
+    "mtime": 1791996554.4372618,
+    "seen": 1791997029.041753,
+    "ast_hash": "3bfc3ca47f33bf683e2caa71bd682c8c",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/template_failure_item.py": {
+    "mtime": 1791996554.4333782,
+    "seen": 1791997029.041755,
+    "ast_hash": "e68aa4c43b72fdda8f26c375fa493f44",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/template_failure_item_payload.py": {
+    "mtime": 1791996554.3964314,
+    "seen": 1791997029.041758,
+    "ast_hash": "f79b2da274f36c7c4aa824fd7cd09140",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/template_function_item.py": {
+    "mtime": 1791996554.4338043,
+    "seen": 1791997029.041761,
+    "ast_hash": "ae9ee8ba2316026f3bb2603a0765d97a",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/template_functions_output_body.py": {
+    "mtime": 1791996554.4341857,
+    "seen": 1791997029.041763,
+    "ast_hash": "e0f393fde7a563ab7755f0c4c466fae7",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/template_version_item.py": {
+    "mtime": 1791996554.4344234,
+    "seen": 1791997029.041766,
+    "ast_hash": "9e871a5f52fcc87bd66364b702168e87",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/template_version_item_source.py": {
+    "mtime": 1791996554.3979585,
+    "seen": 1791997029.041769,
+    "ast_hash": "d4d116149ab8ca5e4bf09fa8950ad70b",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/test_template_body.py": {
+    "mtime": 1791996554.4348633,
+    "seen": 1791997029.041771,
+    "ast_hash": "cd818e4b077d27c403539f809ff1d1bd",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/test_template_body_template_missing_key.py": {
+    "mtime": 1791996554.3995333,
+    "seen": 1791997029.041774,
+    "ast_hash": "e9f132872e4343ee6e63cdbd4cc1619e",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/test_template_output_body.py": {
+    "mtime": 1791996554.4344323,
+    "seen": 1791997029.0417762,
+    "ast_hash": "44dfdade89d4937cbfcf334ef63a8d34",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/token_out.py": {
+    "mtime": 1791996554.4349098,
+    "seen": 1791997029.041779,
+    "ast_hash": "ab49e55944b0243f9d3eaa013adf9181",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/token_out_status.py": {
+    "mtime": 1791996554.400744,
+    "seen": 1791997029.041782,
+    "ast_hash": "dc32aafa42348fad4e7e034f03ca8d11",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/update_event_type_output_body.py": {
+    "mtime": 1791996554.4354725,
+    "seen": 1791997029.041785,
+    "ast_hash": "998ce49144a6809bf8a55d4402080cc0",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/update_event_type_output_body_event_schema.py": {
+    "mtime": 1791996554.4346032,
+    "seen": 1791997029.041787,
+    "ast_hash": "20fba36237ce1b8a500c0352c20227e9",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/update_event_type_output_body_metadata.py": {
+    "mtime": 1791996554.4350085,
+    "seen": 1791997029.04179,
+    "ast_hash": "5b6925384d8ef817ab7dd318f6c4c6fe",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/update_event_type_output_body_sample_payload.py": {
+    "mtime": 1791996554.4352195,
+    "seen": 1791997029.041792,
+    "ast_hash": "78cf06f96c232953cecb8c8a72d86010",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/validate_event_payload_input_body.py": {
+    "mtime": 1791996554.4353716,
+    "seen": 1791997029.041795,
+    "ast_hash": "02e661999805af5d0d283db5746595b0",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/validate_event_payload_input_body_payload.py": {
+    "mtime": 1791996554.433977,
+    "seen": 1791997029.0417972,
+    "ast_hash": "4913e914f8d187622a16cf75a4d7f656",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/validate_event_payload_output_body.py": {
+    "mtime": 1791996554.434389,
+    "seen": 1791997029.0418,
+    "ast_hash": "63e533bda75c6146b7a2976d2a2dfce4",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/webhook.py": {
+    "mtime": 1791996554.4346755,
+    "seen": 1791997029.0418031,
+    "ast_hash": "dcf34c087094ca11ad1d15260bf3b1bf",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/webhook_headers.py": {
+    "mtime": 1791996554.435069,
+    "seen": 1791997029.041805,
+    "ast_hash": "39c8e8215f71fee1c076a3ad142a7995",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/webhook_health_output_body.py": {
+    "mtime": 1791996554.4352608,
+    "seen": 1791997029.0418088,
+    "ast_hash": "bffcd04007a2a07cca3359b7e8a02635",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/webhook_health_output_body_health.py": {
+    "mtime": 1791996554.4015398,
+    "seen": 1791997029.041811,
+    "ast_hash": "b9ad7dcc5b1f2ad793b28000e2f36140",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/webhook_http_config.py": {
+    "mtime": 1791996554.4357238,
+    "seen": 1791997029.041814,
+    "ast_hash": "0d8a0a05748a29eda25f6de4888de8cc",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/webhook_http_config_out.py": {
+    "mtime": 1791996554.435991,
+    "seen": 1791997029.0418172,
+    "ast_hash": "0c76d91345d2fabc7ce072e9a89d83c9",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/webhook_out.py": {
+    "mtime": 1791996554.4366045,
+    "seen": 1791997029.0418198,
+    "ast_hash": "cddaf042e0d08bb021f57bb9d755cdd4",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/webhook_out_headers.py": {
+    "mtime": 1791996554.4368296,
+    "seen": 1791997029.041822,
+    "ast_hash": "5287ca8027645f227e81cf12b1aa01ff",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/webhook_out_health.py": {
+    "mtime": 1791996554.4024796,
+    "seen": 1791997029.041825,
+    "ast_hash": "9684771c57edef4da789d1ab613cbb86",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/webhook_out_secret_headers.py": {
+    "mtime": 1791996554.4370747,
+    "seen": 1791997029.0418282,
+    "ast_hash": "77411993bb1caa8c01618f31db16973a",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/webhook_out_signature_type.py": {
+    "mtime": 1791996554.4013448,
+    "seen": 1791997029.041831,
+    "ast_hash": "98e37cd9263987c33acd006174a0941b",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/webhook_secret_headers.py": {
+    "mtime": 1791996554.4369912,
+    "seen": 1791997029.041833,
+    "ast_hash": "d40d1648e5c556c992615f89507f13b1",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/models/who_am_i_output_body.py": {
+    "mtime": 1791996554.437287,
+    "seen": 1791997029.041836,
+    "ast_hash": "384e9080bd14c5b5914ee2b50e2f3776",
+    "semantic_hash": ""
+  },
+  "e2e/client/sparrow_client/types.py": {
+    "mtime": 1791996554.4372616,
+    "seen": 1791997029.0418391,
+    "ast_hash": "dd03b676aaeec290fcf3790b93ecffec",
+    "semantic_hash": ""
+  },
+  "e2e/client-config.yaml": {
+    "mtime": 1791996553.4130204,
+    "seen": 1791997029.043513,
+    "ast_hash": "363e51aeaedd6901ce0a55e9ff60360b",
+    "semantic_hash": ""
+  },
+  "e2e/client/README.md": {
+    "mtime": 1791996554.430775,
+    "seen": 1791997029.043516,
+    "ast_hash": "d522195f46ba1a4459f723bb3dce5083",
     "semantic_hash": ""
   }
 }

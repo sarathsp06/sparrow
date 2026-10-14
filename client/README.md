@@ -1,14 +1,15 @@
 # Sparrow client code
 
-Sparrow publishes no SDK and commits no generated client. Generate one in your
+Sparrow publishes no SDK. Generate a client in your
 own project from the OpenAPI spec of the Sparrow version you run: `GET
 /openapi.yaml` on the server, the `openapi.yaml` attached to each GitHub
 release, or `api/openapi.yaml` at that release's tag. See
 [Client libraries](https://sarathsp06.github.io/sparrow/reference/client-libraries/)
 for Python, TypeScript and Go examples.
 
-`client/python/` is git-ignored: `make client-python` generates it there for
-the e2e suite only.
+The one generated client in the repository is `e2e/client/`. It is checked in
+only because the e2e tests import it (`make client-python` regenerates it); it
+is test code, not an SDK to depend on.
 
 This directory holds the hand-written exception:
 
