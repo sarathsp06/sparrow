@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -201,6 +202,13 @@ type Config struct {
 	// Env: SPARROW_AI_PROVIDER
 	AIProvider string `envconfig:"SPARROW_AI_PROVIDER" default:"anthropic"`
 
+	// AISwitch turns AI-assisted template drafting on or off regardless of
+	// the provider settings: unset means on when a provider is configured,
+	// "false" keeps it off with the key and URL left in place, and "true"
+	// refuses to start unless a provider is configured.
+	// Env: SPARROW_AI_ENABLED
+	AISwitch string `envconfig:"SPARROW_AI_ENABLED" default:""`
+
 	// AIAPIKey is the provider API key. For the anthropic provider setting
 	// it enables the feature (POST /v1/subscriptions:draftTemplate and the
 	// "Draft with AI" panel). For the openai provider it is sent as a Bearer
@@ -232,12 +240,36 @@ type Config struct {
 // Load populates a Config struct from environment variables.
 // envconfig does not use a prefix since the env vars span multiple consumers
 // (SPARROW_*, DATABASE_URL, ENVIRONMENT, OTEL_*, CORS_*).
+//
+// A variable set to "" or "-" counts as unset, so its default applies: some
+// platforms cannot unset a variable once it exists, or cannot store an empty
+// value. Load unsets such variables in the process environment, so code that
+// reads them directly (the OTel exporters) agrees.
 func Load() (*Config, error) {
+	unsetBlankEnv()
 	var cfg Config
 	if err := envconfig.Process("", &cfg); err != nil {
 		return nil, fmt.Errorf("loading config from environment: %w", err)
 	}
 	return &cfg, nil
+}
+
+// isBlank reports whether an environment value means "unset": empty,
+// whitespace, or a lone "-".
+func isBlank(v string) bool {
+	v = strings.TrimSpace(v)
+	return v == "" || v == "-"
+}
+
+// unsetBlankEnv unsets every variable Config reads whose value is blank.
+func unsetBlankEnv() {
+	t := reflect.TypeOf(Config{})
+	for i := range t.NumField() {
+		key := t.Field(i).Tag.Get("envconfig")
+		if v, ok := os.LookupEnv(key); key != "" && ok && isBlank(v) {
+			_ = os.Unsetenv(key)
+		}
+	}
 }
 
 // SlogLevel parses LogLevel: debug, info, warn or error (any case).
@@ -323,6 +355,13 @@ func (c *Config) Validate() error {
 	if c.EventRetentionDays < 0 {
 		return fmt.Errorf("SPARROW_EVENT_RETENTION_DAYS: must be >= 0, got %d", c.EventRetentionDays)
 	}
+	on, err := c.aiSwitch()
+	if err != nil {
+		return err
+	}
+	if on != nil && *on && !c.aiConfigured() {
+		return fmt.Errorf("SPARROW_AI_ENABLED=true but no AI provider is configured: set SPARROW_AI_API_KEY (anthropic) or SPARROW_AI_BASE_URL and SPARROW_AI_MODEL (openai)")
+	}
 	switch c.aiProvider() {
 	case "anthropic":
 	case "openai":
@@ -364,10 +403,34 @@ func (c *Config) aiProvider() string {
 // AIProviderName returns the effective provider: "anthropic" or "openai".
 func (c *Config) AIProviderName() string { return c.aiProvider() }
 
-// AIEnabled reports whether AI-assisted template drafting is configured:
-// an API key for the anthropic provider, or a base URL (key optional) for an
-// OpenAI-compatible server.
+// aiSwitch parses SPARROW_AI_ENABLED: nil when unset, else its value.
+func (c *Config) aiSwitch() (*bool, error) {
+	if isBlank(c.AISwitch) {
+		return nil, nil
+	}
+	on, err := strconv.ParseBool(strings.TrimSpace(c.AISwitch))
+	if err != nil {
+		return nil, fmt.Errorf("SPARROW_AI_ENABLED: %q is not a boolean (want true or false; leave it unset, empty or \"-\" to follow the provider settings)", c.AISwitch)
+	}
+	return &on, nil
+}
+
+// AIEnabled reports whether AI-assisted template drafting is on: a provider
+// is configured and SPARROW_AI_ENABLED is not false.
 func (c *Config) AIEnabled() bool {
+	return !c.AISwitchedOff() && c.aiConfigured()
+}
+
+// AISwitchedOff reports whether SPARROW_AI_ENABLED=false turned drafting off.
+func (c *Config) AISwitchedOff() bool {
+	on, _ := c.aiSwitch()
+	return on != nil && !*on
+}
+
+// aiConfigured reports whether a provider is configured: an API key for the
+// anthropic provider, or a base URL (key optional) for an OpenAI-compatible
+// server.
+func (c *Config) aiConfigured() bool {
 	switch c.aiProvider() {
 	case "openai":
 		return c.AIBaseURL != "" || c.AIAPIKey != ""
@@ -422,7 +485,7 @@ func (c *Config) Warnings() []string {
 	if ids := c.zeroEncryptionKeyIDs(); len(ids) > 0 && !c.IsProduction() {
 		warnings = append(warnings, fmt.Sprintf("SPARROW_ENCRYPTION_KEYS: key %s is all zeros, the published development key — anyone can decrypt webhook secrets stored with it, and production refuses it (generate one with: openssl rand -hex 32)", strings.Join(ids, ", ")))
 	}
-	if _, set := os.LookupEnv("SPARROW_UI_INJECT_KEY"); set {
+	if v, set := os.LookupEnv("SPARROW_UI_INJECT_KEY"); set && !isBlank(v) {
 		warnings = append(warnings, "SPARROW_UI_INJECT_KEY is no longer supported and is ignored — the UI never receives the API key; sign in with the key, an access token, or an invite link")
 	}
 	return warnings

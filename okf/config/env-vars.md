@@ -10,6 +10,8 @@ timestamp: 2026-09-14T00:00:00Z
 
 All configuration via environment variables using `kelseyhightower/envconfig`.
 
+A value of `""` or a lone `-` counts as unset: `config.Load` unsets it before parsing, so the default applies (and OTel exporters reading `OTEL_*` directly agree). Use `-` where a platform cannot store an empty value.
+
 ## Core
 
 | Variable | Purpose | Default |
@@ -79,6 +81,7 @@ No variables set: prompt-only mode. `GET /v1/capabilities` reports `ai_drafting.
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
+| `SPARROW_AI_ENABLED` | `false` forces drafting off (provider vars ignored, not validated); `true` requires a configured provider (anthropic: key; openai: base URL + model) or startup fails; unset/empty/`-`: on when a provider is configured. `Config.AIEnabled`/`AISwitchedOff` | -- |
 | `SPARROW_AI_PROVIDER` | `anthropic` (Anthropic SDK) or `openai` (plain HTTP to any OpenAI-compatible `/v1/chat/completions`: Ollama, vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI) | `anthropic` |
 | `SPARROW_AI_API_KEY` | Provider key. Enables drafting for `anthropic`; optional Bearer token for `openai`. `GET /v1/capabilities` reports `ai_drafting.{enabled,provider,model}` | -- |
 | `SPARROW_AI_MODEL` | Model id. Required for `openai` | `claude-haiku-4-5` (anthropic) |

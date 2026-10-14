@@ -405,6 +405,8 @@ func main() {
 	}
 	if cfg.AIEnabled() {
 		fmt.Printf("   AI drafting: enabled (%s via %s)\n", cfg.AIModelOrDefault(), cfg.AIProviderName())
+	} else if cfg.AISwitchedOff() {
+		fmt.Println("   AI drafting: off (SPARROW_AI_ENABLED=false; the editor offers a copy-and-paste prompt)")
 	} else {
 		fmt.Println("   AI drafting: prompt-only (the editor offers a copy-and-paste prompt; set SPARROW_AI_API_KEY, or SPARROW_AI_PROVIDER=openai with SPARROW_AI_BASE_URL, to draft in place)")
 	}

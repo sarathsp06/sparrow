@@ -2,6 +2,8 @@ package config
 
 import (
 	"log/slog"
+	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -146,6 +148,16 @@ func TestAIConfig(t *testing.T) {
 		{"openai key without base url", func(c *Config) { c.AIProvider = "openai"; c.AIAPIKey = "k"; c.AIModel = "m" }, "SPARROW_AI_BASE_URL is required", true, "m"},
 		{"unknown provider", func(c *Config) { c.AIProvider = "gemini" }, "not supported", false, ""},
 		{"bad base url", func(c *Config) { c.AIAPIKey = "k"; c.AIBaseURL = "localhost:11434" }, "not an absolute URL", true, "claude-haiku-4-5"},
+		{"switch false turns a configured provider off", func(c *Config) { c.AIAPIKey = "k"; c.AISwitch = "false" }, "", false, "claude-haiku-4-5"},
+		{"switch false skips openai requirements", func(c *Config) {
+			c.AIProvider = "openai"
+			c.AIBaseURL = "http://localhost:11434/v1"
+			c.AISwitch = "false"
+		}, "", false, ""},
+		{"switch true with a provider", func(c *Config) { c.AIAPIKey = "k"; c.AISwitch = "true" }, "", true, "claude-haiku-4-5"},
+		{"switch true without a provider", func(c *Config) { c.AISwitch = "true" }, "no AI provider is configured", false, "claude-haiku-4-5"},
+		{"switch dash follows the provider", func(c *Config) { c.AIAPIKey = "k"; c.AISwitch = "-" }, "", true, "claude-haiku-4-5"},
+		{"switch not a boolean", func(c *Config) { c.AISwitch = "maybe" }, "not a boolean", false, "claude-haiku-4-5"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -163,6 +175,31 @@ func TestAIConfig(t *testing.T) {
 			}
 			if c.AIModelOrDefault() != tc.model {
 				t.Fatalf("AIModelOrDefault() = %q, want %q", c.AIModelOrDefault(), tc.model)
+			}
+		})
+	}
+}
+
+func TestLoadTreatsBlankAsUnset(t *testing.T) {
+	for _, blank := range []string{"", "-", "  ", " - "} {
+		t.Run(strconv.Quote(blank), func(t *testing.T) {
+			t.Setenv("SPARROW_AI_API_KEY", blank)
+			t.Setenv("SPARROW_AI_ENABLED", blank)
+			t.Setenv("SPARROW_AI_TIMEOUT", blank)
+			t.Setenv("SPARROW_HTTP_PORT", blank)
+			t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", blank)
+			c, err := Load()
+			if err != nil {
+				t.Fatalf("Load() = %v", err)
+			}
+			if c.AIEnabled() || c.AIAPIKey != "" {
+				t.Fatalf("AI drafting on with SPARROW_AI_API_KEY=%q", blank)
+			}
+			if c.AITimeout != 3*time.Minute || c.HTTPPort != "8080" {
+				t.Fatalf("defaults not applied: AITimeout=%s HTTPPort=%q", c.AITimeout, c.HTTPPort)
+			}
+			if _, set := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT"); set {
+				t.Fatalf("OTEL_EXPORTER_OTLP_ENDPOINT=%q still set; the OTel exporters read it directly", blank)
 			}
 		})
 	}

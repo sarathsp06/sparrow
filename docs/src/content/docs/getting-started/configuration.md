@@ -8,6 +8,14 @@ sidebar:
 Sparrow is configured entirely with environment variables. There's no config
 file.
 
+**Empty and `-` mean unset.** A variable set to an empty value, or to a lone
+`-`, is treated as if it were not set at all, so its default applies. Use `-`
+on platforms that cannot store an empty value or cannot delete a variable once
+it exists (some secret managers and PaaS dashboards). The rule covers every
+variable on this page, `OTEL_*` included: Sparrow unsets a blank one at
+startup, so the OpenTelemetry exporters see it as unset too. No Sparrow
+setting gives an empty value a meaning of its own.
+
 ## Minimum to start
 
 Three variables are required. The server refuses to start without the two
@@ -101,6 +109,7 @@ addresses unless you allow them.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `SPARROW_AI_ENABLED` | unset | `false` turns drafting off with the provider settings left in place; `true` requires a configured provider and stops startup without one. Unset, empty or `-`: on whenever a provider is configured. See [Turning drafting on and off](#turning-drafting-on-and-off). |
 | `SPARROW_AI_PROVIDER` | `anthropic` | `anthropic` or `openai` (any OpenAI-compatible server). |
 | `SPARROW_AI_API_KEY` | unset | Provider API key. Required for `anthropic`; optional for a local `openai` server. |
 | `SPARROW_AI_MODEL` | `claude-haiku-4-5` for `anthropic` | Model name. Required for `openai`. |
@@ -264,6 +273,45 @@ SPARROW_AI_MODEL=qwen2.5-coder:7b               # the name the server serves
 
 With `openai`, setting a key without `SPARROW_AI_BASE_URL` stops the server at
 startup.
+
+### Turning drafting on and off
+
+Drafting is on when a provider is configured, and `SPARROW_AI_ENABLED`
+overrides that:
+
+| `SPARROW_AI_ENABLED` | Result |
+|----------------------|--------|
+| unset, empty or `-` | On if a provider is configured (below), otherwise prompt-only. |
+| `false` | Off: prompt-only, even with a key or base URL set. The provider variables are ignored and not validated, so you can leave them in place. |
+| `true` | On. The provider variables below **must** be set, or the server refuses to start. |
+
+What "a configured provider" needs, and so what `SPARROW_AI_ENABLED=true`
+requires:
+
+| Provider | Must be set | Optional |
+|----------|-------------|----------|
+| `anthropic` (default) | `SPARROW_AI_API_KEY` | `SPARROW_AI_MODEL` (default `claude-haiku-4-5`), `SPARROW_AI_BASE_URL` (gateway or proxy) |
+| `openai` | `SPARROW_AI_PROVIDER=openai`, `SPARROW_AI_BASE_URL`, `SPARROW_AI_MODEL` | `SPARROW_AI_API_KEY` (sent as a Bearer token) |
+
+Any other value of `SPARROW_AI_ENABLED` (not `true`, `false`, `1`, `0`,
+empty or `-`) stops startup too. The startup banner says which mode is
+active: `enabled (<model> via <provider>)`, `off (SPARROW_AI_ENABLED=false)`
+or `prompt-only`.
+
+To turn drafting **off**, do either of these:
+
+```bash
+SPARROW_AI_ENABLED=false   # keeps the key and URL in place
+SPARROW_AI_API_KEY=-       # anthropic: no key means off; "-" works where an empty value can't be stored
+```
+
+With `openai`, blanking the key is not enough, because a base URL alone turns
+drafting on: blank `SPARROW_AI_BASE_URL` as well, or use
+`SPARROW_AI_ENABLED=false`.
+
+To turn it **on**, configure a provider as shown above. Add
+`SPARROW_AI_ENABLED=true` when a missing key should stop the deploy rather
+than quietly fall back to prompt-only.
 
 ## Default Tenant
 
