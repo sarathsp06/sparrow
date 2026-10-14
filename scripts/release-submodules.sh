@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Automates docs/adr/0002-cli-module-split.md's "Releasing the split modules"
-# recipe: tag pkg/signature, then pkg/template, then satellites/recipes,
+# recipe: tag pkg/access, pkg/signature and pkg/template, then satellites/recipes,
 # satellites/sparrow-sinks, satellites/sparrow-sources and satellites/sparrow, each
 # with their working-tree `replace` directives stripped and `require`s pinned
 # to the version just tagged — so `go install .../satellites/sparrow@vX.Y.Z`
@@ -93,8 +93,7 @@ release_module() {
 
 release_leaf pkg/access "pkg/access/$VERSION"
 release_leaf pkg/signature "pkg/signature/$VERSION"
-release_module pkg/template "pkg/template/$VERSION" \
-	"github.com/sarathsp06/sparrow/pkg/signature@$VERSION"
+release_leaf pkg/template "pkg/template/$VERSION"
 release_module satellites/recipes "satellites/recipes/$VERSION" \
 	"github.com/sarathsp06/sparrow/pkg/template@$VERSION"
 release_module satellites/sparrow-sinks "satellites/sparrow-sinks/$VERSION" \

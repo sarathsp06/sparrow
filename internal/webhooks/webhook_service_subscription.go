@@ -291,8 +291,8 @@ func (s *WebhookService) ListSubscriptionTemplateVersions(ctx context.Context, s
 // error naming that key instead of rendering "<no value>". AI draft
 // verification uses it with strict=true.
 func RenderTemplatePreview(eventName, transformTemplate string, payload map[string]any, strict bool) (string, error) {
-	engine := template.NewTemplateEngine()
-	data := template.NewWebhookTemplateContext(
+	engine := template.New()
+	data := template.NewWebhookContext(
 		"dry-run-event-id",
 		eventName,
 		time.Now().UTC().Format(time.RFC3339),
@@ -396,10 +396,10 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 		return "", svcerrors.Error(svcerrors.NotFound, "event not found")
 	}
 
-	engine := template.NewTemplateEngine()
+	engine := template.New()
 
 	// Create context for template
-	data := template.NewWebhookTemplateContext(
+	data := template.NewWebhookContext(
 		"dry-run-event-id",
 		eventName,
 		time.Now().UTC().Format(time.RFC3339),
@@ -416,7 +416,7 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 }
 
 func (s *WebhookService) GetTemplateFunctions() []TemplateFunctionInfo {
-	functions := template.GetTemplateFunctions()
+	functions := template.Functions()
 	res := make([]TemplateFunctionInfo, len(functions))
 	for i, f := range functions {
 		res[i] = TemplateFunctionInfo{

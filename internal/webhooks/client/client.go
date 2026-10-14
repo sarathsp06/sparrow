@@ -27,7 +27,7 @@ type WebhookClient struct {
 	// verify_ssl=false (trusted internal endpoints with self-signed certs).
 	insecureClient           *http.Client
 	insecureNoRedirectClient *http.Client
-	tmpl                     *template.TemplateEngine
+	tmpl                     *template.Engine
 	config                   *Config
 }
 
@@ -91,7 +91,7 @@ func NewWebhookClient(config *Config) *WebhookClient {
 			Timeout:       config.Timeout,
 			CheckRedirect: noRedirect,
 		},
-		tmpl:   template.NewTemplateEngine(),
+		tmpl:   template.New(),
 		config: config,
 	}
 }
@@ -178,7 +178,7 @@ func (c *WebhookClient) Close() error {
 
 // TransformPayloadWith transforms the webhook payload using a template and
 // execution options (for example strict missing-key handling).
-func (c *WebhookClient) TransformPayloadWith(tmplStr string, data template.WebhookTemplateContext, opts template.ExecOptions) ([]byte, error) {
+func (c *WebhookClient) TransformPayloadWith(tmplStr string, data template.WebhookContext, opts template.ExecOptions) ([]byte, error) {
 	return c.tmpl.ExecuteWith(tmplStr, data, opts)
 }
 

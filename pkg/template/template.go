@@ -16,18 +16,18 @@ import (
 // cacheSize is the maximum number of parsed templates an engine keeps.
 const cacheSize = 100
 
-// MaxTemplateOutputBytes is the maximum allowed output size from a template
+// MaxOutputBytes is the maximum allowed output size from a template
 // execution. Templates producing output larger than this are aborted to
 // prevent denial-of-service via crafted templates.
-const MaxTemplateOutputBytes = 1 * 1024 * 1024 // 1 MB
+const MaxOutputBytes = 1 * 1024 * 1024 // 1 MB
 
-// TemplateExecutionTimeout bounds how long a caller waits for a template.
+// ExecutionTimeout bounds how long a caller waits for a template.
 // Go's text/template has no cancellation, so Execute runs in a goroutine
 // that is abandoned on timeout and keeps running until it finishes or hits
-// MaxTemplateOutputBytes. The timeout therefore frees the caller, not the
+// MaxOutputBytes. The timeout therefore frees the caller, not the
 // CPU: loops that produce no output are rejected at parse time instead
 // (see checkTemplateLoops).
-const TemplateExecutionTimeout = 5 * time.Second
+const ExecutionTimeout = 5 * time.Second
 
 // MaxRangeNesting is the deepest allowed nesting of range actions. Each
 // level multiplies the iteration count, so deep nesting over even modest
@@ -51,17 +51,17 @@ func (w *limitedWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-// TemplateEngine handles payload transformations using Go templates
-type TemplateEngine struct {
+// Engine handles payload transformations using Go templates
+type Engine struct {
 	funcs template.FuncMap
 	cache *lru.Cache[string, *template.Template]
 }
 
-// NewTemplateEngine creates a new template engine with default helpers
-func NewTemplateEngine() *TemplateEngine {
+// New creates a new template engine with default helpers
+func New() *Engine {
 	// lru.New only fails for a non-positive size.
 	cache, _ := lru.New[string, *template.Template](cacheSize)
-	return &TemplateEngine{funcs: GetFunctionMap(), cache: cache}
+	return &Engine{funcs: FuncMap(), cache: cache}
 }
 
 // ExecOptions controls how a template is executed.
@@ -77,10 +77,10 @@ type ExecOptions struct {
 }
 
 // ExecuteWith processes a template with the given data and options.
-// Output is limited to MaxTemplateOutputBytes and execution time is limited
-// to TemplateExecutionTimeout to prevent denial-of-service via crafted
+// Output is limited to MaxOutputBytes and execution time is limited
+// to ExecutionTimeout to prevent denial-of-service via crafted
 // templates that consume unbounded CPU or produce unbounded output.
-func (e *TemplateEngine) ExecuteWith(tmplStr string, data any, opts ExecOptions) ([]byte, error) {
+func (e *Engine) ExecuteWith(tmplStr string, data any, opts ExecOptions) ([]byte, error) {
 	if tmplStr == "" {
 		return nil, nil
 	}
@@ -94,13 +94,13 @@ func (e *TemplateEngine) ExecuteWith(tmplStr string, data any, opts ExecOptions)
 	buf := bytes.NewBuffer([]byte{}) // non-nil Bytes() even for empty output
 
 	// Wrap with a size-limited writer to prevent runaway output
-	lw := &limitedWriter{buf: buf, limit: MaxTemplateOutputBytes}
+	lw := &limitedWriter{buf: buf, limit: MaxOutputBytes}
 
-	// SEC: Wait at most TemplateExecutionTimeout. Go's text/template has no
+	// SEC: Wait at most ExecutionTimeout. Go's text/template has no
 	// cancellation, so on timeout the goroutine is abandoned and keeps
 	// running until it completes or hits the output size limit. Loops that
 	// could run without output are rejected at parse time (checkTemplateLoops).
-	ctx, cancel := context.WithTimeout(context.Background(), TemplateExecutionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), ExecutionTimeout)
 	defer cancel()
 
 	execErr := make(chan error, 1)
@@ -114,7 +114,7 @@ func (e *TemplateEngine) ExecuteWith(tmplStr string, data any, opts ExecOptions)
 			return nil, fmt.Errorf("failed to execute template: %w", err)
 		}
 	case <-ctx.Done():
-		return nil, fmt.Errorf("template execution timed out after %v (possible infinite loop)", TemplateExecutionTimeout)
+		return nil, fmt.Errorf("template execution timed out after %v (possible infinite loop)", ExecutionTimeout)
 	}
 
 	return buf.Bytes(), nil
@@ -123,7 +123,7 @@ func (e *TemplateEngine) ExecuteWith(tmplStr string, data any, opts ExecOptions)
 // getOrParseTemplate retrieves a cached template or parses and caches a new
 // one. Strict and lenient parses of the same source are cached separately,
 // since the missingkey option is set on the parsed template.
-func (e *TemplateEngine) getOrParseTemplate(tmplStr string, strict bool) (*template.Template, error) {
+func (e *Engine) getOrParseTemplate(tmplStr string, strict bool) (*template.Template, error) {
 	key := hashTemplate(tmplStr)
 	if strict {
 		key = hashTemplate("missingkey=error\x00" + tmplStr)
@@ -222,17 +222,17 @@ func rangesOverNumberLiteral(pipe *parse.PipeNode) bool {
 	return false
 }
 
-// WebhookTemplateContext is the data context passed to Go templates.
+// WebhookContext is the data context passed to Go templates.
 // It uses snake_case keys so that templates reference fields as
 // {{.event_id}}, {{.event_name}}, {{.timestamp}}, {{.attempt}}, and
 // {{.payload}}.
 // Consumer, WebhookID, and DeliveryID are conveyed via HTTP headers
 // and are intentionally omitted from the template context.
-type WebhookTemplateContext = map[string]any
+type WebhookContext = map[string]any
 
-// NewWebhookTemplateContext builds a template context map with snake_case keys.
-func NewWebhookTemplateContext(eventID, eventName, timestamp string, attempt int, payload map[string]any) WebhookTemplateContext {
-	return WebhookTemplateContext{
+// NewWebhookContext builds a template context map with snake_case keys.
+func NewWebhookContext(eventID, eventName, timestamp string, attempt int, payload map[string]any) WebhookContext {
+	return WebhookContext{
 		"event_id":   eventID,
 		"event_name": eventName,
 		"timestamp":  timestamp,

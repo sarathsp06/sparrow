@@ -544,7 +544,7 @@ func (w *WebhookWorker) renderPayload(ctx context.Context, log *slog.Logger, job
 		return envelope()
 	}
 
-	body, renderErr := w.client.TransformPayloadWith(subscription.TransformTemplate, template.NewWebhookTemplateContext(
+	body, renderErr := w.client.TransformPayloadWith(subscription.TransformTemplate, template.NewWebhookContext(
 		args.EventID,
 		eventRecord.Event,
 		time.Now().UTC().Format(time.RFC3339),

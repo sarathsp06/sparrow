@@ -32,7 +32,7 @@ A separate Go module (`pkg/access/go.mod`, stdlib-only — a test enforces it im
 | Package | Purpose |
 |---------|---------|
 | `memstore` | In-memory Store (tests) |
-| `pgstore` | Postgres Store via `database/sql`; ships `pgstore.Schema` (the DDL for `access_tokens` + `access_invites`) |
+| `pgstore` | Postgres Store via `database/sql`; ships `pgstore.Schema()` (the DDL for `access_tokens` + `access_invites`) |
 | `storetest` | Conformance test suite every Store must pass |
 | `httpauth` | net/http adapter: `Credential()` reads `Authorization: Bearer` or `X-API-Key` (never query params); `Authenticator` + `Middleware`; `WriteError` (401 with `reason`, 503 + `Retry-After` on store outage); `RedeemHandler` |
 
