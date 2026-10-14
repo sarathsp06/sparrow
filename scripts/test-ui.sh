@@ -39,6 +39,10 @@ trap cleanup EXIT
 SERVER_BIN=$(mktemp -d)/sparrow-server
 DB_URL="postgres://sparrow:sparrow@localhost:$PG_PORT/sparrow?sslmode=disable"
 
+# One random keyring key per run, shared by every server on this database. Not
+# the all-zeros dev key: the production-mode server below refuses that one.
+ENCRYPTION_KEY=$(openssl rand -hex 32)
+
 # start_server <port> <log> [VAR=value ...] — runs the server in the background.
 start_server() {
   local port=$1 log=$2
@@ -47,7 +51,7 @@ start_server() {
     SPARROW_HTTP_PORT="$port" \
     SPARROW_SERVE_UI=true \
     SPARROW_ALLOW_PRIVATE_NETWORKS=true \
-    SPARROW_ENCRYPTION_KEYS=main=0000000000000000000000000000000000000000000000000000000000000000 \
+    SPARROW_ENCRYPTION_KEYS="main=$ENCRYPTION_KEY" \
     SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main \
     "$@" \
     "$SERVER_BIN" >"$log" 2>&1 &
