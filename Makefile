@@ -37,7 +37,7 @@ build-ui: ## Build the frontend for embedding in the Go binary
 build-with-ui: build-ui build ## Build frontend + server binary with embedded UI
 
 release-dry-run: build-ui ## Test GoReleaser locally (no publish)
-	goreleaser release --snapshot --clean
+	goreleaser release --snapshot --clean --skip=sign # keyless signing needs CI's OIDC token; SBOMs need syft
 
 docker-dev: ## Run the development environment with Docker Compose (builds from source)
 	docker compose -f docker-compose.dev.yml up -d --build

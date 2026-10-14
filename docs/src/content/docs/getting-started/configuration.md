@@ -142,7 +142,7 @@ export SPARROW_ENCRYPTION_KEYS="old=$(openssl rand -hex 32),new=$(openssl rand -
 export SPARROW_ENCRYPTION_PRIMARY_KEY_ID=new
 ```
 
-New writes use the primary key ID while decryption accepts all configured keys in the ring. That lets you rotate by adding a new key, switching the primary, and retiring the old key after data has been rewritten.
+New writes use the primary key ID while decryption accepts all configured keys in the ring. That lets you rotate by adding a new key and switching the primary. Keep the old key in the ring: existing secrets stay encrypted under it, and nothing rewraps them yet. See [Upgrading to 1.0](/sparrow/deployment/upgrading-to-1-0/#encryption-keyring-never-remove-an-old-key).
 
 ### What Gets Encrypted
 
