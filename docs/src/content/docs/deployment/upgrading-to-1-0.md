@@ -51,7 +51,7 @@ Replicas share everything through Postgres: the River queue, the delivery rows, 
 - **Within 1.x**, a rolling update is supported: each migration applies on top of the previous release's schema while replicas of that release are still running.
 - **From 0.x to 1.0**, and whenever you skip several minor versions, run the migrate Job first and keep the rollout short. The 0.x releases didn't promise that old code keeps working against a newer schema.
 - **Rollback** means restoring the backup. Don't run down migrations against production: they exist for development and can't bring back data a migration dropped or reshaped.
-- **Shutdown.** On `SIGTERM` the server stops taking requests and gives running deliveries up to 10 seconds to finish, so keep `terminationGracePeriodSeconds` above that (Kubernetes' default of 30 is fine). A delivery cut off mid-attempt is picked up again by the queue and retried, so a receiver can see it twice: deduplicate on the `webhook-id` header, which stays the same across attempts.
+- **Shutdown.** On `SIGTERM` the server stops taking requests and gives running deliveries until `SPARROW_SHUTDOWN_TIMEOUT` (default `10s`) runs out, so keep `terminationGracePeriodSeconds` above that (Kubernetes' default of 30 is fine). A delivery cut off mid-attempt is picked up again by the queue and retried, so a receiver can see it twice: deduplicate on the `webhook-id` header, which stays the same across attempts.
 
 ## Postgres connection budget
 
@@ -78,6 +78,40 @@ So **don't remove a key from the ring**, even after switching the primary. Any w
 3. Keep `old` in the ring.
 
 Retiring a key will become safe once Sparrow ships a tool that rewraps existing data under the primary key; its release notes will say so. Until then, treat every key that has ever been primary as permanent, and back up the whole keyring: lose it and the encrypted secrets are gone for good.
+
+## The all-zeros encryption key is refused in production
+
+The development defaults (`make run`, the local Compose file) use an all-zeros
+key, which is public. With `ENVIRONMENT=production`, 1.0 refuses to start if
+any key in `SPARROW_ENCRYPTION_KEYS` is all zeros; elsewhere it logs a warning.
+If production ever ran on it, add a real key (`openssl rand -hex 32`), make it
+primary, and keep the zero key in the ring until existing secrets are
+re-saved: see [the keyring](#encryption-keyring-never-remove-an-old-key).
+
+## `/health` is liveness only
+
+`/health` no longer pings the database: it answers `200` while the process is
+up, so a database outage makes pods unready instead of restarting them.
+`/ready` checks the database and answers `503` from the moment `SIGTERM`
+arrives. If you used `/health` to check the database (a load balancer, an
+uptime monitor), point it at `/ready`.
+
+## Template limits
+
+Besides the 1 MB output and 5 second caps, a render now stops after 1,000,000
+loop iterations and template calls, or 16 MB of strings and lists built by
+helpers. `range` over an integer held in a variable is refused (a literal
+like `{{ range 5 }}` already was), and `printf` widths above 1000 are rejected. A template that hits one of these fails its
+deliveries with `template_error`; check yours with
+`POST /v1/subscriptions:testTemplate` before upgrading. See
+[Payload transformation](/sparrow/guides/payload-transformation/#good-to-know).
+
+## Smaller behaviour changes
+
+- A webhook's `request_timeout_seconds` (up to 300) now applies in full.
+  Before, a hidden 30 second client timeout cut longer requests short.
+- A delivery whose webhook or event lookup fails transiently stays `retrying`
+  instead of showing `failed` and later flipping to `success`.
 
 ## AI drafting needs `SPARROW_AI_ENABLED=true`
 
@@ -117,5 +151,7 @@ If you import Sparrow's Go modules, 1.0 renames a few identifiers so they can st
 | `pkg/template` | `WebhookTemplateContext`, `NewWebhookTemplateContext()` | `WebhookContext`, `NewWebhookContext()` |
 | `pkg/template` | `MaxTemplateOutputBytes`, `TemplateExecutionTimeout` | `MaxOutputBytes`, `ExecutionTimeout` |
 | `pkg/access/pgstore` | `Schema`, `SchemaParts` (variables) | `Schema()`, `SchemaParts()` (functions) |
+
+`pkg/template` also gains `MaxSteps`, `MaxWorkBytes` and `ErrBusy`, returned by `ExecuteWith` when no execution slot frees up within `ExecutionTimeout`.
 
 `pkg/crypto`, `pkg/storage` and `pkg/errors` moved to `internal/`. They were never importable from outside the repository's own module in practice (the root module can't be fetched as a dependency), so nothing outside Sparrow should notice.

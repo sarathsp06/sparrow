@@ -59,7 +59,7 @@ The delivery shows up in the first terminal, signature verified. Routing that ev
 sparrow use slack --param webhook_url=https://hooks.slack.com/services/T00/B00/xxx --event order.created
 ```
 
-Prefer curl or an SDK? Follow the [Quickstart](https://sarathsp06.github.io/sparrow/getting-started/quickstart/). Deploying for real? Start at [Production Deployment](https://sarathsp06.github.io/sparrow/deployment/production/): the Compose file above is an open, local-only setup on purpose.
+Prefer curl or a client generated from the OpenAPI spec? Follow the [Quickstart](https://sarathsp06.github.io/sparrow/getting-started/quickstart/). Deploying for real? Start at [Production Deployment](https://sarathsp06.github.io/sparrow/deployment/production/): the Compose file above is an open, local-only setup on purpose.
 
 ## What you get
 

@@ -44,11 +44,12 @@ A release is one tag push:
 git tag vX.Y.Z && git push origin vX.Y.Z
 ```
 
-The workflow runs three jobs:
+The workflow runs four jobs:
 
-1. **GoReleaser**: builds the UI, then the server, CLI, `sparrow-sources` and `sparrow-sinks` binaries for linux/darwin/windows × amd64/arm64 (no windows/arm64), and publishes the GitHub release with `checksums.txt`. Archives are `sparrow[-cli|-sources|-sinks]-<version>-<os>-<arch>` (zip on Windows). Release notes come from Conventional Commits via the `changelog:` block.
-2. **Release Split Modules**: `scripts/release-submodules.sh vX.Y.Z --push` tags the separate modules (`pkg/*`, `satellites/*`) under path-prefixed tags.
-3. **Docker Image** (after GoReleaser): multi-arch image pushed to `ghcr.io/<repo>` tagged `X.Y.Z`, `X.Y` and `latest`.
+0. **Test**: runs `ci.yml` (a `workflow_call`); nothing publishes unless it passes.
+1. **GoReleaser** (after Test): builds the UI, then the server, CLI, `sparrow-sources` and `sparrow-sinks` binaries for linux/darwin/windows × amd64/arm64 (no windows/arm64), and publishes the GitHub release with `checksums.txt`, a keyless cosign bundle for it (`checksums.txt.sigstore.json`), an SPDX SBOM per archive, and `api/openapi.yaml`/`openapi.json`. `vX.Y.Z-rc.N` tags publish as pre-releases (`prerelease: auto`). Archives are `sparrow[-cli|-sources|-sinks]-<version>-<os>-<arch>` (zip on Windows). Release notes come from Conventional Commits via the `changelog:` block.
+2. **Release Split Modules** (after Test and GoReleaser): `scripts/release-submodules.sh vX.Y.Z --push` tags the separate modules (`pkg/*`, `satellites/*`) under path-prefixed tags.
+3. **Docker Image** (after GoReleaser): multi-arch image pushed to `ghcr.io/<repo>` tagged `X.Y.Z`, `X.Y` and `latest` (`latest` only for tags without `-`), with provenance and an SBOM.
 
 There is no second manual step.
 

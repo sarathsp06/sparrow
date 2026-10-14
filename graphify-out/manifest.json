@@ -2760,9 +2760,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1791979162.640008,
-    "seen": 1791992789.63133,
-    "ast_hash": "72f3e067281652c32953445847005606",
+    "mtime": 1792001524.4390018,
+    "seen": 1792001636.2713091,
+    "ast_hash": "86590558b85dacd8c6a25155c234c401",
     "semantic_hash": ""
   },
   "api/openapi.yaml": {
@@ -2862,9 +2862,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/deployment/production.md": {
-    "mtime": 1791992656.0608435,
-    "seen": 1791992789.631339,
-    "ast_hash": "99f1bfefb3372bec6bf0148d88e70655",
+    "mtime": 1792001524.437081,
+    "seen": 1792001636.2713542,
+    "ast_hash": "9d45583b95e0accdc2e06b748da64c63",
     "semantic_hash": ""
   },
   "docs/src/content/docs/deployment/security.mdx": {
@@ -2886,9 +2886,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/for-decision-makers.mdx": {
-    "mtime": 1791661885.4480777,
-    "seen": 1791992789.6313422,
-    "ast_hash": "4941aee2192fd80d1cfc501ccb70f99d",
+    "mtime": 1792001524.4462252,
+    "seen": 1792001636.2713668,
+    "ast_hash": "eba581801ec2dee03a337594832f6c81",
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/how-it-works.mdx": {
@@ -2898,9 +2898,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/installation.mdx": {
-    "mtime": 1791979162.640973,
-    "seen": 1791992789.6313431,
-    "ast_hash": "75f3289e741f24ecddfd2a6eb080db18",
+    "mtime": 1792001524.4658573,
+    "seen": 1792001636.271372,
+    "ast_hash": "342a2b9df088a9cbc0f23e071371e10c",
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/quickstart.mdx": {
@@ -2928,9 +2928,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/guides/payload-transformation.mdx": {
-    "mtime": 1791992655.3603528,
-    "seen": 1791992789.631346,
-    "ast_hash": "57fb740979c282d4998f164e472c8221",
+    "mtime": 1792001524.4639773,
+    "seen": 1792001636.271383,
+    "ast_hash": "481cab5a6fce517a2dd1e5be27af12b4",
     "semantic_hash": ""
   },
   "docs/src/content/docs/guides/portal-embedding.mdx": {
@@ -2958,9 +2958,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/architecture.mdx": {
-    "mtime": 1791992656.06142,
-    "seen": 1791992789.631348,
-    "ast_hash": "c7dd96f3c2e14507f74a413aee040ced",
+    "mtime": 1791997390.9983823,
+    "seen": 1792001636.271395,
+    "ast_hash": "8fc1306f97d2815b03d2e9955dee3468",
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/client-libraries.mdx": {
@@ -3012,15 +3012,15 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/sinks.mdx": {
-    "mtime": 1791820502.5800736,
-    "seen": 1791992789.631354,
-    "ast_hash": "8bfbcd22a22c766f9c29f053295ccda0",
+    "mtime": 1792001524.4521255,
+    "seen": 1792001636.27142,
+    "ast_hash": "afd9b7564dc53cdc650f487fd9dfd97b",
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/sources.mdx": {
-    "mtime": 1791820731.9063745,
-    "seen": 1791992789.631354,
-    "ast_hash": "7433ab26fe31fa2909778dfa5a22b27f",
+    "mtime": 1792001524.4585893,
+    "seen": 1792001636.271422,
+    "ast_hash": "cdf69ef6e79a547ec7bb59d60ae45bb9",
     "semantic_hash": ""
   },
   "e2e/NOT-TESTING.md": {
@@ -3408,15 +3408,15 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/deployment/upgrading-to-1-0.md": {
-    "mtime": 1791993697.2378414,
-    "seen": 1791993872.356447,
-    "ast_hash": "736d9b52cd51d6a3a5319f2708c5407a",
+    "mtime": 1792001555.3147414,
+    "seen": 1792001636.271363,
+    "ast_hash": "d239dae8603f66ecf1bbbef68770bf4a",
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/compatibility.md": {
-    "mtime": 1791992656.0615487,
-    "seen": 1791992789.631349,
-    "ast_hash": "9ca6ad7f766e41debc293a801857ce98",
+    "mtime": 1792001524.4353101,
+    "seen": 1792001636.2714,
+    "ast_hash": "9230b6ae48026c6b95f7e6511b95083e",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-09-15-webhook-health-alerts/.openspec.yaml": {

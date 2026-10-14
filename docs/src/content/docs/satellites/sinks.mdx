@@ -153,7 +153,7 @@ mux.Handle("POST /sinks/kafka", sinks.Handle("kafka", verify, logger,
 ## Configuration
 
 `sparrow-sinks` reads one YAML file, `sinks.yaml` by default (`--config` to
-change it). There are no environment-variable overrides, so keep the file
+change it; `--version` prints the version). There are no environment-variable overrides, so keep the file
 readable only by the user that runs the sink: it holds the webhook secret (unless you
 use `signing_public_key`) and the SMTP password. Configure one or more sinks; a sink without a section is
 not served.

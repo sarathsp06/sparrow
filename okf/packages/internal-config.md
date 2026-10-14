@@ -29,6 +29,7 @@ type Config struct {
     CORSAllowedOrigins     []string // CORS_ALLOWED_ORIGINS
     MaxBodyBytes           int64    // default 5 MiB, min 1 MiB (SPARROW_MAX_BODY_BYTES)
     EventRetentionDays     int      // 0 = keep forever (SPARROW_EVENT_RETENTION_DAYS)
+    ShutdownTimeout        time.Duration // whole graceful-shutdown budget, default 10s (SPARROW_SHUTDOWN_TIMEOUT)
     AIDrafting             bool     // the Draft with AI switch; provider vars are read only when true (SPARROW_AI_ENABLED)
     AIProvider             string   // anthropic | openai (SPARROW_AI_PROVIDER)
     AIAPIKey               string   // provider key; required for anthropic when AIDrafting (SPARROW_AI_API_KEY)
@@ -41,9 +42,9 @@ type Config struct {
 
 - `Load() (*Config, error)` — reads env vars (no prefix; spans SPARROW_*, DATABASE_URL, ENVIRONMENT, OTEL_*, CORS_*)
 - `(*Config).IsProduction() bool`
-- `(*Config).Validate() error` — checks port, keyring, DATABASE_URL, log level, production API key, body-size floor, retention range
+- `(*Config).Validate() error` — checks port, keyring, all-zeros key in production, DATABASE_URL, log level, production API key, body-size floor, retention range
 - `(*Config).SlogLevel() (slog.Level, error)` — parses SPARROW_LOG_LEVEL (case-insensitive, `warning` = `warn`); `cmd/server/main.go` sets it on the JSON handler behind the OTel log bridge
-- `(*Config).Warnings() []string` — non-fatal advisories (e.g. sslmode=disable on non-local host)
+- `(*Config).Warnings() []string` — non-fatal advisories (e.g. sslmode=disable on non-local host, all-zeros key outside production, AI key set with SPARROW_AI_ENABLED off, `AIConfigError`)
 - `(*Config).EncryptionKeyring() (*crypto.Keyring, error)` — resolves SPARROW_ENCRYPTION_KEYS + primary ID into a crypto.Keyring
 
 ## Citations

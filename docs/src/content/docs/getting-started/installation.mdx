@@ -91,6 +91,22 @@ and run:
 - **Satellites** — the [`sparrow-sources` and `sparrow-sinks`](/sparrow/satellites/) binaries
 
 Binaries are built for macOS and Linux (amd64 + arm64) and Windows (amd64).
+`--version` prints the version of `sparrow-server`, `sparrow-sinks` and
+`sparrow-sources`. Each release also carries `checksums.txt` with a keyless
+cosign bundle (`checksums.txt.sigstore.json`), an SPDX SBOM per archive, and
+the `openapi.yaml`/`openapi.json` of that version. Verify the checksums file
+with:
+
+```bash
+cosign verify-blob --bundle checksums.txt.sigstore.json \
+  --certificate-identity-regexp '^https://github.com/sarathsp06/sparrow/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  checksums.txt
+sha256sum --check --ignore-missing checksums.txt
+```
+
+`vX.Y.Z-rc.N` tags are published as pre-releases and never move the
+`latest` image tag.
 
 To build from source instead:
 

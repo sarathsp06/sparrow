@@ -16,4 +16,3 @@
 * [internal/storage](internal-storage.md) — database abstraction
 * [pkg/template](pkg-template.md) — cached Go template engine for payload transforms
 * [pkg/access](pkg-access.md) — separate module: reusable token/invite library (memstore, pgstore, storetest, httpauth)
-* [pkg/types](pkg-types.md) — generic Map type

@@ -20,6 +20,8 @@ A value of `""` or a lone `-` counts as unset: `config.Load` unsets it before pa
 | `SPARROW_ENCRYPTION_KEYS` | KEK keyring as `<key-id>=<64-char-hex-key>` entries (`key-id` chars: `A-Z`, `a-z`, `0-9`, `_`, `-`) | Required |
 | `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` | Primary key ID for new encryption and portal token signing | Required |
 
+An all-zeros key (the published development key) anywhere in the keyring stops startup with `ENVIRONMENT=production`; elsewhere it logs a warning.
+
 ## Server
 
 | Variable | Purpose | Default |
@@ -28,6 +30,7 @@ A value of `""` or a lone `-` counts as unset: `config.Load` unsets it before pa
 | `SPARROW_SERVE_UI` | Serve embedded SvelteKit UI | `false` |
 | `SPARROW_LOG_LEVEL` | Lowest log level: `debug`, `info`, `warn`, `error` (case-insensitive; `warning` = `warn`). Set in `cmd/server/main.go` on the slog JSON handler behind the OTel bridge; invalid values fail `Config.Validate` | `info` |
 | `SPARROW_MAX_BODY_BYTES` | Max request body size in bytes (min 1 MiB); oversized bodies return `413` | `5242880` (5 MiB) |
+| `SPARROW_SHUTDOWN_TIMEOUT` | Whole graceful-shutdown budget on SIGTERM/SIGINT: `/ready` turns 503, HTTP drains, then the queue soft-stops and finally cancels running jobs (left for a retry, not failed). Keep below the orchestrator's kill deadline | `10s` |
 
 ## Auth & Security
 
@@ -48,7 +51,7 @@ A value of `""` or a lone `-` counts as unset: `config.Load` unsets it before pa
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` or `grpc` | `http/protobuf` |
 | `SPARROW_OTLP_SIGNALS` | Subset of `traces,metrics,logs` sent to the OTLP endpoint; `traces` for Jaeger/Tempo. Unknown names fail startup of OTel export | `traces,metrics,logs` |
 | `SPARROW_METRICS_ENABLED` | Serve all OTel metrics in Prometheus format at unauthenticated `GET /metrics` (`observability.MetricsHandler`), independent of OTLP | `true` |
-| `ENVIRONMENT` | `development` or `production`; `production` enforces `SPARROW_API_KEY` | — |
+| `ENVIRONMENT` | `development` or `production`; `production` enforces `SPARROW_API_KEY` (32+ chars) and refuses an all-zeros encryption key | — |
 
 `Warnings()` also logs a non-fatal advisory if `DATABASE_URL` uses `sslmode=disable` against a non-local host.
 
@@ -77,7 +80,7 @@ No configuration. `subscription_template_versions` keeps the last 20 saved templ
 
 ## AI-assisted template drafting
 
-No variables set: prompt-only mode. `GET /v1/capabilities` reports `ai_drafting.prompt_only=true` and `POST /v1/subscriptions:draftTemplatePrompt` builds the grounded prompt for any chat assistant; `:draftTemplate` answers 503.
+`SPARROW_AI_ENABLED` unset or false: prompt-only mode (provider vars are ignored, with a startup warning if a key or base URL is set). `GET /v1/capabilities` reports `ai_drafting.prompt_only=true` and `POST /v1/subscriptions:draftTemplatePrompt` builds the grounded prompt for any chat assistant; `:draftTemplate` answers 503.
 
 | Variable | Purpose | Default |
 |----------|---------|---------|

@@ -236,7 +236,7 @@ isolation.
 ```mermaid
 flowchart TD
     accTitle: Package structure
-    accDescr: Package structure: cmd/server/main.go is the composition root wiring internal/tenant, internal/webhooks, and internal/rest. tenant depends on internal/storage; webhooks depends on internal/storage and internal/errors and contains store/ (internal/storage, pkg/types), queue/ (store, client, internal/errors, internal/observability), and client/ (store models, internal/errors); internal/rest is the transport layer over both domain packages. tenant and webhooks never import each other.
+    accDescr: Package structure: cmd/server/main.go is the composition root wiring internal/tenant, internal/webhooks, and internal/rest. tenant depends on internal/storage; webhooks depends on internal/storage and internal/errors and contains store/ (internal/storage), queue/ (store, client, internal/errors, internal/observability), and client/ (store models, internal/errors); internal/rest is the transport layer over both domain packages. tenant and webhooks never import each other.
     Main["cmd/server/main.go<br>composition root — wires everything"]
     Main --> Tenant["internal/tenant"]
     Main --> Webhooks["internal/webhooks"]
@@ -248,7 +248,6 @@ flowchart TD
     Webhooks --> Queue["queue/"]
     Webhooks --> Client["client/"]
     Store --> Storage
-    Store --> Types[pkg/types]
     Queue --> Store
     Queue --> Client
     Queue --> Errors
@@ -285,13 +284,12 @@ flowchart TD
 
 **`internal/config`** -- Environment variable loading.
 
-**`internal/health`** -- Health check endpoint.
+**`internal/health`** -- `/health` (liveness: the process is up, no database check) and `/ready` (readiness: pings the database, `503` once shutdown starts).
 
 ### Shared Packages
 
 - `internal/storage` -- `DB`/`DBTX` interfaces, `WithTransaction` helper, SQL error translation
 - `internal/errors` -- Error classification with retryability determination
-- `pkg/types` -- Shared utility types
 
 ### Design Principles
 
@@ -301,7 +299,7 @@ flowchart TD
 
 **Schema ownership** -- Each domain package owns its tables: `internal/tenant` owns `tenants`, `internal/webhooks` owns the rest.
 
-**No shared models** -- No shared "models" package and no ORM. Each package defines its own models matching its own SQL schemas. The only shared infrastructure is `internal/storage` (DB abstraction) and `pkg/types` (generic utilities).
+**No shared models** -- No shared "models" package and no ORM. Each package defines its own models matching its own SQL schemas. The only shared infrastructure is `internal/storage` (DB abstraction).
 
 ---
 
