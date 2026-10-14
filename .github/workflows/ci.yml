@@ -97,8 +97,16 @@ jobs:
           mkdir -p internal/ui/dist
           touch internal/ui/dist/.gitkeep
 
+      # sum.golang.org occasionally drops a request mid-stream; retry before
+      # failing the job. Checksum verification stays on.
       - name: Install dependencies
-        run: go mod download
+        run: |
+          for attempt in 1 2 3; do
+            go mod download && exit 0
+            echo "go mod download failed (attempt $attempt), retrying in 10s"
+            sleep 10
+          done
+          exit 1
 
       # go test skips packages without test files; build the binaries too.
       - name: Build binaries
@@ -169,8 +177,16 @@ jobs:
           mkdir -p internal/ui/dist
           touch internal/ui/dist/.gitkeep
 
+      # sum.golang.org occasionally drops a request mid-stream; retry before
+      # failing the job. Checksum verification stays on.
       - name: Install dependencies
-        run: go mod download
+        run: |
+          for attempt in 1 2 3; do
+            go mod download && exit 0
+            echo "go mod download failed (attempt $attempt), retrying in 10s"
+            sleep 10
+          done
+          exit 1
 
       - name: Run integration tests
         run: go test -v -tags integration -timeout 600s -race ./internal/integration/...
