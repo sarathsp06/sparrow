@@ -81,7 +81,7 @@ type SubscriptionManager interface {
 // DeliveryManager exposes delivery status, attempt history, and retries.
 type DeliveryManager interface {
 	GetDeliveryStatus(ctx context.Context, deliveryID string, consumer string) (*store.WebhookDelivery, error)
-	GetDeliveryAttempts(ctx context.Context, deliveryID string) ([]*store.WebhookHealthEvent, error)
+	GetDeliveryAttempts(ctx context.Context, deliveryID string, consumer string) ([]*store.WebhookHealthEvent, error)
 	ListDeliveries(ctx context.Context, filter store.DeliveryFilter) (*DeliveryPage, error)
 	RetryDelivery(ctx context.Context, consumer string, deliveryID string, webhookID string, force bool) ([]string, int32, error)
 }
@@ -94,12 +94,12 @@ type HealthManager interface {
 
 // BatchManager runs prepared bulk re-push and bulk retry jobs.
 type BatchManager interface {
-	RePushEvents(ctx context.Context, repushID string) error
-	GetRepushStatus(ctx context.Context, repushID string) (*store.BatchJob, error)
-	CancelRepush(ctx context.Context, repushID string) error
-	RetryDeliveries(ctx context.Context, retryID string) error
-	GetRetryStatus(ctx context.Context, retryID string) (*store.BatchJob, error)
-	CancelRetry(ctx context.Context, retryID string) error
+	RePushEvents(ctx context.Context, scope BatchScope, repushID string) error
+	GetRepushStatus(ctx context.Context, scope BatchScope, repushID string) (*store.BatchJob, error)
+	CancelRepush(ctx context.Context, scope BatchScope, repushID string) error
+	RetryDeliveries(ctx context.Context, scope BatchScope, retryID string) error
+	GetRetryStatus(ctx context.Context, scope BatchScope, retryID string) (*store.BatchJob, error)
+	CancelRetry(ctx context.Context, scope BatchScope, retryID string) error
 }
 
 // AlertConfigManager manages opt-in email recipients for Sparrow's

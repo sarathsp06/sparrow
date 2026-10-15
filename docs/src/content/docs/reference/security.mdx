@@ -91,6 +91,13 @@ prefix — the consumer is carried by the token, not the URL, so cross-consumer
 access is structurally impossible and event injection, token minting, other
 consumers, global routes, and admin operations all return 401/403.
 
+Behind the gateway, every `/v1/consumers/{consumer}/...` route also checks that
+the resource it names belongs to that consumer: a webhook, subscription,
+delivery, delivery's attempts, alert config or batch job of another consumer
+answers 404, so a leaked id from another consumer reveals nothing. Batch jobs
+snapshotted from an all-consumers list (the operator's "all consumers" view)
+are reachable only with tenant-wide credentials, never with a portal token.
+
 :::note
 Sparrow does not rate-limit or lock out inbound API requests itself. If the
 API is reachable from untrusted networks, put it behind a reverse proxy that

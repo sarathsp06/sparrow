@@ -245,11 +245,11 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 		Method:      http.MethodGet,
 		Path:        "/v1/consumers/{consumer}/deliveries/{delivery_id}/attempts",
 		Summary:     "Get a delivery's per-attempt history",
-		Description: "Returns the per-attempt record for one delivery, oldest first: response code, timing, and error classification for every attempt made so far, across manual retries. An unknown id returns an empty list.\n\nPortal tokens: allowed, as GET /portal/api/deliveries/{delivery_id}/attempts.",
+		Description: "Returns the per-attempt record for one delivery, oldest first: response code, timing, and error classification for every attempt made so far, across manual retries. A delivery that does not exist or belongs to another consumer answers 404.\n\nPortal tokens: allowed, as GET /portal/api/deliveries/{delivery_id}/attempts.",
 		Errors:      []int{404},
 		Tags:        []string{"Deliveries"},
 	}, func(ctx context.Context, in *deliveryIDInput) (*attemptsOutput, error) {
-		attempts, err := svc.GetDeliveryAttempts(ctx, in.DeliveryID)
+		attempts, err := svc.GetDeliveryAttempts(ctx, in.DeliveryID, in.Consumer)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get delivery attempts")
 		}
@@ -279,10 +279,10 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 		Tags:          []string{"Deliveries"},
 		DefaultStatus: http.StatusAccepted,
 	}, func(ctx context.Context, in *repushBatchInput) (*batchJobOutput, error) {
-		if err := svc.RetryDeliveries(ctx, in.Body.RepushID); err != nil {
+		if err := svc.RetryDeliveries(ctx, batchScope(ctx, in.Consumer), in.Body.RepushID); err != nil {
 			return nil, mapError(ctx, err, "failed to start retry job")
 		}
-		job, err := svc.GetRetryStatus(ctx, in.Body.RepushID)
+		job, err := svc.GetRetryStatus(ctx, batchScope(ctx, in.Consumer), in.Body.RepushID)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to load retry job status")
 		}
@@ -298,7 +298,7 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 		Errors:      []int{400, 404, 409},
 		Tags:        []string{"Deliveries"},
 	}, func(ctx context.Context, in *jobIDInput) (*batchJobOutput, error) {
-		job, err := svc.GetRetryStatus(ctx, in.JobID)
+		job, err := svc.GetRetryStatus(ctx, batchScope(ctx, in.Consumer), in.JobID)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get retry job status")
 		}
@@ -315,7 +315,7 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 		Tags:          []string{"Deliveries"},
 		DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *jobIDInput) (*emptyOutput, error) {
-		if err := svc.CancelRetry(ctx, in.JobID); err != nil {
+		if err := svc.CancelRetry(ctx, batchScope(ctx, in.Consumer), in.JobID); err != nil {
 			return nil, mapError(ctx, err, "failed to cancel retry job")
 		}
 		return &emptyOutput{Status: http.StatusNoContent}, nil
@@ -342,11 +342,11 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 		Method:      http.MethodGet,
 		Path:        "/v1/deliveries/{delivery_id}/attempts",
 		Summary:     "Get a delivery's per-attempt history (any consumer)",
-		Description: "Same as getDeliveryAttempts, without a consumer.\n\nPortal tokens: not allowed.",
+		Description: "Same as getDeliveryAttempts, without a consumer: the delivery is looked up by id alone, and an unknown id returns an empty list.\n\nPortal tokens: not allowed.",
 		Errors:      []int{404},
 		Tags:        []string{"Deliveries"},
 	}, func(ctx context.Context, in *deliveryIDOnlyInput) (*attemptsOutput, error) {
-		attempts, err := svc.GetDeliveryAttempts(ctx, in.DeliveryID)
+		attempts, err := svc.GetDeliveryAttempts(ctx, in.DeliveryID, "")
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get delivery attempts")
 		}

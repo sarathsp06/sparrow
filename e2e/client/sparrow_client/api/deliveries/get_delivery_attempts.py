@@ -76,8 +76,8 @@ def sync_detailed(
     """Get a delivery's per-attempt history
 
      Returns the per-attempt record for one delivery, oldest first: response code, timing, and error
-    classification for every attempt made so far, across manual retries. An unknown id returns an empty
-    list.
+    classification for every attempt made so far, across manual retries. A delivery that does not exist
+    or belongs to another consumer answers 404.
 
     Portal tokens: allowed, as GET /portal/api/deliveries/{delivery_id}/attempts.
 
@@ -114,8 +114,8 @@ def sync(
     """Get a delivery's per-attempt history
 
      Returns the per-attempt record for one delivery, oldest first: response code, timing, and error
-    classification for every attempt made so far, across manual retries. An unknown id returns an empty
-    list.
+    classification for every attempt made so far, across manual retries. A delivery that does not exist
+    or belongs to another consumer answers 404.
 
     Portal tokens: allowed, as GET /portal/api/deliveries/{delivery_id}/attempts.
 
@@ -147,8 +147,8 @@ async def asyncio_detailed(
     """Get a delivery's per-attempt history
 
      Returns the per-attempt record for one delivery, oldest first: response code, timing, and error
-    classification for every attempt made so far, across manual retries. An unknown id returns an empty
-    list.
+    classification for every attempt made so far, across manual retries. A delivery that does not exist
+    or belongs to another consumer answers 404.
 
     Portal tokens: allowed, as GET /portal/api/deliveries/{delivery_id}/attempts.
 
@@ -183,8 +183,8 @@ async def asyncio(
     """Get a delivery's per-attempt history
 
      Returns the per-attempt record for one delivery, oldest first: response code, timing, and error
-    classification for every attempt made so far, across manual retries. An unknown id returns an empty
-    list.
+    classification for every attempt made so far, across manual retries. A delivery that does not exist
+    or belongs to another consumer answers 404.
 
     Portal tokens: allowed, as GET /portal/api/deliveries/{delivery_id}/attempts.
 

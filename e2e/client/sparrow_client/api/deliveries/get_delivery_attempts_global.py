@@ -72,7 +72,8 @@ def sync_detailed(
 ) -> Response[AttemptsOutputBody | ErrorModel]:
     """Get a delivery's per-attempt history (any consumer)
 
-     Same as getDeliveryAttempts, without a consumer.
+     Same as getDeliveryAttempts, without a consumer: the delivery is looked up by id alone, and an
+    unknown id returns an empty list.
 
     Portal tokens: not allowed.
 
@@ -105,7 +106,8 @@ def sync(
 ) -> AttemptsOutputBody | ErrorModel | None:
     """Get a delivery's per-attempt history (any consumer)
 
-     Same as getDeliveryAttempts, without a consumer.
+     Same as getDeliveryAttempts, without a consumer: the delivery is looked up by id alone, and an
+    unknown id returns an empty list.
 
     Portal tokens: not allowed.
 
@@ -133,7 +135,8 @@ async def asyncio_detailed(
 ) -> Response[AttemptsOutputBody | ErrorModel]:
     """Get a delivery's per-attempt history (any consumer)
 
-     Same as getDeliveryAttempts, without a consumer.
+     Same as getDeliveryAttempts, without a consumer: the delivery is looked up by id alone, and an
+    unknown id returns an empty list.
 
     Portal tokens: not allowed.
 
@@ -164,7 +167,8 @@ async def asyncio(
 ) -> AttemptsOutputBody | ErrorModel | None:
     """Get a delivery's per-attempt history (any consumer)
 
-     Same as getDeliveryAttempts, without a consumer.
+     Same as getDeliveryAttempts, without a consumer: the delivery is looked up by id alone, and an
+    unknown id returns an empty list.
 
     Portal tokens: not allowed.
 

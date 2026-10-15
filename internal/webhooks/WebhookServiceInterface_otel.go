@@ -62,12 +62,13 @@ func (_d WebhookServiceInterfaceWithTracing) AlertDeliveryConfigured(ctx context
 }
 
 // CancelRepush implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) CancelRepush(ctx context.Context, repushID string) (err error) {
+func (_d WebhookServiceInterfaceWithTracing) CancelRepush(ctx context.Context, scope BatchScope, repushID string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.CancelRepush")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
 				"ctx":      ctx,
+				"scope":    scope,
 				"repushID": repushID}, map[string]interface{}{
 				"err": err})
 		} else if err != nil {
@@ -81,16 +82,17 @@ func (_d WebhookServiceInterfaceWithTracing) CancelRepush(ctx context.Context, r
 
 		_span.End()
 	}()
-	return _d.WebhookServiceInterface.CancelRepush(ctx, repushID)
+	return _d.WebhookServiceInterface.CancelRepush(ctx, scope, repushID)
 }
 
 // CancelRetry implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) CancelRetry(ctx context.Context, retryID string) (err error) {
+func (_d WebhookServiceInterfaceWithTracing) CancelRetry(ctx context.Context, scope BatchScope, retryID string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.CancelRetry")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
 				"ctx":     ctx,
+				"scope":   scope,
 				"retryID": retryID}, map[string]interface{}{
 				"err": err})
 		} else if err != nil {
@@ -104,7 +106,7 @@ func (_d WebhookServiceInterfaceWithTracing) CancelRetry(ctx context.Context, re
 
 		_span.End()
 	}()
-	return _d.WebhookServiceInterface.CancelRetry(ctx, retryID)
+	return _d.WebhookServiceInterface.CancelRetry(ctx, scope, retryID)
 }
 
 // CreateAlertConfig implements WebhookServiceInterface
@@ -291,13 +293,14 @@ func (_d WebhookServiceInterfaceWithTracing) GetConsumerStats(ctx context.Contex
 }
 
 // GetDeliveryAttempts implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) GetDeliveryAttempts(ctx context.Context, deliveryID string) (wpa1 []*store.WebhookHealthEvent, err error) {
+func (_d WebhookServiceInterfaceWithTracing) GetDeliveryAttempts(ctx context.Context, deliveryID string, consumer string) (wpa1 []*store.WebhookHealthEvent, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.GetDeliveryAttempts")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
 				"ctx":        ctx,
-				"deliveryID": deliveryID}, map[string]interface{}{
+				"deliveryID": deliveryID,
+				"consumer":   consumer}, map[string]interface{}{
 				"wpa1": wpa1,
 				"err":  err})
 		} else if err != nil {
@@ -311,7 +314,7 @@ func (_d WebhookServiceInterfaceWithTracing) GetDeliveryAttempts(ctx context.Con
 
 		_span.End()
 	}()
-	return _d.WebhookServiceInterface.GetDeliveryAttempts(ctx, deliveryID)
+	return _d.WebhookServiceInterface.GetDeliveryAttempts(ctx, deliveryID, consumer)
 }
 
 // GetDeliveryStatus implements WebhookServiceInterface
@@ -441,12 +444,13 @@ func (_d WebhookServiceInterfaceWithTracing) GetHealthSummary(ctx context.Contex
 }
 
 // GetRepushStatus implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) GetRepushStatus(ctx context.Context, repushID string) (bp1 *store.BatchJob, err error) {
+func (_d WebhookServiceInterfaceWithTracing) GetRepushStatus(ctx context.Context, scope BatchScope, repushID string) (bp1 *store.BatchJob, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.GetRepushStatus")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
 				"ctx":      ctx,
+				"scope":    scope,
 				"repushID": repushID}, map[string]interface{}{
 				"bp1": bp1,
 				"err": err})
@@ -461,16 +465,17 @@ func (_d WebhookServiceInterfaceWithTracing) GetRepushStatus(ctx context.Context
 
 		_span.End()
 	}()
-	return _d.WebhookServiceInterface.GetRepushStatus(ctx, repushID)
+	return _d.WebhookServiceInterface.GetRepushStatus(ctx, scope, repushID)
 }
 
 // GetRetryStatus implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) GetRetryStatus(ctx context.Context, retryID string) (bp1 *store.BatchJob, err error) {
+func (_d WebhookServiceInterfaceWithTracing) GetRetryStatus(ctx context.Context, scope BatchScope, retryID string) (bp1 *store.BatchJob, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.GetRetryStatus")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
 				"ctx":     ctx,
+				"scope":   scope,
 				"retryID": retryID}, map[string]interface{}{
 				"bp1": bp1,
 				"err": err})
@@ -485,7 +490,7 @@ func (_d WebhookServiceInterfaceWithTracing) GetRetryStatus(ctx context.Context,
 
 		_span.End()
 	}()
-	return _d.WebhookServiceInterface.GetRetryStatus(ctx, retryID)
+	return _d.WebhookServiceInterface.GetRetryStatus(ctx, scope, retryID)
 }
 
 // GetSubscription implements WebhookServiceInterface
@@ -934,12 +939,13 @@ func (_d WebhookServiceInterfaceWithTracing) RePushEvent(ctx context.Context, ev
 }
 
 // RePushEvents implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) RePushEvents(ctx context.Context, repushID string) (err error) {
+func (_d WebhookServiceInterfaceWithTracing) RePushEvents(ctx context.Context, scope BatchScope, repushID string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.RePushEvents")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
 				"ctx":      ctx,
+				"scope":    scope,
 				"repushID": repushID}, map[string]interface{}{
 				"err": err})
 		} else if err != nil {
@@ -953,7 +959,7 @@ func (_d WebhookServiceInterfaceWithTracing) RePushEvents(ctx context.Context, r
 
 		_span.End()
 	}()
-	return _d.WebhookServiceInterface.RePushEvents(ctx, repushID)
+	return _d.WebhookServiceInterface.RePushEvents(ctx, scope, repushID)
 }
 
 // RegisterEvent implements WebhookServiceInterface
@@ -1036,12 +1042,13 @@ func (_d WebhookServiceInterfaceWithTracing) ResumeWebhook(ctx context.Context, 
 }
 
 // RetryDeliveries implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) RetryDeliveries(ctx context.Context, retryID string) (err error) {
+func (_d WebhookServiceInterfaceWithTracing) RetryDeliveries(ctx context.Context, scope BatchScope, retryID string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.RetryDeliveries")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
 				"ctx":     ctx,
+				"scope":   scope,
 				"retryID": retryID}, map[string]interface{}{
 				"err": err})
 		} else if err != nil {
@@ -1055,7 +1062,7 @@ func (_d WebhookServiceInterfaceWithTracing) RetryDeliveries(ctx context.Context
 
 		_span.End()
 	}()
-	return _d.WebhookServiceInterface.RetryDeliveries(ctx, retryID)
+	return _d.WebhookServiceInterface.RetryDeliveries(ctx, scope, retryID)
 }
 
 // RetryDelivery implements WebhookServiceInterface

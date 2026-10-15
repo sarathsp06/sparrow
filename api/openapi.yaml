@@ -3492,7 +3492,7 @@ paths:
   /v1/consumers/{consumer}/deliveries/{delivery_id}/attempts:
     get:
       description: |-
-        Returns the per-attempt record for one delivery, oldest first: response code, timing, and error classification for every attempt made so far, across manual retries. An unknown id returns an empty list.
+        Returns the per-attempt record for one delivery, oldest first: response code, timing, and error classification for every attempt made so far, across manual retries. A delivery that does not exist or belongs to another consumer answers 404.
 
         Portal tokens: allowed, as GET /portal/api/deliveries/{delivery_id}/attempts.
       operationId: getDeliveryAttempts
@@ -3668,12 +3668,12 @@ paths:
         Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch.
       operationId: startDeliveryRetryJob
       parameters:
-        - description: Consumer name. The job is looked up by id; this segment is not checked against it.
+        - description: Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token.
           in: path
           name: consumer
           required: true
           schema:
-            description: Consumer name. The job is looked up by id; this segment is not checked against it.
+            description: Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token.
             type: string
       requestBody:
         content:
@@ -3912,12 +3912,12 @@ paths:
         Portal tokens: allowed, as POST /portal/api/events:rePush.
       operationId: startEventRepushJob
       parameters:
-        - description: Consumer name. The job is looked up by id; this segment is not checked against it.
+        - description: Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token.
           in: path
           name: consumer
           required: true
           schema:
-            description: Consumer name. The job is looked up by id; this segment is not checked against it.
+            description: Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token.
             type: string
       requestBody:
         content:
@@ -3973,12 +3973,12 @@ paths:
         Portal tokens: allowed, as GET /portal/api/repush-jobs/{job_id}.
       operationId: getEventRepushJob
       parameters:
-        - description: Consumer name. The job is looked up by id; this segment is not checked against it.
+        - description: Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token.
           in: path
           name: consumer
           required: true
           schema:
-            description: Consumer name. The job is looked up by id; this segment is not checked against it.
+            description: Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token.
             type: string
         - description: "Batch job id (UUID): the repush_id or retry_id from the list call."
           in: path
@@ -4035,12 +4035,12 @@ paths:
         Portal tokens: allowed, as POST /portal/api/repush-jobs/{job_id}:cancel.
       operationId: cancelEventRepushJob
       parameters:
-        - description: Consumer name. The job is looked up by id; this segment is not checked against it.
+        - description: Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token.
           in: path
           name: consumer
           required: true
           schema:
-            description: Consumer name. The job is looked up by id; this segment is not checked against it.
+            description: Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token.
             type: string
         - description: "Batch job id (UUID): the repush_id or retry_id from the list call."
           in: path
@@ -4093,12 +4093,12 @@ paths:
         Portal tokens: allowed, as GET /portal/api/retry-jobs/{job_id}.
       operationId: getDeliveryRetryJob
       parameters:
-        - description: Consumer name. The job is looked up by id; this segment is not checked against it.
+        - description: Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token.
           in: path
           name: consumer
           required: true
           schema:
-            description: Consumer name. The job is looked up by id; this segment is not checked against it.
+            description: Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token.
             type: string
         - description: "Batch job id (UUID): the repush_id or retry_id from the list call."
           in: path
@@ -4155,12 +4155,12 @@ paths:
         Portal tokens: allowed, as POST /portal/api/retry-jobs/{job_id}:cancel.
       operationId: cancelDeliveryRetryJob
       parameters:
-        - description: Consumer name. The job is looked up by id; this segment is not checked against it.
+        - description: Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token.
           in: path
           name: consumer
           required: true
           schema:
-            description: Consumer name. The job is looked up by id; this segment is not checked against it.
+            description: Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token.
             type: string
         - description: "Batch job id (UUID): the repush_id or retry_id from the list call."
           in: path
@@ -5386,7 +5386,7 @@ paths:
   /v1/deliveries/{delivery_id}/attempts:
     get:
       description: |-
-        Same as getDeliveryAttempts, without a consumer.
+        Same as getDeliveryAttempts, without a consumer: the delivery is looked up by id alone, and an unknown id returns an empty list.
 
         Portal tokens: not allowed.
       operationId: getDeliveryAttemptsGlobal

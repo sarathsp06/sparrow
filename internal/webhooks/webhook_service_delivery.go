@@ -44,7 +44,9 @@ func (s *WebhookService) GetDeliveryStatus(ctx context.Context, deliveryID strin
 
 // GetDeliveryAttempts retrieves individual attempt history for a delivery.
 // Returns all recorded health events for the delivery, ordered by timestamp ascending.
-func (s *WebhookService) GetDeliveryAttempts(ctx context.Context, deliveryID string) ([]*store.WebhookHealthEvent, error) {
+// When consumer is set, a delivery of another consumer answers not found;
+// when empty, it looks up by delivery ID alone.
+func (s *WebhookService) GetDeliveryAttempts(ctx context.Context, deliveryID string, consumer string) ([]*store.WebhookHealthEvent, error) {
 	tenantID := tenant.DefaultTenantID
 
 	s.logger.InfoContext(ctx, "Getting delivery attempts", "delivery_id", deliveryID, "tenant_id", tenantID.String())
@@ -56,6 +58,16 @@ func (s *WebhookService) GetDeliveryAttempts(ctx context.Context, deliveryID str
 	id, err := parseUUID(deliveryID, "delivery ID")
 	if err != nil {
 		return nil, err
+	}
+
+	if consumer != "" {
+		delivery, err := s.webhookRepo.GetDeliveryByID(ctx, tenantID, id, consumer)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve delivery: %w", err)
+		}
+		if delivery == nil {
+			return nil, svcerrors.Error(svcerrors.NotFound, "delivery not found")
+		}
 	}
 
 	attempts, err := s.webhookRepo.GetDeliveryAttempts(ctx, tenantID, id)

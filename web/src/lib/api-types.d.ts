@@ -157,7 +157,7 @@ export interface paths {
         };
         /**
          * Get a delivery's per-attempt history
-         * @description Returns the per-attempt record for one delivery, oldest first: response code, timing, and error classification for every attempt made so far, across manual retries. An unknown id returns an empty list.
+         * @description Returns the per-attempt record for one delivery, oldest first: response code, timing, and error classification for every attempt made so far, across manual retries. A delivery that does not exist or belongs to another consumer answers 404.
          *
          *     Portal tokens: allowed, as GET /portal/api/deliveries/{delivery_id}/attempts.
          */
@@ -749,7 +749,7 @@ export interface paths {
         };
         /**
          * Get a delivery's per-attempt history (any consumer)
-         * @description Same as getDeliveryAttempts, without a consumer.
+         * @description Same as getDeliveryAttempts, without a consumer: the delivery is looked up by id alone, and an unknown id returns an empty list.
          *
          *     Portal tokens: not allowed.
          */
@@ -3840,7 +3840,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Consumer name. The job is looked up by id; this segment is not checked against it. */
+                /** @description Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token. */
                 consumer: string;
             };
             cookie?: never;
@@ -4047,7 +4047,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Consumer name. The job is looked up by id; this segment is not checked against it. */
+                /** @description Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token. */
                 consumer: string;
             };
             cookie?: never;
@@ -4119,7 +4119,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Consumer name. The job is looked up by id; this segment is not checked against it. */
+                /** @description Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token. */
                 consumer: string;
                 /** @description Batch job id (UUID): the repush_id or retry_id from the list call. */
                 job_id: string;
@@ -4189,7 +4189,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Consumer name. The job is looked up by id; this segment is not checked against it. */
+                /** @description Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token. */
                 consumer: string;
                 /** @description Batch job id (UUID): the repush_id or retry_id from the list call. */
                 job_id: string;
@@ -4257,7 +4257,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Consumer name. The job is looked up by id; this segment is not checked against it. */
+                /** @description Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token. */
                 consumer: string;
                 /** @description Batch job id (UUID): the repush_id or retry_id from the list call. */
                 job_id: string;
@@ -4327,7 +4327,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Consumer name. The job is looked up by id; this segment is not checked against it. */
+                /** @description Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token. */
                 consumer: string;
                 /** @description Batch job id (UUID): the repush_id or retry_id from the list call. */
                 job_id: string;

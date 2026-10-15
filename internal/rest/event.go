@@ -9,6 +9,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 
+	"github.com/sarathsp06/sparrow/internal/middleware"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
@@ -273,14 +274,22 @@ type repushEventOutput struct {
 }
 
 type repushBatchInput struct {
-	Consumer string `path:"consumer" doc:"Consumer name. The job is looked up by id; this segment is not checked against it."`
+	Consumer string `path:"consumer" doc:"Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token."`
 	Body     struct {
 		RepushID string `json:"repush_id" required:"true" doc:"repush_id returned by an earlier GET .../events?prepare_repush=true call."`
 	}
 }
 
+// batchScope is the batch-job scope for a request under
+// /v1/consumers/{consumer}: portal (consumer-scoped) callers reach only their
+// own consumer's jobs; tenant-wide callers also reach jobs snapshotted across
+// all consumers, which the UI starts under any consumer path.
+func batchScope(ctx context.Context, consumer string) webhooks.BatchScope {
+	return webhooks.BatchScope{Consumer: consumer, ConsumerOnly: middleware.PortalAuthorized(ctx)}
+}
+
 type jobIDInput struct {
-	Consumer string `path:"consumer" doc:"Consumer name. The job is looked up by id; this segment is not checked against it."`
+	Consumer string `path:"consumer" doc:"Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token."`
 	JobID    string `path:"job_id" doc:"Batch job id (UUID): the repush_id or retry_id from the list call."`
 }
 
@@ -601,10 +610,10 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		Tags:          []string{"Events"},
 		DefaultStatus: http.StatusAccepted,
 	}, func(ctx context.Context, in *repushBatchInput) (*batchJobOutput, error) {
-		if err := svc.RePushEvents(ctx, in.Body.RepushID); err != nil {
+		if err := svc.RePushEvents(ctx, batchScope(ctx, in.Consumer), in.Body.RepushID); err != nil {
 			return nil, mapError(ctx, err, "failed to start re-push job")
 		}
-		job, err := svc.GetRepushStatus(ctx, in.Body.RepushID)
+		job, err := svc.GetRepushStatus(ctx, batchScope(ctx, in.Consumer), in.Body.RepushID)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to load re-push job status")
 		}
@@ -620,7 +629,7 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		Errors:      []int{400, 404, 409},
 		Tags:        []string{"Events"},
 	}, func(ctx context.Context, in *jobIDInput) (*batchJobOutput, error) {
-		job, err := svc.GetRepushStatus(ctx, in.JobID)
+		job, err := svc.GetRepushStatus(ctx, batchScope(ctx, in.Consumer), in.JobID)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get re-push job status")
 		}
@@ -637,7 +646,7 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		Tags:          []string{"Events"},
 		DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *jobIDInput) (*emptyOutput, error) {
-		if err := svc.CancelRepush(ctx, in.JobID); err != nil {
+		if err := svc.CancelRepush(ctx, batchScope(ctx, in.Consumer), in.JobID); err != nil {
 			return nil, mapError(ctx, err, "failed to cancel re-push job")
 		}
 		return &emptyOutput{Status: http.StatusNoContent}, nil

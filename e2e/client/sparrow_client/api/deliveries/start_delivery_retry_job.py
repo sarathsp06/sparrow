@@ -104,8 +104,9 @@ def sync_detailed(
     Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch.
 
     Args:
-        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
-            against it.
+        consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
+            answers 404; a job snapshotted across all consumers is reachable under any consumer,
+            except with a portal token.
         body (RepushBatchInputBody):
 
     Raises:
@@ -148,8 +149,9 @@ def sync(
     Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch.
 
     Args:
-        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
-            against it.
+        consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
+            answers 404; a job snapshotted across all consumers is reachable under any consumer,
+            except with a portal token.
         body (RepushBatchInputBody):
 
     Raises:
@@ -187,8 +189,9 @@ async def asyncio_detailed(
     Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch.
 
     Args:
-        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
-            against it.
+        consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
+            answers 404; a job snapshotted across all consumers is reachable under any consumer,
+            except with a portal token.
         body (RepushBatchInputBody):
 
     Raises:
@@ -229,8 +232,9 @@ async def asyncio(
     Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch.
 
     Args:
-        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
-            against it.
+        consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
+            answers 404; a job snapshotted across all consumers is reachable under any consumer,
+            except with a portal token.
         body (RepushBatchInputBody):
 
     Raises:
