@@ -83,8 +83,9 @@ type deliveryIDIn struct {
 }
 
 type testTemplateIn struct {
-	EventName string `json:"event_name" jsonschema:"registered event type whose sample payload the template is rendered against"`
-	Template  string `json:"template" jsonschema:"Go transform template, same syntax as transform_template"`
+	EventName string         `json:"event_name" jsonschema:"registered event type; its sample payload is rendered against unless payload is given"`
+	Template  string         `json:"template" jsonschema:"Go transform template, same syntax as transform_template"`
+	Payload   map[string]any `json:"payload,omitempty" jsonschema:"render against this payload instead of the generated sample, e.g. a real one from list_events"`
 }
 
 type pushEventIn struct {
@@ -209,9 +210,13 @@ func newMCPServer(client *apiClient, consumer string, allowWrite bool) (*mcp.Ser
 		})
 
 	mcp.AddTool(srv, &mcp.Tool{Name: "test_template", Annotations: ro,
-		Description: "Render a transform template server-side against an event type's sample payload. Nothing is delivered; use it to iterate on a template before create_subscription."},
+		Description: "Render a transform template server-side with the delivery engine, against payload when given (e.g. a real one from list_events), else the event type's generated sample payload. Nothing is delivered; use it to iterate on a template before create_subscription."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in testTemplateIn) (*mcp.CallToolResult, any, error) {
-			out, err := post(ctx, "/v1/subscriptions:testTemplate", map[string]any{"event_name": in.EventName, "template": in.Template})
+			body := map[string]any{"event_name": in.EventName, "template": in.Template}
+			if in.Payload != nil {
+				body["payload"] = in.Payload
+			}
+			out, err := post(ctx, "/v1/subscriptions:testTemplate", body)
 			return nil, out, err
 		})
 
@@ -344,10 +349,10 @@ on one consumer.
 
 Debugging deliveries: list_deliveries (filter by status=failed), then
 get_delivery_attempts for the response code, error category and message.
-Templates: test_template renders against an event type's sample payload,
-which the server derives from the type's JSON schema (get_event_type shows
-both). A type created by a push has no schema, so no sample: read real
-payloads with list_events first. export_event_types returns a bundle of
+Templates: test_template renders against a payload you give it (a real one
+from list_events shows what a receiver would get), else the event type's
+sample payload, which the server derives from its JSON schema with
+placeholder values (get_event_type shows both). export_event_types returns a bundle of
 definitions for another environment.
 Recipes are ready-made destinations (Slack, Discord, PagerDuty, ...):
 list_recipes, get_recipe for params and template, validate_recipe to check one

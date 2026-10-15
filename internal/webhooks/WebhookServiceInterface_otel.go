@@ -1119,7 +1119,7 @@ func (_d WebhookServiceInterfaceWithTracing) RotateWebhookSecret(ctx context.Con
 }
 
 // TestSubscriptionTemplate implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) TestSubscriptionTemplate(ctx context.Context, eventName string, transformTemplate string, consumer string, strict bool) (s1 string, err error) {
+func (_d WebhookServiceInterfaceWithTracing) TestSubscriptionTemplate(ctx context.Context, eventName string, transformTemplate string, consumer string, strict bool, payload map[string]any) (s1 string, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.TestSubscriptionTemplate")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -1128,7 +1128,8 @@ func (_d WebhookServiceInterfaceWithTracing) TestSubscriptionTemplate(ctx contex
 				"eventName":         eventName,
 				"transformTemplate": transformTemplate,
 				"consumer":          consumer,
-				"strict":            strict}, map[string]interface{}{
+				"strict":            strict,
+				"payload":           payload}, map[string]interface{}{
 				"s1":  s1,
 				"err": err})
 		} else if err != nil {
@@ -1142,7 +1143,7 @@ func (_d WebhookServiceInterfaceWithTracing) TestSubscriptionTemplate(ctx contex
 
 		_span.End()
 	}()
-	return _d.WebhookServiceInterface.TestSubscriptionTemplate(ctx, eventName, transformTemplate, consumer, strict)
+	return _d.WebhookServiceInterface.TestSubscriptionTemplate(ctx, eventName, transformTemplate, consumer, strict, payload)
 }
 
 // UnregisterWebhook implements WebhookServiceInterface

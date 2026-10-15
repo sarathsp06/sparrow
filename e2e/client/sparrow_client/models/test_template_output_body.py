@@ -14,8 +14,8 @@ T = TypeVar("T", bound="TestTemplateOutputBody")
 class TestTemplateOutputBody:
     """
     Attributes:
-        rendered (str): The template output, rendered against the event type's sample payload with a placeholder event
-            id and the current time.
+        rendered (str): The template output, rendered against payload (or the event type's sample payload) with a
+            placeholder event id and the current time.
         schema (str | Unset): A URL to the JSON Schema for this object.
     """
 

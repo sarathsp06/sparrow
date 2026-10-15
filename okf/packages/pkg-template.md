@@ -22,7 +22,7 @@ core delivery worker and the out-of-tree satellites (`satellites/recipes`,
 
 - `internal/webhooks/client` — `WebhookClient.TransformPayloadWith` delegates here
 - `internal/webhooks/queue/webhook_worker.go` — applies the subscription transform at delivery time
-- `internal/webhooks/webhook_service_subscription.go` — `TestSubscriptionTemplate` dry-run
+- `internal/webhooks/webhook_service_subscription.go` — `TestSubscriptionTemplate` dry-run (against a given payload, else the event type's generated sample)
 - `satellites/sparrow/template_cmd.go` and `satellites/recipes` — render recipes/CLI previews
 
 ## Citations

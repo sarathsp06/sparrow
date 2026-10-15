@@ -147,6 +147,7 @@ from .template_functions_output_body import TemplateFunctionsOutputBody
 from .template_version_item import TemplateVersionItem
 from .template_version_item_source import TemplateVersionItemSource
 from .test_template_body import TestTemplateBody
+from .test_template_body_payload import TestTemplateBodyPayload
 from .test_template_body_template_missing_key import TestTemplateBodyTemplateMissingKey
 from .test_template_output_body import TestTemplateOutputBody
 from .token_out import TokenOut
@@ -320,6 +321,7 @@ __all__ = (
     "TemplateVersionItem",
     "TemplateVersionItemSource",
     "TestTemplateBody",
+    "TestTemplateBodyPayload",
     "TestTemplateBodyTemplateMissingKey",
     "TestTemplateOutputBody",
     "TokenOut",

@@ -176,9 +176,10 @@ type patchSubscriptionInput struct {
 }
 
 type testTemplateBody struct {
-	EventName          string `json:"event_name" required:"true" doc:"Registered event type whose sample_payload (generated from its schema; empty without one) the template is rendered against."`
-	Template           string `json:"template" required:"true" doc:"Go template to render, in the same syntax used by transform_template."`
-	TemplateMissingKey string `json:"template_missing_key,omitempty" enum:"error,zero" required:"false" doc:"Render as a subscription with this template_missing_key would. Defaults to error, the subscription default."`
+	EventName          string         `json:"event_name" required:"true" doc:"Registered event type. Its name is the envelope's event_name, and its sample_payload (generated from its schema; empty without one) is rendered against when payload is omitted."`
+	Payload            map[string]any `json:"payload,omitempty" required:"false" doc:"Payload to render against instead of the event type's generated sample, e.g. a real event's payload from listEventOccurrences. Used as given, even when empty; the event type needs no schema."`
+	Template           string         `json:"template" required:"true" doc:"Go template to render, in the same syntax used by transform_template."`
+	TemplateMissingKey string         `json:"template_missing_key,omitempty" enum:"error,zero" required:"false" doc:"Render as a subscription with this template_missing_key would. Defaults to error, the subscription default."`
 }
 
 type testTemplateInput struct {
@@ -187,7 +188,7 @@ type testTemplateInput struct {
 
 type testTemplateOutput struct {
 	Body struct {
-		Rendered string `json:"rendered" doc:"The template output, rendered against the event type's sample payload with a placeholder event id and the current time."`
+		Rendered string `json:"rendered" doc:"The template output, rendered against payload (or the event type's sample payload) with a placeholder event id and the current time."`
 	}
 }
 
@@ -405,13 +406,13 @@ func registerSubscriptionRoutes(api huma.API, svc webhooks.SubscriptionManager) 
 		OperationID: "testSubscriptionTemplate",
 		Method:      http.MethodPost,
 		Path:        "/v1/subscriptions:testTemplate",
-		Summary:     "Render a transform template against an event's sample payload",
-		Description: "Dry-runs a transform template against the named event type's sample payload, without creating a subscription or any delivery. Use this to iterate on transform_template before saving it. Stateless and idempotent.\n\n" +
-			"400 when the template does not parse or fails to render (with template_missing_key error, a key the sample lacks is an error), 404 when the event type is not registered, 503 when the template engine is at capacity (retry).\n\nPortal tokens: allowed, as POST /portal/api/subscriptions:testTemplate.",
+		Summary:     "Render a transform template against a sample or given payload",
+		Description: "Dry-runs a transform template against payload when given, else the named event type's generated sample payload, without creating a subscription or any delivery. Use this to iterate on transform_template before saving it; pass a real event's payload to see what a receiver would get. Stateless and idempotent.\n\n" +
+			"400 when the template does not parse or fails to render (with template_missing_key error, a key the payload lacks is an error), 404 when the event type is not registered, 503 when the template engine is at capacity (retry).\n\nPortal tokens: allowed, as POST /portal/api/subscriptions:testTemplate.",
 		Errors: []int{400, 404, 503},
 		Tags:   []string{"Subscriptions"},
 	}, func(ctx context.Context, in *testTemplateInput) (*testTemplateOutput, error) {
-		rendered, err := svc.TestSubscriptionTemplate(ctx, in.Body.EventName, in.Body.Template, "", in.Body.TemplateMissingKey != store.TemplateMissingKeyZero)
+		rendered, err := svc.TestSubscriptionTemplate(ctx, in.Body.EventName, in.Body.Template, "", in.Body.TemplateMissingKey != store.TemplateMissingKeyZero, in.Body.Payload)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to test template")
 		}

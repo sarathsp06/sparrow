@@ -328,9 +328,20 @@ func TestWebhookService_TestSubscriptionTemplate(t *testing.T) {
 	repo.On("GetEventByName", mock.Anything, mock.Anything, eventName).Return(event, nil)
 
 	template := `{"new_id": "{{ .payload.id }}"}`
-	res, err := service.TestSubscriptionTemplate(ctx, eventName, template, "default", true)
+	res, err := service.TestSubscriptionTemplate(ctx, eventName, template, "default", true, nil)
 	assert.NoError(t, err)
-	assert.Equal(t, `{"new_id": "123"}`, res)
+	assert.Equal(t, `{"new_id": "123"}`, res, "nil payload renders the sample")
+
+	res, err = service.TestSubscriptionTemplate(ctx, eventName, template, "default", true, map[string]any{"id": "ord_7"})
+	assert.NoError(t, err)
+	assert.Equal(t, `{"new_id": "ord_7"}`, res, "a given payload replaces the sample")
+
+	_, err = service.TestSubscriptionTemplate(ctx, eventName, template, "default", true, map[string]any{"other": 1})
+	assert.Error(t, err, "strict render of a payload without the key fails")
+
+	res, err = service.TestSubscriptionTemplate(ctx, eventName, `{"n": {{len .payload}}}`, "default", true, map[string]any{})
+	assert.NoError(t, err)
+	assert.Equal(t, `{"n": 0}`, res, "an empty payload is used as given, not replaced by the sample")
 	repo.AssertExpectations(t)
 }
 

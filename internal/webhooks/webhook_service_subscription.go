@@ -412,7 +412,10 @@ func (s *WebhookService) DeleteSubscription(ctx context.Context, subscriptionID 
 // TestSubscriptionTemplate renders transformTemplate against the event type's
 // sample payload. strict renders missing keys as errors, as a subscription
 // with template_missing_key=error does at delivery time.
-func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, consumer string, strict bool) (string, error) {
+// TestSubscriptionTemplate renders transformTemplate against payload, or,
+// when payload is nil, against the event type's generated sample payload.
+// The event type must be registered either way.
+func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, consumer string, strict bool, payload map[string]any) (string, error) {
 	s.logger.InfoContext(ctx, "Processing test subscription template request", "event_name", eventName, "consumer", consumer)
 
 	if eventName == "" {
@@ -429,6 +432,10 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 		return "", svcerrors.Error(svcerrors.NotFound, "event not found")
 	}
 
+	if payload == nil {
+		payload = event.SamplePayload
+	}
+
 	engine := template.New()
 
 	// Create context for template
@@ -437,7 +444,7 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 		eventName,
 		time.Now().UTC().Format(time.RFC3339),
 		1,
-		event.SamplePayload,
+		payload,
 	)
 
 	result, err := engine.ExecuteWith(transformTemplate, data, template.ExecOptions{StrictMissingKeys: strict})

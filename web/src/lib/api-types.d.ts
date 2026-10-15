@@ -1216,10 +1216,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Render a transform template against an event's sample payload
-         * @description Dry-runs a transform template against the named event type's sample payload, without creating a subscription or any delivery. Use this to iterate on transform_template before saving it. Stateless and idempotent.
+         * Render a transform template against a sample or given payload
+         * @description Dry-runs a transform template against payload when given, else the named event type's generated sample payload, without creating a subscription or any delivery. Use this to iterate on transform_template before saving it; pass a real event's payload to see what a receiver would get. Stateless and idempotent.
          *
-         *     400 when the template does not parse or fails to render (with template_missing_key error, a key the sample lacks is an error), 404 when the event type is not registered, 503 when the template engine is at capacity (retry).
+         *     400 when the template does not parse or fails to render (with template_missing_key error, a key the payload lacks is an error), 404 when the event type is not registered, 503 when the template engine is at capacity (retry).
          *
          *     Portal tokens: allowed, as POST /portal/api/subscriptions:testTemplate.
          */
@@ -1660,7 +1660,7 @@ export interface components {
             timeout?: number;
             /** @description Whether to render transform_template into the delivered body instead of sending the default envelope. Defaults to false. */
             transform_enabled?: boolean;
-            /** @description Go text/template rendered against the event to produce the delivered body, used when transform_enabled is true. See GET /v1/template-functions for available helpers; test it with POST /v1/subscriptions:testTemplate. Saving a new template records a version in the template history. */
+            /** @description Go text/template rendered against the event to produce the delivered body, used when transform_enabled is true. See GET /v1/template-functions for available helpers; test it with POST /v1/subscriptions:testTemplate. A template that does not parse is rejected with 400; it is not rendered on save. Saving a new template records a version in the template history. */
             transform_template?: string;
             /** @description Webhook id (UUID) to deliver matching events to. Must belong to this consumer. */
             webhook_id: string;
@@ -1973,7 +1973,7 @@ export interface components {
             metadata?: {
                 [key: string]: string;
             };
-            /** @description Unique event type name, e.g. order.created. Required on register, ignored on update (the path names the type). At most 255 characters; the sparrow. prefix is reserved. Immutable after creation. */
+            /** @description Unique event type name, e.g. order.created. Required on register, ignored on update (the path names the type). Lowercase letters, digits, '_' and '-' in dot-separated parts (e.g. stripe.payment_intent.succeeded), at most 255 characters; the sparrow. prefix is reserved. Immutable after creation, and event types cannot be deleted. */
             name?: string;
         };
         EventTypeBundle: {
@@ -2544,7 +2544,7 @@ export interface components {
             timeout?: number;
             /** @description Enable or disable payload transformation. */
             transform_enabled?: boolean;
-            /** @description Replace the transform template. A change is recorded as a new version in the template history (the last 20 are kept). */
+            /** @description Replace the transform template. A template that does not parse is rejected with 400. A change is recorded as a new version in the template history (the last 20 are kept). */
             transform_template?: string;
         };
         PatchWebhookBody: {
@@ -2710,7 +2710,7 @@ export interface components {
              * @enum {string}
              */
             template_source?: "manual" | "ai_draft";
-            /** @description Transform template given to every subscription created from events, with transform_enabled set. Omit to create them untransformed (not allowed with requires_transform). */
+            /** @description Transform template given to every subscription created from events, with transform_enabled set. A template that does not parse is rejected with 400. Omit to create them untransformed (not allowed with requires_transform). */
             transform_template?: string;
             /**
              * Format: uri
@@ -3051,8 +3051,12 @@ export interface components {
              * @example https://example.com/schemas/TestTemplateBody.json
              */
             readonly $schema?: string;
-            /** @description Registered event type whose sample_payload (generated from its schema; empty without one) the template is rendered against. */
+            /** @description Registered event type. Its name is the envelope's event_name, and its sample_payload (generated from its schema; empty without one) is rendered against when payload is omitted. */
             event_name: string;
+            /** @description Payload to render against instead of the event type's generated sample, e.g. a real event's payload from listEventOccurrences. Used as given, even when empty; the event type needs no schema. */
+            payload?: {
+                [key: string]: unknown;
+            };
             /** @description Go template to render, in the same syntax used by transform_template. */
             template: string;
             /**
@@ -3068,7 +3072,7 @@ export interface components {
              * @example https://example.com/schemas/TestTemplateOutputBody.json
              */
             readonly $schema?: string;
-            /** @description The template output, rendered against the event type's sample payload with a placeholder event id and the current time. */
+            /** @description The template output, rendered against payload (or the event type's sample payload) with a placeholder event id and the current time. */
             rendered: string;
         };
         TokenOut: {
@@ -4046,7 +4050,7 @@ export interface operations {
     pushEvent: {
         parameters: {
             query: {
-                /** @description Name of a registered, active event type (at most 255 characters). An unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true; sparrow.* names are reserved (400). */
+                /** @description Name of a registered, active event type (at most 255 characters). An unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true, which registers it if it follows the event type naming rule (lowercase letters, digits, '_' and '-' in dot-separated parts; 400 otherwise); sparrow.* names are reserved (400). */
                 event: string;
             };
             header?: never;

@@ -85,14 +85,15 @@ def sync_detailed(
     client: AuthenticatedClient | Client,
     body: TestTemplateBody,
 ) -> Response[ErrorModel | TestTemplateOutputBody]:
-    """Render a transform template against an event's sample payload
+    """Render a transform template against a sample or given payload
 
-     Dry-runs a transform template against the named event type's sample payload, without creating a
-    subscription or any delivery. Use this to iterate on transform_template before saving it. Stateless
-    and idempotent.
+     Dry-runs a transform template against payload when given, else the named event type's generated
+    sample payload, without creating a subscription or any delivery. Use this to iterate on
+    transform_template before saving it; pass a real event's payload to see what a receiver would get.
+    Stateless and idempotent.
 
     400 when the template does not parse or fails to render (with template_missing_key error, a key the
-    sample lacks is an error), 404 when the event type is not registered, 503 when the template engine
+    payload lacks is an error), 404 when the event type is not registered, 503 when the template engine
     is at capacity (retry).
 
     Portal tokens: allowed, as POST /portal/api/subscriptions:testTemplate.
@@ -124,14 +125,15 @@ def sync(
     client: AuthenticatedClient | Client,
     body: TestTemplateBody,
 ) -> ErrorModel | TestTemplateOutputBody | None:
-    """Render a transform template against an event's sample payload
+    """Render a transform template against a sample or given payload
 
-     Dry-runs a transform template against the named event type's sample payload, without creating a
-    subscription or any delivery. Use this to iterate on transform_template before saving it. Stateless
-    and idempotent.
+     Dry-runs a transform template against payload when given, else the named event type's generated
+    sample payload, without creating a subscription or any delivery. Use this to iterate on
+    transform_template before saving it; pass a real event's payload to see what a receiver would get.
+    Stateless and idempotent.
 
     400 when the template does not parse or fails to render (with template_missing_key error, a key the
-    sample lacks is an error), 404 when the event type is not registered, 503 when the template engine
+    payload lacks is an error), 404 when the event type is not registered, 503 when the template engine
     is at capacity (retry).
 
     Portal tokens: allowed, as POST /portal/api/subscriptions:testTemplate.
@@ -158,14 +160,15 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
     body: TestTemplateBody,
 ) -> Response[ErrorModel | TestTemplateOutputBody]:
-    """Render a transform template against an event's sample payload
+    """Render a transform template against a sample or given payload
 
-     Dry-runs a transform template against the named event type's sample payload, without creating a
-    subscription or any delivery. Use this to iterate on transform_template before saving it. Stateless
-    and idempotent.
+     Dry-runs a transform template against payload when given, else the named event type's generated
+    sample payload, without creating a subscription or any delivery. Use this to iterate on
+    transform_template before saving it; pass a real event's payload to see what a receiver would get.
+    Stateless and idempotent.
 
     400 when the template does not parse or fails to render (with template_missing_key error, a key the
-    sample lacks is an error), 404 when the event type is not registered, 503 when the template engine
+    payload lacks is an error), 404 when the event type is not registered, 503 when the template engine
     is at capacity (retry).
 
     Portal tokens: allowed, as POST /portal/api/subscriptions:testTemplate.
@@ -195,14 +198,15 @@ async def asyncio(
     client: AuthenticatedClient | Client,
     body: TestTemplateBody,
 ) -> ErrorModel | TestTemplateOutputBody | None:
-    """Render a transform template against an event's sample payload
+    """Render a transform template against a sample or given payload
 
-     Dry-runs a transform template against the named event type's sample payload, without creating a
-    subscription or any delivery. Use this to iterate on transform_template before saving it. Stateless
-    and idempotent.
+     Dry-runs a transform template against payload when given, else the named event type's generated
+    sample payload, without creating a subscription or any delivery. Use this to iterate on
+    transform_template before saving it; pass a real event's payload to see what a receiver would get.
+    Stateless and idempotent.
 
     400 when the template does not parse or fails to render (with template_missing_key error, a key the
-    sample lacks is an error), 404 when the event type is not registered, 503 when the template engine
+    payload lacks is an error), 404 when the event type is not registered, 503 when the template engine
     is at capacity (retry).
 
     Portal tokens: allowed, as POST /portal/api/subscriptions:testTemplate.

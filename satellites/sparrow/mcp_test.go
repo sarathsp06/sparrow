@@ -174,6 +174,13 @@ func TestMCPToolsCallTheAPI(t *testing.T) {
 	if last = api.lastReq(); last.URL.Path != "/v1/subscriptions:testTemplate" || !strings.Contains(out, "output") {
 		t.Fatalf("test_template: path %s out %s", last.URL.Path, out)
 	}
+	if b := api.body(http.MethodPost, "/v1/subscriptions:testTemplate"); strings.Contains(b, "payload") {
+		t.Fatalf("test_template without payload must not send one: %s", b)
+	}
+	call(t, cs, "test_template", map[string]any{"event_name": "order.created", "template": "{}", "payload": map[string]any{"id": "ord_7"}})
+	if b := api.body(http.MethodPost, "/v1/subscriptions:testTemplate"); !strings.Contains(b, `"payload":{"id":"ord_7"}`) {
+		t.Fatalf("test_template payload not sent: %s", b)
+	}
 
 	out = call(t, cs, "push_event", map[string]any{"event": "order.created", "payload": map[string]any{"id": 1}})
 	if last = api.lastReq(); last.Method != http.MethodPost || last.URL.Query().Get("event") != "order.created" || !strings.Contains(out, "evt_1") {

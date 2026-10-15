@@ -563,7 +563,7 @@ Read-only tools (always on):
 | `list_events` | Events pushed to the consumer, newest first, with payload, labels and delivery counts; filter by `event`, `schema_valid` and `labels`, paged with `cursor` |
 | `export_event_types` | Exports definitions as one bundle, like `sparrow events export`: exactly one of `names`, `prefix` or `all` |
 | `get_stats` | Delivery counts by outcome and success rate |
-| `test_template` | Renders a transform template server-side against an event type's sample payload |
+| `test_template` | Renders a transform template server-side with the delivery engine, against `payload` when given (e.g. a real one from `list_events`), else the event type's sample payload |
 | `list_recipes` | Recipes with their params: the built-in catalog plus local recipe files (`source` says which) |
 | `get_recipe` | One recipe in full (url, headers, template, guidance); local files override built-ins as in `sparrow use` |
 | `validate_recipe` | Checks a recipe by name or as draft YAML: schema and param rules, the catalog's shipping rules as warnings, and a strict local render against `payload`, else `event_name`'s registered sample, else a built-in sample. Nothing is created |
@@ -695,17 +695,18 @@ Anything marked `-` can still be done with the [REST API](/sparrow/reference/api
 
 Recommended workflows:
 
-- **Give an event type a schema before writing templates for it.** An event
-  type created by a push has no schema and no sample payload, so
-  `test_template` has nothing to render against and fails on the first field
-  it reads. Push a few real events, then either use **Infer schema** on the
-  Events page
+- **Test templates against real payloads, and give event types a schema.**
+  An event type created by a push has no schema and no sample payload, so
+  `test_template` without a `payload` has nothing to render against and fails
+  on the first field it reads. Pass a real event's payload from `list_events`
+  instead: that is also the closest preview of what a receiver gets. For a
+  sample that every tool and the UI can use, push a few real events, then
+  either use **Infer schema** on the Events page
   ([Inferring a schema from real events](/sparrow/guides/event-type-versioning/#inferring-a-schema-from-real-events))
   or let the agent do it: `list_events` for that type, a schema covering what
   the payloads share, `update_event_type`. The server generates the sample
   from the schema, so its values are placeholders except for `enum` values.
-  To render a template against a real payload, use `validate_recipe` with
-  `payload`. The UI's coverage table is the better review of an inferred
+  The UI's coverage table is the better review of an inferred
   schema: it shows which fields every event had.
 - **Export event types to promote them.** Once the schemas are right on a
   development instance, export them and import them into staging and

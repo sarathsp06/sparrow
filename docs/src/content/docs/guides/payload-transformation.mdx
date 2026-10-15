@@ -120,6 +120,21 @@ You don't have to guess. Test any template against a sample event:
      }'
    ```
 
+   The sample is generated from the event type's schema, so its values are
+   placeholders. Add `"payload"` to render against real data instead, such
+   as a stored event's payload from `GET /v1/consumers/{consumer}/events`.
+   The event type must still be registered, but it needs no schema:
+
+   ```bash
+   curl -X POST http://localhost:8080/v1/subscriptions:testTemplate \
+     -H 'Content-Type: application/json' \
+     -d '{
+       "event_name": "payment.succeeded",
+       "template": "{{ dict \"id\" .event_id \"amount\" .payload.amount | json }}",
+       "payload": {"amount": 4200, "currency": "EUR"}
+     }'
+   ```
+
 3. **Or entirely offline with the CLI** (no server round-trip; renders locally
    against a synthetic sample context instead of a stored event payload):
 

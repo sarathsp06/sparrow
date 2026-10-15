@@ -19,7 +19,7 @@ import (
 // browser (web/src/lib/schema-infer.ts), and a Go copy would drift from it.
 // An agent reads real payloads with list_events, writes the schema itself, and
 // saves it with update_event_type; the server derives the sample payload that
-// test_template and validate_recipe render against from that schema.
+// test_template renders against by default from that schema.
 
 type getEventTypeIn struct {
 	Name     string `json:"name" jsonschema:"event type name, e.g. order.created"`
@@ -138,7 +138,7 @@ func addEventTypeTools(srv *mcp.Server, client *apiClient, consumer string, allo
 		})
 
 	mcp.AddTool(srv, &mcp.Tool{Name: "update_event_type",
-		Description: "Change an event type's JSON schema, description, metadata or active flag; fields left out stay as they are. A changed schema creates a new version, and the server regenerates the sample payload from it, which is what test_template renders against: give an event type created by push_event a schema this way before writing templates for it. The sample's values are generated (placeholder text and numbers; enum values are used as given), so to render a template against a real payload use validate_recipe with payload. A breaking change to a type subscriptions receive is refused (409) unless allow_breaking is set. Event types are shared by every consumer."},
+		Description: "Change an event type's JSON schema, description, metadata or active flag; fields left out stay as they are. A changed schema creates a new version, and the server regenerates the sample payload from it, which is what test_template renders against: give an event type created by push_event a schema this way before writing templates for it. The sample's values are generated (placeholder text and numbers; enum values are used as given), so to see a template's output for real data pass a payload from list_events to test_template. A breaking change to a type subscriptions receive is refused (409) unless allow_breaking is set. Event types are shared by every consumer."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in updateEventTypeIn) (*mcp.CallToolResult, any, error) {
 			body := map[string]any{}
 			if in.EventSchema != nil {

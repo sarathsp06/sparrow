@@ -2505,8 +2505,12 @@ components:
           readOnly: true
           type: string
         event_name:
-          description: Registered event type whose sample_payload (generated from its schema; empty without one) the template is rendered against.
+          description: Registered event type. Its name is the envelope's event_name, and its sample_payload (generated from its schema; empty without one) is rendered against when payload is omitted.
           type: string
+        payload:
+          additionalProperties: {}
+          description: Payload to render against instead of the event type's generated sample, e.g. a real event's payload from listEventOccurrences. Used as given, even when empty; the event type needs no schema.
+          type: object
         template:
           description: Go template to render, in the same syntax used by transform_template.
           type: string
@@ -2531,7 +2535,7 @@ components:
           readOnly: true
           type: string
         rendered:
-          description: The template output, rendered against the event type's sample payload with a placeholder event id and the current time.
+          description: The template output, rendered against payload (or the event type's sample payload) with a placeholder event id and the current time.
           type: string
       required:
         - rendered
@@ -6493,9 +6497,9 @@ paths:
   /v1/subscriptions:testTemplate:
     post:
       description: |-
-        Dry-runs a transform template against the named event type's sample payload, without creating a subscription or any delivery. Use this to iterate on transform_template before saving it. Stateless and idempotent.
+        Dry-runs a transform template against payload when given, else the named event type's generated sample payload, without creating a subscription or any delivery. Use this to iterate on transform_template before saving it; pass a real event's payload to see what a receiver would get. Stateless and idempotent.
 
-        400 when the template does not parse or fails to render (with template_missing_key error, a key the sample lacks is an error), 404 when the event type is not registered, 503 when the template engine is at capacity (retry).
+        400 when the template does not parse or fails to render (with template_missing_key error, a key the payload lacks is an error), 404 when the event type is not registered, 503 when the template engine is at capacity (retry).
 
         Portal tokens: allowed, as POST /portal/api/subscriptions:testTemplate.
       operationId: testSubscriptionTemplate
@@ -6542,7 +6546,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorModel"
           description: Service Unavailable
-      summary: Render a transform template against an event's sample payload
+      summary: Render a transform template against a sample or given payload
       tags:
         - Subscriptions
   /v1/template-functions:
