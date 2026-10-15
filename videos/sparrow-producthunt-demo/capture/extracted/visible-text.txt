@@ -1,0 +1,46 @@
+[span] SPARROW
+[span] webhook delivery
+[span] Webhooks
+[span] Deliveries
+[a] Push Event
+[span] All systems go
+[span] API Console
+[a] Docs
+[span] Star
+[span] Authentication off
+[span] SPARROW
+[p] Fleet / Webhooks
+[h1] Webhooks
+[p] Endpoints receiving your dispatched events
+[a] Register Webhook
+[div] Total
+[div] Active
+[div] Healthy ▸
+[div] Unhealthy ▸
+[button] All
+[button] Healthy
+[button] Degraded
+[button] Unhealthy
+[th] Endpoint
+[th] Consumer
+[th] Health
+[th] Status
+[p] sparrow listen (temporary)
+[span] fa1b4b6c-d44…
+[span] default
+[span] Idle
+[button] Active
+[button] Unregister
+[p] recipe ntfy: Push events as notifications to an ntfy topic
+[span] dcbfba8a-557…
+[span] default
+[span] Idle
+[button] Active
+[button] Unregister
+[p] recipe ntfy: Push events as notifications to an ntfy topic
+[span] 93587cb8-4ef…
+[span] default
+[span] Healthy
+[button] Active
+[button] Unregister
+[div] Webhooks | Sparrow

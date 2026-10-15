@@ -1,0 +1,301 @@
+<template>
+  <style>
+    @font-face { font-family: 'Fira Code'; font-style: normal; font-weight: 400; font-display: swap; src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3dSDqFGedA.woff2") format('woff2'); }
+    @font-face { font-family: 'Fira Code'; font-style: normal; font-weight: 500; font-display: swap; src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3dSDqFGedA.woff2") format('woff2'); }
+    @font-face { font-family: 'Space Grotesk'; font-style: normal; font-weight: 400; font-display: swap; src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2") format('woff2'); }
+    @font-face { font-family: 'Space Grotesk'; font-style: normal; font-weight: 500; font-display: swap; src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2") format('woff2'); }
+    @font-face { font-family: 'Space Grotesk'; font-style: normal; font-weight: 700; font-display: swap; src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2") format('woff2'); }
+
+    #root {
+      position: absolute;
+      inset: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      font-family: 'Space Grotesk', sans-serif;
+      color: #FAF9F6;
+    }
+    #root * { box-sizing: border-box; }
+
+    .dev05b-ground { position: absolute; inset: 0; background: #1C1A16; }
+    .dev05b-layer { position: absolute; inset: 0; }
+
+    /* ---------- left story panel (x 0–690) ---------- */
+    #\30 5b-developer-kicker {
+      position: absolute; left: 90px; top: 90px;
+      display: flex; align-items: center; gap: 18px;
+      font-family: 'Fira Code', monospace; font-weight: 500; font-size: 17px;
+      letter-spacing: 0.14em; text-transform: uppercase; color: #EA9D2B;
+    }
+    .dev05b-rule { width: 36px; height: 2px; background: #EA9D2B; }
+    #\30 5b-developer-story {
+      position: absolute; left: 90px; top: 300px; width: 600px;
+      font-weight: 700; font-size: 62px; line-height: 1.05; letter-spacing: -0.02em;
+      text-transform: lowercase; color: #FAF9F6;
+    }
+    #\30 5b-developer-assist {
+      position: absolute; left: 90px; top: 452px; width: 600px;
+      font-weight: 400; font-size: 30px; line-height: 1.33; color: #C9C2B2;
+    }
+    .dev05b-line { display: block; white-space: nowrap; }
+    #\30 5b-developer-api {
+      position: absolute; left: 90px; top: 568px; width: 600px; height: 34px;
+      font-family: 'Fira Code', monospace; font-weight: 500; font-size: 23px;
+      color: #EA9D2B; white-space: pre;
+    }
+    #\30 5b-developer-sub {
+      position: absolute; left: 90px; top: 618px; width: 600px;
+      font-family: 'Fira Code', monospace; font-weight: 400; font-size: 20px;
+      color: #C9C2B2; white-space: nowrap;
+    }
+    #\30 5b-developer-hairline {
+      position: absolute; left: 715px; top: 90px; width: 1px; height: 810px;
+      background: #282726; transform-origin: 50% 0;
+    }
+
+    /* ---------- framed windows (shared chrome) ---------- */
+    .dev05b-window {
+      position: absolute;
+      background: #1A1918;
+      border: 1px solid rgba(234,157,43,0.7);
+      border-radius: 8px;
+      box-shadow: 0 0 40px rgba(234,157,43,0.12);
+      overflow: hidden;
+    }
+    .dev05b-bar {
+      height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 16px;
+      border-bottom: 1px solid #282726;
+    }
+    .dev05b-dot { width: 10px; height: 10px; border-radius: 50%; background: #504D48; }
+    .dev05b-title {
+      margin-left: 14px; font-family: 'Fira Code', monospace; font-size: 14px;
+      letter-spacing: 0.06em; color: #504D48;
+    }
+    .dev05b-url {
+      margin-left: 18px; flex: 1; height: 24px; display: flex; align-items: center; padding: 0 12px;
+      background: #1C1A16; border: 1px solid #282726; border-radius: 4px;
+      font-family: 'Fira Code', monospace; font-size: 13px; color: #C9C2B2;
+    }
+
+    /* ---------- right stage (x 740–1880, y 90–900) ---------- */
+    #\30 5b-developer-term { left: 740px; top: 90px; width: 1140px; height: 222px; }
+    .dev05b-term-body {
+      padding: 20px 28px; font-family: 'Fira Code', monospace; font-size: 18px;
+    }
+    .dev05b-tline { display: flex; align-items: center; height: 38px; white-space: pre; }
+    .dev05b-prompt { color: #EA9D2B; font-weight: 500; }
+    .dev05b-cmd-wrap { display: inline-flex; align-items: center; min-width: 1036px; white-space: pre; color: #FAF9F6; }
+    #\30 5b-developer-caret { display: inline-block; width: 10px; height: 22px; margin-left: 2px; background: #FAF9F6; }
+    .dev05b-out { color: #C9C2B2; }
+    .dev05b-ok { color: #16875A; font-weight: 500; }
+
+    #\30 5b-developer-cards {
+      position: absolute; left: 740px; top: 372px; width: 1140px;
+      display: flex; gap: 40px;
+    }
+    .dev05b-card { position: relative; flex: 1 1 0; padding-top: 26px; min-height: 230px; }
+    .dev05b-card-rule {
+      position: absolute; left: 0; top: 0; width: 100%; height: 1px;
+      background: #282726; transform-origin: 0 50%;
+    }
+    .dev05b-card-rule-accent {
+      position: absolute; left: 0; top: -1px; width: 36px; height: 2px;
+      background: #EA9D2B; transform-origin: 0 50%;
+    }
+    .dev05b-card-label {
+      font-family: 'Fira Code', monospace; font-weight: 500; font-size: 15px;
+      letter-spacing: 0.14em; text-transform: uppercase; color: #EA9D2B; margin-bottom: 18px;
+    }
+    .dev05b-card-lead { font-size: 27px; line-height: 1.4; color: #FAF9F6; }
+
+    /* browser window with the API Console capture */
+    #\30 5b-developer-browser { left: 740px; top: 186px; width: 1140px; height: 682px; }
+    .dev05b-viewport {
+      position: absolute; left: 0; top: 40px; width: 1138px; height: 640px; overflow: hidden;
+      background: #1C1A16;
+    }
+    /* outer = scale (origin centre), inner = counter-translate; both in 1920x1080 capture space */
+    #\30 5b-developer-zoom-outer {
+      position: absolute; left: -391px; top: -220px; width: 1920px; height: 1080px;
+      transform-origin: 50% 50%;
+    }
+    #\30 5b-developer-zoom-inner { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
+    #\30 5b-developer-shot { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: block; }
+    /* marker: capture-space box around the first curl block (x 1262–1905, y 130–170) + 7px pad */
+    #\30 5b-developer-marker { position: absolute; left: 1255px; top: 123px; width: 657px; height: 54px; overflow: visible; }
+    #\30 5b-developer-marker rect { fill: none; stroke: #EA9D2B; stroke-width: 3; stroke-dasharray: 1; stroke-dashoffset: 1; }
+  </style>
+
+  <div id="root" data-composition-id="05b-developer" data-start="0" data-duration="10.4" data-width="1920" data-height="1080">
+    <div class="dev05b-ground clip" data-start="0" data-duration="9.4" data-track-index="0"></div>
+
+    <div class="dev05b-layer clip" data-start="0" data-duration="9.4" data-track-index="1">
+      <!-- left story panel -->
+      <div id="05b-developer-kicker"><span class="dev05b-rule"></span><span>05 / built for developers</span></div>
+      <div id="05b-developer-story">
+        <span class="dev05b-line" id="05b-developer-story-l1">the api is the</span>
+        <span class="dev05b-line" id="05b-developer-story-l2">product.</span>
+      </div>
+      <div id="05b-developer-assist">
+        <span class="dev05b-line" id="05b-developer-assist-l1">the console is the assistive</span>
+        <span class="dev05b-line" id="05b-developer-assist-l2">layer on top.</span>
+      </div>
+      <div id="05b-developer-api"></div>
+      <div id="05b-developer-sub">every UI action = one documented API call</div>
+      <div id="05b-developer-hairline"></div>
+
+      <!-- right stage: terminal + fact cards (dimmed when the browser rises) -->
+      <div id="05b-developer-stagebase" class="dev05b-layer">
+        <div id="05b-developer-term" class="dev05b-window">
+          <div class="dev05b-bar">
+            <span class="dev05b-dot"></span><span class="dev05b-dot"></span><span class="dev05b-dot"></span>
+            <span class="dev05b-title">~ — zsh</span>
+          </div>
+          <div class="dev05b-term-body">
+            <div class="dev05b-tline"><span class="dev05b-prompt">$ </span><span class="dev05b-cmd-wrap"><span id="05b-developer-cmd"></span><span id="05b-developer-caret"></span></span></div>
+            <div class="dev05b-tline dev05b-out" id="05b-developer-out0">Downloading sparrow-cli-0.13.0-darwin-arm64.tar.gz (v0.13.0)...</div>
+            <div class="dev05b-tline dev05b-out" id="05b-developer-out1"><span class="dev05b-ok">Installed</span> sparrow v0.13.0 to /usr/local/bin/sparrow</div>
+          </div>
+        </div>
+
+        <div id="05b-developer-cards">
+          <div class="dev05b-card" id="05b-developer-card0">
+            <div class="dev05b-card-rule"></div><div class="dev05b-card-rule-accent"></div>
+            <div class="dev05b-card-label">01 / one binary</div>
+            <div class="dev05b-card-lead">a single static Go binary, distroless image</div>
+          </div>
+          <div class="dev05b-card" id="05b-developer-card1">
+            <div class="dev05b-card-rule"></div><div class="dev05b-card-rule-accent"></div>
+            <div class="dev05b-card-label">02 / postgres only</div>
+            <div class="dev05b-card-lead">queue, state and cache in PostgreSQL. no Redis, no broker</div>
+          </div>
+          <div class="dev05b-card" id="05b-developer-card2">
+            <div class="dev05b-card-rule"></div><div class="dev05b-card-rule-accent"></div>
+            <div class="dev05b-card-label">03 / curl for everything</div>
+            <div class="dev05b-card-lead">the API Console shows every console request as copy-ready curl</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- browser window rises over the cards -->
+      <div id="05b-developer-browser" class="dev05b-window">
+        <div class="dev05b-bar">
+          <span class="dev05b-dot"></span><span class="dev05b-dot"></span><span class="dev05b-dot"></span>
+          <div class="dev05b-url">localhost:8080/webhooks</div>
+        </div>
+        <div class="dev05b-viewport">
+          <div id="05b-developer-zoom-outer">
+            <div id="05b-developer-zoom-inner">
+              <img id="05b-developer-shot" src="assets/ui-api-console.png" alt="Sparrow API Console drawer listing the UI's requests as curl commands" />
+              <svg id="05b-developer-marker" viewBox="0 0 657 54" preserveAspectRatio="none"><rect x="1.5" y="1.5" width="654" height="51" rx="6" pathLength="1" /></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    (function () {
+      const P = "05b-developer-";
+      const $ = function (id) { return document.getElementById(P + id); };
+      const DURATION = 9;
+      const tl = gsap.timeline({ paused: true });
+
+      // ---- Scene 1 (0.0–0.5): kicker, story, hairline; terminal settles
+      tl.fromTo($("kicker"), { opacity: 0, x: -16 }, { opacity: 1, x: 0, duration: 0.45, ease: "power3.out" }, 0.0);
+      tl.fromTo($("hairline"), { scaleY: 0 }, { scaleY: 1, duration: 0.8, ease: "power3.out" }, 0.0);
+      tl.fromTo([$("story-l1"), $("story-l2")], { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out", stagger: 0.1 }, 0.08);
+      tl.fromTo([$("assist-l1"), $("assist-l2")], { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out", stagger: 0.08 }, 0.32);
+      tl.fromTo($("term"), { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 0.0);
+
+      // ---- Scene 2 (0.5–2.0): install one-liner types at the prompt (discrete-text-sequence)
+      const HEAD = "curl -fsSL ";
+      const CHUNKS = ["https://", "raw.", "githubusercontent", ".com/", "sarathsp06/", "sparrow/", "main/", "scripts/", "install.sh", " | ", "sh"];
+      const SEQUENCE = [{ t: 0, text: "" }];
+      let tt = 0.55;
+      for (let i = 0; i < HEAD.length; i++) {
+        SEQUENCE.push({ t: tt, text: HEAD.slice(0, i + 1) });
+        tt += HEAD[i] === " " ? 0.07 : 0.032;
+      }
+      let acc = HEAD;
+      tt += 0.04;
+      for (let j = 0; j < CHUNKS.length; j++) {
+        acc += CHUNKS[j];
+        SEQUENCE.push({ t: tt, text: acc });
+        tt += 0.085;
+      }
+      const T_TYPED = SEQUENCE[SEQUENCE.length - 1].t;
+      const T_ENTER = 2.0;
+      function textAt(time) {
+        for (let i = SEQUENCE.length - 1; i >= 0; i--) {
+          if (time >= SEQUENCE[i].t) return SEQUENCE[i].text;
+        }
+        return "";
+      }
+
+      // left API line types on in Scene 4 (smooth slice)
+      const API_TEXT = "GET /openapi.yaml · generate your client";
+      const API_AT = 3.2, API_DUR = 1.3;
+
+      const cmdEl = $("cmd"), caretEl = $("caret"), apiEl = $("api");
+      const BLINK = 0.6;
+      let lastCmd = null, lastCaret = "", lastApi = null;
+      function render(time) {
+        const text = textAt(time);
+        if (text !== lastCmd) { cmdEl.textContent = text; lastCmd = text; }
+        const typing = time >= 0.55 && time < T_TYPED + 0.05;
+        const on = typing || Math.sin((time / BLINK) * Math.PI * 2) > -0.2;
+        const c = time < T_ENTER && on ? "1" : "0";
+        if (c !== lastCaret) { caretEl.style.opacity = c; lastCaret = c; }
+        const k = Math.max(0, Math.min(1, (time - API_AT) / API_DUR));
+        const api = API_TEXT.substring(0, Math.floor(k * API_TEXT.length));
+        if (api !== lastApi) { apiEl.textContent = api; lastApi = api; }
+      }
+      render(0);
+      const driver = { t: 0 };
+      tl.to(driver, { t: DURATION, duration: DURATION, ease: "none", onUpdate: function () { render(driver.t); } }, 0);
+
+      // ---- Scene 3 (2.0–2.9): two output lines print one per cue
+      tl.fromTo($("out0"), { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.16, ease: "power3.out" }, 2.1);
+      tl.fromTo($("out1"), { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.16, ease: "power3.out" }, 2.55);
+
+      // ---- Scene 4 (2.9–5.2): three fact cards assemble left-to-right, one per cue
+      [3.0, 3.7, 4.4].forEach(function (at, i) {
+        const card = $("card" + i);
+        tl.fromTo(card.querySelector(".dev05b-card-rule"), { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: "power3.out" }, at);
+        tl.fromTo(card.querySelector(".dev05b-card-rule-accent"), { scaleX: 0 }, { scaleX: 1, duration: 0.35, ease: "power3.out" }, at + 0.05);
+        tl.fromTo(card.querySelector(".dev05b-card-label"), { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, at + 0.06);
+        tl.fromTo(card.querySelector(".dev05b-card-lead"), { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" }, at + 0.12);
+      });
+
+      // ---- Scene 5 (5.2–7.6): browser rises over the cards; camera punches into the API Console
+      tl.fromTo($("stagebase"), { opacity: 1 }, { opacity: 0, duration: 0.7, ease: "power3.out" }, 5.2);
+      tl.fromTo($("browser"), { opacity: 0, y: 260 }, { opacity: 1, y: 0, duration: 0.9, ease: "power3.out" }, 5.2);
+      tl.fromTo($("sub"), { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 5.6);
+
+      // coordinate-target-zoom, capture space (1920x1080) inside a 1138x640 viewport.
+      // Rest: outer scale S0 fits the capture to the viewport. Punch: visible width 672 capture px (the drawer),
+      // right edge clamped to the capture right edge (x 1920) -> centre x 1584; centre y 282 frames
+      // the four curl entries (y 130–445). Nested wrappers: T = -offset from capture centre.
+      const VIEW_W = 1138;
+      const S0 = VIEW_W / 1920;
+      const VIS_W = 672;
+      const S1 = VIEW_W / VIS_W;
+      const CX = 1920 - VIS_W / 2;   // 1584 — drawer x 1248–1920 fills the viewport
+      const CY = 282;   // visible y ≈ 93–471: GET /v1/stats row through the /v1/whoami curl block
+      const ZOOM_AT = 6.0, ZOOM_DUR = 1.4;
+      tl.fromTo($("zoom-outer"), { scale: S0 }, { scale: S1, duration: ZOOM_DUR, ease: "power3.inOut" }, ZOOM_AT);
+      tl.fromTo($("zoom-inner"), { x: 0, y: 0 }, { x: -(CX - 960), y: -(CY - 540), duration: ZOOM_DUR, ease: "power3.inOut" }, ZOOM_AT);
+
+      // orange marker outline draws around the first curl block
+      tl.fromTo($("marker").querySelector("rect"), { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 0.6, ease: "power3.out" }, 7.0);
+
+      // ---- Scene 6 (7.6–9.0): held read on the console. Still.
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines["05b-developer"] = tl;
+    })();
+  </script>
+</template>

@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "preferences": {
+    "destination": {
+      "value": "youtube",
+      "confirmed_in": [
+        "sparrow-producthunt-demo"
+      ],
+      "updated_at": "2026-10-15T07:11:27.872Z"
+    },
+    "aspect": {
+      "value": "1920x1080",
+      "confirmed_in": [
+        "sparrow-producthunt-demo"
+      ],
+      "updated_at": "2026-10-15T07:11:57.829Z"
+    },
+    "language": {
+      "value": "en",
+      "confirmed_in": [
+        "sparrow-producthunt-demo"
+      ],
+      "updated_at": "2026-10-15T07:11:57.871Z"
+    },
+    "flow": {
+      "value": "automation",
+      "confirmed_in": [
+        "sparrow-producthunt-demo"
+      ],
+      "updated_at": "2026-10-15T07:11:57.915Z"
+    },
+    "storyboard": {
+      "value": "no",
+      "confirmed_in": [
+        "sparrow-producthunt-demo"
+      ],
+      "updated_at": "2026-10-15T07:11:57.956Z"
+    },
+    "style_preset.product-launch-video": {
+      "value": "broadside",
+      "confirmed_in": [
+        "sparrow-producthunt-demo"
+      ],
+      "updated_at": "2026-10-15T07:14:10.361Z"
+    }
+  },
+  "sightings": {}
+}

@@ -1,0 +1,299 @@
+<template>
+<div id="root" data-composition-id="04-transform" data-width="1920" data-height="1080" data-duration="10.5">
+<style>
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3dSDqFGedA.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3dSDqFGedA.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3dSDqFGedA.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+</style>
+<style>
+#root { position: relative; width: 1920px; height: 1080px; overflow: hidden; }
+#\30 4-transform-bg { position: absolute; inset: 0; background: #1C1A16; }
+#\30 4-transform-stage { position: absolute; inset: 0; overflow: hidden; }
+
+/* ---- left story panel (x 0–690) ---- */
+#\30 4-transform-kicker {
+  position: absolute; left: 80px; top: 90px; display: flex; align-items: center; gap: 16px;
+  font-family: 'Fira Code', monospace; font-weight: 500; font-size: 18px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: #EA9D2B; white-space: nowrap;
+}
+.\30 4-transform-rule { width: 36px; height: 2px; background: #EA9D2B; }
+#\30 4-transform-story {
+  position: absolute; left: 80px; top: 300px; width: 600px;
+  font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 58px; line-height: 1.08;
+  letter-spacing: -0.02em; text-transform: lowercase;
+}
+.\30 4-transform-sl { display: block; color: #FAF9F6; }
+.\30 4-transform-sl.\30 4-transform-mut { color: #C9C2B2; }
+#\30 4-transform-api {
+  margin-top: 34px; height: 36px; font-family: 'Fira Code', monospace; font-weight: 500; font-size: 26px;
+  line-height: 36px; letter-spacing: 0; text-transform: none; color: #EA9D2B; white-space: nowrap;
+}
+#\30 4-transform-sub {
+  margin-top: 12px; font-family: 'Fira Code', monospace; font-weight: 400; font-size: 19px; line-height: 28px;
+  letter-spacing: 0; text-transform: none; color: #C9C2B2; white-space: nowrap;
+}
+#\30 4-transform-hair { position: absolute; left: 715px; top: 90px; width: 1px; height: 810px; background: #282726; transform-origin: 50% 0; }
+
+/* ---- right stage (x 740–1880, y 90–900): framed browser window ---- */
+#\30 4-transform-win {
+  position: absolute; left: 740px; top: 154px; width: 1140px; height: 682px; box-sizing: border-box;
+  background: #1A1918; border: 1px solid rgba(234,157,43,0.7); border-radius: 8px;
+  box-shadow: 0 0 40px rgba(234,157,43,0.12); overflow: hidden;
+}
+.\30 4-transform-chrome {
+  position: absolute; left: 0; top: 0; right: 0; height: 40px; display: flex; align-items: center; gap: 9px;
+  padding: 0 16px; box-sizing: border-box; border-bottom: 1px solid #282726; background: #1A1918;
+}
+.\30 4-transform-dot { width: 11px; height: 11px; border-radius: 50%; background: #504D48; flex: 0 0 auto; }
+.\30 4-transform-url {
+  margin-left: 16px; flex: 0 0 620px; height: 24px; display: flex; align-items: center; padding: 0 12px; box-sizing: border-box;
+  background: #1C1A16; border: 1px solid #282726; border-radius: 4px;
+  font-family: 'Fira Code', monospace; font-weight: 400; font-size: 14px; color: #C9C2B2; white-space: nowrap; overflow: hidden;
+}
+#\30 4-transform-vp { position: absolute; left: 0; top: 40px; width: 1138px; height: 640px; overflow: hidden; background: #FFFFFF; }
+#\30 4-transform-camo { position: absolute; left: 0; top: 0; width: 1138px; height: 640px; transform-origin: 50% 50%; will-change: transform; }
+#\30 4-transform-cami { position: absolute; left: 0; top: 0; width: 1138px; height: 640px; will-change: transform; }
+#\30 4-transform-cap { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform: scale(0.592708); transform-origin: 0 0; }
+#\30 4-transform-img { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: block; }
+#\30 4-transform-svg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; }
+.\30 4-transform-ol { fill: none; stroke: #EA9D2B; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+#\30 4-transform-glowbar {
+  position: absolute; left: 984px; top: 505px; width: 246px; height: 24px; border-radius: 3px;
+  background: rgba(234,157,43,0.42); mix-blend-mode: multiply; transform-origin: 0 50%;
+}
+#\30 4-transform-glowring {
+  position: absolute; left: 978px; top: 501px; width: 258px; height: 32px; box-sizing: border-box; border-radius: 4px;
+  border: 2.5px solid #EA9D2B; box-shadow: 0 0 22px 4px rgba(234,157,43,0.55);
+}
+
+/* ---- framed terminal chip (inside stage, over the window's lower third) ---- */
+#\30 4-transform-term {
+  position: absolute; left: 810px; top: 628px; width: 1000px; box-sizing: border-box;
+  background: #1A1918; border: 1px solid rgba(234,157,43,0.7); border-radius: 8px;
+  box-shadow: 0 0 40px rgba(234,157,43,0.12), 0 18px 40px rgba(0,0,0,0.45); overflow: hidden;
+}
+.\30 4-transform-tchrome {
+  height: 34px; display: flex; align-items: center; gap: 9px; padding: 0 16px; box-sizing: border-box; border-bottom: 1px solid #282726;
+}
+.\30 4-transform-ttitle {
+  flex: 1 1 auto; text-align: center; margin-right: 60px;
+  font-family: 'Fira Code', monospace; font-weight: 400; font-size: 13px; letter-spacing: 0.08em; color: #C9C2B2;
+}
+.\30 4-transform-tbody {
+  padding: 14px 28px 16px; font-family: 'Fira Code', monospace; font-weight: 400; font-size: 23px; line-height: 34px; color: #FAF9F6;
+}
+.\30 4-transform-tl { height: 34px; white-space: pre; display: flex; align-items: center; }
+.\30 4-transform-ps { color: #EA9D2B; font-weight: 600; white-space: pre; }
+.\30 4-transform-ind { white-space: pre; }
+.\30 4-transform-caret { display: inline-block; width: 12px; height: 26px; margin-left: 1px; background: #FAF9F6; }
+#\30 4-transform-out { color: #16875A; font-weight: 500; visibility: hidden; }
+#\30 4-transform-l2 { visibility: hidden; }
+.\30 4-transform-ch { display: none; white-space: pre; }
+</style>
+
+<div id="04-transform-bg" class="clip" data-start="0" data-duration="10.5" data-track-index="0"></div>
+
+<div id="04-transform-stage" class="clip" data-start="0" data-duration="10.5" data-track-index="1">
+  <div id="04-transform-kicker"><span class="04-transform-rule"></span><span>03 / transform</span></div>
+
+  <div id="04-transform-story">
+    <span class="04-transform-sl" id="04-transform-s1">reshape any event</span>
+    <span class="04-transform-sl" id="04-transform-s2">for its receiver.</span>
+    <span class="04-transform-sl 04-transform-mut" id="04-transform-s3">go templates,</span>
+    <span class="04-transform-sl 04-transform-mut" id="04-transform-s4">rendered live.</span>
+    <div id="04-transform-api"></div>
+    <div id="04-transform-sub">POST /v1/subscriptions:draftTemplate · AI optional</div>
+  </div>
+
+  <div id="04-transform-hair"></div>
+
+  <div id="04-transform-win">
+    <div class="04-transform-chrome">
+      <span class="04-transform-dot"></span><span class="04-transform-dot"></span><span class="04-transform-dot"></span>
+      <span class="04-transform-url">localhost:8080/webhooks/…/subscriptions/…/edit</span>
+    </div>
+    <div id="04-transform-vp">
+      <div id="04-transform-camo">
+        <div id="04-transform-cami">
+          <div id="04-transform-cap">
+            <img id="04-transform-img" src="assets/ui-template-editor-ai.png" alt="Sparrow template editor: AI prompt, Slack template and live render">
+            <div id="04-transform-glowbar"></div>
+            <div id="04-transform-glowring"></div>
+            <svg id="04-transform-svg" viewBox="0 0 1920 1080">
+              <path class="04-transform-ol" id="04-transform-olp" pathLength="1" d=""></path>
+              <path class="04-transform-ol" id="04-transform-olt" pathLength="1" d=""></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="04-transform-term">
+    <div class="04-transform-tchrome">
+      <span class="04-transform-dot"></span><span class="04-transform-dot"></span><span class="04-transform-dot"></span>
+      <span class="04-transform-ttitle">zsh — sparrow</span>
+    </div>
+    <div class="04-transform-tbody">
+      <div class="04-transform-tl" id="04-transform-l1"><span class="04-transform-ps">$ </span><span id="04-transform-c1"></span><span class="04-transform-caret" id="04-transform-k1"></span></div>
+      <div class="04-transform-tl" id="04-transform-l2"><span class="04-transform-ind">  </span><span id="04-transform-c2"></span><span class="04-transform-caret" id="04-transform-k2"></span></div>
+      <div class="04-transform-tl" id="04-transform-out">recipe "slack" applied in consumer "default"</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById("04-transform-" + id); };
+  var tl = gsap.timeline({ paused: true });
+  var DUR = 10;
+
+  // ---------- marker outlines (capture coords, 1920-wide) ----------
+  function sketch(x, y, w, h) {
+    return "M" + (x + w * 0.05) + "," + (y - 2) +
+      " L" + (x + w + 3) + "," + (y + 1) +
+      " L" + (x + w - 1) + "," + (y + h + 3) +
+      " L" + (x - 3) + "," + (y + h - 1) +
+      " L" + (x + 1) + "," + (y - 3) +
+      " L" + (x + w * 0.14) + "," + (y + 1);
+  }
+  $("olp").setAttribute("d", sketch(9, 139, 910, 79));   // PROMPT FOR AI textarea (x 16–910, y 145–210)
+  $("olt").setAttribute("d", sketch(52, 568, 806, 30));  // template mrkdwn printf line (x 60–850, y≈582)
+
+  // ---------- camera: outer scales, inner counter-translates (T = -offset), shared ease + duration ----------
+  var K = 1138 / 1920, VW = 1138, VH = 640;
+  var outer = $("camo"), inner = $("cami");
+  function pose(s, cx, cy) {            // cx/cy = camera centre in capture coords, clamped so no blank shows past the edges
+    var hx = 960 / s, hy = 540 / s;
+    cx = Math.min(Math.max(cx, hx), 1920 - hx);
+    cy = Math.min(Math.max(cy, hy), 1080 - hy);
+    return { s: s, x: -(cx * K - VW / 2), y: -(cy * K - VH / 2) };
+  }
+  var N = pose(1, 960, 540);
+  var P = pose(1.8, 463, 178);    // PROMPT FOR AI -> clamps to the capture's upper-left corner
+  var T = pose(1.8, 455, 582);    // template printf line -> clamps to the left edge
+  var R = pose(1.8, 1105, 517);   // RENDERED · LIVE line
+  gsap.set(outer, { scale: N.s, transformOrigin: "50% 50%" });
+  gsap.set(inner, { x: N.x, y: N.y });
+  function move(from, to, at, dur, ease) {
+    tl.fromTo(outer, { scale: from.s }, { scale: to.s, duration: dur, ease: ease, immediateRender: false }, at);
+    tl.fromTo(inner, { x: from.x, y: from.y }, { x: to.x, y: to.y, duration: dur, ease: ease, immediateRender: false }, at);
+  }
+  move(N, P, 0.6, 1.4, "power3.inOut");   // Scene 2 push-in (coordinate-target-zoom)
+  move(P, T, 2.8, 0.8, "power3.inOut");   // Scene 3 travel down to TEMPLATE (viewport-change)
+  move(T, R, 3.9, 0.7, "power3.inOut");   // ...continues right to RENDERED · LIVE (cut-the-curve)
+  move(R, N, 5.0, 1.3, "power3.out");     // Scene 4 one decelerating pull-back, then still
+
+  // per-character spans revealed at keystroke thresholds (discrete-text-sequence, seek-safe tl.set)
+  function spansFor(el, str) {
+    var out = [];
+    for (var i = 0; i < str.length; i++) {
+      var sp = document.createElement("span");
+      sp.className = "04-transform-ch";
+      sp.textContent = str[i];
+      el.appendChild(sp); out.push(sp);
+    }
+    return out;
+  }
+
+  // ---------- Scene 1 (0–0.6): panel + window settle ----------
+  tl.fromTo($("kicker"), { opacity: 0, x: -16 }, { opacity: 1, x: 0, duration: 0.45, ease: "power3.out" }, 0);
+  tl.fromTo($("hair"), { scaleY: 0 }, { scaleY: 1, duration: 0.6, ease: "power3.out" }, 0);
+  tl.fromTo([$("s1"), $("s2"), $("s3"), $("s4")], { opacity: 0, y: 26 },
+    { opacity: 1, y: 0, duration: 0.5, ease: "power3.out", stagger: 0.1 }, 0.05);
+  tl.fromTo($("win"), { opacity: 0, y: 30, scale: 0.97 }, { opacity: 1, y: 0, scale: 1, duration: 0.6, ease: "power3.out" }, 0);
+
+  // ---------- Scene 2 (0.6–2.8): prompt outline draws as the push settles ----------
+  tl.fromTo($("olp"), { strokeDashoffset: 1, opacity: 1 }, { strokeDashoffset: 0, duration: 0.7, ease: "power3.inOut" }, 1.75);
+
+  // ---------- Scene 3 (2.8–5.0): outline redraws on the template line; rendered line glows; API line types ----------
+  tl.to($("olp"), { opacity: 0, duration: 0.3, ease: "power3.out" }, 2.8);
+  tl.fromTo($("olt"), { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 0.55, ease: "power3.inOut" }, 3.35);
+  tl.fromTo($("glowbar"), { scaleX: 0 }, { scaleX: 1, duration: 0.4, ease: "power3.out" }, 4.45);
+  tl.fromTo($("glowring"), { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.35, ease: "power3.out" }, 4.6);
+
+  var API = "POST /v1/subscriptions:testTemplate";
+  var apiSp = spansFor($("api"), API);
+  for (var ai = 0; ai < apiSp.length; ai++) tl.set(apiSp[ai], { display: "inline" }, 4.1 + ai * 0.024);
+
+  // ---------- Scene 4 (5.0–6.4): pull back + sub-line ----------
+  tl.fromTo($("sub"), { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 5.6);
+
+  // ---------- Scene 5 (6.4–8.8): terminal chip slides up, recipe command types, output prints ----------
+  tl.fromTo($("term"), { opacity: 0, y: 70 }, { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" }, 6.4);
+
+  var CMD = "sparrow use slack --param webhook_url=https://hooks.slack.com/… --event order.created";
+  var SPLIT = 63;   // line 1 ends after the pasted URL; "--event order.created" wraps to line 2 (wrap-point space dropped)
+  var sp1 = spansFor($("c1"), CMD.substring(0, SPLIT));
+  var sp2 = spansFor($("c2"), CMD.substring(SPLIT + 1));
+  var all = sp1.concat([null]).concat(sp2);   // null = the wrap-point space
+  var k1 = $("k1"), k2 = $("k2");
+  gsap.set(k2, { opacity: 0 });
+  // idle caret blink before typing starts (deterministic discrete sets)
+  [6.4, 6.62].forEach(function (bt, bi) { tl.set(k1, { opacity: bi % 2 ? 0 : 1 }, bt); });
+  var t = 6.85, n = 0;
+  tl.set(k1, { opacity: 1 }, t);
+  function reveal(sp, at) { if (sp) tl.set(sp, { display: "inline" }, at); }
+  function keys(count, step) { for (var i = 0; i < count; i++) { t += step; reveal(all[n], t); n++; } }
+  keys(7, 0.03);  t += 0.06;          // sparrow
+  keys(11, 0.026); t += 0.06;         // " use slack "
+  keys(20, 0.02);  t += 0.05;          // "--param webhook_url="
+  t += 0.05;                          // pasted URL lands in one jump
+  for (var u = 0; u < 25; u++) { reveal(all[n], t); n++; }
+  t += 0.06;
+  n++;                                // wrap-point space
+  tl.set($("l2"), { visibility: "visible" }, t + 0.02);
+  tl.set(k1, { opacity: 0 }, t + 0.02);
+  tl.set(k2, { opacity: 1 }, t + 0.02);
+  keys(all.length - n, 0.02);         // "--event order.created"
+  var T_OUT = t + 0.18;               // ≈ 8.6s
+  tl.set(k2, { opacity: 0 }, T_OUT);
+  tl.set($("out"), { visibility: "visible" }, T_OUT);
+
+  // ---------- Scene 6 (8.8–10): held read, still ----------
+  tl.set({}, {}, DUR);
+
+  window.__timelines = window.__timelines || {};
+  window.__timelines["04-transform"] = tl;
+})();
+</script>
+</div>
+</template>

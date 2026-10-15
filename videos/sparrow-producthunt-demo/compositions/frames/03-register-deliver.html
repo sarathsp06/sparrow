@@ -1,0 +1,319 @@
+<template>
+  <style>
+    @font-face{font-family:'Fira Code';font-style:normal;font-weight:400;font-display:swap;src:url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3dSDqFGedA.woff2") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+    @font-face{font-family:'Fira Code';font-style:normal;font-weight:500;font-display:swap;src:url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3dSDqFGedA.woff2") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+    @font-face{font-family:'Space Grotesk';font-style:normal;font-weight:400;font-display:swap;src:url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+    @font-face{font-family:'Space Grotesk';font-style:normal;font-weight:700;font-display:swap;src:url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+
+    #root {
+      position: absolute;
+      inset: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      font-family: 'Fira Code', monospace;
+      font-variant-ligatures: none;
+      font-feature-settings: "liga" 0, "calt" 0;
+      color: #FAF9F6;
+    }
+    #f03-ground { position: absolute; inset: 0; background: #1C1A16; }
+    #f03-scene { position: absolute; inset: 0; overflow: hidden; }
+
+    /* ---------- left story panel (x 0–690) ---------- */
+    #f03-panel { position: absolute; left: 72px; top: 0; width: 618px; height: 900px; }
+    #f03-kicker { position: absolute; left: 0; top: 90px; display: flex; flex-direction: column; gap: 14px; }
+    .f03-rule { width: 36px; height: 2px; background: #EA9D2B; }
+    .f03-kicker-text {
+      font-family: 'Fira Code', monospace; font-size: 15px; font-weight: 500;
+      letter-spacing: 0.14em; text-transform: uppercase; color: #EA9D2B;
+    }
+    #f03-copy { position: absolute; left: 0; top: 300px; width: 618px; display: flex; flex-direction: column; }
+    #f03-story {
+      position: relative; width: 618px;
+      font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 52px;
+      line-height: 1.12; letter-spacing: -0.02em; text-transform: lowercase; color: #FAF9F6;
+    }
+    #f03-story .f03-w { display: inline-block; }
+    #f03-story .f03-acc { color: #EA9D2B; }
+    #f03-api {
+      position: relative; margin-top: 26px; width: 618px; min-height: 30px;
+      font-family: 'Fira Code', monospace; font-size: 22px; font-weight: 500;
+      color: #EA9D2B; white-space: nowrap;
+    }
+    #f03-sub {
+      position: relative; margin-top: 14px; width: 618px;
+      font-family: 'Fira Code', monospace; font-size: 16px; line-height: 1.5;
+      color: #C9C2B2;
+    }
+    #f03-hair { position: absolute; left: 715px; top: 90px; width: 1px; height: 810px; background: #282726; }
+
+    /* ---------- right stage (x 740–1880, y 90–900) ---------- */
+    #f03-stage { position: absolute; left: 740px; top: 90px; width: 1140px; height: 810px; }
+    .f03-win {
+      position: absolute; left: 0; width: 1140px; box-sizing: border-box;
+      background: #1A1918; border: 1px solid rgba(234,157,43,0.7); border-radius: 8px;
+      box-shadow: 0 0 40px rgba(234,157,43,0.12); overflow: hidden;
+    }
+    #f03-term-top { top: 0; height: 384px; }
+    #f03-term-bot { top: 412px; height: 384px; }
+    .f03-chrome {
+      height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 16px;
+      border-bottom: 1px solid #282726; box-sizing: border-box;
+    }
+    .f03-dot { width: 10px; height: 10px; border-radius: 50%; background: #504D48; flex: none; }
+    .f03-title {
+      margin-left: 14px; font-size: 13px; font-weight: 500; letter-spacing: 0.14em;
+      text-transform: uppercase; color: #504D48;
+    }
+    .f03-body { padding: 16px 22px; font-size: 19px; line-height: 28px; }
+    .f03-line { white-space: pre-wrap; overflow-wrap: anywhere; min-height: 28px; }
+    .f03-cmd { white-space: pre; display: flex; align-items: baseline; }
+    .f03-ps { color: #EA9D2B; }
+    .f03-o { color: #EA9D2B; }
+    .f03-m { color: #C9C2B2; }
+    .f03-rulechar {
+      display: inline-block; width: 2ch; height: 1px; background: #C9C2B2;
+      vertical-align: middle; margin-bottom: 3px;
+    }
+    .f03-caret {
+      display: inline-block; width: 11px; height: 22px; margin-left: 1px;
+      background: #EA9D2B; align-self: center;
+    }
+    #f03-sig {
+      display: inline-block; padding: 0 8px; margin-left: -8px; border-radius: 4px;
+      background: rgba(22,135,90,0); color: #FAF9F6;
+    }
+
+    /* browser window — fit-width capture, punch-in clipped by the window */
+    #f03-browser { top: 64px; height: 682px; }
+    .f03-url {
+      margin-left: 20px; flex: 1; height: 24px; display: flex; align-items: center; padding: 0 12px;
+      border: 1px solid #282726; border-radius: 4px; background: #1C1A16;
+      font-size: 13px; color: #C9C2B2;
+    }
+    #f03-viewport { position: relative; width: 1138px; height: 640px; overflow: hidden; }
+    #f03-zoom-outer { position: absolute; inset: 0; transform-origin: 50% 50%; will-change: transform; }
+    #f03-zoom-inner { position: absolute; inset: 0; will-change: transform; }
+    #f03-plane {
+      position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
+      transform-origin: 0 0; transform: scale(0.5927083);
+    }
+    #f03-shot { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: block; }
+    #f03-spot {
+      position: absolute; left: 335px; top: 372px; width: 1580px; height: 58px;
+      box-shadow: 0 0 0 3000px rgba(28,26,22,0.42);
+    }
+    #f03-underline {
+      position: absolute; left: 335px; top: 428px; width: 1580px; height: 5px;
+      background: #EA9D2B; transform-origin: 0 50%;
+    }
+    #f03-badge-glow {
+      position: absolute; left: 1202px; top: 385px; width: 88px; height: 32px;
+      border-radius: 16px; border: 2px solid #16875A; box-sizing: border-box;
+      box-shadow: 0 0 22px 6px rgba(22,135,90,0.75);
+    }
+  </style>
+
+  <div id="root" data-composition-id="03-register-deliver" data-start="0" data-duration="11.5" data-width="1920" data-height="1080">
+    <div id="f03-ground" class="clip" data-start="0" data-duration="11.5" data-track-index="0"></div>
+
+    <div id="f03-scene" class="clip" data-start="0" data-duration="11.5" data-track-index="1">
+      <!-- LEFT: story panel -->
+      <div id="f03-panel">
+        <div id="f03-kicker">
+          <div class="f03-rule"></div>
+          <div class="f03-kicker-text">03 / subscribe and deliver</div>
+        </div>
+        <div id="f03-copy">
+          <div id="f03-story"></div>
+          <div id="f03-api"><span id="f03-api-typed"></span></div>
+          <div id="f03-sub">Webhook-Signature: v1,HMAC-SHA256 · retries with backoff</div>
+        </div>
+      </div>
+      <div id="f03-hair"></div>
+
+      <!-- RIGHT: stage -->
+      <div id="f03-stage">
+        <div id="f03-terms">
+          <div id="f03-term-top" class="f03-win">
+            <div class="f03-chrome">
+              <span class="f03-dot"></span><span class="f03-dot"></span><span class="f03-dot"></span>
+              <span class="f03-title">listen</span>
+            </div>
+            <div class="f03-body">
+              <div class="f03-line f03-cmd"><span class="f03-ps">$ </span><span id="f03-t-typed"></span><span id="f03-t-caret" class="f03-caret"></span></div>
+              <div id="f03-t1" class="f03-line">listening on [::]:4568, registered webhook <span class="f03-o">8aaaf4d7…</span> -&gt; http://host.docker.internal:4568 (events: [<span class="f03-o">payment.refunded</span>])</div>
+              <div id="f03-t2" class="f03-line">press Ctrl-C to stop and delete the webhook</div>
+              <div id="f03-d1" class="f03-line f03-m"><span class="f03-rulechar"></span> delivery 09:42:02 <span class="f03-rulechar"></span> POST /</div>
+              <div id="f03-d2" class="f03-line"><span id="f03-sig">signature: verified (v1, HMAC-SHA256)</span></div>
+              <div id="f03-d3" class="f03-line f03-m">Webhook-Id: msg_9c8f7f36-d798-5020-a8dc-f1a9b5937f15</div>
+              <div id="f03-d4" class="f03-line f03-m">X-Sparrow-Event-Id: 86a095c1-b0e3-4928-90e9-18f0760d7d9b</div>
+              <div id="f03-d5" class="f03-line">{ "event_name": "payment.refunded", "attempt": 1, "payload": { <span class="f03-o">"amount": 99</span>, "currency": "USD", <span class="f03-o">"order_id": "42"</span>, "payment_id": "pay_8f31", "reason": "requested_by_customer" } }</div>
+            </div>
+          </div>
+
+          <div id="f03-term-bot" class="f03-win">
+            <div class="f03-chrome">
+              <span class="f03-dot"></span><span class="f03-dot"></span><span class="f03-dot"></span>
+              <span class="f03-title">push</span>
+            </div>
+            <div class="f03-body">
+              <div class="f03-line f03-cmd"><span class="f03-ps">$ </span><span id="f03-b-typed"></span><span id="f03-b-caret" class="f03-caret"></span></div>
+              <div id="f03-b1" class="f03-line f03-m">86a095c1-b0e3-4928-90e9-18f0760d7d9b</div>
+              <div id="f03-b2" class="f03-line f03-cmd"><span class="f03-ps">$ </span><span id="f03-b-caret2" class="f03-caret"></span></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="f03-browser" class="f03-win">
+          <div class="f03-chrome">
+            <span class="f03-dot"></span><span class="f03-dot"></span><span class="f03-dot"></span>
+            <div class="f03-url">localhost:8080/deliveries</div>
+          </div>
+          <div id="f03-viewport">
+            <div id="f03-zoom-outer">
+              <div id="f03-zoom-inner">
+                <div id="f03-plane">
+                  <img id="f03-shot" src="assets/ui-deliveries-refund.png" alt="" />
+                  <div id="f03-spot"></div>
+                  <div id="f03-underline"></div>
+                  <div id="f03-badge-glow"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    (function () {
+      var ID = "03-register-deliver";
+      var $ = function (s) { return document.getElementById("f03-" + s); };
+      var DUR = 11;
+
+      // ---- story: one span per word (quote-text reveal) ----
+      var STORY = [
+        ["register", 0], ["a", 0], ["webhook", 0], ["and", 0], ["subscribe", 0], ["it.", 0], ["push", 0], ["again.", 0],
+        ["signed,", 1], ["delivered,", 1], ["retried,", 1], ["recorded.", 1]
+      ];
+      var storyEl = $("story");
+      STORY.forEach(function (w, i) {
+        var s = document.createElement("span");
+        s.className = "f03-w" + (w[1] ? " f03-acc" : "");
+        s.textContent = w[0];
+        storyEl.appendChild(s);
+        if (i < STORY.length - 1) storyEl.appendChild(document.createTextNode(" "));
+      });
+
+      // ---- punch-in geometry (coordinate-target-zoom, nested wrappers, clipped by the window) ----
+      // viewport 1138×640; capture fit-width at s = 1138/1920
+      var VW = 1138, VH = 640, IMG_S = 1138 / 1920;
+      // target row (TOP row) in 1920-space capture: x 335–1915, y 372–430
+      // The full row spans 82% of the capture width, so fitting all of it is only a ~1.2x push.
+      // Frame the readable span instead — event · webhook · consumer · Success · 200 (x 500–1450) —
+      // so it fills the stage width; the row's outer columns crop at the window edge.
+      var rowCX = (500 + 1450) / 2 * IMG_S, rowCY = (372 + 430) / 2 * IMG_S;
+      var rowW = (1450 - 500) * IMG_S;
+      var ZOOM_SCALE = Math.min(2.2, (0.98 * VW) / rowW);
+      var offX = rowCX - VW / 2, offY = rowCY - VH / 2;
+      // T = -offset, clamped so the capture always covers the viewport (row sits at the capture's right edge)
+      var imgH = 1080 * IMG_S;
+      var minTx = VW / 2 / ZOOM_SCALE - VW / 2;                       // right edge stays >= VW
+      var maxTx = VW / 2 - VW / 2 / ZOOM_SCALE;                       // left edge stays <= 0
+      var minTy = (VH / 2) / ZOOM_SCALE - (imgH - VH / 2);            // bottom edge stays >= VH
+      var maxTy = VH / 2 - (VH / 2) / ZOOM_SCALE;                     // top edge stays <= 0
+      var TX = Math.max(minTx, Math.min(maxTx, -offX));
+      var TY = Math.max(minTy, Math.min(maxTy, -offY));
+
+      var tl = gsap.timeline({ paused: true });
+
+      // ---- typing driver (discrete-text-sequence, smooth-slice variation) ----
+      var T_CMD = "sparrow listen --event payment.refunded";
+      var B_CMD = "sparrow push payment.refunded -d '{\"payment_id\":\"pay_8f31\",\"order_id\":\"42\",\"amount\":99}'";
+      var API = "POST /v1/consumers/{consumer}/webhooks";
+      var T0 = 0.65, T1 = 2.0, T_ENTER = 2.2;
+      var A0 = 0.9, A1 = 1.9;
+      var B0 = 3.55, B1 = 4.9, B_ENTER = 5.0;
+      var tTyped = $("t-typed"), bTyped = $("b-typed"), aTyped = $("api-typed");
+      var tCaret = $("t-caret"), bCaret = $("b-caret"), bCaret2 = $("b-caret2");
+      var last = { t: null, b: null, a: null };
+
+      function slice(str, t, a, b) {
+        var p = (t - a) / (b - a);
+        p = p < 0 ? 0 : p > 1 ? 1 : p;
+        return str.substring(0, Math.floor(p * str.length + 1e-6));
+      }
+      function blink(t) { return Math.sin((t * Math.PI * 2) / 0.7) >= 0; }
+      function render(t) {
+        var s = slice(T_CMD, t, T0, T1);
+        if (s !== last.t) { tTyped.textContent = s; last.t = s; }
+        s = slice(B_CMD, t, B0, B1);
+        if (s !== last.b) { bTyped.textContent = s; last.b = s; }
+        s = slice(API, t, A0, A1);
+        if (s !== last.a) { aTyped.textContent = s; last.a = s; }
+        tCaret.style.opacity = t >= T_ENTER ? "0" : ((t >= T0 && t <= T1) || blink(t)) ? "1" : "0";
+        bCaret.style.opacity = t >= B_ENTER ? "0" : (t < 3.0 ? "0" : ((t >= B0 && t <= B1) || blink(t)) ? "1" : "0");
+        bCaret2.style.opacity = blink(t) ? "1" : "0";
+      }
+      var driver = { t: 0 };
+      render(0);
+      tl.to(driver, { t: DUR, duration: DUR, ease: "none", onUpdate: function () { render(driver.t); } }, 0);
+
+      // ---- line printing (dynamic-content-sequencing: windows weighted by length) ----
+      function schedule(ids, start, end, base, perChar) {
+        var w = ids.map(function (id) { return base + $(id).textContent.length * perChar; });
+        var sum = w.reduce(function (a, b) { return a + b; }, 0);
+        var k = (end - start) / sum, acc = start;
+        return ids.map(function (id, i) { var s = acc; acc += w[i] * k; return { id: id, t: s }; });
+      }
+      function printLine(id, t) {
+        tl.fromTo($(id), { opacity: 0, y: 6 }, { opacity: 1, y: 0, duration: 0.16, ease: "power3.out" }, t);
+      }
+
+      // Scene 1 (0–0.6): kicker, story words, two stacked terminals (top lit, bottom ~55%)
+      tl.fromTo($("kicker"), { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0);
+      tl.fromTo("#f03-story .f03-w", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out", stagger: 0.045 }, 0.08);
+      tl.fromTo($("term-top"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0);
+      tl.fromTo($("term-bot"), { opacity: 0, y: 20 }, { opacity: 0.55, y: 0, duration: 0.45, ease: "power3.out" }, 0.08);
+      tl.fromTo($("api"), { opacity: 0 }, { opacity: 1, duration: 0.01, ease: "none" }, A0 - 0.02);
+
+      // Scene 3 (2.2–3.4): listener prints, bottom terminal brightens
+      schedule(["t1", "t2"], 2.3, 3.0, 0.3, 0.004).forEach(function (e) { printLine(e.id, e.t); });
+      tl.to($("term-bot"), { opacity: 1, duration: 0.4, ease: "power3.out" }, 3.0);
+
+      // Scene 2 (0.6–2.2): listen + API line type (driver). Scene 4 (3.4–5.2): push types, event id prints
+      printLine("b1", 5.05);
+      printLine("b2", 5.15);
+
+      // Scene 5 (5.2–7.4): the top terminal answers with the signed delivery
+      var del = schedule(["d1", "d2", "d3", "d4", "d5"], 5.3, 6.9, 0.35, 0.003);
+      del.forEach(function (e) { printLine(e.id, e.t); });
+      var sigT = del[1].t + 0.06;
+      tl.fromTo($("sig"),
+        { backgroundColor: "rgba(22,135,90,0)", boxShadow: "0 0 0px 0px rgba(22,135,90,0)" },
+        { backgroundColor: "rgba(22,135,90,1)", boxShadow: "0 0 26px 6px rgba(22,135,90,0.8)", duration: 0.3, ease: "power3.out" },
+        sigT);
+      tl.to($("sig"), { boxShadow: "0 0 10px 1px rgba(22,135,90,0.4)", duration: 0.6, ease: "power3.inOut" }, sigT + 0.35);
+      tl.fromTo($("sub"), { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 6.3);
+
+      // Scene 6 (7.4–9.2): browser rises over the terminals, punch-in onto the top row
+      tl.fromTo($("browser"), { opacity: 0, y: 120 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 7.4);
+      tl.to($("terms"), { opacity: 0, duration: 0.6, ease: "power3.out" }, 7.5);
+      var ZOOM_AT = 7.95, ZOOM_DUR = 1.1;
+      tl.fromTo($("zoom-outer"), { scale: 1 }, { scale: ZOOM_SCALE, duration: ZOOM_DUR, ease: "power3.inOut" }, ZOOM_AT);
+      tl.fromTo($("zoom-inner"), { x: 0, y: 0 }, { x: TX, y: TY, duration: ZOOM_DUR, ease: "power3.inOut" }, ZOOM_AT);
+      tl.fromTo($("spot"), { opacity: 0 }, { opacity: 1, duration: 0.6, ease: "power3.out" }, 8.5);
+      tl.fromTo($("underline"), { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: "power3.inOut" }, 8.7);
+      tl.fromTo($("badge-glow"), { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1.08, duration: 0.25, ease: "power3.out" }, 9.0);
+      tl.to($("badge-glow"), { opacity: 0.4, scale: 1, duration: 0.5, ease: "power3.inOut" }, 9.25);
+
+      // Scene 7 (9.2–11): held read on the punched-in row — still
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines[ID] = tl;
+    })();
+  </script>
+</template>

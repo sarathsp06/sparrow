@@ -1,0 +1,166 @@
+{
+  "files": [
+    {
+      "file": "V8mDoQDjQSkFtoMM3T6r8E7mPb54C_k3HqUtEw.woff2",
+      "family": "Space Grotesk",
+      "rawFamily": "Space Grotesk Light",
+      "subfamily": "Regular",
+      "postscript": "SpaceGrotesk-Light",
+      "weight": 300,
+      "style": "normal",
+      "variationAxes": [
+        "wght"
+      ],
+      "identified": true,
+      "isIcon": false
+    },
+    {
+      "file": "V8mDoQDjQSkFtoMM3T6r8E7mPb94C_k3HqUtEw.woff2",
+      "family": "Space Grotesk",
+      "rawFamily": "Space Grotesk Light",
+      "subfamily": "Regular",
+      "postscript": "SpaceGrotesk-Light",
+      "weight": 300,
+      "style": "normal",
+      "variationAxes": [
+        "wght"
+      ],
+      "identified": true,
+      "isIcon": false
+    },
+    {
+      "file": "V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2",
+      "family": "Space Grotesk",
+      "rawFamily": "Space Grotesk Light",
+      "subfamily": "Regular",
+      "postscript": "SpaceGrotesk-Light",
+      "weight": 300,
+      "style": "normal",
+      "variationAxes": [
+        "wght"
+      ],
+      "identified": true,
+      "isIcon": false
+    },
+    {
+      "file": "uU9NCBsR6Z2vfE9aq3bh09SDqFGedCMX.woff2",
+      "family": "Fira Code",
+      "rawFamily": "Fira Code Light",
+      "subfamily": "Regular",
+      "postscript": "FiraCode-Light",
+      "weight": 300,
+      "style": "normal",
+      "variationAxes": [
+        "wght"
+      ],
+      "identified": true,
+      "isIcon": false
+    },
+    {
+      "file": "uU9NCBsR6Z2vfE9aq3bh0NSDqFGedCMX.woff2",
+      "family": "Fira Code",
+      "rawFamily": "Fira Code Light",
+      "subfamily": "Regular",
+      "postscript": "FiraCode-Light",
+      "weight": 300,
+      "style": "normal",
+      "variationAxes": [
+        "wght"
+      ],
+      "identified": true,
+      "isIcon": false
+    },
+    {
+      "file": "uU9NCBsR6Z2vfE9aq3bh0dSDqFGedCMX.woff2",
+      "family": "Fira Code",
+      "rawFamily": "Fira Code Light",
+      "subfamily": "Regular",
+      "postscript": "FiraCode-Light",
+      "weight": 300,
+      "style": "normal",
+      "variationAxes": [
+        "wght"
+      ],
+      "identified": true,
+      "isIcon": false
+    },
+    {
+      "file": "uU9NCBsR6Z2vfE9aq3bh2dSDqFGedCMX.woff2",
+      "family": "Fira Code",
+      "rawFamily": "Fira Code Light",
+      "subfamily": "Regular",
+      "postscript": "FiraCode-Light",
+      "weight": 300,
+      "style": "normal",
+      "variationAxes": [
+        "wght"
+      ],
+      "identified": true,
+      "isIcon": false
+    },
+    {
+      "file": "uU9NCBsR6Z2vfE9aq3bh3dSDqFGedA.woff2",
+      "family": "Fira Code",
+      "rawFamily": "Fira Code Light",
+      "subfamily": "Regular",
+      "postscript": "FiraCode-Light",
+      "weight": 300,
+      "style": "normal",
+      "variationAxes": [
+        "wght"
+      ],
+      "identified": true,
+      "isIcon": false
+    },
+    {
+      "file": "uU9NCBsR6Z2vfE9aq3bh3tSDqFGedCMX.woff2",
+      "family": "Fira Code",
+      "rawFamily": "Fira Code Light",
+      "subfamily": "Regular",
+      "postscript": "FiraCode-Light",
+      "weight": 300,
+      "style": "normal",
+      "variationAxes": [
+        "wght"
+      ],
+      "identified": true,
+      "isIcon": false
+    }
+  ],
+  "families": [
+    {
+      "family": "Fira Code",
+      "weights": [
+        300
+      ],
+      "variable": true,
+      "fileCount": 6,
+      "files": [
+        "uU9NCBsR6Z2vfE9aq3bh09SDqFGedCMX.woff2",
+        "uU9NCBsR6Z2vfE9aq3bh0NSDqFGedCMX.woff2",
+        "uU9NCBsR6Z2vfE9aq3bh0dSDqFGedCMX.woff2",
+        "uU9NCBsR6Z2vfE9aq3bh2dSDqFGedCMX.woff2",
+        "uU9NCBsR6Z2vfE9aq3bh3dSDqFGedA.woff2",
+        "uU9NCBsR6Z2vfE9aq3bh3tSDqFGedCMX.woff2"
+      ]
+    },
+    {
+      "family": "Space Grotesk",
+      "weights": [
+        300
+      ],
+      "variable": true,
+      "fileCount": 3,
+      "files": [
+        "V8mDoQDjQSkFtoMM3T6r8E7mPb54C_k3HqUtEw.woff2",
+        "V8mDoQDjQSkFtoMM3T6r8E7mPb94C_k3HqUtEw.woff2",
+        "V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2"
+      ]
+    }
+  ],
+  "unidentified": [],
+  "meta": {
+    "generatedAt": "2026-10-15T07:12:22.506Z",
+    "tool": "fontkit"
+  }
+}

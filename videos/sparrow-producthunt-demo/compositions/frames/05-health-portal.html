@@ -1,0 +1,679 @@
+<template id="05-health-portal-template">
+  <style>
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh0NSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh2dSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh0dSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3tSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh09SDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3dSDqFGedA.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh0NSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh2dSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh0dSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3tSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh09SDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3dSDqFGedA.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh0NSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh2dSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh0dSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3tSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh09SDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3dSDqFGedA.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh0NSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh2dSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh0dSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3tSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh09SDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3dSDqFGedA.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPb54C_k3HqUtEw.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPb94C_k3HqUtEw.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPb54C_k3HqUtEw.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPb94C_k3HqUtEw.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPb54C_k3HqUtEw.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPb94C_k3HqUtEw.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPb54C_k3HqUtEw.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPb94C_k3HqUtEw.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+  </style>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      font-family: 'Space Grotesk', sans-serif;
+      color: #FAF9F6;
+    }
+    #root * { box-sizing: border-box; }
+
+    [id="05-health-portal-ground"] { position: absolute; inset: 0; background: #1C1A16; }
+    [id="05-health-portal-stage"] { position: absolute; inset: 0; overflow: hidden; }
+
+    /* ---------- left story panel (x 0-690) ---------- */
+    [id="05-health-portal-kicker"] {
+      position: absolute;
+      left: 80px;
+      top: 80px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-family: 'Fira Code', monospace;
+      font-weight: 500;
+      font-size: 18px;
+      line-height: 22px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #EA9D2B;
+    }
+    [class~="05-health-portal-rule"] { width: 36px; height: 2px; background: #EA9D2B; }
+
+    [id="05-health-portal-story"] {
+      position: absolute;
+      left: 80px;
+      top: 300px;
+      width: 610px;
+      font-weight: 700;
+      font-size: 58px;
+      line-height: 64px;
+      letter-spacing: -0.03em;
+      color: #FAF9F6;
+    }
+    [id="05-health-portal-story"] div { white-space: nowrap; }
+
+    [id="05-health-portal-api"] {
+      position: absolute;
+      left: 80px;
+      top: 518px;
+      width: 610px;
+      height: 36px;
+      font-family: 'Fira Code', monospace;
+      font-weight: 500;
+      font-size: 26px;
+      line-height: 36px;
+      color: #EA9D2B;
+      white-space: pre;
+    }
+
+    [class~="05-health-portal-sub"] {
+      position: absolute;
+      left: 80px;
+      top: 578px;
+      width: 610px;
+      font-family: 'Fira Code', monospace;
+      font-weight: 400;
+      font-size: 22px;
+      line-height: 34px;
+      color: #C9C2B2;
+    }
+    [class~="05-health-portal-sub"] b { font-weight: 400; color: #FAF9F6; }
+    [class~="05-health-portal-arrow"] { display: inline-block; width: 22px; height: 14px; margin-right: 10px; vertical-align: 1px; }
+
+    [id="05-health-portal-hairline"] {
+      position: absolute;
+      left: 715px;
+      top: 90px;
+      width: 1px;
+      height: 810px;
+      background: #282726;
+    }
+
+    /* ---------- right stage: one framed browser window (x 740-1880) ---------- */
+    [id="05-health-portal-win"] {
+      position: absolute;
+      left: 740px;
+      top: 152px;
+      width: 1140px;
+      height: 686px;
+      background: #1A1918;
+      border: 1px solid rgba(234, 157, 43, 0.7);
+      border-radius: 8px;
+      box-shadow: 0 0 40px rgba(234, 157, 43, 0.12);
+      overflow: hidden;
+    }
+    [class~="05-health-portal-chrome"] {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1138px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 18px;
+      background: #1A1918;
+      border-bottom: 1px solid #282726;
+    }
+    [class~="05-health-portal-dot"] { width: 11px; height: 11px; border-radius: 50%; background: #504D48; }
+    [class~="05-health-portal-url"] {
+      position: relative;
+      margin-left: 22px;
+      width: 460px;
+      height: 28px;
+      padding-left: 14px;
+      border: 1px solid #282726;
+      border-radius: 4px;
+      background: #1C1A16;
+      font-family: 'Fira Code', monospace;
+      font-size: 15px;
+      line-height: 26px;
+      color: #C9C2B2;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    [class~="05-health-portal-path-box"] { position: relative; display: inline-block; width: 140px; height: 26px; vertical-align: top; }
+    [class~="05-health-portal-path"] { position: absolute; left: 0; top: 0; color: #FAF9F6; }
+
+    [id="05-health-portal-view"] {
+      position: absolute;
+      left: 0;
+      top: 44px;
+      width: 1138px;
+      height: 640px;
+      overflow: hidden;
+      background: #F7F6F2;
+    }
+    [id="05-health-portal-cam-outer"] {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1138px;
+      height: 640px;
+      transform-origin: 50% 50%;
+    }
+    [id="05-health-portal-cam-inner"] { position: absolute; left: 0; top: 0; width: 1138px; height: 640px; }
+    /* static fit-width scale (1920-space capture -> 1138px viewport); never animated */
+    [id="05-health-portal-plane"] {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1920px;
+      height: 1080px;
+      transform: scale(0.5927083);
+      transform-origin: 0 0;
+    }
+    [class~="05-health-portal-screen"] { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
+    [class~="05-health-portal-screen"] img { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: block; }
+    [class~="05-health-portal-marks"] { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; }
+    [class~="05-health-portal-mark"] { fill: none; stroke: #EA9D2B; stroke-width: 2.5; stroke-linecap: butt; stroke-dasharray: 1 1; }
+
+    [id="05-health-portal-glow"] {
+      position: absolute;
+      left: 1212px;
+      top: 83px;
+      width: 76px;
+      height: 35px;
+      border: 2px solid #16875A;
+      border-radius: 8px;
+      background: rgba(22, 135, 90, 0.10);
+      box-shadow: 0 0 18px rgba(22, 135, 90, 0.35);
+    }
+
+    /* /metrics "screen": raw scrape text */
+    [id="05-health-portal-metrics"] {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1138px;
+      height: 640px;
+      padding: 40px 40px;
+      background: #1A1918;
+      font-family: 'Fira Code', monospace;
+      font-weight: 400;
+      font-size: 21px;
+      line-height: 31px;
+      color: #FAF9F6;
+    }
+    [class~="05-health-portal-ml"] { white-space: pre-wrap; overflow-wrap: anywhere; margin-bottom: 8px; }
+    [class~="05-health-portal-ml"][class~="05-health-portal-help"] { color: #C9C2B2; margin-top: 22px; }
+    [class~="05-health-portal-ml"][class~="05-health-portal-help"][class~="05-health-portal-first"] { margin-top: 0; }
+    [class~="05-health-portal-hash"] { color: #504D48; }
+    [class~="05-health-portal-name"] { color: #EA9D2B; }
+    [class~="05-health-portal-label"] { color: #C9C2B2; }
+    [class~="05-health-portal-val"] { color: #FAF9F6; font-weight: 500; }
+  </style>
+
+  <div id="root" data-composition-id="05-health-portal" data-start="0" data-duration="8.5" data-width="1920" data-height="1080">
+    <div id="05-health-portal-ground" class="clip" data-start="0" data-duration="8.5" data-track-index="0"></div>
+
+    <div id="05-health-portal-stage" class="clip" data-start="0" data-duration="8.5" data-track-index="1">
+
+      <!-- left story panel -->
+      <div id="05-health-portal-kicker"><span class="05-health-portal-rule"></span><span>04 / health and portal</span></div>
+      <div id="05-health-portal-story">
+        <div id="05-health-portal-line-0">health per endpoint.</div>
+        <div id="05-health-portal-line-1">a portal per consumer.</div>
+        <div id="05-health-portal-line-2">prometheus metrics.</div>
+      </div>
+      <div id="05-health-portal-api"></div>
+      <div id="05-health-portal-sub-portal" class="05-health-portal-sub">
+        <div><b>POST /v1/invites</b> --consumer acme</div>
+        <div><svg class="05-health-portal-arrow" viewBox="0 0 22 14" xmlns="http://www.w3.org/2000/svg"><path d="M1 7 H20 M14 1.5 L20 7 L14 12.5" fill="none" stroke="#C9C2B2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>one-time portal link</div>
+      </div>
+      <div id="05-health-portal-sub-metrics" class="05-health-portal-sub">
+        <div><b>GET /metrics</b> · OpenTelemetry traces + logs</div>
+      </div>
+
+      <div id="05-health-portal-hairline"></div>
+
+      <!-- right stage: one framed browser window -->
+      <div id="05-health-portal-win">
+        <div class="05-health-portal-chrome">
+          <span class="05-health-portal-dot"></span><span class="05-health-portal-dot"></span><span class="05-health-portal-dot"></span>
+          <div class="05-health-portal-url">localhost:8080<span class="05-health-portal-path-box"><span class="05-health-portal-path" id="05-health-portal-path-a">/webhooks</span><span class="05-health-portal-path" id="05-health-portal-path-b">/portal</span><span class="05-health-portal-path" id="05-health-portal-path-c">/metrics</span></span></div>
+        </div>
+
+        <div id="05-health-portal-view">
+          <div id="05-health-portal-cam-outer">
+            <div id="05-health-portal-cam-inner" data-layout-allow-overflow>
+              <div id="05-health-portal-plane" data-layout-allow-overflow>
+                <div class="05-health-portal-screen" id="05-health-portal-scr-webhooks">
+                  <img src="assets/ui-webhooks.png" alt="Sparrow webhooks list with a Health column" />
+                  <svg class="05-health-portal-marks" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+                    <path class="05-health-portal-mark" id="05-health-portal-mark-0" pathLength="1" d="" />
+                    <path class="05-health-portal-mark" id="05-health-portal-mark-1" pathLength="1" d="" />
+                    <path class="05-health-portal-mark" id="05-health-portal-mark-2" pathLength="1" d="" />
+                    <path class="05-health-portal-mark" id="05-health-portal-mark-3" pathLength="1" d="" />
+                  </svg>
+                </div>
+                <div class="05-health-portal-screen" id="05-health-portal-scr-portal">
+                  <img src="assets/ui-portal.png" alt="Sparrow consumer portal with a 95% success rate" />
+                  <div id="05-health-portal-glow"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="05-health-portal-metrics">
+            <div class="05-health-portal-ml 05-health-portal-help 05-health-portal-first"><span class="05-health-portal-hash"># HELP</span> <span class="05-health-portal-name">sparrow_delivery_attempts_total</span> Webhook delivery attempts that reached the receiver (or failed to), by result and error_category</div>
+            <div class="05-health-portal-ml"><span class="05-health-portal-name">sparrow_delivery_attempts_total</span><span class="05-health-portal-label">{result="success"}</span> <span class="05-health-portal-val">2</span></div>
+            <div class="05-health-portal-ml"><span class="05-health-portal-name">sparrow_delivery_attempts_total</span><span class="05-health-portal-label">{result="failure",error_category="client_error"}</span> <span class="05-health-portal-val">1</span></div>
+            <div class="05-health-portal-ml 05-health-portal-help"><span class="05-health-portal-hash"># HELP</span> <span class="05-health-portal-name">sparrow_delivery_attempt_duration_seconds</span> Time from sending a webhook delivery attempt to the receiver's response, by result</div>
+            <div class="05-health-portal-ml"><span class="05-health-portal-name">sparrow_delivery_attempt_duration_seconds_count</span><span class="05-health-portal-label">{result="success"}</span> <span class="05-health-portal-val">2</span></div>
+            <div class="05-health-portal-ml"><span class="05-health-portal-name">sparrow_delivery_attempt_duration_seconds_sum</span><span class="05-health-portal-label">{result="success"}</span> <span class="05-health-portal-val">0.015</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    (function () {
+      var ID = "05-health-portal";
+      var $ = function (s) { return document.getElementById(ID + "-" + s); };
+
+      // ---- geometry (viewport 1138x640; capture plane statically scaled to fit-width) ----
+      var VW = 1138, VH = 640, CX = VW / 2, CY = VH / 2;
+      var S0 = VW / 1920;
+
+      // Health column (capture coords): badges x 1238-1314, rows y 389..590 -> centre (1276, 490)
+      var HZ = 2.9;
+      var HTX = CX - 1276 * S0, HTY = CY - 490 * S0;           // nested wrappers: T = C - p
+      // Portal stat strip (x 465-1455, y 75-145): centred in x; y clamped so the page top stays in frame
+      var PZ = 1.35;
+      var PTX = CX - 960 * S0, PTY = CY - CY / PZ;
+
+      // ---- marker outlines: stadiums around the four HEALTH badges ----
+      function stadium(x0, x1, cy, r) {
+        return "M" + (x0 + r) + "," + (cy - r) + " H" + (x1 - r) +
+          " A" + r + " " + r + " 0 0 1 " + (x1 - r) + "," + (cy + r) +
+          " H" + (x0 + r) + " A" + r + " " + r + " 0 0 1 " + (x0 + r) + "," + (cy - r) + " Z";
+      }
+      var ROWS = [389, 456, 523, 590];
+      var marks = ROWS.map(function (y, i) {
+        var el = $("mark-" + i);
+        el.setAttribute("d", stadium(1231, i === 3 ? 1321 : 1301, y, 17));
+        return el;
+      });
+
+      // ---- API line: one span per character (deterministic typing) ----
+      var API = "GET /v1/webhooks?health=unhealthy";
+      var apiEl = $("api");
+      var chars = API.split("").map(function (ch) {
+        var s = document.createElement("span");
+        s.textContent = ch;
+        apiEl.appendChild(s);
+        return s;
+      });
+
+      var lines = [$("line-0"), $("line-1"), $("line-2")];
+      var mlines = Array.prototype.slice.call($("metrics").children);
+
+      // ---- initial hidden states (outside the timeline) ----
+      gsap.set(marks, { strokeDashoffset: 1, opacity: 0, fill: "rgba(234,157,43,0)" });
+      gsap.set(chars, { opacity: 0 });
+      gsap.set([$("scr-portal"), $("glow"), $("metrics"), $("sub-portal"), $("sub-metrics")], { opacity: 0 });
+      gsap.set([$("path-b"), $("path-c")], { opacity: 0 });
+      gsap.set(mlines, { opacity: 0 });
+      gsap.set($("cam-outer"), { scale: 1 });
+      gsap.set($("cam-inner"), { x: 0, y: 0 });
+
+      var tl = gsap.timeline({ paused: true });
+
+      // Scene 1 (0.0-0.5): kicker + story lines reveal; framed window settles in
+      tl.fromTo($("kicker"), { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0);
+      lines.forEach(function (el, i) {
+        tl.fromTo(el, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.42, ease: "power3.out" }, 0.06 + i * 0.09);
+      });
+      tl.fromTo($("hairline"), { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power3.out" }, 0.1);
+      tl.fromTo($("win"), { opacity: 0, y: 30, scale: 0.97 }, { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "power3.out" }, 0);
+
+      // Scene 2 (0.5-2.6): push in on the HEALTH column (coordinate-target-zoom)
+      tl.to($("cam-outer"), { scale: HZ, duration: 1.1, ease: "power3.inOut" }, 0.5);
+      tl.to($("cam-inner"), { x: HTX, y: HTY, duration: 1.1, ease: "power3.inOut" }, 0.5);
+      // focus the first story line
+      tl.to([lines[1], lines[2]], { opacity: 0.35, duration: 0.4, ease: "power3.out" }, 0.7);
+      // API line types on
+      chars.forEach(function (s, i) {
+        tl.fromTo(s, { opacity: 0 }, { opacity: 1, duration: 0.01, ease: "power3.out" }, 0.85 + i * 0.042);
+      });
+      // staggered marker outlines draw, each fading as the next draws (dynamic sequencing over the four rows)
+      var MARK_AT = [1.3, 1.6, 1.9, 2.2];
+      MARK_AT.forEach(function (t, i) {
+        tl.set(marks[i], { opacity: 1 }, t);
+        tl.fromTo(marks[i], { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 0.3, ease: "power3.inOut", immediateRender: false }, t);
+        if (i > 0) tl.to(marks[i - 1], { opacity: 0, duration: 0.25, ease: "power3.out" }, t + 0.05);
+      });
+      // ends on the green "Healthy" badge
+      tl.to(marks[3], { stroke: "#16875A", fill: "rgba(22,135,90,0.10)", duration: 0.3, ease: "power3.out" }, 2.42);
+
+      // Scene 3 (2.6-3.2): pull back; URL bar swaps to /portal
+      tl.to($("cam-outer"), { scale: 1, duration: 0.6, ease: "power3.inOut" }, 2.6);
+      tl.to($("cam-inner"), { x: 0, y: 0, duration: 0.6, ease: "power3.inOut" }, 2.6);
+      tl.fromTo($("path-a"), { opacity: 1, y: 0 }, { opacity: 0, y: -12, duration: 0.22, ease: "power3.inOut", immediateRender: false }, 2.85);
+      tl.fromTo($("path-b"), { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.25, ease: "power3.out", immediateRender: false }, 2.97);
+
+      // Scene 4 (3.2-5.6): crossfade to the consumer portal; push-in on the stat strip; 95% glows
+      tl.fromTo($("scr-portal"), { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power3.inOut", immediateRender: false }, 3.2);
+      tl.to(lines[0], { opacity: 0.35, duration: 0.4, ease: "power3.out" }, 3.3);
+      tl.to(lines[1], { opacity: 1, duration: 0.4, ease: "power3.out" }, 3.3);
+      tl.to($("cam-outer"), { scale: PZ, duration: 1.2, ease: "power3.inOut" }, 3.6);
+      tl.to($("cam-inner"), { x: PTX, y: PTY, duration: 1.2, ease: "power3.inOut" }, 3.6);
+      tl.fromTo($("sub-portal"), { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out", immediateRender: false }, 4.0);
+      tl.fromTo($("glow"), { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.4, ease: "power3.out", immediateRender: false }, 4.6);
+      tl.to($("glow"), { boxShadow: "0 0 30px rgba(22,135,90,0.7)", background: "rgba(22,135,90,0.16)", duration: 0.35, ease: "power3.out" }, 4.95);
+      tl.to($("glow"), { boxShadow: "0 0 18px rgba(22,135,90,0.4)", background: "rgba(22,135,90,0.10)", duration: 0.45, ease: "power3.inOut" }, 5.3);
+
+      // Scene 5 (5.6-7.0): hard cut inside the window to /metrics; lines print one per cue
+      tl.set($("metrics"), { opacity: 1 }, 5.6);
+      tl.set($("path-b"), { opacity: 0 }, 5.6);
+      tl.set($("path-c"), { opacity: 1 }, 5.6);
+      tl.set($("sub-portal"), { opacity: 0 }, 5.6);
+      tl.fromTo($("sub-metrics"), { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out", immediateRender: false }, 5.65);
+      tl.to(lines[1], { opacity: 0.35, duration: 0.35, ease: "power3.out" }, 5.65);
+      tl.to(lines[2], { opacity: 1, duration: 0.35, ease: "power3.out" }, 5.65);
+      // dynamic-content-sequencing: each line's slot scales with its length, packed into 5.72-6.8
+      var BASE = 0.5, PER_CHAR = 0.006, WIN_START = 5.72, WIN_LEN = 1.08;
+      var weights = mlines.map(function (el) { return BASE + el.textContent.length * PER_CHAR; });
+      var total = weights.reduce(function (a, b) { return a + b; }, 0);
+      var cum = 0;
+      mlines.forEach(function (el, i) {
+        var at = WIN_START + (cum / total) * WIN_LEN;
+        cum += weights[i];
+        tl.fromTo(el, { opacity: 0, x: -8 }, { opacity: 1, x: 0, duration: 0.12, ease: "power3.out", immediateRender: false }, at);
+      });
+
+      // Scene 6 (7.0-8.0): held read. Still; story lines return to full for the hold.
+      tl.to(lines, { opacity: 1, duration: 0.4, ease: "power3.out" }, 7.0);
+      tl.set({}, {}, 8.0);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines[ID] = tl;
+    })();
+  </script>
+</template>

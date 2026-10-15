@@ -1,0 +1,10 @@
+node_modules/
+.hyperframes/artifacts/
+.hyperframes/frame-packets/
+.hyperframes/STORYBOARD.v1.md
+snapshots/
+capture/pages/
+audio_request.json
+audio_engine_meta.json
+assets/bgm/track.loop.mp3
+assets/assets

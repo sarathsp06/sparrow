@@ -1,0 +1,12 @@
+Demo Video Script (30–45 seconds)
+Title card (3s): "Sparrow — self-hosted webhook delivery" on a dark background with the Sparrow logo.
+
+Scene 1 — Start the server (5s): Terminal. docker compose up -d. Containers start. Cut to browser opening localhost:8080 — the empty dashboard loads.
+
+Scene 2 — Register and deliver (10s): Terminal split. Left: sparrow listen --event order.created (webhook auto-registered, listener ready). Right: sparrow push order.created -d '{"order_id":"42","amount":99}'. Left pane shows the delivery arrive, signature verified. Dashboard shows the delivery row with a green "success" badge.
+
+Scene 3 — Transform and route (10s): Open the template editor in the dashboard. Type a brief description in the AI drawer ("format this as a Slack message with the order ID and amount"). The template appears, the live preview shows a Slack-formatted JSON payload. Save. Or: show sparrow use slack --param webhook_url=... --event order.created — one command.
+
+Scene 4 — Health and portal (8s): Dashboard webhook list with health badges. Click into the consumer portal view — scoped delivery history. Quick flash of the Prometheus /metrics endpoint and a Grafana panel (optional, only if real).
+
+Closing card (4s): "MIT licensed. GitHub: github.com/sarathsp06/sparrow" with the docs URL.

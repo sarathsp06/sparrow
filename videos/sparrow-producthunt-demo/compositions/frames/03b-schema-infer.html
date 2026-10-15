@@ -1,0 +1,575 @@
+<template>
+  <style>
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh0NSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh2dSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh0dSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3tSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh09SDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3dSDqFGedA.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh0NSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh2dSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh0dSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3tSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh09SDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3dSDqFGedA.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh0NSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh2dSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh0dSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3tSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh09SDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3dSDqFGedA.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh0NSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh2dSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh0dSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3tSDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh09SDqFGedCMX.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3dSDqFGedA.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPb54C_k3HqUtEw.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPb94C_k3HqUtEw.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPb54C_k3HqUtEw.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPb94C_k3HqUtEw.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPb54C_k3HqUtEw.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPb94C_k3HqUtEw.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPb54C_k3HqUtEw.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPb94C_k3HqUtEw.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+    #root {
+      position: absolute;
+      inset: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      font-family: 'Fira Code', monospace;
+      color: #FAF9F6;
+    }
+    [id="03b-schema-infer-ground"] { position: absolute; inset: 0; background: #1C1A16; }
+    [id="03b-schema-infer-scene"] { position: absolute; inset: 0; }
+
+    /* ---------- left story panel (x 0–690) ---------- */
+    [id="03b-schema-infer-kicker"] { position: absolute; left: 72px; top: 90px; display: flex; flex-direction: column; gap: 14px; }
+    [class~="03b-schema-infer-rule"] { width: 36px; height: 2px; background: #EA9D2B; }
+    [class~="03b-schema-infer-kicker-text"] { font-size: 15px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #EA9D2B; white-space: nowrap; }
+    [id="03b-schema-infer-story"] {
+      position: absolute; left: 72px; top: 300px; width: 610px;
+      font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 50px;
+      line-height: 1.1; letter-spacing: -0.02em; text-transform: lowercase; color: #FAF9F6;
+    }
+    [class~="03b-schema-infer-sl"] { display: block; }
+    [id="03b-schema-infer-api"] {
+      position: absolute; left: 72px; top: 601px; width: 610px; min-height: 30px;
+      font-size: 22px; font-weight: 500; line-height: 30px; color: #EA9D2B; white-space: pre;
+    }
+    [class~="03b-schema-infer-sub"] {
+      position: absolute; left: 72px; top: 645px;
+      font-size: 17px; font-weight: 400; line-height: 28px; color: #C9C2B2; white-space: nowrap;
+    }
+
+    /* hairline divider */
+    [id="03b-schema-infer-hair"] { position: absolute; left: 715px; top: 90px; width: 1px; height: 810px; background: #282726; transform-origin: 50% 0%; }
+
+    /* ---------- right stage (x 740–1880, y 90–900) ---------- */
+    [id="03b-schema-infer-stage"] {
+      position: absolute; left: 740px; top: 90px; width: 1140px; height: 810px;
+      clip-path: inset(-80px -80px 0px -80px); /* nothing escapes below y 900 */
+    }
+    [class~="03b-schema-infer-win"] {
+      position: absolute; left: 0; width: 1140px;
+      background: #1A1918; border: 1px solid rgba(234, 157, 43, 0.7); border-radius: 8px;
+      box-shadow: 0 0 40px rgba(234, 157, 43, 0.12); overflow: hidden; box-sizing: border-box;
+    }
+    [class~="03b-schema-infer-chrome"] {
+      height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 16px;
+      background: #1A1918; border-bottom: 1px solid #282726; box-sizing: border-box;
+    }
+    [class~="03b-schema-infer-dot"] { width: 10px; height: 10px; border-radius: 50%; background: #504D48; flex: none; }
+    [class~="03b-schema-infer-title"] { margin-left: 14px; font-size: 13px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #C9C2B2; }
+    [class~="03b-schema-infer-url"] {
+      margin-left: 16px; flex: 1; height: 26px; display: flex; align-items: center; padding: 0 14px;
+      border: 1px solid #282726; border-radius: 6px; background: #1C1A16;
+      font-size: 14px; color: #C9C2B2; white-space: nowrap;
+    }
+
+    /* terminal — top ~35% of the stage */
+    [id="03b-schema-infer-term"] { top: 0; height: 250px; }
+    [class~="03b-schema-infer-tbody"] { padding: 16px 22px; font-size: 18px; line-height: 28px; }
+    [class~="03b-schema-infer-line"] { white-space: pre-wrap; word-break: break-all; min-height: 28px; }
+    [class~="03b-schema-infer-ps"] { color: #EA9D2B; }
+    [class~="03b-schema-infer-ok"] { color: #16875A; font-weight: 500; }
+    [class~="03b-schema-infer-muted"] { color: #C9C2B2; }
+    [class~="03b-schema-infer-ch"] { display: none; }
+    [id="03b-schema-infer-url-b"] { display: none; }
+    [class~="03b-schema-infer-caret"] {
+      display: inline-block; width: 10px; height: 20px; margin-left: 2px;
+      background: #EA9D2B; vertical-align: -4px;
+    }
+
+    /* browser — rises from below the terminal and fills the stage */
+    [id="03b-schema-infer-browser"] { top: 0; height: 810px; }
+    [class~="03b-schema-infer-viewport"] { position: relative; width: 1138px; height: 768px; overflow: hidden; background: #FAF9F6; }
+    /* coordinate-target-zoom: outer scales about its centre, inner counter-translates */
+    [id="03b-schema-infer-zoom-outer"] { position: absolute; inset: 0; transform-origin: 50% 50%; will-change: transform; }
+    [id="03b-schema-infer-zoom-inner"] { position: absolute; inset: 0; will-change: transform; }
+    /* capture plane in 1920-wide capture space, fit-width into the viewport */
+    [class~="03b-schema-infer-plane"] { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+    [class~="03b-schema-infer-shot"] { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: block; }
+    [id="03b-schema-infer-plane-b"] { opacity: 0; }
+
+    /* marker outlines in capture space (inside the inner wrapper, registered under the zoom) */
+    [class~="03b-schema-infer-marker"] { position: absolute; }
+    /* "Infer schema" link: capture x 1437–1523, y 588–612 */
+    [id="03b-schema-infer-mk-a"] { left: 1429px; top: 581px; width: 102px; height: 38px; }
+    /* "Generate Schema" button: capture x 1112–1258, y 907–940 */
+    [id="03b-schema-infer-mk-b"] { left: 1104px; top: 899px; width: 162px; height: 49px; }
+    [class~="03b-schema-infer-edge"] { position: absolute; background: #EA9D2B; box-shadow: 0 0 6px rgba(234, 157, 43, 0.55); }
+    [class~="03b-schema-infer-et"] { left: 0; top: 0; width: 100%; height: 2.5px; transform-origin: 0 50%; }
+    [class~="03b-schema-infer-er"] { right: 0; top: 0; width: 2.5px; height: 100%; transform-origin: 50% 0; }
+    [class~="03b-schema-infer-eb"] { left: 0; bottom: 0; width: 100%; height: 2.5px; transform-origin: 100% 50%; }
+    [class~="03b-schema-infer-el"] { left: 0; top: 0; width: 2.5px; height: 100%; transform-origin: 50% 100%; }
+  </style>
+
+  <div id="root" data-composition-id="03b-schema-infer" data-start="0" data-duration="9.5" data-width="1920" data-height="1080">
+    <div id="03b-schema-infer-ground" class="clip" data-start="0" data-duration="9.5" data-track-index="0"></div>
+
+    <div id="03b-schema-infer-scene" class="clip" data-start="0" data-duration="9.5" data-track-index="1">
+
+      <!-- left story panel -->
+      <div id="03b-schema-infer-kicker">
+        <div class="03b-schema-infer-rule"></div>
+        <div class="03b-schema-infer-kicker-text">02 / push first</div>
+      </div>
+      <div id="03b-schema-infer-story">
+        <span id="03b-schema-infer-sl1" class="03b-schema-infer-sl">push an event nobody defined yet.</span>
+        <span id="03b-schema-infer-sl2" class="03b-schema-infer-sl">find it in the console.</span>
+        <span id="03b-schema-infer-sl3" class="03b-schema-infer-sl">infer its schema from the real payload.</span>
+      </div>
+      <div id="03b-schema-infer-api"></div>
+      <div id="03b-schema-infer-sub1" class="03b-schema-infer-sub">GET /v1/event-types · auto-registered, v1, no schema yet</div>
+      <div id="03b-schema-infer-sub2" class="03b-schema-infer-sub">Generated from 1 sample · versioned on change</div>
+
+      <div id="03b-schema-infer-hair"></div>
+
+      <!-- right stage -->
+      <div id="03b-schema-infer-stage">
+        <div id="03b-schema-infer-term" class="03b-schema-infer-win">
+          <div class="03b-schema-infer-chrome">
+            <span class="03b-schema-infer-dot"></span><span class="03b-schema-infer-dot"></span><span class="03b-schema-infer-dot"></span>
+            <span class="03b-schema-infer-title">terminal</span>
+          </div>
+          <div class="03b-schema-infer-tbody">
+            <div class="03b-schema-infer-line"><span class="03b-schema-infer-ps">$ </span><span id="03b-schema-infer-typed"></span><span id="03b-schema-infer-caret" class="03b-schema-infer-caret"></span></div>
+            <div id="03b-schema-infer-out1" class="03b-schema-infer-line">event type "payment.refunded" <span class="03b-schema-infer-ok">auto-created</span></div>
+            <div id="03b-schema-infer-out2" class="03b-schema-infer-line 03b-schema-infer-muted">446b0e2a-c996-4878-8ba5-19c7b232fcda</div>
+            <div id="03b-schema-infer-prompt2" class="03b-schema-infer-line"><span class="03b-schema-infer-ps">$ </span><span id="03b-schema-infer-caret2" class="03b-schema-infer-caret"></span></div>
+          </div>
+        </div>
+
+        <div id="03b-schema-infer-browser" class="03b-schema-infer-win">
+          <div class="03b-schema-infer-chrome">
+            <span class="03b-schema-infer-dot"></span><span class="03b-schema-infer-dot"></span><span class="03b-schema-infer-dot"></span>
+            <div class="03b-schema-infer-url"><span id="03b-schema-infer-url-a">localhost:8080/events</span><span id="03b-schema-infer-url-b">localhost:8080/events/payment.refunded/update</span></div>
+          </div>
+          <div class="03b-schema-infer-viewport">
+            <div id="03b-schema-infer-zoom-outer">
+              <div id="03b-schema-infer-zoom-inner">
+                <div id="03b-schema-infer-plane-a" class="03b-schema-infer-plane">
+                  <img class="03b-schema-infer-shot" src="assets/ui-events-list.png" alt="" />
+                  <div id="03b-schema-infer-mk-a" class="03b-schema-infer-marker">
+                    <div id="03b-schema-infer-a-t" class="03b-schema-infer-edge 03b-schema-infer-et"></div>
+                    <div id="03b-schema-infer-a-r" class="03b-schema-infer-edge 03b-schema-infer-er"></div>
+                    <div id="03b-schema-infer-a-b" class="03b-schema-infer-edge 03b-schema-infer-eb"></div>
+                    <div id="03b-schema-infer-a-l" class="03b-schema-infer-edge 03b-schema-infer-el"></div>
+                  </div>
+                </div>
+                <div id="03b-schema-infer-plane-b" class="03b-schema-infer-plane">
+                  <img class="03b-schema-infer-shot" src="assets/ui-schema-infer.png" alt="" />
+                  <div id="03b-schema-infer-mk-b" class="03b-schema-infer-marker">
+                    <div id="03b-schema-infer-b-t" class="03b-schema-infer-edge 03b-schema-infer-et"></div>
+                    <div id="03b-schema-infer-b-r" class="03b-schema-infer-edge 03b-schema-infer-er"></div>
+                    <div id="03b-schema-infer-b-b" class="03b-schema-infer-edge 03b-schema-infer-eb"></div>
+                    <div id="03b-schema-infer-b-l" class="03b-schema-infer-edge 03b-schema-infer-el"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    (function () {
+      var ID = "03b-schema-infer";
+      var $ = function (s) { return document.getElementById(ID + "-" + s); };
+      var DUR = 9;
+
+      // ---- browser viewport geometry (fit-width capture) ----
+      var VW = 1138, VH = 768;          // viewport inside the 1px border, below the 40px chrome
+      var IMG_S = VW / 1920;            // capture → viewport scale (fit-width)
+      $("plane-a").style.transform = "scale(" + IMG_S + ")";
+      $("plane-b").style.transform = "scale(" + IMG_S + ")";
+
+      // capture-space rect → offset of its centre from the viewport centre (pre-zoom)
+      function offset(x0, x1, y0, y1) { return { x: ((x0 + x1) / 2) * IMG_S - VW / 2, y: ((y0 + y1) / 2) * IMG_S - VH / 2 }; }
+      // headroom budget: target ≤ 88% of the viewport at peak
+      function cap(want, x0, x1, y0, y1) { return Math.min(want, (0.88 * VW) / ((x1 - x0) * IMG_S), (0.88 * VH) / ((y1 - y0) * IMG_S)); }
+
+      var ROW = offset(480, 1765, 575, 625);          // payment.refunded row
+      var ROW_S = cap(1.6, 480, 1765, 575, 625);
+      var PANEL = offset(1100, 1555, 520, 980);       // helper panel
+      var PANEL_S = cap(2.3, 1100, 1555, 520, 980);
+      var TREE = offset(625, 1080, 575, 660);         // generated schema tree
+      // nested-wrapper formula: T = -offset (independent of scale)
+
+      var tl = gsap.timeline({ paused: true });
+
+      // ---- Scene 1 (0.0–0.5): kicker, story, hairline, terminal settles ----
+      tl.fromTo($("kicker"), { opacity: 0, x: -16 }, { opacity: 1, x: 0, duration: 0.4, ease: "power3.out" }, 0);
+      ["sl1", "sl2", "sl3"].forEach(function (id, i) {
+        tl.fromTo($(id), { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.04 + i * 0.08);
+      });
+      tl.fromTo($("hair"), { scaleY: 0 }, { scaleY: 1, duration: 0.6, ease: "power3.out" }, 0);
+      tl.fromTo($("term"), { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.05);
+
+      // ---- Scene 2 (0.5–2.0): command types behind a blinking caret (smooth slice) ----
+      var CMD = "sparrow push payment.refunded -d '{\"payment_id\":\"pay_8f31\",\"order_id\":\"42\",\"amount\":99}'";
+      var T0 = 0.55, T1 = 1.85, ENTER = 1.97;
+      // ---- Scene 3 (2.0–2.8): left API line types on ----
+      var API = "POST /v1/consumers/{consumer}/events";
+      var A0 = 2.15, A1 = 2.75;
+      // ---- Scene 5 hard cut ----
+      var CUT = 4.8;
+
+      // Typing is built from tweens only (no onUpdate callbacks), so any seek renders the right state:
+      // one span per character, revealed with tl.set(display) at its keystroke time (smooth slice).
+      var CH_CLASS = ID + "-ch";
+      function typeOn(host, str, a, b) {
+        var step = (b - a) / str.length;
+        for (var i = 0; i < str.length; i++) {
+          var sp = document.createElement("span");
+          sp.className = CH_CLASS;
+          sp.textContent = str.charAt(i);
+          host.appendChild(sp);
+          tl.set(sp, { display: "inline" }, a + step * (i + 1));
+        }
+      }
+      // deterministic square-wave caret blink (0.7s period) between t0 and t1
+      function blink(el, t0, t1) {
+        for (var t = t0; t < t1 - 1e-6; t += 0.7) {
+          tl.set(el, { opacity: 0 }, t + 0.35);
+          if (t + 0.7 < t1) tl.set(el, { opacity: 1 }, t + 0.7);
+        }
+      }
+      var caret = $("caret"), caret2 = $("caret2");
+      blink(caret, 0, T0);                       // idle blink before typing
+      typeOn($("typed"), CMD, T0, T1);
+      tl.set(caret, { opacity: 1 }, T0);         // solid while typing
+      tl.set(caret, { opacity: 0 }, ENTER);      // enter: caret leaves this line
+      blink(caret2, ENTER, DUR);                 // fresh prompt blinks
+      typeOn($("api"), API, A0, A1);
+      // URL bar swaps on the hard cut
+      tl.set($("url-a"), { display: "none" }, CUT);
+      tl.set($("url-b"), { display: "inline" }, CUT);
+
+      // terminal output prints one line per cue (dynamic-content-sequencing: window ∝ content length)
+      var OUT = ["out1", "out2", "prompt2"];
+      var weights = OUT.map(function (id) { return 0.12 + $(id).textContent.length * 0.004; });
+      var sum = weights.reduce(function (x, y) { return x + y; }, 0);
+      var k = (2.72 - 2.04) / sum, acc = 2.04;
+      OUT.forEach(function (id, i) {
+        tl.fromTo($(id), { opacity: 0 }, { opacity: 1, duration: 0.05, ease: "power3.out" }, acc);
+        acc += weights[i] * k;
+      });
+
+      function drawMarker(x, at) {
+        var MS = 0.08;
+        tl.fromTo($(x + "-t"), { scaleX: 0 }, { scaleX: 1, duration: MS, ease: "power3.inOut" }, at);
+        tl.fromTo($(x + "-r"), { scaleY: 0 }, { scaleY: 1, duration: MS, ease: "power3.inOut" }, at + MS);
+        tl.fromTo($(x + "-b"), { scaleX: 0 }, { scaleX: 1, duration: MS, ease: "power3.inOut" }, at + MS * 2);
+        tl.fromTo($(x + "-l"), { scaleY: 0 }, { scaleY: 1, duration: MS, ease: "power3.inOut" }, at + MS * 3);
+      }
+
+      // ---- Scene 4 (2.8–4.8): browser rises below the terminal and fills the stage; push-in on the row ----
+      tl.fromTo($("browser"), { opacity: 0, y: 260 }, { opacity: 1, y: 260, duration: 0.18, ease: "power3.out" }, 2.8);
+      tl.fromTo($("browser"), { y: 260 }, { y: 0, duration: 0.55, ease: "power3.inOut", immediateRender: false }, 2.92);
+      tl.fromTo($("zoom-outer"), { scale: 1 }, { scale: ROW_S, duration: 0.85, ease: "power3.inOut" }, 3.5);
+      tl.fromTo($("zoom-inner"), { x: 0, y: 0 }, { x: -ROW.x, y: -ROW.y, duration: 0.85, ease: "power3.inOut" }, 3.5);
+      drawMarker("a", 4.2);
+      tl.fromTo($("sub1"), { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 4.3);
+
+      // ---- Scene 5 (4.8–7.2): hard cut to the Update Event Type page; push-in on the helper panel, pan to the tree ----
+      tl.set($("plane-a"), { opacity: 0 }, CUT);
+      tl.set($("plane-b"), { opacity: 1 }, CUT);
+      tl.set($("zoom-outer"), { scale: 1 }, CUT);
+      tl.set($("zoom-inner"), { x: 0, y: 0 }, CUT);
+      tl.fromTo($("zoom-outer"), { scale: 1 }, { scale: PANEL_S, duration: 0.9, ease: "power3.inOut", immediateRender: false }, 5.0);
+      tl.fromTo($("zoom-inner"), { x: 0, y: 0 }, { x: -PANEL.x, y: -PANEL.y, duration: 0.9, ease: "power3.inOut", immediateRender: false }, 5.0);
+      drawMarker("b", 5.85);
+      tl.to($("zoom-inner"), { x: -TREE.x, y: -TREE.y, duration: 0.75, ease: "power3.inOut" }, 6.35);
+      // sub-line swap (within-scene text-to-text change)
+      tl.to($("sub1"), { opacity: 0, y: -8, duration: 0.25, ease: "power3.inOut" }, 6.6);
+      tl.fromTo($("sub2"), { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }, 6.75);
+
+      // ---- Scene 6 (7.2–9.0): held read on the schema — nothing new enters ----
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines[ID] = tl;
+    })();
+  </script>
+</template>

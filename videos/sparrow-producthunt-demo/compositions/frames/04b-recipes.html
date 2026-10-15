@@ -1,0 +1,436 @@
+<template>
+  <style>
+    @font-face{font-family:'Fira Code';font-style:normal;font-weight:400 500;font-display:swap;src:url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh3dSDqFGedA.woff2") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+    @font-face{font-family:'Fira Code';font-style:normal;font-weight:400 500;font-display:swap;src:url("assets/fonts/captured-uU9NCBsR6Z2vfE9aq3bh09SDqFGedCMX.woff2") format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF;}
+    @font-face{font-family:'Space Grotesk';font-style:normal;font-weight:400 700;font-display:swap;src:url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+    @font-face{font-family:'Space Grotesk';font-style:normal;font-weight:400 700;font-display:swap;src:url("assets/fonts/captured-V8mDoQDjQSkFtoMM3T6r8E7mPb94C_k3HqUtEw.woff2") format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF;}
+
+    #root {
+      position: absolute;
+      inset: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      font-family: 'Space Grotesk', sans-serif;
+      color: #FAF9F6;
+    }
+    [id="04b-recipes-ground"] {
+      position: absolute;
+      inset: 0;
+      background: #1C1A16;
+    }
+    [id="04b-recipes-scene"] {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+
+    /* ---------------- LEFT STORY PANEL (x 0–690) ---------------- */
+    [id="04b-recipes-kicker"] {
+      position: absolute;
+      left: 72px;
+      top: 90px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    [class~="04b-recipes-rule"] {
+      width: 36px;
+      height: 2px;
+      background: #EA9D2B;
+    }
+    [class~="04b-recipes-kicker-text"] {
+      font-family: 'Fira Code', monospace;
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #EA9D2B;
+    }
+    [id="04b-recipes-story"] {
+      position: absolute;
+      left: 72px;
+      top: 300px;
+      width: 600px;
+      font-size: 60px;
+      font-weight: 700;
+      line-height: 1.04;
+      letter-spacing: -0.02em;
+      color: #FAF9F6;
+    }
+    [class~="04b-recipes-w"] {
+      display: inline-block;
+      white-space: pre;
+    }
+    [id="04b-recipes-support"] {
+      position: absolute;
+      left: 72px;
+      top: 510px;
+      width: 600px;
+      font-size: 26px;
+      font-weight: 500;
+      line-height: 1.3;
+      letter-spacing: -0.01em;
+      color: #C9C2B2;
+    }
+    [id="04b-recipes-support"] b {
+      font-weight: 500;
+      color: #FAF9F6;
+    }
+    [id="04b-recipes-api"] {
+      position: absolute;
+      left: 72px;
+      top: 576px;
+      width: 610px;
+      height: 32px;
+      font-family: 'Fira Code', monospace;
+      font-size: 23px;
+      font-weight: 500;
+      line-height: 32px;
+      white-space: nowrap;
+      color: #EA9D2B;
+    }
+    [id="04b-recipes-caret"] {
+      display: inline-block;
+      width: 11px;
+      height: 24px;
+      margin-left: 3px;
+      vertical-align: -4px;
+      background: #EA9D2B;
+    }
+    [id="04b-recipes-sub"] {
+      position: absolute;
+      left: 72px;
+      top: 634px;
+      width: 600px;
+      min-height: 64px;
+      font-family: 'Fira Code', monospace;
+      font-size: 21px;
+      font-weight: 400;
+      line-height: 1.5;
+      color: #C9C2B2;
+    }
+    [class~="04b-recipes-sl"] {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 600px;
+      opacity: 0;
+    }
+    [class~="04b-recipes-sl-slash"] {
+      color: #EA9D2B;
+      margin-right: 12px;
+    }
+    [class~="04b-recipes-sl-b"] {
+      color: #FAF9F6;
+    }
+    [class~="04b-recipes-ch"] {
+      display: none;
+    }
+
+    /* hairline divider */
+    [id="04b-recipes-hairline"] {
+      position: absolute;
+      left: 715px;
+      top: 90px;
+      width: 1px;
+      height: 810px;
+      background: #282726;
+      transform-origin: 50% 0;
+    }
+
+    /* ---------------- RIGHT STAGE (x 740–1880, y 90–900) ---------------- */
+    [id="04b-recipes-window"] {
+      position: absolute;
+      left: 740px;
+      top: 155px;
+      width: 1140px;
+      height: 681px;
+      background: #1A1918;
+      border: 1px solid rgba(234, 157, 43, 0.7);
+      border-radius: 8px;
+      box-shadow: 0 0 40px rgba(234, 157, 43, 0.12);
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+    [class~="04b-recipes-chrome"] {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 16px;
+      box-sizing: border-box;
+      background: #1A1918;
+      border-bottom: 1px solid #282726;
+    }
+    [class~="04b-recipes-dot"] {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #504D48;
+    }
+    [class~="04b-recipes-url"] {
+      margin-left: 18px;
+      flex: 1;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      border: 1px solid #282726;
+      border-radius: 5px;
+      background: #1C1A16;
+      font-family: 'Fira Code', monospace;
+      font-weight: 400;
+      font-size: 13px;
+      color: #C9C2B2;
+    }
+    [id="04b-recipes-viewport"] {
+      position: absolute;
+      left: 0;
+      top: 40px;
+      width: 1138px;
+      height: 640px;
+      overflow: hidden;
+    }
+    /* coordinate-target-zoom: outer scales around centre, inner counter-translates */
+    [id="04b-recipes-zoom-outer"] {
+      position: absolute;
+      inset: 0;
+      transform-origin: 50% 50%;
+      will-change: transform;
+    }
+    [id="04b-recipes-zoom-inner"] {
+      position: absolute;
+      inset: 0;
+      will-change: transform;
+    }
+    /* capture plane in 1920-wide capture space, fit to window width (static scale, never tweened) */
+    [id="04b-recipes-plane"] {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1920px;
+      height: 1080px;
+      transform-origin: 0 0;
+      transform: scale(0.59271);
+    }
+    [id="04b-recipes-shot"] {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1920px;
+      height: 1080px;
+      display: block;
+    }
+    /* marker outlines: absolutely positioned boxes in capture space */
+    [class~="04b-recipes-mark"] {
+      position: absolute;
+      overflow: visible;
+    }
+    [class~="04b-recipes-mark"] svg {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+    [class~="04b-recipes-mark"] rect {
+      fill: rgba(234, 157, 43, 0);
+      stroke: #EA9D2B;
+      stroke-width: 3.5;
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
+    }
+    [id="04b-recipes-mark-grid"] rect {
+      stroke-width: 3;
+    }
+  </style>
+
+  <div id="root" data-composition-id="04b-recipes" data-start="0" data-duration="9" data-width="1920" data-height="1080">
+    <div id="04b-recipes-ground" class="clip" data-start="0" data-duration="7" data-track-index="0"></div>
+
+    <div id="04b-recipes-scene" class="clip" data-start="0" data-duration="7" data-track-index="1">
+
+      <!-- LEFT STORY PANEL -->
+      <div id="04b-recipes-kicker">
+        <div class="04b-recipes-rule"></div>
+        <div class="04b-recipes-kicker-text">03b / recipes</div>
+      </div>
+
+      <div id="04b-recipes-story"><span class="04b-recipes-w">receivers </span><span class="04b-recipes-w">that </span><span class="04b-recipes-w">want </span><span class="04b-recipes-w">an </span><span class="04b-recipes-w">api </span><span class="04b-recipes-w">call, </span><span class="04b-recipes-w">not </span><span class="04b-recipes-w">a </span><span class="04b-recipes-w">webhook.</span></div>
+
+      <div id="04b-recipes-support">one recipe each: <b>destination + transform.</b></div>
+
+      <div id="04b-recipes-api"><span id="04b-recipes-api-text"></span><span id="04b-recipes-caret"></span></div>
+
+      <div id="04b-recipes-sub">
+        <div id="04b-recipes-sub-sendgrid" class="04b-recipes-sl"><span class="04b-recipes-sl-slash">/</span>email via <span class="04b-recipes-sl-b">SendGrid</span></div>
+        <div id="04b-recipes-sub-twilio" class="04b-recipes-sl"><span class="04b-recipes-sl-slash">/</span>SMS via <span class="04b-recipes-sl-b">Twilio</span></div>
+        <div id="04b-recipes-sub-pagerduty" class="04b-recipes-sl"><span class="04b-recipes-sl-slash">/</span>alerts via <span class="04b-recipes-sl-b">PagerDuty</span></div>
+        <div id="04b-recipes-sub-discord" class="04b-recipes-sl"><span class="04b-recipes-sl-slash">/</span>chat via <span class="04b-recipes-sl-b">Discord</span></div>
+        <div id="04b-recipes-sub-all" class="04b-recipes-sl"><span class="04b-recipes-sl-slash">/</span><span class="04b-recipes-sl-b">8 recipes</span> · ClickHouse, CloudEvents, ntfy, Slack too</div>
+      </div>
+
+      <div id="04b-recipes-hairline"></div>
+
+      <!-- RIGHT STAGE: framed browser window -->
+      <div id="04b-recipes-window">
+        <div class="04b-recipes-chrome">
+          <span class="04b-recipes-dot"></span><span class="04b-recipes-dot"></span><span class="04b-recipes-dot"></span>
+          <div class="04b-recipes-url">localhost:8080/webhooks/register</div>
+        </div>
+        <div id="04b-recipes-viewport">
+          <div id="04b-recipes-zoom-outer">
+            <div id="04b-recipes-zoom-inner" data-layout-allow-overflow>
+              <div id="04b-recipes-plane" data-layout-allow-overflow>
+                <img id="04b-recipes-shot" src="assets/ui-register-recipes.png" alt="" />
+                <div id="04b-recipes-mark-sendgrid" class="04b-recipes-mark"><svg><rect pathLength="1" rx="8" ry="8"></rect></svg></div>
+                <div id="04b-recipes-mark-twilio" class="04b-recipes-mark"><svg><rect pathLength="1" rx="8" ry="8"></rect></svg></div>
+                <div id="04b-recipes-mark-pagerduty" class="04b-recipes-mark"><svg><rect pathLength="1" rx="8" ry="8"></rect></svg></div>
+                <div id="04b-recipes-mark-discord" class="04b-recipes-mark"><svg><rect pathLength="1" rx="8" ry="8"></rect></svg></div>
+                <div id="04b-recipes-mark-grid" class="04b-recipes-mark"><svg><rect pathLength="1" rx="12" ry="12"></rect></svg></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    (function () {
+      var ID = "04b-recipes";
+      var $ = function (s) { return document.getElementById(ID + "-" + s); };
+      var DUR = 6.5;
+
+      // ---------- geometry ----------
+      // viewport inside the window: 1138 x 640; capture fit-width scale
+      var VP_W = 1138, VP_H = 640;
+      var IMG_S = VP_W / 1920;                     // 0.59271 (matches CSS)
+
+      // recipe grid in 1920-wide capture coordinates
+      var G = { x0: 548, y0: 205, x1: 1628, y1: 460 };
+      // card boxes (capture space)
+      var CARDS = {
+        sendgrid:  [1272, 293, 1628, 375],
+        twilio:    [910, 382, 1265, 460],
+        pagerduty: [910, 293, 1265, 375],
+        discord:   [1272, 205, 1628, 285]
+      };
+
+      function placeMark(key, box, pad) {
+        var el = $("mark-" + key);
+        var w = box[2] - box[0] + pad * 2, h = box[3] - box[1] + pad * 2;
+        el.style.left = (box[0] - pad) + "px";
+        el.style.top = (box[1] - pad) + "px";
+        el.style.width = w + "px";
+        el.style.height = h + "px";
+        var r = el.querySelector("rect");
+        r.setAttribute("x", 0); r.setAttribute("y", 0);
+        r.setAttribute("width", w); r.setAttribute("height", h);
+        return r;
+      }
+      var RECT = {};
+      Object.keys(CARDS).forEach(function (k) { RECT[k] = placeMark(k, CARDS[k], 4); });
+      RECT.grid = placeMark("grid", [G.x0, G.y0, G.x1, G.y1], 14);
+
+      // coordinate-target-zoom (nested wrappers: T = -offset, independent of S)
+      var gcx = ((G.x0 + G.x1) / 2) * IMG_S;       // grid centre in viewport px
+      var gcy = ((G.y0 + G.y1) / 2) * IMG_S;
+      var gW = (G.x1 - G.x0 + 28) * IMG_S, gH = (G.y1 - G.y0 + 28) * IMG_S;
+      var OFF_X = gcx - VP_W / 2, OFF_Y = gcy - VP_H / 2;
+      var DESIRED = (0.92 * VP_W) / gW;            // cards fill the stage width
+      var MAXS = Math.min((0.94 * VP_W) / gW, (0.88 * VP_H) / gH);
+      var ZS = Math.min(DESIRED, MAXS);
+      var TX = -OFF_X, TY = -OFF_Y;
+
+      // ---------- dynamic-content-sequencing: windows for the four recipes ----------
+      // duration per entry = BASE + chars * SEC_PER_CHAR, normalised into the 1.6–4.4 window
+      var SEQ_START = 1.6, SEQ_END = 4.4;
+      var BASE = 0.5, SEC_PER_CHAR = 0.012;
+      var CONTENT = [
+        { key: "sendgrid",  text: "email via SendGrid" },
+        { key: "twilio",    text: "SMS via Twilio" },
+        { key: "pagerduty", text: "alerts via PagerDuty" },
+        { key: "discord",   text: "chat via Discord" }
+      ];
+      var raw = CONTENT.map(function (e) { return BASE + e.text.length * SEC_PER_CHAR; });
+      var rawSum = raw.reduce(function (s, v) { return s + v; }, 0);
+      var kf = (SEQ_END - SEQ_START) / rawSum;
+      var cum = SEQ_START;
+      var TIMELINE = CONTENT.map(function (e, i) {
+        var start = cum; cum += raw[i] * kf;
+        return { key: e.key, start: start, end: cum };
+      });
+      var FINAL_AT = 4.5;
+
+      // ---------- typed API line (one span per char, revealed by zero-length display sets) ----------
+      var API = "sparrow use sendgrid --event order.created";
+      var TYPE_AT = 0.6, TYPE_DUR = 0.9;
+      var apiText = $("api-text");
+      var CHARS = [];
+      for (var c = 0; c < API.length; c++) {
+        var sp = document.createElement("span");
+        sp.className = ID + "-ch";
+        sp.textContent = API.charAt(c);
+        apiText.appendChild(sp);
+        CHARS.push(sp);
+      }
+
+      var tl = gsap.timeline({ paused: true });
+
+      // ---- Scene 1 (0.0–0.5): kicker, story, framed window settles ----
+      tl.fromTo($("kicker"), { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0);
+      tl.fromTo($("hairline"), { scaleY: 0 }, { scaleY: 1, duration: 0.6, ease: "power3.out" }, 0);
+      tl.fromTo("#root [class~='04b-recipes-w']",
+        { opacity: 0, y: 26 },
+        { opacity: 1, y: 0, duration: 0.4, ease: "power3.out", stagger: 0.035 }, 0.05);
+      tl.fromTo($("support"), { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.35);
+      tl.fromTo($("window"),
+        { opacity: 0, y: 30, scale: 0.97 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "power3.out" }, 0);
+
+      // ---- Scene 2 (0.5–1.6): camera pushes in on the recipe grid; API line types on ----
+      var ZOOM_AT = 0.5, ZOOM_DUR = 1.1;
+      tl.fromTo($("zoom-outer"), { scale: 1 }, { scale: ZS, duration: ZOOM_DUR, ease: "power3.inOut" }, ZOOM_AT);
+      tl.fromTo($("zoom-inner"), { x: 0, y: 0 }, { x: TX, y: TY, duration: ZOOM_DUR, ease: "power3.inOut" }, ZOOM_AT);
+      tl.fromTo($("api"), { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "power3.out" }, TYPE_AT - 0.05);
+      CHARS.forEach(function (sp, i) {
+        tl.fromTo(sp, { display: "none" }, { display: "inline", duration: 0, immediateRender: false }, TYPE_AT + (i / API.length) * TYPE_DUR);
+      });
+
+      // ---- Scene 3 (1.6–4.4): marker outlines step across the cards; sub-line swaps in step ----
+      var DRAW = 0.38;
+      TIMELINE.slice(0, 4).forEach(function (e, idx) {
+        var t = e.start + 0.04;
+        var r = RECT[e.key];
+        tl.fromTo(r, { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: DRAW, ease: "power3.out", immediateRender: false }, t);
+        tl.fromTo(r, { fill: "rgba(234,157,43,0)" }, { fill: "rgba(234,157,43,0.10)", duration: 0.25, ease: "power3.out", immediateRender: false }, t + DRAW - 0.12);
+        if (idx > 0) {
+          var prev = $("mark-" + TIMELINE[idx - 1].key);
+          tl.fromTo(prev, { opacity: 1 }, { opacity: 0, duration: 0.3, ease: "power3.out", immediateRender: false }, t);
+        }
+        var sl = $("sub-" + e.key);
+        tl.fromTo(sl, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.28, ease: "power3.out", immediateRender: false }, e.start);
+        var outAt = idx < 3 ? TIMELINE[idx + 1].start - 0.12 : FINAL_AT - 0.14;
+        tl.fromTo(sl, { opacity: 1, y: 0 }, { opacity: 0, y: -14, duration: 0.14, ease: "power3.out", immediateRender: false }, outAt);
+      });
+
+      // ---- Scene 4 (4.4–5.6): outlines clear; one wide outline around the whole grid; sub-line settles ----
+      tl.fromTo($("mark-discord"), { opacity: 1 }, { opacity: 0, duration: 0.3, ease: "power3.out", immediateRender: false }, 4.4);
+      tl.fromTo(RECT.grid, { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 0.75, ease: "power3.inOut", immediateRender: false }, 4.45);
+      tl.fromTo($("sub-all"), { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out", immediateRender: false }, FINAL_AT);
+
+      // ---- Scene 5 (5.6–6.5): held read. Still. ----
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines[ID] = tl;
+    })();
+  </script>
+</template>
