@@ -1,17 +1,17 @@
 # Graph Report - sparrow-benchmark-blog-35703d  (2026-10-15)
 
 ## Corpus Check
-- 816 files · ~616,945 words
+- 817 files · ~617,864 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 41 file(s) not represented in the graph (top: .spec 20, (none) 12, .css 3)
 
 ## Summary
-- 7806 nodes · 23828 edges · 365 communities (222 shown, 143 thin omitted)
-- Extraction: 87% EXTRACTED · 13% INFERRED · 0% AMBIGUOUS · INFERRED: 3104 edges (avg confidence: 0.92)
+- 7825 nodes · 23974 edges · 381 communities (244 shown, 137 thin omitted)
+- Extraction: 87% EXTRACTED · 13% INFERRED · 0% AMBIGUOUS · INFERRED: 3140 edges (avg confidence: 0.92)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `5ae9948e`
+- Built from commit: `96889eb0`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -19,73 +19,73 @@
 - WebhookDelivery
 - context.Context
 - testing.T
-- EventRegistration
+- EventRecord
 - [webhookId]/+page.svelte
-- webhook_service.go
+- testhelpers_test.go
 - push/+page.svelte
 - +layout.svelte
 - time.Duration
-- lib/utils.ts
+- schema-infer.ts
 - setupEnv
 - webhooks/register/+page.svelte
 - github.com/google/uuid.UUID
 - testContext
 - EventReportFilter
 - otel.go
-- Client
+- Response
 - Config
 - steps.py
 - TemplateEditor.svelte
 - requests
-- .from_dict
+- client.py
 - NewService
 - webhooks/+page.svelte
-- Response
+- error_model.py
 - io.Writer
 - EventTypeDefinition
 - posts.ts
 - RecipeWorkbenchApp.svelte
-- SubscriptionForm.svelte
-- Service
+- EventSubscription
+- crypto.go
 - push_event.py
 - E2ERunner
 - SparrowVerify.java
 - github.com/riverqueue/river.JobArgs
 - New
-- [eventId]/+page.svelte
-- newHandler
-- client.py
+- deliveries/+page.svelte
+- enum
+- Client
 - unwrap
 - Service
 - NetworkPolicy
 - migrate.go
 - 000001_consolidated_schema.up.sql
-- mcp_test.go
+- mcp.go
 - events/+page.svelte
 - generator.ts
-- DeliveryTable.svelte
+- lib/utils.ts
 - lib/components/EventTypeImport.svelte
-- access/+page.svelte
+- SubscriptionForm.svelte
 - sparrow_api.py
 - reports/+page.svelte
-- deliveries/+page.svelte
+- go_pkg_errors
 - BatchScope
 - newRootCmd
 - time.Time
-- AuthenticatedClient
+- EventTypeItem
 - sparrow/access.go
 - sparrow/client.go
 - webhook_target.py
-- registerWebhookRoutes
+- SecretRevealer
 - services.ts
-- access/service_test.go
+- New
 - get_health_summary.py
-- event_type_bundle.go
+- webhook_service_registration.go
 - list_subscription_template_versions.py
-- Errorf
+- WebhookRegistration
 - web/package.json
 - build_subscription_template_prompt.py
-- WebhookHeaders
+- Recipe
 - sparrow_verify.py
 - webhook_registrations
 - Security policy
@@ -110,14 +110,14 @@
 - api.ts
 - list_event_types.py
 - New
-- list_tokens.py
+- ErrorModel
 - get_delivery_attempts.py
-- schema_compat.go
+- .compare
 - sparrow/access_test.go
-- 3. New satellites
+- Satellite ideas: landscape research and candidates
 - Commands
 - models/__init__.py
-- 7. Short Replies Bank
+- recipe_apply.go
 - Documenting the REST API
 - create_alert_config.py
 - server/main.go
@@ -128,19 +128,19 @@
 - @astrojs/starlight
 - devDependencies
 - DeliveryItem
-- event.go
+- registerEventRoutes
 - event_records
 - go-template-engine.ts
 - access.md
-- All
+- runUse
 - sparrow/config.go
-- PushEventBodyPayload
-- BundleItemEventSchema
+- ImportItemResult
+- access/+page.svelte
 - EventOccurrenceItemMetadata
 - AGENTS.md — Sparrow
 - ReadingProgress.astro
-- WebhookHTTPConfig
-- Engine
+- registerWebhookRoutes
+- stepAction
 - tenants
 - dependencies
 - benchmark-four-walls.md
@@ -148,9 +148,9 @@
 - entryToSimpleMarkdown.ts
 - All
 - compilerOptions
-- BundleItemMetadata
+- Mount
 - production.md
-- astro.config.mjs
+- EventTypeChange
 - Documenting the REST API
 - event_registrations
 - svelte.config.js
@@ -159,7 +159,7 @@
 - go_pkg_context
 - listSubscriptionsImpl
 - newWebhookHandler
-- ai/ai.go
+- Wrapf
 - SparrowVerify
 - SparrowVerify
 - deployment/security.mdx
@@ -184,8 +184,8 @@
 - .url
 - docs/src/lib/recipes.ts
 - upgrading-to-1-0.md
-- CreateSubscriptionBodyLabelFilters
-- PatchWebhookBodyHeaders
+- CreateSubscriptionBody
+- PatchWebhookBody
 - palette
 - EventTypeVersionItemSamplePayload
 - seed.sql
@@ -197,23 +197,24 @@
 - export_event_types.py
 - create_invite.py
 - create_token.py
-- PatchSubscriptionBodyLabelFilters
+- patch_subscription_body.py
 - EventTypeBodyEventSchema
 - What an import does
 - webhook-health-alerts.mdx
-- resume_subscription.py
+- resume_subscription_output_body.py
 - WebhookService
 - proposal.md
 - test-ui.sh
-- WebhookServiceInterface
+- mapError
 - validate_event_payload.py
-- PatchWebhookBodySecretHeaders
+- listDeliveriesImpl
 - net/http.Header
 - Feature: Webhook health/delivery-failure email alerts
 - introducing-sparrow.md
 - docker-compose.md
 - subscription-pause.mdx
-- CapabilitiesOutputBody
+- AIDraftingStruct
+- get_who_am_i.py
 - github.com/sarathsp06/sparrow
 - repush_event.py
 - Sparrow client code
@@ -224,8 +225,8 @@
 - verify-signatures.mdx
 - error-classification.md
 - list_recipes.py
-- http
-- ReadBody
+- urllib_parse
+- net/http.Response
 - schema.sql
 - install.sh
 - release-submodules.sh
@@ -243,65 +244,84 @@
 - client-libraries.mdx
 - docs/tsconfig.json
 - manifest.json
-- PushEventBodyLabels
+- PushEventBody
 - ValidateEventPayloadInputBodyPayload
+- InviteOut
 - idx_access_tokens_idempotency
 - dev-env.sh
+- ListTokensOutputBody
 - EventOccurrenceItemPayload
-- CreateSubscriptionBodyHeaders
+- clientTester
 - +layout.ts
 - idx_webhook_deliveries_request_body_gin
 - 000015_envelope_encryption.up.sql
 - 000019_drop_system_settings.down.sql
 - idx_webhook_deliveries_paused
 - Request
-- PatchSubscriptionBodyHeaders
+- StampCheckItem
 - run.sh
-- PushEventBodyMetadata
-- RegisterWebhookBodyHeaders
-- WebhookOut
+- http
+- PrepareDeliveryRequest
+- httpx
 - Repository
 - sparrow-e2e
-- RegisterWebhookBodySecretHeaders
-- UpdateEventTypeOutputBodyMetadata
+- WebhookClient
+- UpdateEventTypeOutputBodyEventSchema
 - Code conventions
-- postSink
+- s3.go
 - SubscriptionItemHeaders
 - webhookHealthOutput
 - SubscriptionItemLabelFilters
 - Requirement: Health transition event
-- UpdateEventTypeOutputBodyEventSchema
+- revoke_token.py
 - EventTypeItemMetadata
 - EventTypeItemSamplePayload
 - WebhookOutHeaders
 - WebhookOutSecretHeaders
-- import_event_types.py
-- UpdateEventTypeOutputBodySamplePayload
-- mcp.go
-- Envelope
+- import_event_types_input_body.py
+- delete_alert_config.py
+- cancel_event_repush_job.py
+- delete_webhook.py
 - Checker
-- Handler
+- recipes_cmd.go
 - ServiceError
 - list_consumers.py
 - File
-- listenHandler
+- AttemptItem
 - get_event_type_version.py
 - prompt.go
 - .Export
 - budgetFuncs
 - typeHasSlices
-- runPush
+- TemplateVersionItem
+- AuthenticatedClient
+- mcpListener
 - sparrow-e2e-client
-- sparrow-e2e-client
-- ResumeSubscriptionOutputBodyHeaders
-- ResumeSubscriptionOutputBodyLabelFilters
+- NewKeyring
+- E2EResults
+- ParseNetworks
+- 3. New satellites
 - events_bundle_test.go
-- WebhookClient
+- ConsumerItem
+- ErrorDetail
+- TemplateFunctionItem
+- WebhookHTTPConfigOut
+- 1. Payload transform engine: Go `text/template`, not embedded JavaScript
+- registerAlertConfigRoutes
+- cancelOnClose
+- net/http.Client
+- api-types.d.ts
+- scripts
 - cli.mdx
-- ErrorModel
-- Deliberately NOT covered by e2e
+- ListSubscriptionsOutputBody
+- CursorPaginationOutput
+- HealthRules
+- PaginationOutput
 - api-errors.md
-- webhookHealthOutput
+- `sparrow tokens`
+- listWebhooksOutput
+- xorSealer
+- cryptoSealer
 
 ## God Nodes (most connected - your core abstractions)
 1. `Client` - 489 edges
@@ -316,129 +336,138 @@
 10. `EventSubscription` - 70 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `4.2 Typed event payloads from event-type schemas` --references--> `webhooks`  [INFERRED]
-  docs/design/satellite-ideas.md → web/src/lib/api-types.d.ts
-- `API surface deliberately not e2e-tested (removal / design candidates)` --references--> `retryDelivery()`  [INFERRED]
-  e2e/NOT-TESTING.md → web/src/routes/portal/+page.svelte
+- `Decision` --references--> `add()`  [INFERRED]
+  docs/adr/0001-payload-transform-engine.md → web/src/lib/components/AlertConfigs.svelte
+- `Numbers` --references--> `add()`  [INFERRED]
+  docs/src/content/docs/reference/template-functions.md → web/src/lib/components/AlertConfigs.svelte
+- `Quick reference` --references--> `add()`  [INFERRED]
+  docs/src/content/docs/reference/template-functions.md → web/src/lib/components/AlertConfigs.svelte
 - `Use it as a Go library` --references--> `Client`  [INFERRED]
   docs/src/content/docs/satellites/sources.mdx → e2e/client/sparrow_client/client.py
 - ``sparrow mcp`` --references--> `delete_webhook()`  [INFERRED]
   docs/src/content/docs/satellites/cli.mdx → e2e/step_impl/steps_surface.py
-- `1. What the landscape ships as "ecosystem"` --references--> `webhooks`  [INFERRED]
-  docs/design/satellite-ideas.md → web/src/lib/api-types.d.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (365 total, 143 thin omitted)
+## Communities (381 total, 137 thin omitted)
 
 ### Community 0 - "WebhookDelivery"
-Cohesion: 0.05
-Nodes (16): statusForFailure(), deliveryFilterArgs(), DeliveryRepository, FanOutEnqueuer, Repository, DeliveryAttempt, cursorArgs(), DeliveryFilter (+8 more)
+Cohesion: 0.08
+Nodes (12): statusForFailure(), deliveryFilterArgs(), DeliveryRepository, FanOutEnqueuer, Repository, DeliveryAttempt, DeliveryFilter, WebhookDelivery (+4 more)
 
 ### Community 1 - "context.Context"
 Cohesion: 0.03
-Nodes (27): fakePusher, fakePusher, PortalAuthorized(), batchScope(), WebhookRegistrationRequest, AlertConfig, AlertConfigRepository, Repository (+19 more)
+Nodes (29): fakePusher, fakePusher, PortalAuthorized(), batchScope(), mockRepo, AlertConfig, AlertConfigRepository, Repository (+21 more)
 
 ### Community 2 - "testing.T"
 Cohesion: 0.02
-Nodes (175): smtpMessage, ErrorCategory, sinkSMTPMessage, TestMigrationsMatchPgstoreSchema(), TestPgstoreConformance(), TestAIConfig(), TestProductionMatchesAnyCase(), TestShutdownTimeoutOrDefault() (+167 more)
+Nodes (170): ErrorCategory, sinkSMTPMessage, TestMigrationsMatchPgstoreSchema(), TestPgstoreConformance(), TestAIConfig(), TestProductionMatchesAnyCase(), TestShutdownTimeoutOrDefault(), TestSlogLevel() (+162 more)
 
-### Community 3 - "EventRegistration"
-Cohesion: 0.05
-Nodes (13): registerSystemEventTypes(), SystemEventRegistrations(), EventTypeFilter, EventTypeRepository, Repository, EventRegistration, EventRegistrationVersion, fakeSystemEventRepo (+5 more)
+### Community 3 - "EventRecord"
+Cohesion: 0.06
+Nodes (15): IsNotFound(), NewBatchJobWorker(), newBatchFixture(), eventVersionOrDefault(), EventRepository, Repository, EventRecord, WebhookService (+7 more)
 
 ### Community 4 - "[webhookId]/+page.svelte"
 Cohesion: 0.03
 Nodes (51): activeTab, applyDeliveryFilters(), changingSignature, clearDeliveryFilters(), configForm, configHeaderKey, configHeaderValue, configSecretHeaderKey (+43 more)
 
-### Community 5 - "webhook_service.go"
-Cohesion: 0.19
-Nodes (22): WebhookEnvelope, eventTypeResp, eventTypeVersionResp, healthRules(), TestIsSuccessStatusCode(), isSuccessStatusCode(), TestHealthLabel(), healthLabel() (+14 more)
+### Community 5 - "testhelpers_test.go"
+Cohesion: 0.23
+Nodes (10): WebhookEnvelope, eventTypeResp, eventTypeVersionResp, TestIsSuccessStatusCode(), isSuccessStatusCode(), TestHealthLabel(), healthLabel(), ConsumerStats (+2 more)
 
 ### Community 6 - "push/+page.svelte"
-Cohesion: 0.10
-Nodes (22): isSystemEvent(), listAllEventTypes(), safeAjvValidator(), availableEvents, consumer, error, event, EventTypeItem (+14 more)
+Cohesion: 0.06
+Nodes (34): isSystemEvent(), listAllEventTypes(), safeAjvValidator(), availableEvents, consumer, error, event, EventTypeItem (+26 more)
 
 ### Community 7 - "+layout.svelte"
 Cohesion: 0.06
-Nodes (30): openapi-fetch, apiConsole, ApiLogEntry, apiLogMiddleware, entries, shellQuote(), started, toCurl() (+22 more)
+Nodes (31): openapi-fetch, apiConsole, ApiLogEntry, apiLogMiddleware, entries, shellQuote(), started, toCurl() (+23 more)
 
 ### Community 8 - "time.Duration"
 Cohesion: 0.03
-Nodes (65): DeliveryRequest, RedactURL(), Config, GetHeaderMap(), PutHeaderMap(), BenchmarkHeaderMapPool(), TestHeaderMapPool(), BuildEnvelopePayload() (+57 more)
+Nodes (58): DeliveryRequest, main(), RunAllMigrations(), RunAppMigrations(), RunRiverMigrations(), RedactURL(), Config, BuildEnvelopePayload() (+50 more)
 
-### Community 9 - "lib/utils.ts"
-Cohesion: 0.09
-Nodes (32): analyzeSamples(), collect(), DATE, detectStringFormat(), emit(), FieldCoverage, inferSchema(), jsonToJsonSchema() (+24 more)
+### Community 9 - "schema-infer.ts"
+Cohesion: 0.17
+Nodes (15): analyzeSamples(), collect(), DATE, detectStringFormat(), emit(), FieldCoverage, inferSchema(), jsonToJsonSchema() (+7 more)
 
 ### Community 10 - "setupEnv"
 Cohesion: 0.07
-Nodes (100): bodyRecorder, bundle, deliveryItem, importResult, requiresTransformSub, restClient, templateDelivery, testEnv (+92 more)
+Nodes (98): bodyRecorder, bundle, deliveryItem, importResult, requiresTransformSub, restClient, templateDelivery, testEnv (+90 more)
 
 ### Community 11 - "webhooks/register/+page.svelte"
 Cohesion: 0.03
-Nodes (64): Contributing a recipe, Guidance, How params work, Included recipes, Requiring the transform, Schema (version 1), Sparrow Recipes, Recipe (+56 more)
+Nodes (63): Contributing a recipe, Guidance, How params work, Included recipes, Requiring the transform, Schema (version 1), Sparrow Recipes, Recipe (+55 more)
 
 ### Community 12 - "github.com/google/uuid.UUID"
 Cohesion: 0.03
-Nodes (23): getWebhookEventsMap(), mockRepo, HealthRepository, Repository, RepositoryInterface, EventSubscription, SubscriptionTemplateVersion, SubscriptionWithWebhook (+15 more)
+Nodes (15): EventTypeFilter, EventTypeRepository, Repository, RepositoryInterface, EventRegistration, EventRegistrationVersion, NewRepositoryInterfaceWithTracing(), RateLimitRepository (+7 more)
 
 ### Community 13 - "testContext"
 Cohesion: 0.06
 Nodes (58): Status, TestAlertDeliveryConfigured(), TestBatchJobsStayInTheirConsumer(), TestGetDeliveryAttempts_StaysInTheConsumer(), TestCreateSubscription_CatchAllWithLabelFilters(), TestCreateSubscription_WithEmptyLabelFilters(), TestCreateSubscription_WithInvalidLabelFilters(), TestCreateSubscription_WithLabelFilters() (+50 more)
 
 ### Community 14 - "EventReportFilter"
-Cohesion: 0.29
-Nodes (4): eventReportFilterArgs(), EventReportFilter, EventReportWithStats, EventReportPage
+Cohesion: 0.11
+Nodes (9): eventReportFilterArgs(), cursorArgs(), EventReportFilter, EventReportWithStats, PageCursor, WebhookService, normalizePagination(), EventReportPage (+1 more)
 
 ### Community 15 - "otel.go"
 Cohesion: 0.07
-Nodes (22): DefaultConfig(), GetMeter(), GetTracer(), SparrowMetrics, legacyEndpoint(), MetricsHandler(), newLoggerProvider(), NewSparrowMetrics() (+14 more)
+Nodes (21): DefaultConfig(), GetMeter(), GetTracer(), SparrowMetrics, legacyEndpoint(), MetricsHandler(), newLoggerProvider(), NewSparrowMetrics() (+13 more)
 
-### Community 16 - "Client"
-Cohesion: 0.03
-Nodes (40): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), asyncio() (+32 more)
+### Community 16 - "Response"
+Cohesion: 0.07
+Nodes (31): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), asyncio() (+23 more)
 
 ### Community 17 - "Config"
-Cohesion: 0.11
-Nodes (12): Config, isBlank(), Load(), TestLoadTreatsBlankAsUnset(), unsetBlankEnv(), validatePort(), mustCIDRs(), ParseNetworks() (+4 more)
+Cohesion: 0.15
+Nodes (7): Config, isBlank(), IsProductionEnv(), Load(), TestLoadTreatsBlankAsUnset(), unsetBlankEnv(), validatePort()
 
 ### Community 18 - "steps.py"
 Cohesion: 0.09
 Nodes (48): delivery_has_signature_headers(), _api(), assert_api_delivery_count(), assert_body_field(), assert_body_has_key(), assert_body_not_has_key(), assert_delivery_attempt_count(), assert_delivery_count() (+40 more)
 
 ### Community 19 - "TemplateEditor.svelte"
-Cohesion: 0.04
-Nodes (52): aiAttempts, aiCapability, aiConfirmReplace, aiDocsUrl, aiError, aiInstructions, aiLoading, aiNotes (+44 more)
+Cohesion: 0.03
+Nodes (57): aiAttempts, aiCapability, aiConfirmReplace, aiDocsUrl, aiError, aiInstructions, aiLoading, aiNotes (+49 more)
 
 ### Community 20 - "requests"
 Cohesion: 0.16
 Nodes (45): alert_configs_count(), alert_configs_count_for_webhook(), also_use_consumer(), assert_delivery_page_meta(), _base(), create_alert_config_bad_webhook(), create_alert_config_scoped(), create_alert_config_wide() (+37 more)
 
-### Community 21 - ".from_dict"
-Cohesion: 0.04
-Nodes (34): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), asyncio() (+26 more)
-
-### Community 22 - "NewService"
-Cohesion: 0.11
-Nodes (41): Key, GenerateKey(), Keyring, isSafeKeyID(), NewKeyring(), NewService(), NewServiceFromKeyring(), ParseKey() (+33 more)
-
-### Community 23 - "webhooks/+page.svelte"
-Cohesion: 0.03
-Nodes (79): adding, AlertConfigItem, configs, { consumer, webhookId }, deliveryConfigured, email, error, eventLabel (+71 more)
-
-### Community 24 - "Response"
-Cohesion: 0.06
+### Community 21 - "client.py"
+Cohesion: 0.05
 Nodes (31): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), asyncio() (+23 more)
 
+### Community 22 - "NewService"
+Cohesion: 0.18
+Nodes (25): NewService(), TestDecrypt_TamperedData(), TestDecrypt_TooShort(), TestDecrypt_WrongKey(), TestEncryptDecrypt(), TestEncryptDecrypt_DifferentNonces(), TestEncryptDecryptJSON(), TestEncryptString_DecryptString() (+17 more)
+
+### Community 23 - "webhooks/+page.svelte"
+Cohesion: 0.04
+Nodes (64): clear(), commit(), draft, options, search(), {
+    value = $bindable(""),
+    id,
+    placeholder = "All consumers",
+    required = false,
+    live = false,
+    label = "Consumer",
+    class: className = "",
+    onchange,
+  }, c, config (+56 more)
+
+### Community 24 - "error_model.py"
+Cohesion: 0.06
+Nodes (23): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), asyncio() (+15 more)
+
 ### Community 25 - "io.Writer"
-Cohesion: 0.11
-Nodes (24): newPalette(), importOutcomeError(), printImportResult(), runEventsExport(), runEventsImport(), runEventsVersions(), indentJSON(), printEventType() (+16 more)
+Cohesion: 0.08
+Nodes (30): newPalette(), importOutcomeError(), printImportResult(), runEventsExport(), runEventsImport(), runEventsVersions(), indentJSON(), printEventType() (+22 more)
 
 ### Community 26 - "EventTypeDefinition"
-Cohesion: 0.09
-Nodes (34): BundleDigest(), checkStamp(), checkTemplates(), compileSchema(), generatePayload(), EventTypeImportResult, WebhookService, pauseFailing() (+26 more)
+Cohesion: 0.08
+Nodes (34): registerSystemEventTypes(), BundleDigest(), checkStamp(), checkTemplates(), compileSchema(), generatePayload(), EventTypeImportResult, WebhookService (+26 more)
 
 ### Community 27 - "posts.ts"
 Cohesion: 0.10
@@ -448,21 +477,21 @@ Nodes (28): links, Props, tags, Props, Props, allTags(), base, formatDate() (+20
 Cohesion: 0.05
 Nodes (39): activeRecipe, attempt, b64(), chips, cliCommand, copiedToast, DEST, drafts (+31 more)
 
-### Community 29 - "SubscriptionForm.svelte"
+### Community 29 - "EventSubscription"
 Cohesion: 0.05
-Nodes (33): availableEvents, backHref, catchAll, error, eventName, EventTypeItem, filterCount, headerCount (+25 more)
+Nodes (12): EventSubscription, SubscriptionTemplateVersion, SubscriptionWithWebhook, Repository, SubscriptionRepository, insertSubscription(), SubscriptionManager, TemplateFunctionInfo (+4 more)
 
-### Community 30 - "Service"
-Cohesion: 0.18
-Nodes (7): cryptoSealer, kek, buildKEK(), decryptDataWithDEK(), Service, newAEAD(), unwrapDEK()
+### Community 30 - "crypto.go"
+Cohesion: 0.17
+Nodes (7): kek, buildKEK(), decryptDataWithDEK(), Service, isSafeKeyID(), newAEAD(), unwrapDEK()
 
 ### Community 31 - "push_event.py"
-Cohesion: 0.16
-Nodes (9): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), PushEventBody (+1 more)
+Cohesion: 0.18
+Nodes (8): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), PushEventOutputBody
 
 ### Community 32 - "E2ERunner"
-Cohesion: 0.06
-Nodes (22): BacklogSample, ClientConfig, ClientResults, clientTester, E2EConfig, E2EResults, E2ERunner, eventRecord (+14 more)
+Cohesion: 0.19
+Nodes (6): E2EConfig, E2ERunner, eventRecord, LatencyReservoir, NewE2ERunner(), NewLatencyReservoir()
 
 ### Community 33 - "SparrowVerify.java"
 Cohesion: 0.11
@@ -473,69 +502,60 @@ Cohesion: 0.10
 Nodes (9): NewJobInserterWithTracing(), jobInserter, NewJobInserter(), NewTxInsertClient(), Manager, JobInserterWithTracing, noopJobInserter, recordingTxInserter (+1 more)
 
 ### Community 35 - "New"
-Cohesion: 0.09
-Nodes (26): anthropicClient, Config, Drafter, fakeModel, fakeOpenAI, openAIClient, Provider, Renderer (+18 more)
+Cohesion: 0.11
+Nodes (22): completer, Config, Drafter, fakeModel, fakeOpenAI, Provider, Renderer, New() (+14 more)
 
-### Community 36 - "[eventId]/+page.svelte"
-Cohesion: 0.07
-Nodes (21): { pages, shown, onchange, itemLabel = "items" }, Props, CursorPages, consumer, deliveries, deliveriesError, deliveriesLoading, DeliveryItem (+13 more)
+### Community 36 - "deliveries/+page.svelte"
+Cohesion: 0.04
+Nodes (47): { pages, shown, onchange, itemLabel = "items" }, Props, CursorPages, allConsumers, applyFilters(), clearFilters(), createdAfterFilter, createdBeforeFilter (+39 more)
 
-### Community 37 - "newHandler"
-Cohesion: 0.17
-Nodes (17): inheritVerification(), loadConfig(), main(), newHandler(), run(), signHeaders(), TestLoadConfig_InlineLibraryConfig(), TestNewHandler_ConfigErrors() (+9 more)
+### Community 37 - "enum"
+Cohesion: 0.04
+Nodes (13): BatchJobOutputBodyJobType, BatchJobOutputBodyStatus, DeliveryItemErrorCategory, DeliveryItemStatus, DraftTemplateOutputBodySampleSource, DraftTemplatePromptOutputBodySampleSource, SubscriptionItemMethod, SubscriptionItemOnTransformError (+5 more)
 
-### Community 38 - "client.py"
-Cohesion: 0.07
-Nodes (23): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), asyncio() (+15 more)
+### Community 38 - "Client"
+Cohesion: 0.05
+Nodes (24): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), asyncio() (+16 more)
 
 ### Community 39 - "unwrap"
-Cohesion: 0.05
-Nodes (70): load(), remove(), {
-    consumer,
-    count,
-    filter,
-    onclose,
-  }, error, retryHeld(), retrying, confirmDeleteOpen, error (+62 more)
+Cohesion: 0.03
+Nodes (95): API surface deliberately not e2e-tested (removal / design candidates), Deliberately NOT covered by e2e, Known product-contract questions (asserted as-is, flagged), Out of e2e scope (belongs in unit/integration tests), message, portalInvite, status, add() (+87 more)
 
 ### Community 40 - "Service"
-Cohesion: 0.04
-Nodes (65): cacheEntry, Config, CreateInviteRequest, CreateTokenRequest, RootKey, Verifier, InviteTTL(), TestTTLRules() (+57 more)
+Cohesion: 0.06
+Nodes (39): AuthError, cacheEntry, Config, CreateInviteRequest, CreateTokenRequest, RootKey, Verifier, NewAuth() (+31 more)
 
 ### Community 41 - "NetworkPolicy"
 Cohesion: 0.22
 Nodes (5): embeddedIPv4(), NetworkPolicy, isMetadataIP(), TestValidateIP(), ValidateIP()
 
-### Community 42 - "migrate.go"
-Cohesion: 0.11
-Nodes (5): main(), GetMigrationsFS(), RunAllMigrations(), RunAppMigrations(), RunRiverMigrations()
-
 ### Community 43 - "000001_consolidated_schema.up.sql"
 Cohesion: 0.10
 Nodes (29): idx_webhook_deliveries_created_at, idx_webhook_deliveries_event_id, idx_webhook_deliveries_expires_at, idx_webhook_deliveries_request_body_gin, idx_webhook_deliveries_status, idx_webhook_deliveries_subscription_id, idx_webhook_deliveries_webhook_id, idx_webhook_health_events_delivery_id (+21 more)
 
-### Community 44 - "mcp_test.go"
-Cohesion: 0.23
-Nodes (14): newAPIClient(), newMCPServer(), call(), connectMCP(), newFakeSparrow(), TestMCPListenRoundTrip(), TestMCPPushAutoCreatesEventType(), TestMCPReadOnlyHidesWriteTools() (+6 more)
+### Community 44 - "mcp.go"
+Cohesion: 0.11
+Nodes (27): newAPIClient(), dropSchema(), mcpInstructions(), newMCPServer(), ptr(), call(), connectMCP(), newFakeSparrow() (+19 more)
 
 ### Community 45 - "events/+page.svelte"
 Cohesion: 0.05
 Nodes (33): { href, label, targetSelector }, visible, { currentPage, totalPages, totalCount, pageSize, onPageChange, itemLabel = "items" }, from, pages, Props, to, allVisibleSelected (+25 more)
 
 ### Community 46 - "generator.ts"
-Cohesion: 0.12
-Nodes (16): entryToSimpleMarkdown(), collator, generateLlmsTxt(), GET(), getStaticPaths, Params, prerender, Props (+8 more)
+Cohesion: 0.10
+Nodes (20): entryToSimpleMarkdown(), collator, generateLlmsTxt(), GET(), getStaticPaths, Params, prerender, Props (+12 more)
 
-### Community 47 - "DeliveryTable.svelte"
+### Community 47 - "lib/utils.ts"
 Cohesion: 0.04
-Nodes (50): AttemptItem, attempts, { deliveryId }, error, loading, Props, copied, display (+42 more)
+Nodes (46): AttemptItem, attempts, { deliveryId }, error, loading, Props, copied, display (+38 more)
 
 ### Community 48 - "lib/components/EventTypeImport.svelte"
 Cohesion: 0.07
 Nodes (29): acknowledged, actionLabel, actionTone, allAcknowledged, breakingConfirmed, breakingItems, bundle, busy (+21 more)
 
-### Community 49 - "access/+page.svelte"
+### Community 49 - "SubscriptionForm.svelte"
 Cohesion: 0.03
-Nodes (58): {
+Nodes (69): {
     label,
     summary = "",
     open = $bindable(false),
@@ -544,7 +564,7 @@ Nodes (58): {
     expanded = $bindable(false),
     label = "Editor",
     children,
-  }, toJSONObject(), cancelling, consumer (+50 more)
+  }, availableEvents, backHref, catchAll (+61 more)
 
 ### Community 50 - "sparrow_api.py"
 Cohesion: 0.09
@@ -554,73 +574,77 @@ Nodes (10): setup_environment(), setup_scenario(), teardown_environment(), teard
 Cohesion: 0.05
 Nodes (37): BatchJob, BatchKind, BatchProgressState, progressOf(), terminal, { batch, label = 'Batch', oncancel, ondone }, BatchStatus, dismissed (+29 more)
 
-### Community 52 - "deliveries/+page.svelte"
-Cohesion: 0.09
-Nodes (28): isSystemConsumer(), alertsInScope, allConsumers, applyFilters(), clearFilters(), createdAfterFilter, createdBeforeFilter, deliveries (+20 more)
+### Community 52 - "go_pkg_errors"
+Cohesion: 0.15
+Nodes (18): ctxKey, ErrorBody, RedeemRequest, RedeemResponse, cleanPortalPath(), portalTarget(), fragmentEscape(), portalLinkPath() (+10 more)
 
 ### Community 53 - "BatchScope"
-Cohesion: 0.06
-Nodes (16): mockRepo, NewBatchCleanupWorker(), TestWebhookWorkerNextRetry(), BatchRepository, Repository, BatchJob, BatchJobStatus, BatchJobType (+8 more)
+Cohesion: 0.08
+Nodes (13): Errorf(), BatchRepository, Repository, BatchJob, BatchJobStatus, BatchJobType, BatchScope, WebhookService (+5 more)
 
 ### Community 54 - "newRootCmd"
-Cohesion: 0.20
-Nodes (26): newInviteCmd(), newTokensCmd(), newTokensCreateCmd(), newTokensRevokeCmd(), addOutputFlag(), clientFromCmd(), newRootCmd(), newVersionCmd() (+18 more)
+Cohesion: 0.18
+Nodes (27): newInviteCmd(), newTokensCreateCmd(), addOutputFlag(), clientFromCmd(), newRootCmd(), newVersionCmd(), outputFmt(), newEventsExportCmd() (+19 more)
 
 ### Community 55 - "time.Time"
 Cohesion: 0.05
-Nodes (35): countingStore, Status, downStore, RedeemResponse, toInviteOut(), toTokenOut(), encodeCursor(), newCursorPagination() (+27 more)
+Nodes (34): countingStore, Status, downStore, toInviteOut(), toTokenOut(), encodeCursor(), newCursorPagination(), Repository (+26 more)
 
-### Community 56 - "AuthenticatedClient"
-Cohesion: 0.05
-Nodes (46): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), asyncio() (+38 more)
+### Community 56 - "EventTypeItem"
+Cohesion: 0.08
+Nodes (24): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), asyncio() (+16 more)
 
 ### Community 57 - "sparrow/access.go"
 Cohesion: 0.13
-Nodes (16): accessLabel(), apiClient, newInvitesCmd(), newTokensListCmd(), parseDuration(), runInvite(), runTokensCreate(), TestParseDuration() (+8 more)
+Nodes (18): accessLabel(), apiClient, newInvitesCmd(), newTokensCmd(), newTokensListCmd(), newTokensRevokeCmd(), parseDuration(), runInvite() (+10 more)
 
 ### Community 58 - "sparrow/client.go"
-Cohesion: 0.14
-Nodes (13): apiClient, apiError, consumerStats, deliveryItem, eventTypeItem, pushBody, pushResult, subscriptionItem (+5 more)
+Cohesion: 0.12
+Nodes (15): apiClient, pushWithAutoCreate(), runPush(), apiError, consumerStats, deliveryItem, eventTypeItem, pushBody (+7 more)
 
 ### Community 59 - "webhook_target.py"
 Cohesion: 0.09
 Nodes (4): CapturedDelivery, _Target, handle(), WebhookTargetManager
 
-### Community 60 - "registerWebhookRoutes"
+### Community 60 - "SecretRevealer"
 Cohesion: 0.13
-Nodes (14): derefString(), formatOptionalTime(), maskEncryptedSecret(), maskSecret(), maskSecretHeaders(), toWebhookOut(), registerHealthRoutes(), newPagination() (+6 more)
+Nodes (14): derefString(), formatOptionalTime(), getWebhookEventsMap(), maskEncryptedSecret(), maskSecret(), maskSecretHeaders(), toWebhookOut(), registerHealthRoutes() (+6 more)
 
 ### Community 61 - "services.ts"
-Cohesion: 0.05
-Nodes (52): Use it as a Go library, onSignOut(), signingOut, who, auth, KEY_STORAGE, message, OWNED_TOKEN_STORAGE (+44 more)
+Cohesion: 0.06
+Nodes (47): Use it as a Go library, onSignOut(), signingOut, who, auth, KEY_STORAGE, message, OWNED_TOKEN_STORAGE (+39 more)
 
-### Community 62 - "access/service_test.go"
-Cohesion: 0.15
-Nodes (34): AuthError, clock, xorSealer, newPortalService(), Reason, authMessage(), newSvc(), serve() (+26 more)
+### Community 62 - "New"
+Cohesion: 0.09
+Nodes (49): clock, New(), NewWithStore(), Realm(), Sealer(), TestMasterKeyIsRootInDefaultTenant(), accessRouter(), post() (+41 more)
 
 ### Community 63 - "get_health_summary.py"
-Cohesion: 0.14
+Cohesion: 0.16
 Nodes (8): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), HealthSummaryOutputBody
 
-### Community 64 - "event_type_bundle.go"
-Cohesion: 0.10
-Nodes (16): atoi(), checkPrintfFormat(), TestCheckPrintfFormat(), FuncMap(), Functions(), TestTitleFunc(), toNumber(), Subscription (+8 more)
+### Community 64 - "webhook_service_registration.go"
+Cohesion: 0.18
+Nodes (11): vector, vectorFile, collapseSpace(), htmlToText(), looksLikeHTML(), NewDocFetcher(), TestDocFetcher_ExtractsTextAndRespectsPolicy(), TestValidateHeaders() (+3 more)
 
 ### Community 65 - "list_subscription_template_versions.py"
-Cohesion: 0.11
-Nodes (10): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), ListTemplateVersionsOutputBody (+2 more)
+Cohesion: 0.18
+Nodes (8): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), ListTemplateVersionsOutputBody
 
-### Community 66 - "Errorf"
-Cohesion: 0.06
-Nodes (24): Errorf(), IsNotFound(), checkEventForConsumer(), DerefBoolOr(), DerefIntOr(), validateSubscriptionTimeout(), stringHeaders(), validateHeaders() (+16 more)
+### Community 66 - "WebhookRegistration"
+Cohesion: 0.05
+Nodes (24): mockRepo, checkEventForConsumer(), IsReservedEventName(), TestIsReservedEventName(), DerefBoolOr(), DerefIntOr(), WebhookRegistrationRequest, validateSubscriptionTimeout() (+16 more)
 
 ### Community 67 - "web/package.json"
 Cohesion: 0.13
 Nodes (16): openapi-typescript, svelte-check, svelte-jsoneditor, @sveltejs/kit, tailwindcss, @tailwindcss/forms, @tailwindcss/vite, @types/node (+8 more)
 
 ### Community 68 - "build_subscription_template_prompt.py"
-Cohesion: 0.08
-Nodes (19): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), asyncio() (+11 more)
+Cohesion: 0.09
+Nodes (17): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), asyncio() (+9 more)
+
+### Community 69 - "Recipe"
+Cohesion: 0.04
+Nodes (7): ConsumerHint, Param, Recipe, Subscription, WebhookHeaders, WebhookSecretHeaders, Webhook
 
 ### Community 70 - "sparrow_verify.py"
 Cohesion: 0.13
@@ -635,8 +659,8 @@ Cohesion: 0.25
 Nodes (4): Reporting a vulnerability, Scope, Security policy, Supported versions
 
 ### Community 73 - "Recipe"
-Cohesion: 0.25
-Nodes (3): findRecipe(), listRecipesOutput, Recipe
+Cohesion: 0.18
+Nodes (5): Recipe, findRecipe(), toAIRecipe(), listRecipesOutput, Recipe
 
 ### Community 74 - "list_invites.py"
 Cohesion: 0.18
@@ -648,7 +672,7 @@ Nodes (17): DEFAULT_TOLERANCE_SECS, hex_decode(), hex_nibble(), parse_headers(),
 
 ### Community 76 - "docs/package.json"
 Cohesion: 0.10
-Nodes (17): devDependencies, starlight-llms-txt, svelte, name, private, scripts, astro, build (+9 more)
+Nodes (19): blogLastmod, devDependencies, starlight-llms-txt, svelte, name, private, type, version (+11 more)
 
 ### Community 77 - "template-fields.ts"
 Cohesion: 0.20
@@ -663,8 +687,8 @@ Cohesion: 0.09
 Nodes (19): coverage, error, { eventName, sampleId = '', hasSchema, ongenerate }, EventOccurrenceItem, eventsError, generate(), loadEvents(), loadingEvents (+11 more)
 
 ### Community 80 - "template-functions.md"
-Cohesion: 0.09
-Nodes (21): 1. Payload transform engine: Go `text/template`, not embedded JavaScript, Consequences, Context, Decision, Trigger to revisit, A complete template, Building JSON, default (+13 more)
+Cohesion: 0.12
+Nodes (15): A complete template, Building JSON, default, dig, Encoding, Lists and splitting, Missing values, Numbers (+7 more)
 
 ### Community 81 - "Decision"
 Cohesion: 0.09
@@ -675,7 +699,7 @@ Cohesion: 0.08
 Nodes (23): Access, AI drafting, AI template drafting, All variables, An OpenAI-compatible server, Anthropic, Database Pools, Default Tenant (+15 more)
 
 ### Community 83 - "list_deliveries.py"
-Cohesion: 0.09
+Cohesion: 0.10
 Nodes (17): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), asyncio(), asyncio_detailed(), _build_response(), _get_kwargs() (+9 more)
 
 ### Community 84 - "api.astro"
@@ -687,8 +711,8 @@ Cohesion: 0.10
 Nodes (17): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), asyncio() (+9 more)
 
 ### Community 86 - "SparrowAPI"
-Cohesion: 0.16
-Nodes (4): Authentication, `sparrow mcp`, SparrowAPI, _to_dict()
+Cohesion: 0.03
+Nodes (12): Authentication, `sparrow mcp`, RegisterWebhookBodyHeaders, RegisterWebhookBodyOnTransformError, RegisterWebhookBody, RegisterWebhookBodySecretHeaders, RegisterWebhookBodySignatureType, RegisterWebhookBodyTemplateMissingKey (+4 more)
 
 ### Community 88 - "architecture.mdx"
 Cohesion: 0.10
@@ -707,44 +731,40 @@ Cohesion: 0.22
 Nodes (10): @playwright/test, ensureAlertDelivery(), ensureEventType(), mintPortalToken(), newConsumer(), newEventName(), pushEvent(), registerWebhook() (+2 more)
 
 ### Community 92 - "list_event_types.py"
-Cohesion: 0.14
+Cohesion: 0.16
 Nodes (8): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), ListEventTypesOutputBody
 
 ### Community 93 - "New"
 Cohesion: 0.07
-Nodes (40): BenchmarkSend(), TestRenderTemplatePreview_StrictFlag(), TestTemplateRenderError(), RenderTemplatePreview(), templateRenderError(), TestExecuteBoundsConcurrency(), TestExecuteBudgetKeepsNormalTemplates(), TestExecuteStopsRunawayTemplates() (+32 more)
+Nodes (44): checkRendered(), TestCheckRendered(), TestTemplateReference_ExampleRenders(), BenchmarkSend(), GetBuffer(), PutBuffer(), BenchmarkBufferPool(), TestBufferPool() (+36 more)
 
-### Community 94 - "list_tokens.py"
-Cohesion: 0.23
-Nodes (8): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), ListTokensOutputBody
+### Community 94 - "ErrorModel"
+Cohesion: 0.10
+Nodes (23): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), asyncio() (+15 more)
 
 ### Community 95 - "get_delivery_attempts.py"
-Cohesion: 0.08
-Nodes (17): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), asyncio(), asyncio_detailed(), _build_response(), _get_kwargs() (+9 more)
+Cohesion: 0.12
+Nodes (15): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), asyncio(), asyncio_detailed(), _build_response(), _get_kwargs() (+7 more)
 
-### Community 96 - "schema_compat.go"
-Cohesion: 0.26
+### Community 96 - ".compare"
+Cohesion: 0.21
 Nodes (9): ClassifySchemaChange(), firstComposition(), joinPath(), requiredSet(), sortedKeys(), typeAllows(), typeChange(), typesOf() (+1 more)
 
 ### Community 97 - "sparrow/access_test.go"
 Cohesion: 0.37
 Nodes (13): fakeServer(), runCLI(), TestAccessCommandsSurfaceServerErrors(), TestInviteBuildsLinkOnUIURL(), TestInviteDefaultsToServerURLAndJSON(), TestInvitesListAndCancel(), TestInviteTokenNeverExpires(), TestTokensCreate() (+5 more)
 
-### Community 98 - "3. New satellites"
-Cohesion: 0.12
-Nodes (15): 3.1 `sparrow-bus`: message-bus bridge, both directions, 3.2 `sparrow-cdc`: Postgres change capture as events, 3.3 `sparrow mcp`: MCP server for coding agents and operators, 3.4 `sparrow-inbox`: durable consumer-side receiver, 3.5 `sparrow-capture`: a self-hosted webhook.site, 3.6 Sparrow-to-Sparrow federation, 3. New satellites, 4.1 Helm chart and Grafana pack (+7 more)
+### Community 98 - "Satellite ideas: landscape research and candidates"
+Cohesion: 0.13
+Nodes (16): 1. What the landscape ships as "ecosystem", 2.1 Sources, 2.2 Sinks, 2.3 Recipes, 2.4 CLI, 2. Extend the existing satellites (lowest effort, highest leverage), 4.1 Helm chart and Grafana pack, 4.2 Typed event payloads from event-type schemas (+8 more)
 
 ### Community 99 - "Commands"
+Cohesion: 0.12
+Nodes (17): Commands, From a template to a recipe, `sparrow events`, `sparrow events export` and `sparrow events import`, `sparrow functions [name]`, `sparrow init`, `sparrow invite`, `sparrow invites` (+9 more)
+
+### Community 101 - "recipe_apply.go"
 Cohesion: 0.10
-Nodes (21): Commands, From a template to a recipe, `sparrow events`, `sparrow events export` and `sparrow events import`, `sparrow functions [name]`, `sparrow init`, `sparrow invite`, `sparrow invites` (+13 more)
-
-### Community 100 - "models/__init__.py"
-Cohesion: 0.02
-Nodes (32): AIDraftingStruct, AIDraftingStructProvider, BundleItem, BundleStampBody, ConsumerHint, CursorPaginationOutput, DeliveryItemErrorCategory, EventTypeBundleApiVersion (+24 more)
-
-### Community 101 - "7. Short Replies Bank"
-Cohesion: 0.07
-Nodes (29): 1. Fact Sheet, 2. Name + Tagline Options, 3. Description Options (max 260 chars), 4. Topics, 5. Gallery Shot List, 6. Maker's First Comment, 7. Short Replies Bank, 8. Launch-Day Checklist (+21 more)
+Nodes (28): applyRecipeTo(), applyWarnings(), eventSample(), findWebhookByURL(), apiClient, recipeDescription(), recipePatch(), newExistingHookAPI() (+20 more)
 
 ### Community 102 - "Documenting the REST API"
 Cohesion: 0.33
@@ -756,7 +776,7 @@ Nodes (17): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _pa
 
 ### Community 104 - "server/main.go"
 Cohesion: 0.05
-Nodes (91): collapseSpace(), htmlToText(), looksLikeHTML(), NewDocFetcher(), TestDocFetcher_ExtractsTextAndRespectsPolicy(), listDeliveriesImpl(), registerDeliveryRoutes(), toDeliveryItem() (+83 more)
+Nodes (99): draft, oaMessage, oaRequest, oaResponse, parseDraft(), TestParseDraft_ToleratesFencesAndPreamble(), fromBundleItems(), registerEventBundleRoutes() (+91 more)
 
 ### Community 106 - "payload-transformation.mdx"
 Cohesion: 0.12
@@ -767,8 +787,8 @@ Cohesion: 0.12
 Nodes (15): Apply a recipe, clickhouse, cloudevents, discord, ntfy, pagerduty, Pick a recipe, sendgrid (+7 more)
 
 ### Community 108 - "get_webhook_health.py"
-Cohesion: 0.15
-Nodes (9): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), WebhookHealthOutputBodyHealth (+1 more)
+Cohesion: 0.18
+Nodes (8): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), WebhookHealthOutputBody
 
 ### Community 109 - "@astrojs/starlight"
 Cohesion: 0.33
@@ -779,12 +799,12 @@ Cohesion: 0.13
 Nodes (15): devDependencies, openapi-typescript, @playwright/test, svelte, svelte-check, @sveltejs/adapter-static, @sveltejs/kit, @sveltejs/vite-plugin-svelte (+7 more)
 
 ### Community 111 - "DeliveryItem"
-Cohesion: 0.10
-Nodes (16): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), asyncio(), asyncio_detailed(), _build_response(), _get_kwargs() (+8 more)
+Cohesion: 0.12
+Nodes (15): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), asyncio(), asyncio_detailed(), _build_response(), _get_kwargs() (+7 more)
 
-### Community 112 - "event.go"
-Cohesion: 0.07
-Nodes (42): registerEventBundleRoutes(), listEventOccurrencesImpl(), registerEventRoutes(), toBatchJobOutput(), toEventTypeChange(), toEventTypeItem(), toEventTypeOutput(), toEventTypeVersionItem() (+34 more)
+### Community 112 - "registerEventRoutes"
+Cohesion: 0.19
+Nodes (11): registerEventRoutes(), toEventTypeChange(), toEventTypeItem(), toEventTypeOutput(), ValidateJSONSchema(), eventTypeChange, EventTypeItem, eventTypeOutput (+3 more)
 
 ### Community 113 - "event_records"
 Cohesion: 0.14
@@ -798,25 +818,42 @@ Nodes (14): renderResult, applyFilterStage(), evaluateExpression(), evaluateToke
 Cohesion: 0.13
 Nodes (14): API endpoints, CI and machine tokens, Consumer (portal) access, First run, From the API, From the CLI, From the web UI, Invite a teammate (+6 more)
 
-### Community 116 - "All"
-Cohesion: 0.09
-Nodes (29): All(), TestRecipes_ParamGuidance(), TestSendgridRecipe_ConsumerHint(), addRecipeTools(), declaresJSON(), TestResolveParams(), TestValidateRecipe_BuiltinsAreCleanAndValid(), TestValidateRecipe_WholeURLParamCheckedOnceGiven() (+21 more)
+### Community 116 - "runUse"
+Cohesion: 0.11
+Nodes (18): addRecipeTools(), TestResolveParamsNamesEveryMissingParam(), TestResolveParams(), TestTemplateTestRendersFixtureRecipe(), loadRecipe(), localRecipePath(), parseRecipe(), printApplied() (+10 more)
 
 ### Community 117 - "sparrow/config.go"
-Cohesion: 0.20
-Nodes (11): configPath(), resolveConfig(), saveConfig(), TestResolveConfigDefaults(), TestResolveConfigPrecedence(), TestSaveConfigPermissions(), writeConfigFile(), isTerminal() (+3 more)
+Cohesion: 0.18
+Nodes (12): configPath(), resolveConfig(), saveConfig(), TestResolveConfigDefaults(), TestResolveConfigPrecedence(), TestSaveConfigPermissions(), writeConfigFile(), isTerminal() (+4 more)
+
+### Community 118 - "ImportItemResult"
+Cohesion: 0.08
+Nodes (6): ImportItemResultAction, ImportItemResultActiveChange, ImportItemResult, TemplateCheckItem, TemplateFailureItemPayload, TemplateFailureItem
+
+### Community 119 - "access/+page.svelte"
+Cohesion: 0.06
+Nodes (28): cancelBtn, confirmBtn, {
+    open,
+    title = "Confirm",
+    message,
+    confirmLabel = "Confirm",
+    cancelLabel = "Cancel",
+    variant = "danger",
+    onconfirm,
+    oncancel,
+  }, Props, tone, cancelling, consumer, copied (+20 more)
 
 ### Community 121 - "AGENTS.md — Sparrow"
 Cohesion: 0.14
 Nodes (14): AGENTS.md — Sparrow, Architecture, Authentication, DB / Migrations, Design Principles, First reads, Frontend (Svelte 5), graphify (+6 more)
 
-### Community 123 - "WebhookHTTPConfig"
-Cohesion: 0.22
-Nodes (8): DefaultWebhookHTTPConfig(), WebhookHTTPConfig, TestDefaultWebhookHTTPConfig_RateLimitRPS(), TestValidateConfig_RateLimitRPS(), IntArray, JSONBMap, StringArray, WebhookRegistration
+### Community 123 - "registerWebhookRoutes"
+Cohesion: 0.21
+Nodes (8): registerWebhookRoutes(), DefaultWebhookHTTPConfig(), WebhookHTTPConfig, TestDefaultWebhookHTTPConfig_RateLimitRPS(), IntArray, JSONBMap, StringArray, WebhookRegistration
 
-### Community 124 - "Engine"
-Cohesion: 0.14
-Nodes (10): command(), instrument(), instrumentNode(), stepAction(), checkLoopNode(), checkTemplateLoops(), Engine, ExecOptions (+2 more)
+### Community 124 - "stepAction"
+Cohesion: 0.24
+Nodes (6): command(), instrument(), instrumentNode(), stepAction(), checkLoopNode(), rangesOverNumberLiteral()
 
 ### Community 125 - "tenants"
 Cohesion: 0.19
@@ -846,13 +883,17 @@ Nodes (16): ADDED Requirements, Purpose, Requirement: Alert-email configuration 
 Cohesion: 0.14
 Nodes (13): ./.svelte-kit/tsconfig.json, compilerOptions, allowJs, checkJs, esModuleInterop, forceConsistentCasingInFileNames, moduleResolution, resolveJsonModule (+5 more)
 
+### Community 132 - "Mount"
+Cohesion: 0.08
+Nodes (29): main(), InviteTTL(), TestTTLRules(), TestValidateConsumer(), TokenTTL(), ValidateConsumer(), consumerScope(), mapAccessError() (+21 more)
+
 ### Community 133 - "production.md"
 Cohesion: 0.14
 Nodes (13): Access and authentication, Deployment, Example Ingress (internal), Graceful shutdown, Kubernetes manifests, Network exposure, NetworkPolicy, Production checklist (+5 more)
 
-### Community 134 - "astro.config.mjs"
-Cohesion: 0.16
-Nodes (10): blogLastmod, starlightLlmsTxt(), GET(), prerender, ensureTrailingSlash(), getSiteTitle(), astro, astro-mermaid (+2 more)
+### Community 134 - "EventTypeChange"
+Cohesion: 0.10
+Nodes (5): EventTypeChangeAction, EventTypeChangeActiveChange, EventTypeChange, SchemaCompatibilityItemResult, SchemaCompatibilityItem
 
 ### Community 135 - "Documenting the REST API"
 Cohesion: 0.33
@@ -871,24 +912,24 @@ Cohesion: 0.25
 Nodes (8): How to exercise it, Out of scope / leave alone, Principals and trust, Reports, Security properties, Severity, Sparrow threat model, Where untrusted input enters
 
 ### Community 139 - "get_template_functions.py"
-Cohesion: 0.12
-Nodes (9): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), TemplateFunctionItem (+1 more)
+Cohesion: 0.18
+Nodes (8): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), TemplateFunctionsOutputBody
 
 ### Community 140 - "go_pkg_context"
 Cohesion: 0.07
-Nodes (15): oaMessage, oaRequest, oaResponse, vector, vectorFile, ctxKey, ErrorBody, RedeemRequest (+7 more)
+Nodes (17): consumerStats, subscriptionResp, atoi(), checkPrintfFormat(), TestCheckPrintfFormat(), Functions(), toNumber(), Subscription (+9 more)
 
 ### Community 141 - "listSubscriptionsImpl"
-Cohesion: 0.29
-Nodes (8): listSubscriptionsImpl(), registerSubscriptionRoutes(), toSubscriptionItem(), toSubscriptionOutput(), listSubscriptionsOutput, resumeSubscriptionOutput, SubscriptionItem, subscriptionOutput
+Cohesion: 0.23
+Nodes (10): newPagination(), listSubscriptionsImpl(), registerSubscriptionRoutes(), toSubscriptionItem(), toSubscriptionOutput(), listSubscriptionsOutput, PaginationOutput, resumeSubscriptionOutput (+2 more)
 
 ### Community 142 - "newWebhookHandler"
 Cohesion: 0.05
-Nodes (50): cronSpec, Emitter, entry, loadConfig(), main(), newWebhookHandler(), discardLogger(), githubSig() (+42 more)
+Nodes (52): cronSpec, Emitter, entry, loadConfig(), main(), newWebhookHandler(), discardLogger(), githubSig() (+44 more)
 
-### Community 143 - "ai/ai.go"
+### Community 143 - "Wrapf"
 Cohesion: 0.17
-Nodes (15): completer, completion, draft, turn, checkRendered(), mapStatus(), mapTransportError(), parseDraft() (+7 more)
+Nodes (11): anthropicClient, completion, openAIClient, turn, mapStatus(), mapTransportError(), newAnthropicClient(), newOpenAIClient() (+3 more)
 
 ### Community 144 - "SparrowVerify"
 Cohesion: 0.35
@@ -955,12 +996,20 @@ Cohesion: 0.22
 Nodes (7): Example: Express (your app's backend as the proxy), Alternatives rejected, Context, Decisions, Requirement: Terminal delivery failure event, Scenario: Fired once when retries are exhausted, Scenario: Fired only on terminal failure
 
 ### Community 166 - "docs/src/lib/recipes.ts"
-Cohesion: 0.20
-Nodes (9): EventPreset, ORDER, parsed, rawFiles, RECIPE_META, RecipeDef, RecipeParam, RECIPES (+1 more)
+Cohesion: 0.22
+Nodes (8): EventPreset, ORDER, parsed, rawFiles, RECIPE_META, RecipeDef, RecipeParam, RECIPES
 
 ### Community 167 - "upgrading-to-1-0.md"
 Cohesion: 0.12
 Nodes (16): AI drafting needs `SPARROW_AI_ENABLED=true`, API changes, Before you start, Empty and `-` values mean unset, Encryption keyring: never remove an old key, Event type bundles, Go library changes, `/health` is liveness only (+8 more)
+
+### Community 168 - "CreateSubscriptionBody"
+Cohesion: 0.07
+Nodes (5): CreateSubscriptionBody, CreateSubscriptionBodyHeaders, CreateSubscriptionBodyLabelFilters, CreateSubscriptionBodyOnTransformError, CreateSubscriptionBodyTemplateMissingKey
+
+### Community 169 - "PatchWebhookBody"
+Cohesion: 0.07
+Nodes (4): _get_kwargs(), PatchWebhookBodyHeaders, PatchWebhookBody, PatchWebhookBodySecretHeaders
 
 ### Community 172 - "seed.sql"
 Cohesion: 0.22
@@ -971,8 +1020,8 @@ Cohesion: 0.22
 Nodes (8): Build, Configuration, Embedding in the Go Binary, Local Development, Prerequisites, Sparrow Web Dashboard, Standalone Deployment, Tech Stack
 
 ### Community 174 - "test_subscription_template.py"
-Cohesion: 0.12
-Nodes (10): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), TestTemplateBodyTemplateMissingKey (+2 more)
+Cohesion: 0.14
+Nodes (9): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), TestTemplateBody (+1 more)
 
 ### Community 175 - "2. Split the `sparrow` CLI into its own module to isolate its `go install` graph"
 Cohesion: 0.22
@@ -987,8 +1036,8 @@ Cohesion: 0.25
 Nodes (7): Breaking changes, Inferring a schema from real events, Reading the history, Reserved names, Retiring an event type, Unregistered event names, What creates a new version
 
 ### Community 178 - "export_event_types.py"
-Cohesion: 0.09
-Nodes (10): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), EventTypeBundle (+2 more)
+Cohesion: 0.17
+Nodes (9): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), EventTypeBundle (+1 more)
 
 ### Community 179 - "create_invite.py"
 Cohesion: 0.14
@@ -998,6 +1047,10 @@ Nodes (9): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _par
 Cohesion: 0.14
 Nodes (9): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), CreateTokenBody (+1 more)
 
+### Community 181 - "patch_subscription_body.py"
+Cohesion: 0.06
+Nodes (6): PatchSubscriptionBodyHeaders, PatchSubscriptionBodyLabelFilters, PatchSubscriptionBodyOnTransformError, PatchSubscriptionBody, PatchSubscriptionBodyTemplateMissingKey, PatchSubscriptionBodyTemplateSource
+
 ### Community 183 - "What an import does"
 Cohesion: 0.29
 Nodes (6): API, Subscriptions whose template fails, The bundle file, The preview, What an import does, When nothing is written
@@ -1006,9 +1059,9 @@ Nodes (6): API, Subscriptions whose template fails, The bundle file, The preview
 Cohesion: 0.29
 Nodes (6): Automatic disabling, Check that alerts are being sent, Good to know, How it works, Register an alert config, Set up the email delivery channel
 
-### Community 185 - "resume_subscription.py"
-Cohesion: 0.11
-Nodes (11): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), ResumeSubscriptionOutputBodyMethod (+3 more)
+### Community 185 - "resume_subscription_output_body.py"
+Cohesion: 0.06
+Nodes (6): ResumeSubscriptionOutputBodyHeaders, ResumeSubscriptionOutputBodyLabelFilters, ResumeSubscriptionOutputBodyMethod, ResumeSubscriptionOutputBodyOnTransformError, ResumeSubscriptionOutputBody, ResumeSubscriptionOutputBodyTemplateMissingKey
 
 ### Community 187 - "proposal.md"
 Cohesion: 0.22
@@ -1018,13 +1071,17 @@ Nodes (8): ADDED Requirements, Purpose, Requirement: Feedback-loop guard, Requir
 Cohesion: 0.43
 Nodes (5): test-ui.sh script, SPARROW_BASE_URL, start_server(), wait_for_static(), wait_healthy()
 
-### Community 189 - "WebhookServiceInterface"
-Cohesion: 0.14
-Nodes (12): buildDraftRequest(), extendWriteDeadline(), TemplateDrafter, registerAIRoutes(), registerPromptRoute(), mapError(), registerRecipeRoutes(), WebhookServiceInterface (+4 more)
+### Community 189 - "mapError"
+Cohesion: 0.19
+Nodes (11): DocFetcher, ResolveDocs(), buildDraftRequest(), extendWriteDeadline(), TemplateDrafter, registerAIRoutes(), registerPromptRoute(), mapError() (+3 more)
 
 ### Community 190 - "validate_event_payload.py"
 Cohesion: 0.16
 Nodes (9): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), ValidateEventPayloadInputBody (+1 more)
+
+### Community 191 - "listDeliveriesImpl"
+Cohesion: 0.11
+Nodes (20): listDeliveriesImpl(), registerDeliveryRoutes(), toDeliveryItem(), toDeliveryOutput(), listEventOccurrencesImpl(), toBatchJobOutput(), parseDateFilter(), parseLabelFilter() (+12 more)
 
 ### Community 192 - "net/http.Header"
 Cohesion: 0.26
@@ -1046,6 +1103,14 @@ Nodes (5): Development (Build from Source), Docker Image, Observability, Quick S
 Cohesion: 0.33
 Nodes (5): Pausing from an import, Resuming, Seeing what was held, What a pause does, Where pause fits in a delivery
 
+### Community 197 - "AIDraftingStruct"
+Cohesion: 0.10
+Nodes (4): AIDraftingStruct, AIDraftingStructProvider, AlertDeliveryStruct, CapabilitiesOutputBody
+
+### Community 198 - "get_who_am_i.py"
+Cohesion: 0.17
+Nodes (8): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), WhoAmIOutputBody
+
 ### Community 199 - "github.com/sarathsp06/sparrow"
 Cohesion: 0.36
 Nodes (8): github.com/sarathsp06/sparrow, github.com/sarathsp06/sparrow/pkg/access, github.com/sarathsp06/sparrow/pkg/signature, github.com/sarathsp06/sparrow/pkg/template, github.com/sarathsp06/sparrow/satellites/recipes, github.com/sarathsp06/sparrow/satellites/sparrow, github.com/sarathsp06/sparrow/satellites/sparrow-sinks, github.com/sarathsp06/sparrow/satellites/sparrow-sources
@@ -1063,8 +1128,8 @@ Cohesion: 0.70
 Nodes (4): idx_webhook_health_summaries_unique, idx_webhook_health_summaries_webhook_id, idx_webhook_health_summaries_window, webhook_health_summaries
 
 ### Community 204 - "main"
-Cohesion: 0.05
-Nodes (65): main(), logCORSMode(), main(), New(), NewWithStore(), Realm(), Sealer(), TestMasterKeyIsRootInDefaultTenant() (+57 more)
+Cohesion: 0.08
+Nodes (46): logCORSMode(), main(), startWebhook(), NewPortalVerifier(), CORS(), CORSMode, NormalizeOrigins(), corsChain() (+38 more)
 
 ### Community 205 - "quickstart.mdx"
 Cohesion: 0.40
@@ -1082,13 +1147,9 @@ Nodes (4): Classification Logic, Error Categories, Monitoring Errors, Retry Beha
 Cohesion: 0.18
 Nodes (8): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), ListRecipesOutputBody
 
-### Community 209 - "http"
+### Community 209 - "urllib_parse"
 Cohesion: 0.11
 Nodes (15): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), asyncio() (+7 more)
-
-### Community 210 - "ReadBody"
-Cohesion: 0.13
-Nodes (11): redactSpanURL, ReadBody(), TestReadBody(), TestReadBodyNil(), TestReadBodyNilBody(), TestSendReusesConnections(), GetBuffer(), PutBuffer() (+3 more)
 
 ### Community 211 - "schema.sql"
 Cohesion: 0.70
@@ -1126,25 +1187,53 @@ Nodes (8): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _par
 Cohesion: 0.50
 Nodes (3): Authentication, Generating a client, Hand-written code
 
-### Community 241 - "Request"
+### Community 228 - "PushEventBody"
+Cohesion: 0.06
+Nodes (4): PushEventBodyLabels, PushEventBodyMetadata, PushEventBodyPayload, PushEventBody
+
+### Community 233 - "ListTokensOutputBody"
+Cohesion: 0.11
+Nodes (3): ListTokensOutputBody, TokenOutStatus, TokenOut
+
+### Community 235 - "clientTester"
 Cohesion: 0.23
+Nodes (6): ClientConfig, clientTester, RateLimiter, main(), newClientTester(), NewRateLimiter()
+
+### Community 241 - "Request"
+Cohesion: 0.22
 Nodes (4): Request, Result, slowDrafter, stubDrafter
 
-### Community 311 - "WebhookOut"
-Cohesion: 0.04
-Nodes (31): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), asyncio() (+23 more)
+### Community 309 - "http"
+Cohesion: 0.22
+Nodes (7): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed()
+
+### Community 310 - "PrepareDeliveryRequest"
+Cohesion: 0.18
+Nodes (14): GenerateKey(), ParseKey(), TestGenerateKey(), TestParseKey(), GetHeaderMap(), PutHeaderMap(), BenchmarkHeaderMapPool(), TestHeaderMapPool() (+6 more)
+
+### Community 311 - "httpx"
+Cohesion: 0.08
+Nodes (22): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), asyncio() (+14 more)
 
 ### Community 312 - "Repository"
 Cohesion: 0.09
 Nodes (8): DB, DBTX, WithTransaction(), Repository, checkWebhookDuplicate(), Repository, WebhookRepository, insertWebhookRegistration()
 
+### Community 319 - "WebhookClient"
+Cohesion: 0.21
+Nodes (6): WebhookClient, checkTemplateLoops(), Engine, ExecOptions, hashTemplate(), sampleContext()
+
+### Community 320 - "UpdateEventTypeOutputBodyEventSchema"
+Cohesion: 0.06
+Nodes (3): UpdateEventTypeOutputBodyEventSchema, UpdateEventTypeOutputBodyMetadata, UpdateEventTypeOutputBodySamplePayload
+
 ### Community 321 - "Code conventions"
 Cohesion: 0.33
 Nodes (5): Deprecations, Security fixes, Supported versions, What 1.0 freezes, What isn't covered
 
-### Community 322 - "postSink"
-Cohesion: 0.17
-Nodes (19): SMTPConfig, Config, Handler(), Ed25519(), Handle(), HMAC(), postSink(), signHeaders() (+11 more)
+### Community 322 - "s3.go"
+Cohesion: 0.04
+Nodes (62): emailSink, SMTPConfig, smtpMessage, TestBatchJobsAndAttemptsCarryTheConsumerScope(), otlpSink, s3Sink, inheritVerification(), loadConfig() (+54 more)
 
 ### Community 324 - "webhookHealthOutput"
 Cohesion: 0.33
@@ -1154,105 +1243,137 @@ Nodes (5): 1. Foundation, 2. Event emission, 3. Tenant-facing API, 4. Delivery c
 Cohesion: 0.50
 Nodes (4): Requirement: Health transition event, Scenario: Degradation emits one event, Scenario: No event without a transition, Scenario: Recovery emits one event
 
-### Community 332 - "import_event_types.py"
-Cohesion: 0.07
-Nodes (15): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), ImportEventTypesInputBodyAcknowledgeItem (+7 more)
+### Community 327 - "revoke_token.py"
+Cohesion: 0.32
+Nodes (7): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed()
 
-### Community 334 - "mcp.go"
-Cohesion: 0.18
-Nodes (9): ptr(), createSubscriptionIn, deliveryIDIn, listDeliveriesIn, listWebhooksIn, pushEventIn, registerWebhookIn, testTemplateIn (+1 more)
+### Community 332 - "import_event_types_input_body.py"
+Cohesion: 0.04
+Nodes (11): BundleItem, BundleItemEventSchema, BundleItemMetadata, BundleStampBody, EventTypeBundleApiVersion, EventTypeBundleKind, ImportEventTypesInputBodyAcknowledgeItem, ImportEventTypesInputBodyApiVersion (+3 more)
 
-### Community 335 - "Envelope"
-Cohesion: 0.23
-Nodes (7): emailSink, TestBatchJobsAndAttemptsCarryTheConsumerScope(), s3Sink, templateContext(), objectKey(), TestObjectKey(), Envelope
+### Community 333 - "delete_alert_config.py"
+Cohesion: 0.32
+Nodes (7): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed()
+
+### Community 334 - "cancel_event_repush_job.py"
+Cohesion: 0.32
+Nodes (7): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed()
+
+### Community 335 - "delete_webhook.py"
+Cohesion: 0.32
+Nodes (7): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed()
 
 ### Community 336 - "Checker"
 Cohesion: 0.23
 Nodes (5): Checker, HealthResponse, ReadyResponse, NewChecker(), TestLivenessIsProcessOnlyAndReadinessDrains()
 
-### Community 337 - "Handler"
-Cohesion: 0.24
-Nodes (9): otlpSink, Config, Handler(), logsURL(), newOTLPSink(), otlpPayload(), TestLogsURL(), TestOTLPSinkDeliver() (+1 more)
+### Community 337 - "recipes_cmd.go"
+Cohesion: 0.33
+Nodes (9): TestCatalogIncludesLocalRecipes(), catalog(), catalogRecipes(), indent(), newRecipesCmd(), newRecipeShowCmd(), paramFlags(), showRecipe() (+1 more)
 
 ### Community 338 - "ServiceError"
 Cohesion: 0.28
 Nodes (5): ServiceError, Error(), TestServiceError_Error(), TestServiceError_Unwrap(), Wrap()
 
 ### Community 339 - "list_consumers.py"
-Cohesion: 0.12
-Nodes (9): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), ConsumerItem (+1 more)
-
-### Community 341 - "listenHandler"
-Cohesion: 0.22
-Nodes (5): TestListenHandlerWithoutSecretAcceptsAll(), listenHandler(), printReceived(), runListen(), listFlag
+Cohesion: 0.18
+Nodes (8): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), ListConsumersOutputBody
 
 ### Community 342 - "get_event_type_version.py"
 Cohesion: 0.09
 Nodes (16): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), asyncio() (+8 more)
 
 ### Community 343 - "prompt.go"
-Cohesion: 0.15
-Nodes (21): HelperFunc, outlineField, PromptBuilder, RecipeParam, fieldStep(), Recipe, mustJSON(), NewPromptBuilder() (+13 more)
+Cohesion: 0.17
+Nodes (19): HelperFunc, outlineField, PromptBuilder, RecipeParam, fieldStep(), mustJSON(), NewPromptBuilder(), payloadOutline() (+11 more)
 
 ### Community 345 - "budgetFuncs"
-Cohesion: 0.50
-Nodes (3): budgetFuncs(), sizeOf(), budget
+Cohesion: 0.31
+Nodes (5): budgetFuncs(), sizeOf(), FuncMap(), TestTitleFunc(), budget
 
 ### Community 346 - "typeHasSlices"
 Cohesion: 0.38
 Nodes (4): emptySlices(), fillSlices(), hasSlices(), typeHasSlices()
 
-### Community 347 - "runPush"
-Cohesion: 0.33
-Nodes (3): pushWithAutoCreate(), runPush(), kvFlag
+### Community 348 - "AuthenticatedClient"
+Cohesion: 0.05
+Nodes (26): Advanced customizations, Building / publishing this package, sparrow-e2e-client, Usage, asyncio(), asyncio_detailed(), _build_response(), _get_kwargs() (+18 more)
 
-### Community 348 - "sparrow-e2e-client"
-Cohesion: 0.40
-Nodes (4): Advanced customizations, Building / publishing this package, sparrow-e2e-client, Usage
+### Community 354 - "mcpListener"
+Cohesion: 0.35
+Nodes (4): listenStatus, mcpListener, receivedDelivery, startListenIn
+
+### Community 356 - "NewKeyring"
+Cohesion: 0.38
+Nodes (9): Key, Keyring, NewKeyring(), NewServiceFromKeyring(), otherTestKey(), TestNewKeyring_PrimaryAndLookup(), TestEnvelopeDecrypt_RejectsLegacyVersion(), TestEnvelopeDecrypt_UnknownKeyIDFails() (+1 more)
+
+### Community 357 - "E2EResults"
+Cohesion: 0.32
+Nodes (5): BacklogSample, ClientResults, E2EResults, LatencySummary, printLatency()
+
+### Community 358 - "ParseNetworks"
+Cohesion: 0.29
+Nodes (6): mustCIDRs(), ParseNetworks(), TestNetworkPolicy(), TestNetworkPolicyHostnames(), TestParseNetworks(), TestValidateWebhookURLPolicies()
+
+### Community 359 - "3. New satellites"
+Cohesion: 0.29
+Nodes (7): 3.1 `sparrow-bus`: message-bus bridge, both directions, 3.2 `sparrow-cdc`: Postgres change capture as events, 3.3 `sparrow mcp`: MCP server for coding agents and operators, 3.4 `sparrow-inbox`: durable consumer-side receiver, 3.5 `sparrow-capture`: a self-hosted webhook.site, 3.6 Sparrow-to-Sparrow federation, 3. New satellites
 
 ### Community 360 - "events_bundle_test.go"
 Cohesion: 0.44
 Nodes (11): runCLICmd(), startBundleServer(), TestEventsExport(), TestEventsExportNeedsOneSelector(), TestEventsImport_Applied(), TestEventsImport_BlockedExitsNonZero(), TestEventsImport_DryRun(), TestEventsImport_Stdin() (+3 more)
 
-### Community 368 - "WebhookClient"
-Cohesion: 0.25
-Nodes (4): WebhookClient, NewClient(), TestClientAutoCreatesEventType(), Client
+### Community 365 - "1. Payload transform engine: Go `text/template`, not embedded JavaScript"
+Cohesion: 0.33
+Nodes (5): 1. Payload transform engine: Go `text/template`, not embedded JavaScript, Consequences, Context, Decision, Trigger to revisit
 
-### Community 369 - "cli.mdx"
-Cohesion: 0.11
-Nodes (17): RFC-3339, 1. What the landscape ships as "ecosystem", 2.1 Sources, 2.2 Sinks, 2.3 Recipes, 2.4 CLI, 2. Extend the existing satellites (lowest effort, highest leverage), 90-second quickstart (+9 more)
+### Community 366 - "registerAlertConfigRoutes"
+Cohesion: 0.33
+Nodes (5): registerAlertConfigRoutes(), toAlertConfigItem(), alertConfigItem, alertConfigOutput, listAlertConfigsOutput
 
-### Community 372 - "ErrorModel"
-Cohesion: 0.04
-Nodes (53): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), _parse_response(), sync(), sync_detailed(), asyncio() (+45 more)
+### Community 369 - "api-types.d.ts"
+Cohesion: 0.33
+Nodes (5): RFC-3339, components, $defs, operations, paths
 
-### Community 374 - "Deliberately NOT covered by e2e"
+### Community 370 - "scripts"
 Cohesion: 0.40
-Nodes (4): API surface deliberately not e2e-tested (removal / design candidates), Deliberately NOT covered by e2e, Known product-contract questions (asserted as-is, flagged), Out of e2e scope (belongs in unit/integration tests)
+Nodes (5): scripts, astro, build, dev, preview
+
+### Community 371 - "cli.mdx"
+Cohesion: 0.40
+Nodes (4): 90-second quickstart, Configuration, Install, Worked example: develop a receiver on your laptop
+
+### Community 372 - "ListSubscriptionsOutputBody"
+Cohesion: 0.12
+Nodes (15): asyncio(), asyncio_detailed(), _build_response(), _get_kwargs(), asyncio(), asyncio_detailed(), _build_response(), _get_kwargs() (+7 more)
 
 ### Community 376 - "api-errors.md"
 Cohesion: 0.50
 Nodes (3): Errors from authentication and the portal gateway, Errors from the API: problem details, Status codes
 
+### Community 377 - "`sparrow tokens`"
+Cohesion: 0.50
+Nodes (4): `sparrow tokens`, `sparrow tokens create`, `sparrow tokens list`, `sparrow tokens revoke`
+
 ## Knowledge Gaps
 - **32 isolated node(s):** `InvalidTimestamp`, `TimestampOutsideTolerance`, `EmptySecret`, `InvalidSecretBase64`, `InvalidPublicKey` (+27 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 2804 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **143 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 2787 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **137 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Client` connect `Client` to `get_template_functions.py`, `.from_dict`, `Response`, `push_event.py`, `client.py`, `test_subscription_template.py`, `export_event_types.py`, `create_invite.py`, `create_token.py`, `WebhookOut`, `AuthenticatedClient`, `resume_subscription.py`, `services.ts`, `validate_event_payload.py`, `get_health_summary.py`, `list_subscription_template_versions.py`, `build_subscription_template_prompt.py`, `repush_event.py`, `list_invites.py`, `import_event_types.py`, `list_recipes.py`, `http`, `list_deliveries.py`, `list_consumers.py`, `list_webhooks.py`, `get_event_type_version.py`, `resume_webhook.py`, `list_event_types.py`, `sparrow-e2e-client`, `list_tokens.py`, `get_delivery_attempts.py`, `rotate_webhook_secret.py`, `.with_timeout`, `create_alert_config.py`, `get_webhook_health.py`, `DeliveryItem`, `ErrorModel`?**
-  _High betweenness centrality (0.159) - this node is a cross-community bridge._
+- **Why does `Client` connect `Client` to `get_template_functions.py`, `Response`, `client.py`, `error_model.py`, `push_event.py`, `test_subscription_template.py`, `export_event_types.py`, `create_invite.py`, `create_token.py`, `http`, `httpx`, `EventTypeItem`, `services.ts`, `validate_event_payload.py`, `get_health_summary.py`, `list_subscription_template_versions.py`, `build_subscription_template_prompt.py`, `get_who_am_i.py`, `revoke_token.py`, `repush_event.py`, `list_invites.py`, `delete_alert_config.py`, `cancel_event_repush_job.py`, `delete_webhook.py`, `list_recipes.py`, `urllib_parse`, `list_deliveries.py`, `list_consumers.py`, `list_webhooks.py`, `get_event_type_version.py`, `resume_webhook.py`, `list_event_types.py`, `AuthenticatedClient`, `ErrorModel`, `get_delivery_attempts.py`, `rotate_webhook_secret.py`, `create_alert_config.py`, `get_webhook_health.py`, `DeliveryItem`, `ListSubscriptionsOutputBody`?**
+  _High betweenness centrality (0.156) - this node is a cross-community bridge._
 - **Are the 405 inferred relationships involving `Client` (e.g. with `Use it as a Go library` and `Advanced customizations`) actually correct?**
   _`Client` has 405 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `InvalidTimestamp`, `TimestampOutsideTolerance`, `EmptySecret` to the rest of the system?**
   _32 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `WebhookDelivery` be split into smaller, more focused modules?**
-  _Cohesion score 0.049667178699436765 - nodes in this community are weakly interconnected._
-- **Why does `Use it as a Go library` connect `services.ts` to `Client`, `sources.mdx`?**
-  _High betweenness centrality (0.148) - this node is a cross-community bridge._
+  _Cohesion score 0.07505285412262157 - nodes in this community are weakly interconnected._
+- **Why does `Use it as a Go library` connect `services.ts` to `sources.mdx`, `Client`?**
+  _High betweenness centrality (0.144) - this node is a cross-community bridge._
 - **Are the 404 inferred relationships involving `AuthenticatedClient` (e.g. with `Usage` and `asyncio()`) actually correct?**
   _`AuthenticatedClient` has 404 INFERRED edges - model-reasoned connections that need verification._
 - **Should `context.Context` be split into smaller, more focused modules?**
-  _Cohesion score 0.02617036805338338 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.02712418300653595 - nodes in this community are weakly interconnected._
