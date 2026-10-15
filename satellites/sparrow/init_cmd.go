@@ -87,7 +87,14 @@ func probeServer(ctx context.Context, cfg config) error {
 	return err
 }
 
+// isTerminal reports whether f is an interactive terminal. /dev/null is a
+// character device too, so it is ruled out explicitly: a CI job or script
+// that redirects stdin from it must not get prompts.
 func isTerminal(f *os.File) bool {
 	info, err := f.Stat()
-	return err == nil && info.Mode()&os.ModeCharDevice != 0
+	if err != nil || info.Mode()&os.ModeCharDevice == 0 {
+		return false
+	}
+	null, err := os.Stat(os.DevNull)
+	return err != nil || !os.SameFile(info, null)
 }

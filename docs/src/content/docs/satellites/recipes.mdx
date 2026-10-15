@@ -24,7 +24,8 @@ retries, signing and delivery history, and there is no extra service to run.
 | [cloudevents](#cloudevents) | A CloudEvents 1.0 JSON event | A receiver URL | Knative, Argo Events, Dapr, or your own service |
 | [twilio](#twilio) | An SMS to one number | Account SID, Auth Token, a Twilio number | Text alerts |
 
-Every recipe is built into the `sparrow` CLI (`sparrow recipes` lists them).
+Every recipe is built into the `sparrow` CLI: `sparrow recipes` lists them,
+and `sparrow recipes show <name>` explains one's inputs.
 To preview what one sends before you apply it, use the
 [Recipe Workbench](/sparrow/tools/recipe-workbench/).
 
@@ -44,14 +45,18 @@ sparrow use slack \
 
 | Flag | Meaning |
 |------|---------|
-| `--param name=value` | A recipe input (listed under each recipe below). The CLI prompts for any required input you leave out. |
+| `--param name=value` | A recipe input (listed under each recipe below). On a terminal the CLI prompts for any you leave out; elsewhere it names every missing required one. |
 | `--event name` | An event type to deliver; at least one is required. Repeat it for several; each one gets its own subscription. |
 | `--label key=value` | Only deliver events carrying this label. |
 | `--consumer name` | The consumer to register the webhook under (a global flag; defaults to your CLI config). Use `_sparrow` for Sparrow's own alert events. |
 | `--file path` | Apply your own recipe file, or override a built-in one. |
+| `--dry-run` | Show what would be created, and the body the first event's sample would deliver, without changing anything. |
+| `--update` | Re-apply to the webhook that already exists for the same destination (a consumer has one webhook per URL), instead of failing. |
 
 Applying a recipe only creates a webhook and its subscriptions through the
-API. Nothing runs on your machine afterwards.
+API. Nothing runs on your machine afterwards. The recipe is validated first,
+with its template rendered against the event type's registered sample
+payload, and nothing is created if that fails.
 
 ### What every recipe has in common
 
@@ -532,15 +537,16 @@ work under `_sparrow`.
 ### Validating a recipe
 
 `go test ./satellites/recipes/` checks every shipped recipe. For a draft, or a
-local recipe outside the repo, the [`sparrow mcp`](/sparrow/satellites/cli/#sparrow-mcp)
-server's `validate_recipe` tool runs the same checks without registering
-anything: param tokens and enums, a strict render of the template with params
+local recipe outside the repo, `sparrow recipes validate --file draft.yaml`
+(or the [`sparrow mcp`](/sparrow/satellites/cli/#sparrow-mcp) server's
+`validate_recipe` tool) runs the same checks without registering anything,
+and exits non-zero on errors: param tokens and enums, a strict render of the template with params
 substituted (missing payload keys are errors, as on a subscription), valid JSON
 when the `Content-Type` is JSON, and an http(s) URL once real param values are
 given. Keys outside the schema, such as a misspelled `requires_transform`, and
 the catalog's shipping rules (description, guidance, param help) come back as
-warnings. `apply_recipe` runs the same validation and refuses to create
-anything when it fails.
+warnings. `sparrow use` and `apply_recipe` run the same validation and
+refuse to create anything when it fails.
 
 `guidance` describes what an ideal message for the destination looks like:
 what goes first, length, structure, tone, the destination's own conventions

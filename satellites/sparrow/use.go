@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -107,17 +108,43 @@ func parseRecipe(data []byte, src string) (recipe, error) {
 	return r, nil
 }
 
-// runUse applies a recipe: registers a webhook and enables the recipe's
+const useHelp = `Apply a recipe: register a webhook for the recipe's destination, subscribed
+to the given events, with the recipe's transform template enabled.
+
+The recipe is validated first, rendering its template against the event
+type's registered sample payload (or a built-in sample when it has none);
+nothing is created if that fails. Params not given with --param are prompted
+for on a terminal; elsewhere a missing required param is an error.
+
+Each consumer has one webhook per URL, so applying a recipe again to the same
+destination is refused unless --update re-applies it: the subscriptions for
+--event get the recipe's transform and labels (missing ones are created), and
+the webhook gets the recipe's headers. --dry-run shows what would happen.`
+
+const useExample = `  sparrow use slack -e order.created --param webhook_url=https://hooks.slack.com/services/T/B/X
+  sparrow use pagerduty -e payment.failed --param routing_key=R0UT1NG --dry-run
+  sparrow use slack -e order.created -e order.refunded --update --param webhook_url=...
+  sparrow use --file ./recipes/teams.yaml -e order.created -o json`
+
+// newUseCmd applies a recipe: registers a webhook and enables the recipe's
 // transform template on the auto-created subscriptions.
 func newUseCmd() *cobra.Command {
 	var file string
+	var dryRun, update bool
 	params := kvFlag{}
 	var events listFlag
 	labels := kvFlag{}
 	cmd := &cobra.Command{
-		Use:   "use <recipe>",
-		Short: "Apply a recipe: register a webhook and enable its transform",
-		Args:  cobra.ExactArgs(1),
+		Use:     "use <recipe>",
+		Short:   "Apply a recipe: register a webhook and enable its transform",
+		Long:    useHelp,
+		Example: useExample,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if file != "" {
+				return cobra.MaximumNArgs(1)(cmd, args)
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(events) == 0 {
 				return fmt.Errorf("at least one --event is required")
@@ -126,68 +153,134 @@ func newUseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runUse(cmd.Context(), cmd.OutOrStdout(), client, cfg.Consumer, args[0], file, events, params, labels)
+			name := ""
+			if len(args) > 0 {
+				name = args[0]
+			}
+			req := applyRequest{Events: events, Labels: labels, DryRun: dryRun, Update: update}
+			return runUse(cmd.Context(), cmd.OutOrStdout(), outputFmt(cmd), client, cfg.Consumer, name, file, params, req)
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&file, "file", "", "explicit recipe file path (overrides recipe search)")
-	f.Var(params, "param", "recipe parameter name=value (repeatable; prompted if omitted)")
-	f.VarP(&events, "event", "e", "event type to subscribe to (repeatable, required)")
-	f.Var(labels, "label", "label filter key=value applied to the subscription (repeatable)")
+	f.StringVar(&file, "file", "", "recipe file path (instead of a built-in or ./recipes/<name>.yaml)")
+	f.Var(params, "param", "recipe parameter name=value (repeatable; prompted for on a terminal if omitted)")
+	f.VarP(&events, "event", "e", "event type to subscribe to (repeatable, at least one)")
+	f.Var(labels, "label", "label filter key=value applied to the subscriptions (repeatable)")
+	f.BoolVar(&dryRun, "dry-run", false, "validate and show what would be created or changed, without changing anything")
+	f.BoolVar(&update, "update", false, "re-apply to the existing webhook for the same destination instead of refusing")
+	addOutputFlag(cmd)
 	return cmd
 }
 
-func runUse(ctx context.Context, out io.Writer, client *apiClient, consumer, recipeArg, file string, events listFlag, params, labels kvFlag) error {
+func runUse(ctx context.Context, out io.Writer, format string, client *apiClient, consumer, recipeArg, file string, params kvFlag, req applyRequest) error {
 	r, err := resolveRecipe(recipeArg, file)
 	if err != nil {
 		return err
 	}
+	if isTerminal(os.Stdin) && format == "" {
+		promptParams(out, r, params)
+	}
+	values, err := resolveParams(r, params)
+	var missing *missingParamsError
+	if errors.As(err, &missing) {
+		return fmt.Errorf("%w; pass %s", err, missing.flags())
+	}
+	if err != nil {
+		return err
+	}
 
-	// Prompt for params not given as flags; resolveParams fills the rest.
-	if isTerminal(os.Stdin) {
-		stdin := bufio.NewScanner(os.Stdin)
-		for _, p := range r.Params {
-			if _, ok := params[p.Name]; ok {
-				continue
-			}
-			promptText := p.Prompt
-			if promptText == "" {
-				promptText = p.Name
-			}
-			if len(p.Enum) > 0 {
-				promptText += " (" + strings.Join(p.Enum, "|") + ")"
-			}
-			if p.Default != "" && !p.MustOverrideDefault {
-				promptText += " [" + p.Default + "]"
-			}
-			if p.Help != "" {
-				_, _ = fmt.Fprintf(out, "%s\n", p.Help)
-			}
-			_, _ = fmt.Fprintf(out, "%s: ", promptText)
-			if stdin.Scan() {
-				if v := strings.TrimSpace(stdin.Text()); v != "" {
-					params[p.Name] = v
-				}
+	res, err := applyRecipeTo(ctx, client, consumer, r, values, req)
+	if done, ferr := renderStructured(out, format, res); done {
+		if ferr != nil {
+			return ferr
+		}
+		return useError(err, r, recipeArg, file)
+	}
+	printApplied(out, res, err)
+	return useError(err, r, recipeArg, file)
+}
+
+// promptParams asks for every param not given as a flag; resolveParams fills
+// in the rest.
+func promptParams(out io.Writer, r recipe, params kvFlag) {
+	stdin := bufio.NewScanner(os.Stdin)
+	for _, p := range r.Params {
+		if _, ok := params[p.Name]; ok {
+			continue
+		}
+		label := p.Prompt
+		if label == "" {
+			label = p.Name
+		}
+		if len(p.Enum) > 0 {
+			label += " (" + strings.Join(p.Enum, "|") + ")"
+		}
+		if p.Default != "" && !p.MustOverrideDefault {
+			label += " [" + p.Default + "]"
+		}
+		if p.Help != "" {
+			_, _ = fmt.Fprintf(out, "\n  %s\n", p.Help)
+		}
+		if p.Example != "" {
+			_, _ = fmt.Fprintf(out, "  e.g. %s\n", p.Example)
+		}
+		_, _ = fmt.Fprintf(out, "%s: ", label)
+		if stdin.Scan() {
+			if v := strings.TrimSpace(stdin.Text()); v != "" {
+				params[p.Name] = v
 			}
 		}
 	}
-	values, err := resolveParams(r, params)
-	if err != nil {
-		return err
-	}
+}
 
-	res, err := applyRecipe(ctx, client, consumer, r, values, events, labels)
-	if res.WebhookID != "" {
-		_, _ = fmt.Fprintf(out, "webhook %s -> %s\n", res.WebhookID, res.URL)
+// useError adds the CLI's next step to an apply error.
+func useError(err error, r recipe, recipeArg, file string) error {
+	var exists *webhookExistsError
+	if errors.As(err, &exists) {
+		target := recipeArg
+		if file != "" {
+			target = "--file " + file
+		}
+		return fmt.Errorf("%w; re-run 'sparrow use %s ... --update' to re-apply the recipe to it, or delete it first", err, target)
+	}
+	return err
+}
+
+// printApplied writes what applying did (or would do) for people.
+func printApplied(out io.Writer, res appliedRecipe, err error) {
+	for _, w := range res.Warnings {
+		_, _ = fmt.Fprintf(out, "warning: %s\n", w)
+	}
+	verb := map[string]string{"created": "created", "updated": "updated", "would_create": "would create", "would_update": "would update"}
+	if res.Action != "" {
+		hook := "webhook"
+		if res.WebhookID != "" {
+			hook += " " + res.WebhookID
+		}
+		_, _ = fmt.Fprintf(out, "%s %s -> %s\n", verb[res.Action], hook, res.URL)
 	}
 	for _, sub := range res.Subscriptions {
-		_, _ = fmt.Fprintf(out, "subscription %s (%s): transform %v, label filters %v\n", sub.SubscriptionID, sub.EventName, sub.Transform, map[string]string(labels))
+		line := fmt.Sprintf("  %s subscription", verb[sub.Action])
+		if sub.SubscriptionID != "" {
+			line += " " + sub.SubscriptionID
+		}
+		line += " for " + sub.EventName
+		if sub.Transform {
+			line += ", transform on"
+		}
+		if len(sub.LabelFilters) > 0 {
+			line += ", labels " + kvFlag(sub.LabelFilters).String()
+		}
+		_, _ = fmt.Fprintln(out, line)
 	}
-	if err != nil {
-		return err
+	if res.DryRun && err == nil {
+		_, _ = fmt.Fprintf(out, "\nsample delivery, rendered against %s:\n%s\n", res.SampleSource, strings.TrimRight(res.Rendered, "\n"))
+		_, _ = fmt.Fprintln(out, "dry run: nothing was changed")
+		return
 	}
-	_, _ = fmt.Fprintf(out, "recipe %q applied in consumer %q\n", r.Name, consumer)
-	return nil
+	if err == nil {
+		_, _ = fmt.Fprintf(out, "recipe %q applied in consumer %q\n", res.Recipe, res.Consumer)
+	}
 }
 
 // resolveParams turns the values a user gave into the full value set for r:
@@ -195,6 +288,7 @@ func runUse(ctx context.Context, out io.Writer, client *apiClient, consumer, rec
 // It never prompts, so the CLI (after prompting) and MCP share it.
 func resolveParams(r recipe, given map[string]string) (map[string]string, error) {
 	values := make(map[string]string, len(r.Params))
+	var missing []string
 	for _, p := range r.Params {
 		if v, ok := given[p.Name]; ok {
 			values[p.Name] = v
@@ -204,10 +298,13 @@ func resolveParams(r recipe, given map[string]string) (map[string]string, error)
 		case p.Default != "" && !p.MustOverrideDefault:
 			values[p.Name] = p.Default
 		case p.Required:
-			return nil, fmt.Errorf("param %q is required (pass --param %s=value)", p.Name, p.Name)
+			missing = append(missing, p.Name)
 		default:
 			values[p.Name] = ""
 		}
+	}
+	if len(missing) > 0 {
+		return nil, &missingParamsError{names: missing}
 	}
 	for _, p := range r.Params {
 		if p.MustOverrideDefault && p.Default != "" && strings.TrimSpace(values[p.Name]) == p.Default {
@@ -218,6 +315,23 @@ func resolveParams(r recipe, given map[string]string) (map[string]string, error)
 		}
 	}
 	return values, nil
+}
+
+// missingParamsError names every required param without a value, so a caller
+// can ask for all of them at once.
+type missingParamsError struct{ names []string }
+
+func (e *missingParamsError) Error() string {
+	return "missing required params: " + strings.Join(e.names, ", ")
+}
+
+// flags is the --param form of the missing params, for CLI messages.
+func (e *missingParamsError) flags() string {
+	parts := make([]string, len(e.names))
+	for i, n := range e.names {
+		parts[i] = "--param " + n + "=..."
+	}
+	return strings.Join(parts, " ")
 }
 
 // renderedRecipe is r with every {{param "x"}} token replaced.
@@ -248,61 +362,4 @@ func substituteRecipe(r recipe, values map[string]string) (renderedRecipe, error
 	}
 	out.Template, err = substituteParams(r.Subscription.TransformTemplate, values)
 	return out, err
-}
-
-type appliedSubscription struct {
-	SubscriptionID string `json:"subscription_id"`
-	EventName      string `json:"event_name"`
-	Transform      bool   `json:"transform"`
-}
-
-type appliedRecipe struct {
-	Recipe        string                `json:"recipe"`
-	WebhookID     string                `json:"webhook_id"`
-	URL           string                `json:"url"`
-	Subscriptions []appliedSubscription `json:"subscriptions"`
-}
-
-// applyRecipe registers a webhook for r with resolved param values and
-// enables the recipe's transform (and label filters) on the subscriptions
-// created for events. On a partial failure the result still names the
-// webhook that was registered.
-func applyRecipe(ctx context.Context, client *apiClient, consumer string, r recipe, values map[string]string, events []string, labels map[string]string) (appliedRecipe, error) {
-	res := appliedRecipe{Recipe: r.Name, Subscriptions: []appliedSubscription{}}
-	rr, err := substituteRecipe(r, values)
-	if err != nil {
-		return res, err
-	}
-	hook, err := client.registerWebhook(ctx, consumer, webhookRequest{
-		URL:           rr.URL,
-		Events:        events,
-		Active:        true,
-		Description:   fmt.Sprintf("recipe %s: %s", r.Name, r.Description),
-		Headers:       rr.Headers,
-		SecretHeaders: rr.SecretHeaders,
-
-		RequiresTransform: r.Webhook.RequiresTransform,
-		TransformTemplate: rr.Template,
-	})
-	if err != nil {
-		return res, fmt.Errorf("register webhook: %w", err)
-	}
-	res.WebhookID, res.URL = hook.WebhookID, rr.URL
-
-	subs, err := client.listSubscriptions(ctx, consumer, hook.WebhookID)
-	if err != nil {
-		return res, fmt.Errorf("list subscriptions of webhook %s: %w", hook.WebhookID, err)
-	}
-	for _, sub := range subs {
-		patch := subscriptionPatch{LabelFilters: labels}
-		if rr.Template != "" {
-			patch.TransformEnabled = true
-			patch.TransformTemplate = rr.Template
-		}
-		if err := client.patchSubscription(ctx, consumer, sub.SubscriptionID, patch); err != nil {
-			return res, fmt.Errorf("update subscription %s of webhook %s: %w", sub.SubscriptionID, hook.WebhookID, err)
-		}
-		res.Subscriptions = append(res.Subscriptions, appliedSubscription{SubscriptionID: sub.SubscriptionID, EventName: sub.EventName, Transform: rr.Template != ""})
-	}
-	return res, nil
 }

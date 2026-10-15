@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -25,16 +24,20 @@ type validateRecipeIn struct {
 }
 
 type applyRecipeIn struct {
-	Name         string            `json:"name,omitempty" jsonschema:"recipe to apply by name; give name or yaml"`
-	YAML         string            `json:"yaml,omitempty" jsonschema:"full recipe YAML to apply, e.g. one just checked with validate_recipe; give name or yaml"`
-	Params       map[string]string `json:"params,omitempty" jsonschema:"param values; required params without a default must be given"`
-	Events       []string          `json:"events" jsonschema:"event types the new webhook subscribes to (at least one)"`
-	LabelFilters map[string]string `json:"label_filters,omitempty" jsonschema:"label key/values an event must carry to be delivered"`
+	Name           string            `json:"name,omitempty" jsonschema:"recipe to apply by name; give name or yaml"`
+	YAML           string            `json:"yaml,omitempty" jsonschema:"full recipe YAML to apply, e.g. one just checked with validate_recipe; give name or yaml"`
+	Params         map[string]string `json:"params,omitempty" jsonschema:"param values; required params without a default must be given"`
+	Events         []string          `json:"events" jsonschema:"event types the webhook subscribes to (at least one)"`
+	LabelFilters   map[string]string `json:"label_filters,omitempty" jsonschema:"label key/values an event must carry to be delivered"`
+	DryRun         bool              `json:"dry_run,omitempty" jsonschema:"validate and report what would be created or changed, without changing anything"`
+	UpdateExisting bool              `json:"update_existing,omitempty" jsonschema:"when a webhook for the recipe's destination already exists, re-apply the recipe to it (transform, labels, headers; missing subscriptions are created) instead of failing"`
 }
 
 // recipeSummary is a catalog row: enough to pick a recipe and fill its params.
 type recipeSummary struct {
-	Name              string                `json:"name"`
+	Name string `json:"name"`
+	// Source is "built-in" or the local file that defines (or overrides) it.
+	Source            string                `json:"source"`
 	Description       string                `json:"description"`
 	RequiresTransform bool                  `json:"requires_transform"`
 	Consumer          *recipes.ConsumerHint `json:"consumer,omitempty"`
@@ -45,19 +48,20 @@ func addRecipeTools(srv *mcp.Server, client *apiClient, consumer string, allowWr
 	ro := &mcp.ToolAnnotations{ReadOnlyHint: true}
 
 	mcp.AddTool(srv, &mcp.Tool{Name: "list_recipes", Annotations: ro,
-		Description: "List the built-in recipes (destination adapters such as Slack, PagerDuty, Twilio) with their params. Use get_recipe for the full template."},
+		Description: "List the recipes (destination adapters such as Slack, PagerDuty, Twilio): the built-in catalog plus local ./recipes/*.yaml and $SPARROW_RECIPES_DIR files, which override built-ins of the same name. Each comes with its params; use get_recipe for the full template."},
 		func(_ context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
-			all, err := recipes.All()
+			all, err := catalog()
 			if err != nil {
 				return nil, nil, err
 			}
 			out := make([]recipeSummary, 0, len(all))
-			for _, r := range all {
+			for _, e := range all {
+				r := e.recipe
 				params := r.Params
 				if params == nil {
 					params = []recipes.Param{}
 				}
-				out = append(out, recipeSummary{Name: r.Name, Description: r.Description, RequiresTransform: r.Webhook.RequiresTransform, Consumer: r.Consumer, Params: params})
+				out = append(out, recipeSummary{Name: r.Name, Source: e.source, Description: r.Description, RequiresTransform: r.Webhook.RequiresTransform, Consumer: r.Consumer, Params: params})
 			}
 			return nil, map[string]any{"items": out}, nil
 		})
@@ -70,10 +74,13 @@ func addRecipeTools(srv *mcp.Server, client *apiClient, consumer string, allowWr
 		})
 
 	mcp.AddTool(srv, &mcp.Tool{Name: "validate_recipe", Annotations: ro,
-		Description: "Validate a recipe without applying it: schema and param rules, the built-in catalog's shipping rules (as warnings), and a strict local render of the transform template against a sample event with params substituted. Returns errors, warnings and the rendered body. Nothing is sent to Sparrow."},
-		func(_ context.Context, _ *mcp.CallToolRequest, in validateRecipeIn) (*mcp.CallToolResult, any, error) {
+		Description: "Validate a recipe without applying it: schema and param rules, the built-in catalog's shipping rules (as warnings), and a strict local render of the transform template with params substituted. The render uses payload when given, else the registered sample payload of event_name, else a built-in sample. Returns errors, warnings and the rendered body. Nothing is created."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in validateRecipeIn) (*mcp.CallToolResult, any, error) {
 			if (in.Name == "") == (in.YAML == "") {
 				return nil, nil, errors.New("give exactly one of name or yaml")
+			}
+			if in.Payload == nil && in.EventName != "" {
+				in.Payload, _ = eventSample(ctx, client, in.EventName)
 			}
 			if in.YAML != "" {
 				return nil, validateRecipeYAML([]byte(in.YAML), in.Params, in.EventName, in.Payload), nil
@@ -97,7 +104,7 @@ func addRecipeTools(srv *mcp.Server, client *apiClient, consumer string, allowWr
 	}
 
 	mcp.AddTool(srv, &mcp.Tool{Name: "apply_recipe",
-		Description: "Apply a recipe (like `sparrow use`): register a webhook to the destination, subscribed to events, with the recipe's transform enabled. The recipe is validated first and nothing is created if validation fails."},
+		Description: "Apply a recipe (like `sparrow use`): register a webhook to the destination, subscribed to events, with the recipe's transform enabled. The recipe is validated first against the first event type's registered sample payload, and nothing is created if validation fails. A consumer has one webhook per URL: if one already exists for the destination this fails and names it, unless update_existing is set. Use dry_run to preview."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in applyRecipeIn) (*mcp.CallToolResult, any, error) {
 			if (in.Name == "") == (in.YAML == "") {
 				return nil, nil, errors.New("give exactly one of name or yaml")
@@ -116,20 +123,25 @@ func addRecipeTools(srv *mcp.Server, client *apiClient, consumer string, allowWr
 				return nil, nil, err
 			}
 			values, err := resolveParams(r, in.Params)
+			var missing *missingParamsError
+			if errors.As(err, &missing) {
+				return nil, nil, fmt.Errorf("%w; set them in params (get_recipe shows what each one is)", err)
+			}
 			if err != nil {
 				return nil, nil, err
 			}
-			rep := validateRecipe(r, values, in.Events[0], nil)
-			if !rep.Valid {
-				return nil, nil, fmt.Errorf("recipe %s did not validate, nothing was created: %s", r.Name, strings.Join(rep.Errors, "; "))
+			res, err := applyRecipeTo(ctx, client, consumer, r, values, applyRequest{
+				Events: in.Events, Labels: in.LabelFilters, DryRun: in.DryRun, Update: in.UpdateExisting,
+			})
+			var exists *webhookExistsError
+			switch {
+			case errors.As(err, &exists):
+				return nil, nil, fmt.Errorf("%w; set update_existing to re-apply the recipe to it, or delete_webhook it first", err)
+			case err != nil && res.WebhookID != "":
+				return nil, nil, fmt.Errorf("%w (webhook %s was created; delete_webhook it or retry with update_existing)", err, res.WebhookID)
+			case err != nil:
+				return nil, nil, err
 			}
-			if r.Consumer != nil && r.Consumer.Name != consumer {
-				rep.Warnings = append(rep.Warnings, fmt.Sprintf("recipe is meant for consumer %q, applied in %q: %s", r.Consumer.Name, consumer, r.Consumer.Note))
-			}
-			applied, err := applyRecipe(ctx, client, consumer, r, values, in.Events, in.LabelFilters)
-			if err != nil {
-				return nil, nil, fmt.Errorf("%w (partial result: %+v)", err, applied)
-			}
-			return nil, map[string]any{"applied": applied, "warnings": rep.Warnings}, nil
+			return nil, res, nil
 		})
 }

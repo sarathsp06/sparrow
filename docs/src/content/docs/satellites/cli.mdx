@@ -298,12 +298,28 @@ server can reach it). Use `--bind 127.0.0.1` for loopback only.
 
 ### `sparrow recipes`
 
-Lists the recipes built into the binary (name, params, description). Supports
-`-o json|yaml`.
+Lists the recipes you can apply: the built-in catalog plus local
+`./recipes/<name>.yaml` and `$SPARROW_RECIPES_DIR/<name>.yaml` files (the
+SOURCE column says which; a local file overrides a built-in of the same
+name). Params marked `*` are required. Supports `-o json|yaml`.
 
 ```bash
 sparrow recipes
+sparrow recipes show pagerduty        # or just: sparrow recipes pagerduty
+sparrow recipes validate slack -e order.created
+sparrow recipes validate --file ./recipes/teams.yaml --param webhook_url=https://example.com/x
 ```
+
+`sparrow recipes show <name>` prints one recipe in full: each param with its
+help, example, default and docs link, the destination URL and headers, the
+transform template, the guidance, and the `sparrow use` line to apply it.
+
+`sparrow recipes validate <name>|--file <path>` checks a recipe without
+applying it: the schema and param rules, the built-in catalog's shipping
+rules (as warnings), and a strict render of the template with params
+substituted. The render uses `--payload` when given, else the registered
+sample payload of `--event`, else a built-in sample. It exits non-zero when
+the recipe has errors, so it works in CI for recipes you keep in a repo.
 
 ### `sparrow use <recipe>`
 
@@ -321,9 +337,32 @@ sparrow use slack --event order.created --label env=prod \
 sparrow use myrecipe --file ./my-recipe.yaml --event user.signup
 ```
 
-Recipe params not passed with `--param` are prompted for interactively. The
-`{{param "x"}}` tokens are substituted client-side before registration; the
-transform template itself is rendered server-side per delivery.
+Recipe params not passed with `--param` are prompted for when stdin is a
+terminal; anywhere else (a script, CI, `</dev/null`), every missing required
+param is named in one error. The `{{param "x"}}` tokens are substituted
+client-side before registration; the transform template itself is rendered
+server-side per delivery.
+
+Before creating anything, `use` validates the recipe and renders its template
+against the first `--event`'s registered sample payload (a built-in sample if
+it has none). A template that can't render creates nothing.
+
+| Flag | What it does |
+| --- | --- |
+| `--dry-run` | Validates and prints what would be created or changed, plus a sample delivery; changes nothing |
+| `--update` | Re-applies the recipe to the existing webhook for the same destination: the `--event` subscriptions get the recipe's transform and labels (missing ones are created) and the webhook gets its headers. Subscriptions to other events are left alone |
+| `--label key=value` | Label filter on the subscriptions (repeatable) |
+| `-o json\|yaml` | Prints the result as data: action, webhook and subscription ids, the rendered sample |
+
+A consumer has one webhook per URL, so applying a recipe to the same
+destination again is refused and names the existing webhook; re-run with
+`--update` to change it.
+
+```bash
+sparrow use pagerduty -e payment.failed --param routing_key=R0UT1NG --dry-run
+sparrow use slack -e order.created -e order.refunded --update \
+  --param webhook_url=https://hooks.slack.com/services/T00/B00/xxx
+```
 
 ### `sparrow template test <file>`
 
@@ -351,7 +390,7 @@ Start from a built-in recipe's template, or write your own:
 
 ```bash
 # copy the built-in Slack template into a file you can edit
-sparrow recipes -o json | jq -r '.[] | select(.name == "slack") | .subscription.transform_template' > slack.tmpl
+sparrow recipes show slack -o json | jq -r .subscription.transform_template > slack.tmpl
 
 # or write one from scratch
 cat > partner.tmpl <<'EOF'
@@ -394,8 +433,8 @@ subscription:
 ```bash
 sparrow use partner --file ./partner.yaml --event order.completed \
   --param endpoint=https://partner.example.com/orders --param api_token=$PARTNER_TOKEN
-# webhook 0e37f464-... -> https://partner.example.com/orders
-# subscription a2edd100-... (order.completed): transform true, label filters map[]
+# created webhook 0e37f464-... -> https://partner.example.com/orders
+#   created subscription a2edd100-... for order.completed, transform on
 # recipe "partner" applied in consumer "default"
 
 sparrow push order.completed -d '{"order_id": "ord_9988", "amount_cents": 4995}'
@@ -515,15 +554,16 @@ Read-only tools (always on):
 | Tool | What it does |
 | --- | --- |
 | `list_webhooks` | The consumer's webhooks with url, events, active flag and health |
+| `get_webhook` | One webhook with its subscriptions (event, label filters, transform template) |
 | `list_subscriptions` | One webhook's subscriptions: event, label filters, transform template |
 | `list_deliveries` | Deliveries newest first, filterable by `status`, `webhook_id` and `event_name`, paged with `cursor` |
 | `get_delivery_attempts` | Per-attempt history of one delivery (code, timing, error category and message) |
 | `list_event_types` | Registered event types with schema and sample payload |
 | `get_stats` | Delivery counts by outcome and success rate |
 | `test_template` | Renders a transform template server-side against an event type's sample payload |
-| `list_recipes` | Built-in recipes with their params |
+| `list_recipes` | Recipes with their params: the built-in catalog plus local recipe files (`source` says which) |
 | `get_recipe` | One recipe in full (url, headers, template, guidance); local files override built-ins as in `sparrow use` |
-| `validate_recipe` | Checks a recipe by name or as draft YAML: schema and param rules, the catalog's shipping rules as warnings, and a strict local render against a sample event. Nothing is sent to Sparrow |
+| `validate_recipe` | Checks a recipe by name or as draft YAML: schema and param rules, the catalog's shipping rules as warnings, and a strict local render against `payload`, else `event_name`'s registered sample, else a built-in sample. Nothing is created |
 
 Write tools (`--allow-write`):
 
@@ -533,8 +573,10 @@ Write tools (`--allow-write`):
 | `retry_delivery` | Re-attempts one delivery immediately |
 | `register_webhook` | Registers an endpoint, optionally subscribed to events in the same call |
 | `create_subscription` | Subscribes an existing webhook to an event, with optional filters and template |
+| `update_subscription` | Changes one subscription's transform template or label filters, e.g. to fix a failing template |
+| `delete_subscription` | Deletes one subscription; the webhook stays |
 | `delete_webhook` | Deletes a webhook and its subscriptions |
-| `apply_recipe` | Applies a recipe by name or inline YAML, like `sparrow use`; validates first and creates nothing if that fails |
+| `apply_recipe` | Applies a recipe by name or inline YAML, like `sparrow use`: validates first against the event's registered sample and creates nothing if that fails. `dry_run` previews; `update_existing` re-applies to the existing webhook for the destination (without it, a second apply fails and names that webhook). Missing params are all named in one error |
 | `start_listen` | Starts a temporary local receiver behind a temp webhook, like `sparrow listen` |
 | `list_received` | Signature-verified deliveries the receiver has accepted so far |
 | `stop_listen` | Stops the receiver and deletes the temp webhook (also happens when the client disconnects) |
@@ -550,8 +592,10 @@ the transformed body, `stop_listen`. The same SSRF note as `sparrow listen`
 applies: the server must allow private-network delivery URLs for a local
 receiver.
 
-Every tool returns the REST API response unchanged, so the fields match the
-[API reference](/sparrow/reference/api/).
+Every tool returns the REST API response (minus its `$schema` link), so the
+fields match the [API reference](/sparrow/reference/api/). The server also
+sends the client instructions describing these workflows, so an agent knows
+where to start without being told.
 
 Register it in your MCP client's server config. Most clients use this shape:
 

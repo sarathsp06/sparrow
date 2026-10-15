@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -101,6 +102,16 @@ type registerWebhookIn struct {
 	RequiresTransform bool              `json:"requires_transform,omitempty" jsonschema:"receiver only accepts transformed payloads (needs transform_template)"`
 }
 
+type updateSubscriptionIn struct {
+	SubscriptionID    string            `json:"subscription_id" jsonschema:"subscription to change"`
+	TransformTemplate *string           `json:"transform_template,omitempty" jsonschema:"new Go transform template; an empty string turns the transform off"`
+	LabelFilters      map[string]string `json:"label_filters,omitempty" jsonschema:"replace the label filters (key/values an event must carry)"`
+}
+
+type subscriptionIDIn struct {
+	SubscriptionID string `json:"subscription_id" jsonschema:"subscription id"`
+}
+
 type createSubscriptionIn struct {
 	WebhookID         string            `json:"webhook_id" jsonschema:"webhook to deliver matching events to"`
 	EventName         string            `json:"event_name" jsonschema:"event type name, or * for every event"`
@@ -112,20 +123,19 @@ type createSubscriptionIn struct {
 // drive. Tools return the Sparrow API response as-is (JSON), so what the
 // agent sees matches the REST docs.
 func newMCPServer(client *apiClient, consumer string, allowWrite bool) (*mcp.Server, *mcpListener) {
-	srv := mcp.NewServer(&mcp.Implementation{Name: "sparrow", Version: version}, nil)
+	srv := mcp.NewServer(&mcp.Implementation{Name: "sparrow", Version: version}, &mcp.ServerOptions{Instructions: mcpInstructions(allowWrite)})
 	listener := &mcpListener{client: client, consumer: consumer}
 	ro := &mcp.ToolAnnotations{ReadOnlyHint: true}
 	c := url.PathEscape(consumer)
 
-	get := func(ctx context.Context, path string) (any, error) {
+	call := func(ctx context.Context, method, path string, body any) (any, error) {
 		var out any
-		err := client.do(ctx, http.MethodGet, path, nil, &out)
-		return out, err
+		err := client.do(ctx, method, path, body, &out)
+		return dropSchema(out), err
 	}
+	get := func(ctx context.Context, path string) (any, error) { return call(ctx, http.MethodGet, path, nil) }
 	post := func(ctx context.Context, path string, body any) (any, error) {
-		var out any
-		err := client.do(ctx, http.MethodPost, path, body, &out)
-		return out, err
+		return call(ctx, http.MethodPost, path, body)
 	}
 
 	mcp.AddTool(srv, &mcp.Tool{Name: "list_webhooks", Annotations: ro,
@@ -137,6 +147,20 @@ func newMCPServer(client *apiClient, consumer string, allowWrite bool) (*mcp.Ser
 			}
 			out, err := get(ctx, "/v1/consumers/"+c+"/webhooks?"+q.Encode())
 			return nil, out, err
+		})
+
+	mcp.AddTool(srv, &mcp.Tool{Name: "get_webhook", Annotations: ro,
+		Description: "Get one webhook with its subscriptions (event, label filters, transform template). The signing secret is masked."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in webhookIDIn) (*mcp.CallToolResult, any, error) {
+			hook, err := get(ctx, "/v1/consumers/"+c+"/webhooks/"+url.PathEscape(in.WebhookID))
+			if err != nil {
+				return nil, nil, err
+			}
+			subs, err := client.listSubscriptions(ctx, consumer, in.WebhookID)
+			if subs == nil {
+				subs = []subscriptionItem{}
+			}
+			return nil, map[string]any{"webhook": hook, "subscriptions": subs}, err
 		})
 
 	mcp.AddTool(srv, &mcp.Tool{Name: "list_subscriptions", Annotations: ro,
@@ -248,6 +272,31 @@ func newMCPServer(client *apiClient, consumer string, allowWrite bool) (*mcp.Ser
 			return nil, out, err
 		})
 
+	mcp.AddTool(srv, &mcp.Tool{Name: "update_subscription",
+		Description: "Change one subscription's transform template or label filters, e.g. to fix a template that fails (check it first with test_template). Fields left out stay as they are."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in updateSubscriptionIn) (*mcp.CallToolResult, any, error) {
+			body := map[string]any{}
+			if in.TransformTemplate != nil {
+				body["transform_template"] = *in.TransformTemplate
+				body["transform_enabled"] = *in.TransformTemplate != ""
+			}
+			if in.LabelFilters != nil {
+				body["label_filters"] = in.LabelFilters
+			}
+			if len(body) == 0 {
+				return nil, nil, errors.New("nothing to change: give transform_template or label_filters")
+			}
+			out, err := call(ctx, http.MethodPatch, "/v1/consumers/"+c+"/subscriptions/"+url.PathEscape(in.SubscriptionID), body)
+			return nil, out, err
+		})
+
+	mcp.AddTool(srv, &mcp.Tool{Name: "delete_subscription", Annotations: &mcp.ToolAnnotations{DestructiveHint: ptr(true)},
+		Description: "Delete one subscription; its webhook and other subscriptions stay."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in subscriptionIDIn) (*mcp.CallToolResult, any, error) {
+			_, err := call(ctx, http.MethodDelete, "/v1/consumers/"+c+"/subscriptions/"+url.PathEscape(in.SubscriptionID), nil)
+			return nil, map[string]any{"deleted": in.SubscriptionID}, err
+		})
+
 	mcp.AddTool(srv, &mcp.Tool{Name: "start_listen",
 		Description: "Start a temporary local receiver and register it as a webhook for the given events (like `sparrow listen`). Deliveries are verified and kept in memory for list_received. One listener at a time; stop_listen deletes the webhook."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in startListenIn) (*mcp.CallToolResult, any, error) {
@@ -273,3 +322,39 @@ func newMCPServer(client *apiClient, consumer string, allowWrite bool) (*mcp.Ser
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// dropSchema removes the "$schema" link the API adds to every response body:
+// it is noise in an agent's context.
+func dropSchema(v any) any {
+	if m, ok := v.(map[string]any); ok {
+		delete(m, "$schema")
+	}
+	return v
+}
+
+// mcpInstructions orients an agent: what the server is and the usual paths
+// through its tools.
+func mcpInstructions(allowWrite bool) string {
+	s := `Sparrow delivers webhooks: events pushed to it fan out to registered webhooks
+(HTTP endpoints) through subscriptions, with retries, signing and an optional
+Go-template transform that reshapes the payload for the receiver. All tools act
+on one consumer.
+
+Debugging deliveries: list_deliveries (filter by status=failed), then
+get_delivery_attempts for the response code, error category and message.
+Templates: test_template renders against an event type's sample payload.
+Recipes are ready-made destinations (Slack, Discord, PagerDuty, ...):
+list_recipes, get_recipe for params and template, validate_recipe to check one
+(or a draft YAML) before applying.`
+	if allowWrite {
+		s += `
+
+To send events somewhere: pick a recipe, validate_recipe with the real params
+and event_name, then apply_recipe (dry_run first if unsure). A consumer has
+one webhook per URL: re-applying needs update_existing. To fix a template on
+an existing subscription, test_template then update_subscription. To see what
+a subscription actually delivers, start_listen, push_event, list_received,
+then stop_listen.`
+	}
+	return s
+}
