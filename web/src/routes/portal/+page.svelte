@@ -10,6 +10,7 @@
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import HeldDeliveriesNotice from "$lib/components/HeldDeliveriesNotice.svelte";
   import SubscriptionManager from "$lib/components/SubscriptionManager.svelte";
+  import EventPicker from "$lib/components/EventPicker.svelte";
   import type { components } from "$lib/api-types";
   import { ALERT_EVENT_TYPES, ALERTS_GUIDE_URL, isEmail, listAllEventTypes } from "$lib/system";
 
@@ -365,15 +366,8 @@
             {#if eventTypes.length > 0}
               <fieldset>
                 <legend class="field-label">Subscribe to events</legend>
-                <div class="flex flex-wrap gap-2">
-                  {#each eventTypes as et}
-                    <label class="chip cursor-pointer select-none {regEvents.includes(et.name) ? '!border-beacon !text-text' : ''}">
-                      <input type="checkbox" class="sr-only" value={et.name} bind:group={regEvents} />
-                      {et.name}
-                    </label>
-                  {/each}
-                </div>
-                <p class="text-xs text-faint mt-2">Leave empty to add subscriptions later.</p>
+                <EventPicker events={eventTypes} bind:selected={regEvents} searchId="portal-event-search" />
+                <p class="text-xs text-faint mt-2">Click an event to see what it sends. Leave empty to add subscriptions later.</p>
               </fieldset>
             {/if}
             <div class="flex justify-end gap-2">

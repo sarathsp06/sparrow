@@ -8,6 +8,7 @@
   import { onMount } from "svelte";
   import Disclosure from "./Disclosure.svelte";
   import TransformSettings from "./TransformSettings.svelte";
+  import EventPicker from "./EventPicker.svelte";
   import type { TemplateSaveMeta } from "./TemplateEditor.svelte";
   import type { components } from "$lib/api-types";
 
@@ -139,7 +140,7 @@
     <section class="panel p-5 space-y-4">
       <h3 class="eyebrow">Subscription</h3>
       <div>
-        <label for="sub-event" class="field-label">Event type</label>
+        <span class="field-label">Event type</span>
         {#if mode === "create"}
           <div class="flex items-center gap-3 mb-2">
             <button type="button" onclick={() => { catchAll = !catchAll; if (catchAll) eventName = CATCH_ALL; else if (eventName === CATCH_ALL) eventName = ""; }} aria-label="Toggle catch-all"
@@ -149,10 +150,13 @@
             <span class="text-sm text-text">Catch-all: receive every event in this consumer</span>
           </div>
           {#if !catchAll}
-            <select id="sub-event" bind:value={eventName} class="select w-full">
-              <option value="">Select an event type…</option>
-              {#each availableEvents as ev}<option value={ev.name}>{ev.name}</option>{/each}
-            </select>
+            <EventPicker
+              events={availableEvents}
+              multiple={false}
+              editable
+              searchId="sub-event"
+              bind:selected={() => (eventName ? [eventName] : []), (v) => (eventName = v[0] ?? "")}
+            />
           {/if}
         {:else}
           <input id="sub-event" type="text" value={catchAll ? "All events (catch-all)" : eventName} disabled class="input opacity-60 w-full" />

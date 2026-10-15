@@ -8,6 +8,7 @@
   import type { components } from '$lib/api-types';
   import { substituteParams, type Recipe, type RecipeParam } from '$lib/recipes';
   import Disclosure from '$lib/components/Disclosure.svelte';
+  import EventPicker from '$lib/components/EventPicker.svelte';
   import TransformSettings from '$lib/components/TransformSettings.svelte';
   import type { TemplateSaveMeta } from '$lib/components/TemplateEditor.svelte';
   import SigningSecretReveal from '$lib/components/SigningSecretReveal.svelte';
@@ -28,7 +29,6 @@
   let allEvents: EventTypeItem[] = $state([]);
   let error = $state('');
   let submitting = $state(false);
-  let eventSearch = $state('');
   let alertEmail = $state('');
   // Set once registration succeeds: the server returns the signing secret in
   // full only in that response, so the page shows it before moving on.
@@ -83,12 +83,6 @@
   let urlError = $state('');
   let consumerError = $state('');
   let eventsError = $state('');
-
-  let filteredEvents = $derived(
-    eventSearch.trim()
-      ? allEvents.filter(e => e.name.toLowerCase().includes(eventSearch.toLowerCase()))
-      : allEvents
-  );
 
   // One template cannot fit several event schemas, so a hand-picked transform
   // only applies to a single event. A webhook that requires a transform gets
@@ -476,27 +470,12 @@
 
         <section class="panel p-5">
           <div class="flex items-center justify-between gap-3 mb-2">
-            <label for="event-search" class="eyebrow">Events</label>
+            <h3 class="eyebrow">Events</h3>
             <span class="text-xs text-muted">{events.length ? `${events.length} selected` : 'Pick at least one'}</span>
           </div>
           {#if eventsError}<p class="text-xs mb-2" style="color:var(--color-bad)">{eventsError}</p>{/if}
-          <input id="event-search" type="text" placeholder="Search events…" bind:value={eventSearch} class="input w-full mb-2" />
-          <div class="space-y-0.5 max-h-56 overflow-y-auto -mx-2">
-            {#each filteredEvents as ev}
-              <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-black/5 rounded cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={events.includes(ev.name)}
-                  onchange={() => {
-                    events = events.includes(ev.name) ? events.filter(e => e !== ev.name) : [...events, ev.name];
-                  }}
-                  class="accent-[color:var(--color-beacon)]"
-                />
-                <span class="text-sm text-text truncate">{ev.name}</span>
-              </label>
-            {/each}
-          </div>
-          <p class="text-xs text-faint mt-2">One subscription is created per event; refine each one later from the webhook's page.</p>
+          <EventPicker events={allEvents} bind:selected={events} editable />
+          <p class="text-xs text-faint mt-2">Click an event to see its payload. One subscription is created per event; refine each one later from the webhook's page.</p>
         </section>
       </div>
 
