@@ -134,13 +134,13 @@ func call(t *testing.T, cs *mcp.ClientSession, name string, args map[string]any)
 func TestMCPReadOnlyHidesWriteTools(t *testing.T) {
 	client := newAPIClient(config{ServerURL: newFakeSparrow(t).URL})
 
-	readOnly := []string{"get_delivery_attempts", "get_recipe", "get_stats", "get_webhook", "list_deliveries", "list_event_types", "list_recipes", "list_subscriptions", "list_webhooks", "test_template", "validate_recipe"}
+	readOnly := []string{"export_event_types", "get_delivery_attempts", "get_event_type", "get_recipe", "get_stats", "get_webhook", "list_deliveries", "list_event_types", "list_events", "list_recipes", "list_subscriptions", "list_webhooks", "test_template", "validate_recipe"}
 	srv, _ := newMCPServer(client, "acme", false)
 	if got := toolNames(t, connectMCP(t, srv)); strings.Join(got, ",") != strings.Join(readOnly, ",") {
 		t.Fatalf("read-only tools = %v, want %v", got, readOnly)
 	}
 
-	want := append(readOnly, "apply_recipe", "create_subscription", "delete_subscription", "delete_webhook", "list_received", "push_event", "register_webhook", "retry_delivery", "start_listen", "stop_listen", "update_subscription")
+	want := append(readOnly, "apply_recipe", "create_subscription", "delete_subscription", "delete_webhook", "list_received", "push_event", "register_webhook", "retry_delivery", "start_listen", "stop_listen", "update_subscription", "import_event_types", "update_event_type")
 	sort.Strings(want)
 	srv, _ = newMCPServer(client, "acme", true)
 	if got := toolNames(t, connectMCP(t, srv)); strings.Join(got, ",") != strings.Join(want, ",") {
@@ -287,5 +287,63 @@ func TestMCPToolErrorIsNotProtocolError(t *testing.T) {
 	}
 	if !res.IsError {
 		t.Fatal("expected a tool error for a 404")
+	}
+}
+
+func TestMCPEventTypeTools(t *testing.T) {
+	api := newFakeSparrow(t)
+	client := newAPIClient(config{ServerURL: api.URL})
+	srv, _ := newMCPServer(client, "acme", true)
+	cs := connectMCP(t, srv)
+
+	call(t, cs, "get_event_type", map[string]any{"name": "order.created", "versions": true})
+	if !api.sawPath(http.MethodGet, "/v1/event-types/order.created") || !api.sawPath(http.MethodGet, "/v1/event-types/order.created/versions") {
+		t.Fatal("get_event_type with versions should read the type and its versions")
+	}
+
+	call(t, cs, "list_events", map[string]any{"event": "order.created", "labels": map[string]string{"tier": "gold", "env": "prod"}})
+	last := api.lastReq()
+	q := last.URL.Query()
+	if last.URL.Path != "/v1/consumers/acme/events" || q.Get("event") != "order.created" || q.Get("limit") != "20" ||
+		q.Get("labels") != "env=prod,tier=gold" || q.Has("prepare_repush") {
+		t.Fatalf("list_events hit %s", last.URL)
+	}
+
+	call(t, cs, "export_event_types", map[string]any{"prefix": "order."})
+	if b := api.body(http.MethodPost, "/v1/event-types:export"); b != `{"prefix":"order."}` {
+		t.Fatalf("export body = %s", b)
+	}
+
+	bundle := map[string]any{"apiVersion": "sparrow/v1", "items": []any{map[string]any{"name": "order.created"}}}
+	call(t, cs, "import_event_types", map[string]any{"bundle": bundle})
+	var imp map[string]any
+	_ = json.Unmarshal([]byte(api.body(http.MethodPost, "/v1/event-types:import")), &imp)
+	if imp["dry_run"] != true || imp["apiVersion"] != "sparrow/v1" || imp["items"] == nil {
+		t.Fatalf("import must default to a dry run and send the bundle as-is: %v", imp)
+	}
+	call(t, cs, "import_event_types", map[string]any{"bundle": bundle, "dry_run": false, "accept_edited": true, "pause_affected": true})
+	_ = json.Unmarshal([]byte(api.body(http.MethodPost, "/v1/event-types:import")), &imp)
+	if ack, _ := imp["acknowledge"].([]any); imp["dry_run"] != false || len(ack) != 1 || ack[0] != "items_changed" || imp["subscription_policy"] != "pause" {
+		t.Fatalf("import options not sent: %v", imp)
+	}
+
+	schema := map[string]any{"type": "object", "properties": map[string]any{"id": map[string]any{"type": "string"}}}
+	call(t, cs, "update_event_type", map[string]any{"name": "order.created", "event_schema": schema, "allow_breaking": true})
+	last = api.lastReq()
+	var upd map[string]any
+	_ = json.Unmarshal([]byte(api.body(http.MethodPatch, "/v1/event-types/order.created")), &upd)
+	if last.Method != http.MethodPatch || last.URL.Query().Get("allow_breaking") != "true" || upd["event_schema"] == nil || len(upd) != 1 {
+		t.Fatalf("update_event_type: %s %s body %v", last.Method, last.URL, upd)
+	}
+
+	for name, args := range map[string]map[string]any{
+		"update_event_type":  {"name": "order.created"},
+		"export_event_types": {"names": []string{"a"}, "all": true},
+		"import_event_types": {"bundle": map[string]any{"apiVersion": "x"}},
+	} {
+		res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: args})
+		if err != nil || !res.IsError {
+			t.Errorf("%s(%v) should be a tool error, got err=%v res=%v", name, args, err, res)
+		}
 	}
 }

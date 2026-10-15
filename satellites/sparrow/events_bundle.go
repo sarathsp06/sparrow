@@ -42,7 +42,9 @@ the same definitions produce the same file in any environment.`,
 	return cmd
 }
 
-func runEventsExport(ctx context.Context, out io.Writer, client *apiClient, names []string, prefix string, all bool, outFile string) error {
+// exportSelection builds the export request body: exactly one of names,
+// prefix or all picks the event types.
+func exportSelection(names []string, prefix string, all bool) (map[string]any, error) {
 	selectors := 0
 	for _, set := range []bool{len(names) > 0, prefix != "", all} {
 		if set {
@@ -50,16 +52,22 @@ func runEventsExport(ctx context.Context, out io.Writer, client *apiClient, name
 		}
 	}
 	if selectors != 1 {
-		return errors.New("choose exactly one of: event type names, --prefix, or --all")
+		return nil, errors.New("choose exactly one of: names, prefix, or all")
 	}
-	sel := map[string]any{}
 	switch {
 	case len(names) > 0:
-		sel["names"] = names
+		return map[string]any{"names": names}, nil
 	case prefix != "":
-		sel["prefix"] = prefix
+		return map[string]any{"prefix": prefix}, nil
 	default:
-		sel["all"] = true
+		return map[string]any{"all": true}, nil
+	}
+}
+
+func runEventsExport(ctx context.Context, out io.Writer, client *apiClient, names []string, prefix string, all bool, outFile string) error {
+	sel, err := exportSelection(names, prefix, all)
+	if err != nil {
+		return errors.New("choose exactly one of: event type names, --prefix, or --all")
 	}
 	var raw json.RawMessage
 	if err := client.do(ctx, http.MethodPost, "/v1/event-types:export", sel, &raw); err != nil {
@@ -192,19 +200,7 @@ func runEventsImport(ctx context.Context, out io.Writer, in io.Reader, client *a
 	if _, ok := body["items"]; !ok {
 		return fmt.Errorf("%s has no items", f.file)
 	}
-	var ack []string
-	if f.acceptVersionMismatch {
-		ack = append(ack, "version_differs", "format_unsupported")
-	}
-	if f.acceptEdited {
-		ack = append(ack, "items_changed")
-	}
-	body["dry_run"] = f.dryRun
-	body["acknowledge"] = ack
-	body["allow_breaking"] = f.allowBreaking
-	if f.pauseAffected {
-		body["subscription_policy"] = "pause"
-	}
+	addImportOptions(body, f)
 
 	var res importResultOut
 	if err := client.do(ctx, http.MethodPost, "/v1/event-types:import", body, &res); err != nil {
@@ -218,6 +214,23 @@ func runEventsImport(ctx context.Context, out io.Writer, in io.Reader, client *a
 	}
 	printImportResult(out, res)
 	return importOutcomeError(res)
+}
+
+// addImportOptions sets the import request's options on a bundle body.
+func addImportOptions(body map[string]any, f importFlags) {
+	var ack []string
+	if f.acceptVersionMismatch {
+		ack = append(ack, "version_differs", "format_unsupported")
+	}
+	if f.acceptEdited {
+		ack = append(ack, "items_changed")
+	}
+	body["dry_run"] = f.dryRun
+	body["acknowledge"] = ack
+	body["allow_breaking"] = f.allowBreaking
+	if f.pauseAffected {
+		body["subscription_policy"] = "pause"
+	}
 }
 
 // importOutcomeError makes a blocked import exit non-zero. A dry run exits 0

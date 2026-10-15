@@ -14,10 +14,11 @@ import (
 const mcpHelp = `Serve Sparrow to AI agents over the Model Context Protocol (stdio).
 
 Read-only by default: agents can list webhooks, subscriptions, deliveries,
-attempts, event types, stats and recipes, render a template against an event
-type's sample payload, and validate a recipe (built-in, local or draft YAML).
-With --allow-write they can also push events, retry deliveries, register and
-delete webhooks, create subscriptions, apply recipes, and run a temporary
+attempts, event types, pushed events, stats and recipes, export event types,
+render a template against an event type's sample payload, and validate a
+recipe (built-in, local or draft YAML). With --allow-write they can also push
+events, retry deliveries, register and delete webhooks, create subscriptions,
+apply recipes, set event type schemas, import event types, and run a temporary
 local receiver (start_listen / list_received / stop_listen) to see what a
 subscription actually delivers.
 
@@ -55,7 +56,7 @@ func newMCPCmd() *cobra.Command {
 			return runErr
 		},
 	}
-	cmd.Flags().BoolVar(&allowWrite, "allow-write", false, "expose tools that change state: push, retry, register/delete webhooks, subscriptions, apply recipes, listen")
+	cmd.Flags().BoolVar(&allowWrite, "allow-write", false, "expose tools that change state: push, retry, register/delete webhooks, subscriptions, apply recipes, event type schemas and imports, listen")
 	return cmd
 }
 
@@ -215,6 +216,7 @@ func newMCPServer(client *apiClient, consumer string, allowWrite bool) (*mcp.Ser
 		})
 
 	addRecipeTools(srv, client, consumer, allowWrite)
+	addEventTypeTools(srv, client, consumer, allowWrite)
 
 	if !allowWrite {
 		return srv, listener
@@ -342,7 +344,11 @@ on one consumer.
 
 Debugging deliveries: list_deliveries (filter by status=failed), then
 get_delivery_attempts for the response code, error category and message.
-Templates: test_template renders against an event type's sample payload.
+Templates: test_template renders against an event type's sample payload,
+which the server derives from the type's JSON schema (get_event_type shows
+both). A type created by a push has no schema, so no sample: read real
+payloads with list_events first. export_event_types returns a bundle of
+definitions for another environment.
 Recipes are ready-made destinations (Slack, Discord, PagerDuty, ...):
 list_recipes, get_recipe for params and template, validate_recipe to check one
 (or a draft YAML) before applying.`
@@ -352,7 +358,10 @@ list_recipes, get_recipe for params and template, validate_recipe to check one
 To send events somewhere: pick a recipe, validate_recipe with the real params
 and event_name, then apply_recipe (dry_run first if unsure). A consumer has
 one webhook per URL: re-applying needs update_existing. To fix a template on
-an existing subscription, test_template then update_subscription. To see what
+an existing subscription, test_template then update_subscription. To give a
+pushed event type a schema: list_events for that type, write a JSON schema
+covering what the payloads share, update_event_type, then test_template.
+import_event_types previews by default; set dry_run=false to apply. To see what
 a subscription actually delivers, start_listen, push_event, list_received,
 then stop_listen.`
 	}

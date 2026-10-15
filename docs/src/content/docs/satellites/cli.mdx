@@ -559,6 +559,9 @@ Read-only tools (always on):
 | `list_deliveries` | Deliveries newest first, filterable by `status`, `webhook_id` and `event_name`, paged with `cursor` |
 | `get_delivery_attempts` | Per-attempt history of one delivery (code, timing, error category and message) |
 | `list_event_types` | Registered event types with schema and sample payload |
+| `get_event_type` | One event type with schema and sample payload; `versions` adds its version history |
+| `list_events` | Events pushed to the consumer, newest first, with payload, labels and delivery counts; filter by `event`, `schema_valid` and `labels`, paged with `cursor` |
+| `export_event_types` | Exports definitions as one bundle, like `sparrow events export`: exactly one of `names`, `prefix` or `all` |
 | `get_stats` | Delivery counts by outcome and success rate |
 | `test_template` | Renders a transform template server-side against an event type's sample payload |
 | `list_recipes` | Recipes with their params: the built-in catalog plus local recipe files (`source` says which) |
@@ -571,6 +574,8 @@ Write tools (`--allow-write`):
 | --- | --- |
 | `push_event` | Pushes one event; an unknown event type is auto-created (a test push). A new name must follow the [naming rules](/sparrow/guides/event-type-versioning/#naming-rules), like `order.created`, or the push gets a 400 |
 | `retry_delivery` | Re-attempts one delivery immediately |
+| `update_event_type` | Sets an event type's schema, description, metadata or active flag. A new schema creates a version and regenerates the sample payload `test_template` renders against. A breaking change to a subscribed type needs `allow_breaking` |
+| `import_event_types` | Imports a bundle, like `sparrow events import`. A dry run unless `dry_run` is `false`; the result names what would block it and the flag that accepts it (`accept_version_mismatch`, `accept_edited`, `allow_breaking`), and `pause_affected` pauses subscriptions whose template would fail |
 | `register_webhook` | Registers an endpoint, optionally subscribed to events in the same call |
 | `create_subscription` | Subscribes an existing webhook to an event, with optional filters and template. A template that does not parse is refused with the parse error |
 | `update_subscription` | Changes one subscription's transform template or label filters, e.g. to fix a failing template. A template that does not parse is refused; the saved change is recorded in the template history |
@@ -611,7 +616,7 @@ Register it in your MCP client's server config. Most clients use this shape:
 ```
 
 Add `"--allow-write"` to `args` to let the agent push, subscribe, apply
-recipes and run a local receiver.
+recipes, set event type schemas, import event types and run a local receiver.
 
 #### Authentication
 
@@ -670,9 +675,9 @@ for the task; the last column is the recommendation.
 | --- | --- | --- | --- | --- |
 | Inspect webhooks, subscriptions, deliveries and attempts | Webhooks, Deliveries | `webhooks`, `tail deliveries` | `list_*`, `get_*` | Agent, to explain a failure in context |
 | Push a test event | Push Test Event | `push` | `push_event` | CLI or agent |
-| Infer a schema from real events | Events: **Infer schema** | - | - | UI, before writing templates (see below) |
-| Register or edit an event type's schema, read its versions | Events: Edit, Versions | `events`, `events versions` (read) | `list_event_types` (read) | UI |
-| Move event types between environments | Events: **Export all**, **Import** with preview | `events export`, `events import --dry-run` | - | CLI in scripts and CI, UI for a one-off |
+| Infer a schema from real events | Events: **Infer schema** | - | `list_events`, then `update_event_type` | UI, or the agent when it is about to write templates (see below) |
+| Edit an event type's schema, read its versions | Events: Edit, Versions | `events`, `events versions` (read) | `get_event_type`, `update_event_type` | UI for review, agent for a first schema |
+| Move event types between environments | Events: **Export all**, **Import** with preview | `events export`, `events import --dry-run` | `export_event_types`, `import_event_types` | CLI in scripts and CI, UI or agent for a one-off |
 | Write and test a transform template | Template editor, live strict render | `template test` | `test_template`, `validate_recipe` | Agent or UI |
 | Draft a template with AI, or copy the prompt | Template editor: AI drawer, **Copy prompt** | - | - | UI; an agent writes the template itself |
 | Go back to an earlier template | Template editor: history | - | - | UI |
@@ -690,20 +695,25 @@ Anything marked `-` can still be done with the [REST API](/sparrow/reference/api
 
 Recommended workflows:
 
-- **Infer the schema before an agent writes templates.** An event type
-  created by a push has no schema and no sample payload, so `test_template`
-  has nothing to render against and fails on the first field it reads. Push a
-  few real events, then use **Infer schema** on the Events page
-  ([Inferring a schema from real events](/sparrow/guides/event-type-versioning/#inferring-a-schema-from-real-events)).
-  The saved sample is what `test_template`, `validate_recipe` and
-  `apply_recipe` render against afterwards. `validate_recipe` also takes a
-  `payload` when there is no sample yet.
+- **Give an event type a schema before writing templates for it.** An event
+  type created by a push has no schema and no sample payload, so
+  `test_template` has nothing to render against and fails on the first field
+  it reads. Push a few real events, then either use **Infer schema** on the
+  Events page
+  ([Inferring a schema from real events](/sparrow/guides/event-type-versioning/#inferring-a-schema-from-real-events))
+  or let the agent do it: `list_events` for that type, a schema covering what
+  the payloads share, `update_event_type`. The server generates the sample
+  from the schema, so its values are placeholders except for `enum` values.
+  To render a template against a real payload, use `validate_recipe` with
+  `payload`. The UI's coverage table is the better review of an inferred
+  schema: it shows which fields every event had.
 - **Export event types to promote them.** Once the schemas are right on a
   development instance, export them and import them into staging and
   production instead of re-pushing there
   ([Exporting and importing event types](/sparrow/guides/event-type-export-import/)).
   The import preview names every subscription whose template would fail
-  against the new sample.
+  against the new sample. An agent connected to each server can pass
+  `export_event_types` output to `import_event_types`, which previews first.
 - **Let the agent build, then review in the UI.** An agent can draft a
   template with `test_template`, subscribe with `create_subscription`, and
   prove it with `start_listen` and `push_event`. Open the subscription in the
