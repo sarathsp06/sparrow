@@ -376,6 +376,9 @@ func (s *WebhookService) GetEventRecord(ctx context.Context, eventID string) (*s
 // SPARROW_AUTO_REGISTER_EVENTS is on. A later register or import that adds a
 // schema fills in this version 1 rather than creating version 2.
 func (s *WebhookService) autoRegisterEvent(ctx context.Context, tenantID uuid.UUID, event string) (*store.EventRegistration, error) {
+	if err := validateNewEventTypeName(event); err != nil {
+		return nil, err
+	}
 	reg := &store.EventRegistration{Name: event, Active: true, Version: 1}
 	err := s.webhookRepo.RegisterEvent(ctx, tenantID, reg)
 	if errors.Is(err, storage.ErrAlreadyExists) {

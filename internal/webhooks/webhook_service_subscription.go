@@ -69,6 +69,26 @@ func (t SubscriptionTemplateSettings) validate() error {
 	return nil
 }
 
+// templateChecker parses templates on save. It shares nothing with the
+// delivery worker's engine but is built the same way, so a template that
+// passes here parses there.
+var templateChecker = template.New()
+
+// validateTransformTemplate rejects a transform template that does not
+// parse, which would fail every delivery. It only parses: whether a template
+// renders against a payload is TestSubscriptionTemplate's job, and render
+// failures at delivery time still fail the delivery visibly. A blank
+// template means no transform and is not checked.
+func validateTransformTemplate(transformTemplate string) error {
+	if strings.TrimSpace(transformTemplate) == "" {
+		return nil
+	}
+	if err := templateChecker.Validate(transformTemplate); err != nil {
+		return svcerrors.Wrapf(err, svcerrors.InvalidArgument, "invalid transform_template: %v", err)
+	}
+	return nil
+}
+
 // checkRequiredTransform enforces a webhook's requires_transform on the
 // transform settings a subscription is about to be saved with.
 func checkRequiredTransform(webhook *store.WebhookRegistration, eventName string, transformEnabled bool, transformTemplate string) error {
@@ -108,6 +128,9 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, even
 		return "", time.Time{}, err
 	}
 	if err := settings.validate(); err != nil {
+		return "", time.Time{}, err
+	}
+	if err := validateTransformTemplate(transformTemplate); err != nil {
 		return "", time.Time{}, err
 	}
 
@@ -237,6 +260,9 @@ func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID 
 		return err
 	}
 	if err := validateSubscriptionTimeout(timeout); err != nil {
+		return err
+	}
+	if err := validateTransformTemplate(transformTemplate); err != nil {
 		return err
 	}
 

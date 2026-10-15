@@ -20,7 +20,7 @@ import (
 // on register; on update it identifies which fields changed (empty/nil
 // fields are left untouched — see registerEventTypeInput/patchEventTypeInput).
 type eventTypeBody struct {
-	Name        string            `json:"name,omitempty" doc:"Unique event type name, e.g. order.created. Required on register, ignored on update (the path names the type). At most 255 characters; the sparrow. prefix is reserved. Immutable after creation."`
+	Name        string            `json:"name,omitempty" doc:"Unique event type name, e.g. order.created. Required on register, ignored on update (the path names the type). Lowercase letters, digits, '_' and '-' in dot-separated parts (e.g. stripe.payment_intent.succeeded), at most 255 characters; the sparrow. prefix is reserved. Immutable after creation, and event types cannot be deleted."`
 	Description string            `json:"description,omitempty" doc:"Human-readable summary of what this event represents. On update, an empty string leaves it unchanged."`
 	JSONSchema  map[string]any    `json:"event_schema,omitempty" doc:"Optional JSON Schema for the payload. Validation is soft: non-conforming payloads are still accepted, with warnings returned from the push call. On update, sending a different schema creates a new version."`
 	Metadata    map[string]string `json:"metadata,omitempty" doc:"Arbitrary key/value metadata for your own tooling. On update, replaces the whole map."`
@@ -194,7 +194,7 @@ type pushEventBody struct {
 
 type pushEventInput struct {
 	Consumer string `path:"consumer" doc:"Consumer to record the occurrence in. Created implicitly on first use."`
-	Event    string `query:"event" required:"true" doc:"Name of a registered, active event type (at most 255 characters). An unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true; sparrow.* names are reserved (400)."`
+	Event    string `query:"event" required:"true" doc:"Name of a registered, active event type (at most 255 characters). An unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true, which registers it if it follows the event type naming rule (lowercase letters, digits, '_' and '-' in dot-separated parts; 400 otherwise); sparrow.* names are reserved (400)."`
 	Body     pushEventBody
 }
 

@@ -308,7 +308,14 @@ present but empty.
 
 ## When a template fails
 
-A template fails when it reads a field the payload does not have (with the
+A template that does not parse, such as `{{ .payload.id` with no closing
+braces or a call to a function that does not exist, is rejected with `400`
+when you save the subscription, so it never reaches a delivery. Saving only
+parses the template; it does not render it, because whether a template fits
+the payload is only known once an event arrives (use `testTemplate` above to
+try it against a sample).
+
+At delivery time a template fails when it reads a field the payload does not have (with the
 default `template_missing_key: error`), calls a function with the wrong kind of
 value, or exceeds the limits above. Two settings on the subscription decide
 what happens.

@@ -2094,9 +2094,9 @@
     "semantic_hash": ""
   },
   "satellites/sparrow/init_cmd.go": {
-    "mtime": 1791321899.829074,
-    "seen": 1791992789.631271,
-    "ast_hash": "635f1b28726b63b36c2461855efb8332",
+    "mtime": 1792060933.0573237,
+    "seen": 1792061351.63765,
+    "ast_hash": "f67f1e00e1b6cba8f3d7f5d60124a8ee",
     "semantic_hash": ""
   },
   "satellites/sparrow/listen.go": {
@@ -2118,9 +2118,9 @@
     "semantic_hash": ""
   },
   "satellites/sparrow/mcp.go": {
-    "mtime": 1791992655.4055407,
-    "seen": 1791992789.631273,
-    "ast_hash": "4a0b07bf513e300a896c42aa28aea927",
+    "mtime": 1792061137.8457992,
+    "seen": 1792061351.637652,
+    "ast_hash": "1e1e971cf2e89b0c6170ff234f793280",
     "semantic_hash": ""
   },
   "satellites/sparrow/mcp_listen.go": {
@@ -2130,15 +2130,15 @@
     "semantic_hash": ""
   },
   "satellites/sparrow/mcp_recipes.go": {
-    "mtime": 1791665961.2014704,
-    "seen": 1791992789.631274,
-    "ast_hash": "c49960160d8b7a280f3f0e6672f380f7",
+    "mtime": 1792060960.9004374,
+    "seen": 1792061351.6376529,
+    "ast_hash": "3aefee1d7d72e4eb51ef120307eac451",
     "semantic_hash": ""
   },
   "satellites/sparrow/mcp_test.go": {
-    "mtime": 1791665961.2016227,
-    "seen": 1791992789.631274,
-    "ast_hash": "9ef00359cea14a617e552a861d7cd435",
+    "mtime": 1792061053.0147293,
+    "seen": 1792061351.637654,
+    "ast_hash": "2452fc474c6f68accc80b66dfd5cc019",
     "semantic_hash": ""
   },
   "satellites/sparrow/output.go": {
@@ -2178,9 +2178,9 @@
     "semantic_hash": ""
   },
   "satellites/sparrow/recipes_cmd.go": {
-    "mtime": 1791321899.8312118,
-    "seen": 1791992789.631278,
-    "ast_hash": "daa84da55daa7856705979c9ae3b1ca9",
+    "mtime": 1792061082.769642,
+    "seen": 1792061351.6376598,
+    "ast_hash": "47de7107bd010900e8c1e41fb7075fd4",
     "semantic_hash": ""
   },
   "satellites/sparrow/stats.go": {
@@ -2208,9 +2208,9 @@
     "semantic_hash": ""
   },
   "satellites/sparrow/use.go": {
-    "mtime": 1791665961.2019966,
-    "seen": 1791992789.6312802,
-    "ast_hash": "0e6ca43d35f19362125057b828c89213",
+    "mtime": 1792061286.4546335,
+    "seen": 1792061351.637662,
+    "ast_hash": "7710d8cd459c2f32b8a49cac8a30a233",
     "semantic_hash": ""
   },
   "satellites/sparrow/use_test.go": {
@@ -2760,9 +2760,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1792049473.382522,
-    "seen": 1792049718.037766,
-    "ast_hash": "17b3751e7aa78592e579725c6392e626",
+    "mtime": 1792059089.5995383,
+    "seen": 1792061351.63771,
+    "ast_hash": "00a4ce34a6d2724c6d32fab59fc0c91f",
     "semantic_hash": ""
   },
   "api/openapi.yaml": {
@@ -2994,9 +2994,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/cli.mdx": {
-    "mtime": 1792045932.4670775,
-    "seen": 1792046297.395854,
-    "ast_hash": "4ac5d5c5bcd86571e4f0642a77f0f7c2",
+    "mtime": 1792061317.2600825,
+    "seen": 1792061351.637731,
+    "ast_hash": "ed8dc417c6d9d7d37e084f9a2966c85e",
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/index.mdx": {
@@ -3006,9 +3006,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/recipes.mdx": {
-    "mtime": 1791665961.201161,
-    "seen": 1791992789.6313531,
-    "ast_hash": "18e8dd3791736d85f515c1d10bce7009",
+    "mtime": 1792061236.0713503,
+    "seen": 1792061351.637732,
+    "ast_hash": "7654264700ef796d02c82640941834e9",
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/sinks.mdx": {
@@ -5045,12 +5045,6 @@
     "ast_hash": "ce7654214f2177ca36377bc623aff1c6",
     "semantic_hash": ""
   },
-  "launch/producthunt.md": {
-    "mtime": 1792045187.9634385,
-    "seen": 1792046297.3958578,
-    "ast_hash": "4ec6dda06fc4a223e0d9824f9769b9b1",
-    "semantic_hash": ""
-  },
   "internal/rest/consumer_scope_test.go": {
     "mtime": 1792048866.0256233,
     "seen": 1792049718.037618,
@@ -5085,6 +5079,18 @@
     "mtime": 1792048785.4797661,
     "seen": 1792049718.037622,
     "ast_hash": "2d061a72d1f8ab641708a70c540a15c8",
+    "semantic_hash": ""
+  },
+  "satellites/sparrow/recipe_apply.go": {
+    "mtime": 1792061286.4550238,
+    "seen": 1792061351.6376572,
+    "ast_hash": "f9d5f98f021ded318a6f108732160a18",
+    "semantic_hash": ""
+  },
+  "satellites/sparrow/recipe_apply_test.go": {
+    "mtime": 1792061169.8734546,
+    "seen": 1792061351.637658,
+    "ast_hash": "9c8478570a0a63810f6916be61b3df26",
     "semantic_hash": ""
   }
 }

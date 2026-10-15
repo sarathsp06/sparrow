@@ -343,3 +343,17 @@ func TestRejectsUnboundedLoops(t *testing.T) {
 		t.Errorf("Execute(%q) = %q, want %q", allowed, out, "xxxxxxxx")
 	}
 }
+
+func TestValidate(t *testing.T) {
+	e := New()
+	for _, ok := range []string{`{{ .payload.id }}`, `{{ json .payload }}`, `{{ .payload.absent }}`} {
+		if err := e.Validate(ok); err != nil {
+			t.Errorf("Validate(%q) = %v, want nil", ok, err)
+		}
+	}
+	for _, bad := range []string{`{{ .payload.id`, `{{ nosuch .payload }}`, `{{ range 2000000000 }}{{ end }}`} {
+		if err := e.Validate(bad); err == nil {
+			t.Errorf("Validate(%q) = nil, want a parse error", bad)
+		}
+	}
+}

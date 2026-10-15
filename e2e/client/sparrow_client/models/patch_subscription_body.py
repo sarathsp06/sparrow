@@ -36,8 +36,8 @@ class PatchSubscriptionBody:
             recorded in the subscription's template history. Defaults to manual.
         timeout (int | Unset): Replace the request timeout override, in seconds (0 to 300; 0 uses the webhook's).
         transform_enabled (bool | Unset): Enable or disable payload transformation.
-        transform_template (str | Unset): Replace the transform template. A change is recorded as a new version in the
-            template history (the last 20 are kept).
+        transform_template (str | Unset): Replace the transform template. A template that does not parse is rejected
+            with 400. A change is recorded as a new version in the template history (the last 20 are kept).
     """
 
     schema: str | Unset = UNSET

@@ -150,6 +150,15 @@ func (e *Engine) ExecuteWith(tmplStr string, data any, opts ExecOptions) ([]byte
 	return buf.Bytes(), nil
 }
 
+// Validate parses tmplStr with the same helpers and limits ExecuteWith
+// uses, without executing it. It catches what is knowable without data
+// (syntax errors, unknown helpers, rejected loops); errors that depend on the
+// payload, such as a missing key, only show at execution.
+func (e *Engine) Validate(tmplStr string) error {
+	_, err := e.getOrParseTemplate(tmplStr, false)
+	return err
+}
+
 // getOrParseTemplate retrieves a cached template or parses and caches a new
 // one. Strict and lenient parses of the same source are cached separately,
 // since the missingkey option is set on the parsed template.

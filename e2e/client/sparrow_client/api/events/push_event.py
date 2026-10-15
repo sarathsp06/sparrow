@@ -124,8 +124,9 @@ def sync_detailed(
     Args:
         consumer (str): Consumer to record the occurrence in. Created implicitly on first use.
         event (str): Name of a registered, active event type (at most 255 characters). An
-            unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true; sparrow.* names are
-            reserved (400).
+            unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true, which registers it if
+            it follows the event type naming rule (lowercase letters, digits, '_' and '-' in dot-
+            separated parts; 400 otherwise); sparrow.* names are reserved (400).
         body (PushEventBody):
 
     Raises:
@@ -176,8 +177,9 @@ def sync(
     Args:
         consumer (str): Consumer to record the occurrence in. Created implicitly on first use.
         event (str): Name of a registered, active event type (at most 255 characters). An
-            unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true; sparrow.* names are
-            reserved (400).
+            unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true, which registers it if
+            it follows the event type naming rule (lowercase letters, digits, '_' and '-' in dot-
+            separated parts; 400 otherwise); sparrow.* names are reserved (400).
         body (PushEventBody):
 
     Raises:
@@ -223,8 +225,9 @@ async def asyncio_detailed(
     Args:
         consumer (str): Consumer to record the occurrence in. Created implicitly on first use.
         event (str): Name of a registered, active event type (at most 255 characters). An
-            unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true; sparrow.* names are
-            reserved (400).
+            unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true, which registers it if
+            it follows the event type naming rule (lowercase letters, digits, '_' and '-' in dot-
+            separated parts; 400 otherwise); sparrow.* names are reserved (400).
         body (PushEventBody):
 
     Raises:
@@ -273,8 +276,9 @@ async def asyncio(
     Args:
         consumer (str): Consumer to record the occurrence in. Created implicitly on first use.
         event (str): Name of a registered, active event type (at most 255 characters). An
-            unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true; sparrow.* names are
-            reserved (400).
+            unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true, which registers it if
+            it follows the event type naming rule (lowercase letters, digits, '_' and '-' in dot-
+            separated parts; 400 otherwise); sparrow.* names are reserved (400).
         body (PushEventBody):
 
     Raises:

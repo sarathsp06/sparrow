@@ -30,7 +30,9 @@ class EventTypeBody:
         metadata (EventTypeBodyMetadata | Unset): Arbitrary key/value metadata for your own tooling. On update, replaces
             the whole map.
         name (str | Unset): Unique event type name, e.g. order.created. Required on register, ignored on update (the
-            path names the type). At most 255 characters; the sparrow. prefix is reserved. Immutable after creation.
+            path names the type). Lowercase letters, digits, '_' and '-' in dot-separated parts (e.g.
+            stripe.payment_intent.succeeded), at most 255 characters; the sparrow. prefix is reserved. Immutable after
+            creation, and event types cannot be deleted.
     """
 
     schema: str | Unset = UNSET

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 
@@ -189,6 +190,23 @@ func validateEventTypeName(name string) error {
 	return nil
 }
 
+// eventNamePattern is the shape of a new event type name: dot-separated
+// parts of lowercase letters, digits, '_' and '-', like order.created or
+// stripe.payment_intent.succeeded. Event types can never be deleted, so the
+// rule keeps a typo or a stray space from becoming permanent.
+var eventNamePattern = regexp.MustCompile(`^[a-z0-9_-]+(\.[a-z0-9_-]+)*$`)
+
+// validateNewEventTypeName checks the name of an event type about to be
+// created. It is not applied to types that already exist, so names saved
+// before the rule keep working for pushes and updates.
+func validateNewEventTypeName(name string) error {
+	if eventNamePattern.MatchString(name) {
+		return nil
+	}
+	return svcerrors.Errorf(svcerrors.InvalidArgument,
+		"event name %q is invalid: use lowercase letters, digits, '_' and '-' in dot-separated parts, like \"order.created\"", name)
+}
+
 func reservedEventNameError(name string) error {
 	return svcerrors.Errorf(svcerrors.InvalidArgument,
 		"event name %q uses the reserved prefix %q, which is for Sparrow's own events", name, ReservedEventPrefix)
@@ -271,6 +289,11 @@ func (s *WebhookService) saveEventTypeTx(ctx context.Context, tx store.Repositor
 	}
 	if current == nil && mode == saveMustExist {
 		return nil, svcerrors.Error(svcerrors.NotFound, "event type not found")
+	}
+	if current == nil {
+		if err := validateNewEventTypeName(def.Name); err != nil {
+			return nil, err
+		}
 	}
 
 	plan := planEventTypeSave(current, def)

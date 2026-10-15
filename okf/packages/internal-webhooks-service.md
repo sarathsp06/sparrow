@@ -39,6 +39,13 @@ through `pkg/template` (extracted from the webhook client).
 - Event names are limited to 255 **characters** (`maxEventNameLength`, counted
   with `utf8.RuneCountInString`) in `PushEvent` and `RegisterEvent`, matching
   the `VARCHAR(255)` columns; longer names get `InvalidArgument` (400).
+- A new event type name must match `eventNamePattern` (lowercase dotted
+  parts of `a-z0-9_-`). `validateNewEventTypeName` runs only when a type is
+  created (`saveEventTypeTx` with no current row, `autoRegisterEvent`), so
+  names stored before the rule keep working.
+- A non-blank `transform_template` is parsed (not rendered) on subscription
+  create/update and webhook create (`validateTransformTemplate`, using
+  `template.Engine.Validate`); a parse error is `InvalidArgument` (400).
 - Webhook URLs are logged and traced only in redacted form
   (`client.RedactURL`).
 

@@ -458,7 +458,7 @@ components:
           description: Whether to render transform_template into the delivered body instead of sending the default envelope. Defaults to false.
           type: boolean
         transform_template:
-          description: Go text/template rendered against the event to produce the delivered body, used when transform_enabled is true. See GET /v1/template-functions for available helpers; test it with POST /v1/subscriptions:testTemplate. Saving a new template records a version in the template history.
+          description: Go text/template rendered against the event to produce the delivered body, used when transform_enabled is true. See GET /v1/template-functions for available helpers; test it with POST /v1/subscriptions:testTemplate. A template that does not parse is rejected with 400; it is not rendered on save. Saving a new template records a version in the template history.
           type: string
         webhook_id:
           description: Webhook id (UUID) to deliver matching events to. Must belong to this consumer.
@@ -904,7 +904,7 @@ components:
           description: Arbitrary key/value metadata for your own tooling. On update, replaces the whole map.
           type: object
         name:
-          description: Unique event type name, e.g. order.created. Required on register, ignored on update (the path names the type). At most 255 characters; the sparrow. prefix is reserved. Immutable after creation.
+          description: Unique event type name, e.g. order.created. Required on register, ignored on update (the path names the type). Lowercase letters, digits, '_' and '-' in dot-separated parts (e.g. stripe.payment_intent.succeeded), at most 255 characters; the sparrow. prefix is reserved. Immutable after creation, and event types cannot be deleted.
           type: string
       type: object
     EventTypeBundle:
@@ -1751,7 +1751,7 @@ components:
           description: Enable or disable payload transformation.
           type: boolean
         transform_template:
-          description: Replace the transform template. A change is recorded as a new version in the template history (the last 20 are kept).
+          description: Replace the transform template. A template that does not parse is rejected with 400. A change is recorded as a new version in the template history (the last 20 are kept).
           type: string
       type: object
     PatchWebhookBody:
@@ -1988,7 +1988,7 @@ components:
             - ai_draft
           type: string
         transform_template:
-          description: Transform template given to every subscription created from events, with transform_enabled set. Omit to create them untransformed (not allowed with requires_transform).
+          description: Transform template given to every subscription created from events, with transform_enabled set. A template that does not parse is rejected with 400. Omit to create them untransformed (not allowed with requires_transform).
           type: string
         url:
           description: "http or https endpoint deliveries are POSTed to. The host must resolve: localhost, *.internal, *.local, private, loopback and cloud metadata addresses are rejected (SSRF protection) unless allowed by SPARROW_ALLOW_PRIVATE_NETWORKS or SPARROW_ALLOWED_NETWORKS."
@@ -3797,13 +3797,13 @@ paths:
           schema:
             description: Consumer to record the occurrence in. Created implicitly on first use.
             type: string
-        - description: Name of a registered, active event type (at most 255 characters). An unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true; sparrow.* names are reserved (400).
+        - description: Name of a registered, active event type (at most 255 characters). An unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true, which registers it if it follows the event type naming rule (lowercase letters, digits, '_' and '-' in dot-separated parts; 400 otherwise); sparrow.* names are reserved (400).
           explode: false
           in: query
           name: event
           required: true
           schema:
-            description: Name of a registered, active event type (at most 255 characters). An unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true; sparrow.* names are reserved (400).
+            description: Name of a registered, active event type (at most 255 characters). An unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true, which registers it if it follows the event type naming rule (lowercase letters, digits, '_' and '-' in dot-separated parts; 400 otherwise); sparrow.* names are reserved (400).
             type: string
       requestBody:
         content:

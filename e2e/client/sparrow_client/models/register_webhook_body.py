@@ -64,7 +64,8 @@ class RegisterWebhookBody:
         template_source (RegisterWebhookBodyTemplateSource | Unset): How transform_template was produced, recorded as
             the first version in each created subscription's template history. Defaults to manual.
         transform_template (str | Unset): Transform template given to every subscription created from events, with
-            transform_enabled set. Omit to create them untransformed (not allowed with requires_transform).
+            transform_enabled set. A template that does not parse is rejected with 400. Omit to create them untransformed
+            (not allowed with requires_transform).
     """
 
     url: str

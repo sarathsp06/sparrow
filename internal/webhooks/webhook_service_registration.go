@@ -104,6 +104,9 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	if err := req.TemplateSettings.validate(); err != nil {
 		return nil, "", err
 	}
+	if err := validateTransformTemplate(req.TransformTemplate); err != nil {
+		return nil, "", err
+	}
 	if req.RequiresTransform && len(req.Events) > 0 && strings.TrimSpace(req.TransformTemplate) == "" {
 		return nil, "", svcerrors.Error(svcerrors.InvalidArgument, "requires_transform is set, so transform_template is required for the subscriptions created from events (or register without events and add each subscription with its own template)")
 	}

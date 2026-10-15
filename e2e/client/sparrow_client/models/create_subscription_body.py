@@ -47,7 +47,8 @@ class CreateSubscriptionBody:
             sending the default envelope. Defaults to false.
         transform_template (str | Unset): Go text/template rendered against the event to produce the delivered body,
             used when transform_enabled is true. See GET /v1/template-functions for available helpers; test it with POST
-            /v1/subscriptions:testTemplate. Saving a new template records a version in the template history.
+            /v1/subscriptions:testTemplate. A template that does not parse is rejected with 400; it is not rendered on save.
+            Saving a new template records a version in the template history.
     """
 
     event_name: str

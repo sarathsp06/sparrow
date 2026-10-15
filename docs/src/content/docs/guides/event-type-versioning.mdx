@@ -224,6 +224,19 @@ and import it into staging and production, where auto-registration stays off.
 Paste a payload in the **Paste** tab to generate a schema without any stored
 events.
 
+## Naming rules
+
+A new event type name is made of dot-separated parts of lowercase letters,
+digits, `_` and `-`: `order.created`, `stripe.payment_intent.succeeded`,
+`invoice.sent.v2`. At most 255 characters. Spaces, capitals, empty parts
+(`order..created`, a leading or trailing dot) and other punctuation are
+rejected with `400`, whether the name is registered, imported or
+auto-registered on push. Because event types are never deleted, the rule
+stops a typo from becoming a permanent name.
+
+The rule applies when a type is created. An event type saved before it
+existed keeps working: it can still be pushed, updated and exported.
+
 ## Reserved names
 
 Names starting with `sparrow.` (in any case) belong to Sparrow's own system
