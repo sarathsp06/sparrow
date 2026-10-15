@@ -44,8 +44,21 @@ Dockerfile*
 docker-compose*.yml
 
 
-# Frontend dependencies (installed fresh in Docker)
-web/node_modules/
+# Agent tooling: .claude/worktrees holds full checkouts of the repo (GBs)
+.claude/
+graphify-out/
+okf/
+openspec/
+
+# Not part of the server build: e2e suite, generated clients, other satellites
+e2e/
+client/
+satellites/sparrow/
+satellites/sparrow-sinks/
+
+# Dependencies anywhere (installed fresh in Docker)
+**/node_modules/
+**/.venv/
 web/.svelte-kit/
 
 # Test coverage
