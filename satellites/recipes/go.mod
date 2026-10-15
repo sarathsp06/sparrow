@@ -3,7 +3,7 @@ module github.com/sarathsp06/sparrow/satellites/recipes
 go 1.27.2
 
 require (
-	github.com/sarathsp06/sparrow/pkg/template v0.0.0-00010101000000-000000000000
+	github.com/sarathsp06/sparrow/pkg/template v0.14.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -13,5 +13,3 @@ require (
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
-
-replace github.com/sarathsp06/sparrow/pkg/template => ../../pkg/template
