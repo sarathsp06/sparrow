@@ -84,7 +84,7 @@ test('standalone UI without a key asks for one and stores a browser token, never
   const tokenId = await page.evaluate(() => localStorage.getItem('sparrow_api_key_token_id'));
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByRole('dialog', { name: 'Sign in to Sparrow' })).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem('sparrow_api_key'))).toBeNull();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('sparrow_api_key'))).toBeNull();
   expect((await tokenStatus(tokenId!))).toBe('revoked');
 });
 
@@ -216,16 +216,16 @@ test('an invite link signs a teammate in by name; the same link fails a second t
   await expectWebhookListed(page, url, consumer);
   await expect(page.getByTestId('account-badge')).toContainText(`Signed in as ${name}`);
   await expect(page.getByRole('dialog', { name: 'Sign in to Sparrow' })).toHaveCount(0);
-  expect(await page.evaluate(() => localStorage.getItem('sparrow_api_key'))).toMatch(/^sparrow_tk_/);
-  expect(page.url()).not.toContain('invite=');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('sparrow_api_key'))).toMatch(/^sparrow_tk_/);
+  await expect(page).not.toHaveURL(/invite=/);
 
   const other = await browser.newContext();
   const page2 = await other.newPage();
   await useConfig(page2, { apiUrl: API });
   await page2.goto(`${UI}${path}`);
   await expect(page2.getByRole('dialog', { name: 'Sign in to Sparrow' })).toContainText('already been used');
-  expect(await page2.evaluate(() => localStorage.getItem('sparrow_api_key'))).toBeNull();
-  expect(page2.url()).not.toContain('invite=');
+  await expect.poll(() => page2.evaluate(() => localStorage.getItem('sparrow_api_key'))).toBeNull();
+  await expect(page2).not.toHaveURL(/invite=/);
   await other.close();
 });
 
@@ -308,7 +308,7 @@ test('a consumer invite opens that consumer\'s portal and is remembered', async 
   await expect(page.getByRole('heading', { name: 'Your Endpoints' })).toBeVisible();
   await expect(page.getByRole('button', { name: new RegExp(url) })).toBeVisible();
   await expect(page).toHaveTitle(new RegExp(consumer));
-  expect(page.url()).not.toContain('invite=');
+  await expect(page).not.toHaveURL(/invite=/);
   expect(calls.length).toBeGreaterThan(0);
   for (const u of calls) expect(u.startsWith(`${API}/portal/api/`), u).toBeTruthy();
 
@@ -366,5 +366,5 @@ test('the embedded UI of a keyed server asks to sign in and never exposes the ke
   await prompt.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Webhooks' })).toBeVisible();
   await expect(prompt).toBeHidden();
-  expect(await page.evaluate(() => localStorage.getItem('sparrow_api_key'))).toMatch(/^sparrow_tk_/);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('sparrow_api_key'))).toMatch(/^sparrow_tk_/);
 });
