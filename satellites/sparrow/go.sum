@@ -19,6 +19,12 @@ github.com/modelcontextprotocol/go-sdk v1.8.0/go.mod h1:dL7u98E/zjJTGzEq+j30jQ8K
 github.com/rogpeppe/go-internal v1.14.1 h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0tI/otEQ=
 github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7so1lCWt35ZSgc=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
+github.com/sarathsp06/sparrow/pkg/signature v0.14.0 h1:R6bliZJ2hjs6ERU+BFJqvsgLdUFSbLG9NsJoGs/aiwk=
+github.com/sarathsp06/sparrow/pkg/signature v0.14.0/go.mod h1:SEc7RHw8RZ9npFLFixLcW4iov6H50iLdj4RsD5LUeIE=
+github.com/sarathsp06/sparrow/pkg/template v0.14.0 h1:ntdT9X4jX0z+C4MpvT3gnOJxv8HdVwz/im6PWRpSlWc=
+github.com/sarathsp06/sparrow/pkg/template v0.14.0/go.mod h1:hs8E1Gz/J8wq1ByvyngK8REsIk2N+fgzx8lMPBLUxns=
+github.com/sarathsp06/sparrow/satellites/recipes v0.14.0 h1:Dkg6cmWmk+ojmio8JGyNuohdv7erBHG19u51TMIz7+U=
+github.com/sarathsp06/sparrow/satellites/recipes v0.14.0/go.mod h1:fIQjJ4cEnG6ccqawzy6BnD6bpTTKe6/EBQaqQerqXT4=
 github.com/segmentio/asm v1.1.3 h1:WM03sfUOENvvKexOLp+pCqgb/WDjsi7EK8gIsICtzhc=
 github.com/segmentio/asm v1.1.3/go.mod h1:Ld3L4ZXGNcSLRg4JBsZ3//1+f/TjYl0Mzen/DQy1EJg=
 github.com/segmentio/encoding v0.5.4 h1:OW1VRern8Nw6ITAtwSZ7Idrl3MXCFwXHPgqESYfvNt0=
