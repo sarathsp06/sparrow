@@ -14,9 +14,10 @@ T = TypeVar("T", bound="RetryDeliveriesByWebhookInputBody")
 class RetryDeliveriesByWebhookInputBody:
     """
     Attributes:
-        webhook_id (str): Retry every eligible delivery for this webhook.
+        webhook_id (str): Webhook id (UUID) whose deliveries to retry.
         schema (str | Unset): A URL to the JSON Schema for this object.
-        force (bool | Unset): If true, also retry deliveries that already exhausted their max attempts.
+        force (bool | Unset): false (default) retries deliveries in status failed, pending, retrying or paused. true
+            retries every delivery of the webhook, including successful and expired ones, which resends them.
     """
 
     webhook_id: str

@@ -39,6 +39,14 @@ merged config after a PATCH is validated, so an update cannot bypass them):
 
 A PATCH changes only the fields it sends.
 
+`max_retries` counts retries after the first attempt (a delivery gets up to
+`max_retries + 1` attempts). `user_agent` and `content_type` are validated and
+stored but not applied to deliveries yet: the client always sends
+`User-Agent: Sparrow-Webhook/<version>` and `Content-Type: application/json`
+unless the webhook or subscription `headers` set them. The top-level
+`rate_limit_rps` (register) and `timeout` (PATCH) are deprecated shorthands;
+`http_config` wins when both are sent.
+
 ## Lifecycle
 
 1. Register → optionally paused → active → unregister

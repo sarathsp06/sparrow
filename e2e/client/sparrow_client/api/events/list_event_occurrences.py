@@ -97,22 +97,31 @@ def sync_detailed(
 ) -> Response[ErrorModel | ListEventOccurrencesOutputBody]:
     """List pushed event occurrences
 
-     Lists pushed event occurrences in a consumer, with delivery outcome counts per occurrence. Set
-    prepare_repush to snapshot the filtered set for the batch re-push endpoint.
+     Lists pushed event occurrences in a consumer, newest first, with delivery outcome counts per
+    occurrence. Cursor paginated: pass pagination.next_cursor as cursor for the next page; there is no
+    total count and offset is rejected.
+
+    Side effect: prepare_repush=true also snapshots every match (up to 10,000) into a batch job and
+    returns repush_id for POST .../events:rePush.
+
+    Portal tokens: allowed, as GET /portal/api/events.
 
     Args:
-        consumer (str): Tenant consumer to list occurrences in.
+        consumer (str): Consumer to list occurrences in.
         event (str | Unset): Filter to occurrences of this event type name.
-        schema_valid (str | Unset): Filter by schema validation result: valid or invalid.
-        labels (str | Unset): Filter by labels as comma-separated key=value pairs. Matches
-            occurrences whose labels contain every pair.
-        created_after (str | Unset): Filter to occurrences created on or after this date (YYYY-MM-
-            DD).
-        created_before (str | Unset): Filter to occurrences created on or before this date (YYYY-
-            MM-DD).
-        prepare_repush (bool | Unset): If true, snapshot the matching occurrences into a repush_id
-            you can pass to the batch re-push endpoint. Default: False.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        schema_valid (str | Unset): Filter by schema validation result: valid or invalid. Other
+            values are 400.
+        labels (str | Unset): Filter by labels as comma-separated key=value pairs, e.g.
+            region=eu,tier=gold. Matches occurrences whose labels contain every pair.
+        created_after (str | Unset): Only occurrences created at or after this time: YYYY-MM-DD
+            (start of that day, UTC) or an RFC3339 timestamp.
+        created_before (str | Unset): Only occurrences created at or before this time: YYYY-MM-DD
+            (through the end of that day, UTC) or an RFC3339 timestamp.
+        prepare_repush (bool | Unset): Side effect: when true, also snapshots the ids of every
+            occurrence matching the filters (not just this page; at most 10,000, more is an error)
+            into a batch job and returns its id as repush_id. Pass it to POST .../events:rePush within
+            15 minutes. Each call creates a new snapshot. Default: False.
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         cursor (str | Unset): Continue after the page this came from: pagination.next_cursor of
             the previous response. Stable while new events arrive.
         offset (int | Unset): Removed: page with cursor. Any value other than 0 is rejected with
@@ -163,22 +172,31 @@ def sync(
 ) -> ErrorModel | ListEventOccurrencesOutputBody | None:
     """List pushed event occurrences
 
-     Lists pushed event occurrences in a consumer, with delivery outcome counts per occurrence. Set
-    prepare_repush to snapshot the filtered set for the batch re-push endpoint.
+     Lists pushed event occurrences in a consumer, newest first, with delivery outcome counts per
+    occurrence. Cursor paginated: pass pagination.next_cursor as cursor for the next page; there is no
+    total count and offset is rejected.
+
+    Side effect: prepare_repush=true also snapshots every match (up to 10,000) into a batch job and
+    returns repush_id for POST .../events:rePush.
+
+    Portal tokens: allowed, as GET /portal/api/events.
 
     Args:
-        consumer (str): Tenant consumer to list occurrences in.
+        consumer (str): Consumer to list occurrences in.
         event (str | Unset): Filter to occurrences of this event type name.
-        schema_valid (str | Unset): Filter by schema validation result: valid or invalid.
-        labels (str | Unset): Filter by labels as comma-separated key=value pairs. Matches
-            occurrences whose labels contain every pair.
-        created_after (str | Unset): Filter to occurrences created on or after this date (YYYY-MM-
-            DD).
-        created_before (str | Unset): Filter to occurrences created on or before this date (YYYY-
-            MM-DD).
-        prepare_repush (bool | Unset): If true, snapshot the matching occurrences into a repush_id
-            you can pass to the batch re-push endpoint. Default: False.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        schema_valid (str | Unset): Filter by schema validation result: valid or invalid. Other
+            values are 400.
+        labels (str | Unset): Filter by labels as comma-separated key=value pairs, e.g.
+            region=eu,tier=gold. Matches occurrences whose labels contain every pair.
+        created_after (str | Unset): Only occurrences created at or after this time: YYYY-MM-DD
+            (start of that day, UTC) or an RFC3339 timestamp.
+        created_before (str | Unset): Only occurrences created at or before this time: YYYY-MM-DD
+            (through the end of that day, UTC) or an RFC3339 timestamp.
+        prepare_repush (bool | Unset): Side effect: when true, also snapshots the ids of every
+            occurrence matching the filters (not just this page; at most 10,000, more is an error)
+            into a batch job and returns its id as repush_id. Pass it to POST .../events:rePush within
+            15 minutes. Each call creates a new snapshot. Default: False.
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         cursor (str | Unset): Continue after the page this came from: pagination.next_cursor of
             the previous response. Stable while new events arrive.
         offset (int | Unset): Removed: page with cursor. Any value other than 0 is rejected with
@@ -224,22 +242,31 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | ListEventOccurrencesOutputBody]:
     """List pushed event occurrences
 
-     Lists pushed event occurrences in a consumer, with delivery outcome counts per occurrence. Set
-    prepare_repush to snapshot the filtered set for the batch re-push endpoint.
+     Lists pushed event occurrences in a consumer, newest first, with delivery outcome counts per
+    occurrence. Cursor paginated: pass pagination.next_cursor as cursor for the next page; there is no
+    total count and offset is rejected.
+
+    Side effect: prepare_repush=true also snapshots every match (up to 10,000) into a batch job and
+    returns repush_id for POST .../events:rePush.
+
+    Portal tokens: allowed, as GET /portal/api/events.
 
     Args:
-        consumer (str): Tenant consumer to list occurrences in.
+        consumer (str): Consumer to list occurrences in.
         event (str | Unset): Filter to occurrences of this event type name.
-        schema_valid (str | Unset): Filter by schema validation result: valid or invalid.
-        labels (str | Unset): Filter by labels as comma-separated key=value pairs. Matches
-            occurrences whose labels contain every pair.
-        created_after (str | Unset): Filter to occurrences created on or after this date (YYYY-MM-
-            DD).
-        created_before (str | Unset): Filter to occurrences created on or before this date (YYYY-
-            MM-DD).
-        prepare_repush (bool | Unset): If true, snapshot the matching occurrences into a repush_id
-            you can pass to the batch re-push endpoint. Default: False.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        schema_valid (str | Unset): Filter by schema validation result: valid or invalid. Other
+            values are 400.
+        labels (str | Unset): Filter by labels as comma-separated key=value pairs, e.g.
+            region=eu,tier=gold. Matches occurrences whose labels contain every pair.
+        created_after (str | Unset): Only occurrences created at or after this time: YYYY-MM-DD
+            (start of that day, UTC) or an RFC3339 timestamp.
+        created_before (str | Unset): Only occurrences created at or before this time: YYYY-MM-DD
+            (through the end of that day, UTC) or an RFC3339 timestamp.
+        prepare_repush (bool | Unset): Side effect: when true, also snapshots the ids of every
+            occurrence matching the filters (not just this page; at most 10,000, more is an error)
+            into a batch job and returns its id as repush_id. Pass it to POST .../events:rePush within
+            15 minutes. Each call creates a new snapshot. Default: False.
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         cursor (str | Unset): Continue after the page this came from: pagination.next_cursor of
             the previous response. Stable while new events arrive.
         offset (int | Unset): Removed: page with cursor. Any value other than 0 is rejected with
@@ -288,22 +315,31 @@ async def asyncio(
 ) -> ErrorModel | ListEventOccurrencesOutputBody | None:
     """List pushed event occurrences
 
-     Lists pushed event occurrences in a consumer, with delivery outcome counts per occurrence. Set
-    prepare_repush to snapshot the filtered set for the batch re-push endpoint.
+     Lists pushed event occurrences in a consumer, newest first, with delivery outcome counts per
+    occurrence. Cursor paginated: pass pagination.next_cursor as cursor for the next page; there is no
+    total count and offset is rejected.
+
+    Side effect: prepare_repush=true also snapshots every match (up to 10,000) into a batch job and
+    returns repush_id for POST .../events:rePush.
+
+    Portal tokens: allowed, as GET /portal/api/events.
 
     Args:
-        consumer (str): Tenant consumer to list occurrences in.
+        consumer (str): Consumer to list occurrences in.
         event (str | Unset): Filter to occurrences of this event type name.
-        schema_valid (str | Unset): Filter by schema validation result: valid or invalid.
-        labels (str | Unset): Filter by labels as comma-separated key=value pairs. Matches
-            occurrences whose labels contain every pair.
-        created_after (str | Unset): Filter to occurrences created on or after this date (YYYY-MM-
-            DD).
-        created_before (str | Unset): Filter to occurrences created on or before this date (YYYY-
-            MM-DD).
-        prepare_repush (bool | Unset): If true, snapshot the matching occurrences into a repush_id
-            you can pass to the batch re-push endpoint. Default: False.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        schema_valid (str | Unset): Filter by schema validation result: valid or invalid. Other
+            values are 400.
+        labels (str | Unset): Filter by labels as comma-separated key=value pairs, e.g.
+            region=eu,tier=gold. Matches occurrences whose labels contain every pair.
+        created_after (str | Unset): Only occurrences created at or after this time: YYYY-MM-DD
+            (start of that day, UTC) or an RFC3339 timestamp.
+        created_before (str | Unset): Only occurrences created at or before this time: YYYY-MM-DD
+            (through the end of that day, UTC) or an RFC3339 timestamp.
+        prepare_repush (bool | Unset): Side effect: when true, also snapshots the ids of every
+            occurrence matching the filters (not just this page; at most 10,000, more is an error)
+            into a batch job and returns its id as repush_id. Pass it to POST .../events:rePush within
+            15 minutes. Each call creates a new snapshot. Default: False.
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         cursor (str | Unset): Continue after the page this came from: pagination.next_cursor of
             the previous response. Stable while new events arrive.
         offset (int | Unset): Removed: page with cursor. Any value other than 0 is rejected with

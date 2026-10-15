@@ -14,7 +14,7 @@ T = TypeVar("T", bound="RepushBatchInputBody")
 class RepushBatchInputBody:
     """
     Attributes:
-        repush_id (str): Snapshot id from an earlier prepare_repush=true or prepare_retry=true list call.
+        repush_id (str): repush_id returned by an earlier GET .../events?prepare_repush=true call.
         schema (str | Unset): A URL to the JSON Schema for this object.
     """
 

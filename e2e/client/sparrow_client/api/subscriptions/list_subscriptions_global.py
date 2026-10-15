@@ -76,15 +76,19 @@ def sync_detailed(
 ) -> Response[ErrorModel | ListSubscriptionsOutputBody]:
     """List subscriptions across all consumers
 
-     Cross-consumer subscription listing with the same filters as the per-consumer route. Pass consumer
-    to scope to one consumer.
+     Lists subscriptions across every consumer with the same filters and pagination as the per-consumer
+    route. Pass consumer to scope to one consumer.
+
+    Portal tokens: not allowed.
 
     Args:
         consumer (str | Unset): Filter to one consumer; omit to list subscriptions across all
             consumers.
-        webhook_id (str | Unset): Filter to subscriptions for one webhook.
-        event_name (str | Unset): Filter to subscriptions for one event type name.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        webhook_id (str | Unset): Filter to subscriptions for one webhook (UUID). Takes precedence
+            over event_name: when both are given, event_name is ignored.
+        event_name (str | Unset): Filter to subscriptions with exactly this event_name ("*"
+            matches only catch-all subscriptions).
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:
@@ -121,15 +125,19 @@ def sync(
 ) -> ErrorModel | ListSubscriptionsOutputBody | None:
     """List subscriptions across all consumers
 
-     Cross-consumer subscription listing with the same filters as the per-consumer route. Pass consumer
-    to scope to one consumer.
+     Lists subscriptions across every consumer with the same filters and pagination as the per-consumer
+    route. Pass consumer to scope to one consumer.
+
+    Portal tokens: not allowed.
 
     Args:
         consumer (str | Unset): Filter to one consumer; omit to list subscriptions across all
             consumers.
-        webhook_id (str | Unset): Filter to subscriptions for one webhook.
-        event_name (str | Unset): Filter to subscriptions for one event type name.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        webhook_id (str | Unset): Filter to subscriptions for one webhook (UUID). Takes precedence
+            over event_name: when both are given, event_name is ignored.
+        event_name (str | Unset): Filter to subscriptions with exactly this event_name ("*"
+            matches only catch-all subscriptions).
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:
@@ -161,15 +169,19 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | ListSubscriptionsOutputBody]:
     """List subscriptions across all consumers
 
-     Cross-consumer subscription listing with the same filters as the per-consumer route. Pass consumer
-    to scope to one consumer.
+     Lists subscriptions across every consumer with the same filters and pagination as the per-consumer
+    route. Pass consumer to scope to one consumer.
+
+    Portal tokens: not allowed.
 
     Args:
         consumer (str | Unset): Filter to one consumer; omit to list subscriptions across all
             consumers.
-        webhook_id (str | Unset): Filter to subscriptions for one webhook.
-        event_name (str | Unset): Filter to subscriptions for one event type name.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        webhook_id (str | Unset): Filter to subscriptions for one webhook (UUID). Takes precedence
+            over event_name: when both are given, event_name is ignored.
+        event_name (str | Unset): Filter to subscriptions with exactly this event_name ("*"
+            matches only catch-all subscriptions).
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:
@@ -204,15 +216,19 @@ async def asyncio(
 ) -> ErrorModel | ListSubscriptionsOutputBody | None:
     """List subscriptions across all consumers
 
-     Cross-consumer subscription listing with the same filters as the per-consumer route. Pass consumer
-    to scope to one consumer.
+     Lists subscriptions across every consumer with the same filters and pagination as the per-consumer
+    route. Pass consumer to scope to one consumer.
+
+    Portal tokens: not allowed.
 
     Args:
         consumer (str | Unset): Filter to one consumer; omit to list subscriptions across all
             consumers.
-        webhook_id (str | Unset): Filter to subscriptions for one webhook.
-        event_name (str | Unset): Filter to subscriptions for one event type name.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        webhook_id (str | Unset): Filter to subscriptions for one webhook (UUID). Takes precedence
+            over event_name: when both are given, event_name is ignored.
+        event_name (str | Unset): Filter to subscriptions with exactly this event_name ("*"
+            matches only catch-all subscriptions).
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:

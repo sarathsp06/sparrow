@@ -31,6 +31,11 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         response_204 = cast(Any, None)
         return response_204
 
+    if response.status_code == 400:
+        response_400 = ErrorModel.from_dict(response.json())
+
+        return response_400
+
     if response.status_code == 404:
         response_404 = ErrorModel.from_dict(response.json())
 
@@ -74,11 +79,16 @@ def sync_detailed(
 ) -> Response[Any | ErrorModel]:
     """Cancel a pending or in-progress batch re-push job
 
-     Requests cancellation of a batch re-push job. Occurrences already re-pushed are not rolled back.
+     Cancels a pending or running batch re-push job; a running job stops at its next progress check
+    (every 25 items). Occurrences already re-pushed are not rolled back. Returns 204. 409 when the job
+    is already completed or cancelled.
+
+    Portal tokens: allowed, as POST /portal/api/repush-jobs/{job_id}:cancel.
 
     Args:
-        consumer (str):
-        job_id (str):
+        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
+            against it.
+        job_id (str): Batch job id (UUID): the repush_id or retry_id from the list call.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -108,11 +118,16 @@ def sync(
 ) -> Any | ErrorModel | None:
     """Cancel a pending or in-progress batch re-push job
 
-     Requests cancellation of a batch re-push job. Occurrences already re-pushed are not rolled back.
+     Cancels a pending or running batch re-push job; a running job stops at its next progress check
+    (every 25 items). Occurrences already re-pushed are not rolled back. Returns 204. 409 when the job
+    is already completed or cancelled.
+
+    Portal tokens: allowed, as POST /portal/api/repush-jobs/{job_id}:cancel.
 
     Args:
-        consumer (str):
-        job_id (str):
+        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
+            against it.
+        job_id (str): Batch job id (UUID): the repush_id or retry_id from the list call.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -137,11 +152,16 @@ async def asyncio_detailed(
 ) -> Response[Any | ErrorModel]:
     """Cancel a pending or in-progress batch re-push job
 
-     Requests cancellation of a batch re-push job. Occurrences already re-pushed are not rolled back.
+     Cancels a pending or running batch re-push job; a running job stops at its next progress check
+    (every 25 items). Occurrences already re-pushed are not rolled back. Returns 204. 409 when the job
+    is already completed or cancelled.
+
+    Portal tokens: allowed, as POST /portal/api/repush-jobs/{job_id}:cancel.
 
     Args:
-        consumer (str):
-        job_id (str):
+        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
+            against it.
+        job_id (str): Batch job id (UUID): the repush_id or retry_id from the list call.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -169,11 +189,16 @@ async def asyncio(
 ) -> Any | ErrorModel | None:
     """Cancel a pending or in-progress batch re-push job
 
-     Requests cancellation of a batch re-push job. Occurrences already re-pushed are not rolled back.
+     Cancels a pending or running batch re-push job; a running job stops at its next progress check
+    (every 25 items). Occurrences already re-pushed are not rolled back. Returns 204. 409 when the job
+    is already completed or cancelled.
+
+    Portal tokens: allowed, as POST /portal/api/repush-jobs/{job_id}:cancel.
 
     Args:
-        consumer (str):
-        job_id (str):
+        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
+            against it.
+        job_id (str): Batch job id (UUID): the repush_id or retry_id from the list call.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

@@ -19,8 +19,8 @@ class CreateInviteOutputBody:
     """
     Attributes:
         invite (InviteOut):
-        path (str): UI-relative link with the secret in the fragment (never sent to servers or logs). Prepend the base
-            URL the UI is served from.
+        path (str): UI-relative link with the secret in the fragment (never sent to servers or logs): /#invite=... for a
+            tenant-wide invite, /portal#invite=... for a consumer invite. Prepend the base URL the UI is served from.
         secret (str): The invite secret. Shown only in this response.
         schema (str | Unset): A URL to the JSON Schema for this object.
     """

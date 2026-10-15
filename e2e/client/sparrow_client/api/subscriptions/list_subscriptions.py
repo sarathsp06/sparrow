@@ -77,13 +77,19 @@ def sync_detailed(
 ) -> Response[ErrorModel | ListSubscriptionsOutputBody]:
     """List subscriptions
 
-     Lists subscriptions in a consumer, optionally filtered by webhook or event type name.
+     Lists subscriptions in a consumer, newest first, optionally filtered by webhook or event type name.
+    Offset paginated with total_count. 404 when webhook_id is given and the webhook is not in this
+    consumer.
+
+    Portal tokens: allowed, as GET /portal/api/subscriptions.
 
     Args:
-        consumer (str): Tenant consumer to list subscriptions in.
-        webhook_id (str | Unset): Filter to subscriptions for one webhook.
-        event_name (str | Unset): Filter to subscriptions for one event type name.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        consumer (str): Consumer to list subscriptions in.
+        webhook_id (str | Unset): Filter to subscriptions for one webhook (UUID). Takes precedence
+            over event_name: when both are given, event_name is ignored.
+        event_name (str | Unset): Filter to subscriptions with exactly this event_name ("*"
+            matches only catch-all subscriptions).
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:
@@ -120,13 +126,19 @@ def sync(
 ) -> ErrorModel | ListSubscriptionsOutputBody | None:
     """List subscriptions
 
-     Lists subscriptions in a consumer, optionally filtered by webhook or event type name.
+     Lists subscriptions in a consumer, newest first, optionally filtered by webhook or event type name.
+    Offset paginated with total_count. 404 when webhook_id is given and the webhook is not in this
+    consumer.
+
+    Portal tokens: allowed, as GET /portal/api/subscriptions.
 
     Args:
-        consumer (str): Tenant consumer to list subscriptions in.
-        webhook_id (str | Unset): Filter to subscriptions for one webhook.
-        event_name (str | Unset): Filter to subscriptions for one event type name.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        consumer (str): Consumer to list subscriptions in.
+        webhook_id (str | Unset): Filter to subscriptions for one webhook (UUID). Takes precedence
+            over event_name: when both are given, event_name is ignored.
+        event_name (str | Unset): Filter to subscriptions with exactly this event_name ("*"
+            matches only catch-all subscriptions).
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:
@@ -158,13 +170,19 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | ListSubscriptionsOutputBody]:
     """List subscriptions
 
-     Lists subscriptions in a consumer, optionally filtered by webhook or event type name.
+     Lists subscriptions in a consumer, newest first, optionally filtered by webhook or event type name.
+    Offset paginated with total_count. 404 when webhook_id is given and the webhook is not in this
+    consumer.
+
+    Portal tokens: allowed, as GET /portal/api/subscriptions.
 
     Args:
-        consumer (str): Tenant consumer to list subscriptions in.
-        webhook_id (str | Unset): Filter to subscriptions for one webhook.
-        event_name (str | Unset): Filter to subscriptions for one event type name.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        consumer (str): Consumer to list subscriptions in.
+        webhook_id (str | Unset): Filter to subscriptions for one webhook (UUID). Takes precedence
+            over event_name: when both are given, event_name is ignored.
+        event_name (str | Unset): Filter to subscriptions with exactly this event_name ("*"
+            matches only catch-all subscriptions).
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:
@@ -199,13 +217,19 @@ async def asyncio(
 ) -> ErrorModel | ListSubscriptionsOutputBody | None:
     """List subscriptions
 
-     Lists subscriptions in a consumer, optionally filtered by webhook or event type name.
+     Lists subscriptions in a consumer, newest first, optionally filtered by webhook or event type name.
+    Offset paginated with total_count. 404 when webhook_id is given and the webhook is not in this
+    consumer.
+
+    Portal tokens: allowed, as GET /portal/api/subscriptions.
 
     Args:
-        consumer (str): Tenant consumer to list subscriptions in.
-        webhook_id (str | Unset): Filter to subscriptions for one webhook.
-        event_name (str | Unset): Filter to subscriptions for one event type name.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        consumer (str): Consumer to list subscriptions in.
+        webhook_id (str | Unset): Filter to subscriptions for one webhook (UUID). Takes precedence
+            over event_name: when both are given, event_name is ignored.
+        event_name (str | Unset): Filter to subscriptions with exactly this event_name ("*"
+            matches only catch-all subscriptions).
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:

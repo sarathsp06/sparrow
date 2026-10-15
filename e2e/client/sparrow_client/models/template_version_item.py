@@ -16,13 +16,13 @@ T = TypeVar("T", bound="TemplateVersionItem")
 class TemplateVersionItem:
     """
     Attributes:
-        created_at (datetime.datetime): When it was saved.
+        created_at (datetime.datetime): When it was saved, RFC3339.
         current (bool): True for the newest version, which is the subscription's current template.
-        source (TemplateVersionItemSource): How the template was produced.
-        template (str): The template as saved.
+        source (TemplateVersionItemSource): How the template was produced: manual or ai_draft.
+        template (str): The template text as saved.
         version_id (str): Version id (UUID).
         notes (str | Unset): Note stored with the version.
-        saved_by (str | Unset): Credential name that saved it, when auth is on.
+        saved_by (str | Unset): Name of the master key or access token that saved it; absent when auth is off.
     """
 
     created_at: datetime.datetime

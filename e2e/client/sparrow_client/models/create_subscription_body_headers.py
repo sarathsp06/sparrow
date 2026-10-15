@@ -11,7 +11,10 @@ T = TypeVar("T", bound="CreateSubscriptionBodyHeaders")
 
 @_attrs_define
 class CreateSubscriptionBodyHeaders:
-    """Extra HTTP headers to send with deliveries created by this subscription, merged with the webhook's own headers."""
+    """Extra HTTP headers sent with deliveries from this subscription. They override the webhook's headers of the same
+    name; the webhook's secret_headers override both. Same name and value rules as webhook headers.
+
+    """
 
     additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 

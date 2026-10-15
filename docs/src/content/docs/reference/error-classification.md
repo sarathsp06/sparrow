@@ -3,7 +3,7 @@ title: Error Classification
 description: How Sparrow classifies delivery errors and determines retry behavior
 ---
 
-Sparrow classifies every delivery error into categories. The classification determines whether the delivery is retried or permanently failed.
+Sparrow classifies every delivery error into categories. The classification determines whether the delivery is retried or permanently failed. (For the errors the API itself returns to your calls, see [API Errors](/sparrow/reference/api-errors/).)
 
 ## Error Categories
 
@@ -32,7 +32,7 @@ backoff = retry_backoff_seconds * 2^(attempt - 1)   # capped at 24 hours
 
 Retries continue until:
 - The delivery succeeds
-- `max_retries` attempts are exhausted (terminal `failed` status)
+- `max_retries + 1` attempts in total are exhausted (terminal `failed` status)
 - The event's `ttl_seconds` expires (terminal `expired` status)
 
 **Non-retryable** errors immediately mark the delivery as `failed` regardless of remaining retry budget.
@@ -66,6 +66,6 @@ The error classifier inspects the Go error chain to determine the category:
 
 Use the [health endpoints](/sparrow/reference/api/) to monitor error patterns:
 
-- `GET /v1/consumers/{consumer}/webhooks/{webhook_id}/health` returns error category breakdown (client_errors, server_errors, timeout_errors, network_errors) for the last 24 hours
+- `GET /v1/consumers/{consumer}/webhooks/{webhook_id}/health` returns attempt counts and an error category breakdown (`client_errors`, `server_errors`, `timeout_errors`, `network_errors`, `unexpected_status_errors`) for the last 24 hours, plus `consecutive_failures` and the `rules` behind the health label
 - `GET /v1/webhooks` (filtered by health) finds all webhooks with `unhealthy` or `degraded` status
 - `GET /v1/consumers/{consumer}/deliveries/{delivery_id}/attempts` shows per-attempt error details for debugging

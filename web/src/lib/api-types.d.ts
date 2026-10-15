@@ -13,7 +13,11 @@ export interface paths {
         };
         /**
          * List optional server features
-         * @description Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, and whether alert email delivery is set up.
+         * @description Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, and whether alert email delivery is set up. Read-only.
+         *
+         *     ai_drafting.enabled reflects SPARROW_AI_ENABLED=true; drafting is usable only when enabled is true and problem is absent; prompt_only is the opposite of enabled.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/capabilities.
          */
         get: operations["getCapabilities"];
         put?: never;
@@ -33,7 +37,9 @@ export interface paths {
         };
         /**
          * Search consumer names
-         * @description Lists the consumers that own a webhook or an event, sorted by name, optionally only those whose name contains q (case-insensitive). Consumers are created implicitly by registering a webhook or pushing an event under them; this is how clients find them, e.g. for a consumer picker.
+         * @description Lists the consumers that own a webhook or an event, sorted by name, optionally only those whose name contains q (case-insensitive). Consumers are created implicitly by registering a webhook or pushing an event under them; this is how clients find them, e.g. for a consumer picker. Not paginated: returns at most limit names.
+         *
+         *     Portal tokens: not allowed.
          */
         get: operations["listConsumers"];
         put?: never;
@@ -53,13 +59,19 @@ export interface paths {
         };
         /**
          * List email alert recipients
-         * @description Lists alert configs in a consumer, optionally filtered to one webhook's own configs.
+         * @description Lists alert configs in a consumer, oldest first, optionally filtered to one webhook's own configs. Not paginated.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/alert-configs.
          */
         get: operations["listAlertConfigs"];
         put?: never;
         /**
          * Register an email alert recipient
-         * @description Opts an email address into Sparrow's self-generated health-change and permanent-delivery-failure notifications, scoped to one webhook or the whole consumer.
+         * @description Opts an email address into Sparrow's self-generated health-change, permanent-delivery-failure and auto-disable notifications, scoped to one webhook or the whole consumer. Emails are only sent once an alert mailer webhook is registered under the _sparrow consumer (see GET /v1/capabilities alert_delivery.configured). Not idempotent: each call adds a config.
+         *
+         *     400 for an invalid email or event type, 404 when webhook_id is not in this consumer.
+         *
+         *     Portal tokens: allowed, as POST /portal/api/alert-configs.
          */
         post: operations["createAlertConfig"];
         delete?: never;
@@ -80,7 +92,9 @@ export interface paths {
         post?: never;
         /**
          * Delete an email alert recipient
-         * @description Removes an alert config. The webhook and its delivery history are unaffected.
+         * @description Removes an alert config. The webhook and its delivery history are unaffected. Returns 204; 404 when it is not in this consumer.
+         *
+         *     Portal tokens: allowed, as DELETE /portal/api/alert-configs/{alert_config_id}.
          */
         delete: operations["deleteAlertConfig"];
         options?: never;
@@ -97,7 +111,11 @@ export interface paths {
         };
         /**
          * List deliveries
-         * @description Lists deliveries in a consumer, optionally filtered by webhook, event occurrence, or status. Set prepare_retry to snapshot the filtered set for the batch retry endpoint.
+         * @description Lists deliveries in a consumer, newest first, optionally filtered by webhook, event occurrence, subscription, event type, status, error category, or creation time. Cursor paginated: pass pagination.next_cursor as cursor for the next page; there is no total count and offset is rejected.
+         *
+         *     Side effect: prepare_retry=true also snapshots every match (up to 10,000) into a batch job and returns retry_id for POST .../deliveries:retryBatch.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/deliveries.
          */
         get: operations["listDeliveries"];
         put?: never;
@@ -117,7 +135,9 @@ export interface paths {
         };
         /**
          * Get a delivery by id
-         * @description Fetches one delivery's status, response code/body, and error classification.
+         * @description Returns one delivery's status, latest response code/body, and error classification. 404 when it does not exist in this consumer.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/deliveries/{delivery_id}.
          */
         get: operations["getDelivery"];
         put?: never;
@@ -137,7 +157,9 @@ export interface paths {
         };
         /**
          * Get a delivery's per-attempt history
-         * @description Returns the full per-attempt record for one delivery: response code, timing, and error classification for every attempt made so far.
+         * @description Returns the per-attempt record for one delivery, oldest first: response code, timing, and error classification for every attempt made so far, across manual retries. An unknown id returns an empty list.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/deliveries/{delivery_id}/attempts.
          */
         get: operations["getDeliveryAttempts"];
         put?: never;
@@ -159,7 +181,9 @@ export interface paths {
         put?: never;
         /**
          * Retry a single delivery
-         * @description Immediately re-attempts one delivery, regardless of its current status or remaining attempt budget.
+         * @description Queues one delivery for another round of attempts right away: it is reset to pending and gets up to max_attempts new attempts, without TTL expiry. Works for failed, expired, paused, pending and retrying deliveries; a successful one is refused with 409 (use the bulk route with force to resend it). If the webhook or subscription is still paused the delivery is held as paused again. Not idempotent: each call queues another round.
+         *
+         *     Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry.
          */
         post: operations["retryDelivery"];
         delete?: never;
@@ -179,7 +203,11 @@ export interface paths {
         put?: never;
         /**
          * Retry deliveries in bulk for a webhook
-         * @description Retries every eligible (failed/pending) delivery for one webhook. Set force to also retry deliveries that already exhausted max_attempts.
+         * @description Queues every failed, pending, retrying or paused delivery of one webhook for another round of attempts (see retryDelivery), in one request. With force, every delivery of the webhook is resent, including successful and expired ones. Returns count 0 when nothing matched. For a filtered or very large set, use prepare_retry and :retryBatch instead.
+         *
+         *     404 when the webhook does not exist in this consumer.
+         *
+         *     Portal tokens: allowed, as POST /portal/api/deliveries:retry.
          */
         post: operations["retryDeliveriesByWebhook"];
         delete?: never;
@@ -199,7 +227,11 @@ export interface paths {
         put?: never;
         /**
          * Start a batch retry job from a prepared snapshot
-         * @description Starts an async job that retries every delivery captured by an earlier prepare_retry=true list call. Poll the returned job with getDeliveryRetryJob.
+         * @description Starts an async job that retries every delivery in a snapshot taken by an earlier GET .../deliveries?prepare_retry=true call, like retryDelivery for each one. The body field is named repush_id, but it takes the retry_id returned by the deliveries list. Returns 202 with the job; poll it with getDeliveryRetryJob.
+         *
+         *     A snapshot can be started once: 409 when it is not pending (already started or cancelled), expired (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400 when it is not a UUID.
+         *
+         *     Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch.
          */
         post: operations["startDeliveryRetryJob"];
         delete?: never;
@@ -217,13 +249,23 @@ export interface paths {
         };
         /**
          * List pushed event occurrences
-         * @description Lists pushed event occurrences in a consumer, with delivery outcome counts per occurrence. Set prepare_repush to snapshot the filtered set for the batch re-push endpoint.
+         * @description Lists pushed event occurrences in a consumer, newest first, with delivery outcome counts per occurrence. Cursor paginated: pass pagination.next_cursor as cursor for the next page; there is no total count and offset is rejected.
+         *
+         *     Side effect: prepare_repush=true also snapshots every match (up to 10,000) into a batch job and returns repush_id for POST .../events:rePush.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/events.
          */
         get: operations["listEventOccurrences"];
         put?: never;
         /**
          * Push an event occurrence for asynchronous delivery
-         * @description Records one occurrence of a registered event type and asynchronously fans it out to every subscription whose event name and label filters match. Returns immediately; delivery happens in the background — check Deliveries for outcomes.
+         * @description Records one occurrence of a registered event type and asynchronously fans it out to every subscription whose event name and label filters match. Returns 201 as soon as the event is stored and queued; delivery happens in the background, so check Deliveries for outcomes. A payload that fails the event type's JSON Schema is still accepted (schema_valid: false, with warnings).
+         *
+         *     Idempotency: with idempotency_key, a repeat push with the same key in the same consumer returns 201 with duplicate: true and the original event_id, and creates nothing. Without a key every call creates a new event.
+         *
+         *     Failures: 404 for an unregistered event type (unless SPARROW_AUTO_REGISTER_EVENTS=true), 409 for an inactive one, 400 for a reserved sparrow.* name, a name over 255 characters or invalid labels, 413 for a body over SPARROW_MAX_BODY_BYTES.
+         *
+         *     Portal tokens: not allowed (pushing is the producer's job).
          */
         post: operations["pushEvent"];
         delete?: never;
@@ -243,7 +285,11 @@ export interface paths {
         put?: never;
         /**
          * Start a batch re-push job from a prepared snapshot
-         * @description Starts an async job that replays every event occurrence captured by an earlier prepare_repush=true list call. Poll the returned job with getEventRepushJob.
+         * @description Starts an async job that re-pushes every event occurrence in a snapshot taken by an earlier GET .../events?prepare_repush=true call. Each re-push creates a new event occurrence with the original payload, without re-validating it; sparrow.* system events are skipped and counted as failed. Returns 202 with the job; poll it with getEventRepushJob.
+         *
+         *     A snapshot can be started once: 409 when it is not pending (already started or cancelled) or expired (15 minutes after it was taken), 404 when the id is unknown, 400 when it is not a UUID.
+         *
+         *     Portal tokens: allowed, as POST /portal/api/events:rePush.
          */
         post: operations["startEventRepushJob"];
         delete?: never;
@@ -261,7 +307,9 @@ export interface paths {
         };
         /**
          * Get batch re-push job progress
-         * @description Returns a batch re-push job's status and processed/failed/total counts.
+         * @description Returns a batch re-push job's status and processed/failed/total counts. 404 when the id is unknown, 409 when the id belongs to a delivery retry job.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/repush-jobs/{job_id}.
          */
         get: operations["getEventRepushJob"];
         put?: never;
@@ -283,7 +331,9 @@ export interface paths {
         put?: never;
         /**
          * Cancel a pending or in-progress batch re-push job
-         * @description Requests cancellation of a batch re-push job. Occurrences already re-pushed are not rolled back.
+         * @description Cancels a pending or running batch re-push job; a running job stops at its next progress check (every 25 items). Occurrences already re-pushed are not rolled back. Returns 204. 409 when the job is already completed or cancelled.
+         *
+         *     Portal tokens: allowed, as POST /portal/api/repush-jobs/{job_id}:cancel.
          */
         post: operations["cancelEventRepushJob"];
         delete?: never;
@@ -301,7 +351,9 @@ export interface paths {
         };
         /**
          * Get batch retry job progress
-         * @description Returns a batch retry job's status and processed/failed/total counts.
+         * @description Returns a batch retry job's status and processed/failed/total counts. 404 when the id is unknown, 409 when the id belongs to an event re-push job.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/retry-jobs/{job_id}.
          */
         get: operations["getDeliveryRetryJob"];
         put?: never;
@@ -323,7 +375,9 @@ export interface paths {
         put?: never;
         /**
          * Cancel a pending or in-progress batch retry job
-         * @description Requests cancellation of a batch retry job. Deliveries already retried are not rolled back.
+         * @description Cancels a pending or running batch retry job; a running job stops at its next progress check (every 25 items). Deliveries already queued are not rolled back. Returns 204. 409 when the job is already completed or cancelled.
+         *
+         *     Portal tokens: allowed, as POST /portal/api/retry-jobs/{job_id}:cancel.
          */
         post: operations["cancelDeliveryRetryJob"];
         delete?: never;
@@ -341,7 +395,9 @@ export interface paths {
         };
         /**
          * Get aggregate delivery statistics for a consumer
-         * @description Returns webhook and delivery counts (total, active, successful, failed, pending, success rate) scoped to one consumer.
+         * @description Returns webhook and delivery-attempt counts (total, active, successful, failed, pending, success rate) for one consumer. Attempt counts come from the health evaluator and lag by up to SPARROW_HEALTH_EVAL_INTERVAL; pending is live.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/stats.
          */
         get: operations["getConsumerStats"];
         put?: never;
@@ -361,13 +417,19 @@ export interface paths {
         };
         /**
          * List subscriptions
-         * @description Lists subscriptions in a consumer, optionally filtered by webhook or event type name.
+         * @description Lists subscriptions in a consumer, newest first, optionally filtered by webhook or event type name. Offset paginated with total_count. 404 when webhook_id is given and the webhook is not in this consumer.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/subscriptions.
          */
         get: operations["listSubscriptions"];
         put?: never;
         /**
          * Create a subscription linking a webhook to an event
-         * @description Subscribes a webhook to an event type within a consumer, with an optional payload transform and label filters. Registering a webhook already auto-creates one subscription per listed event — use this endpoint for additional or catch-all ("*") subscriptions.
+         * @description Subscribes a webhook to an event type within a consumer, with an optional payload transform and label filters. Registering a webhook with events already creates one subscription per name; use this for additional, catch-all ("*") or per-subscription-template subscriptions. A non-empty transform_template is recorded as the first template version.
+         *
+         *     Not idempotent: 409 when the webhook already has a subscription for event_name. 404 when the webhook is not in this consumer. 400 for invalid headers, timeout or label filters, a sparrow.* event outside _sparrow, or a missing transform when the webhook has requires_transform.
+         *
+         *     Portal tokens: allowed, as POST /portal/api/subscriptions.
          */
         post: operations["createSubscription"];
         delete?: never;
@@ -385,21 +447,29 @@ export interface paths {
         };
         /**
          * Get a subscription by id
-         * @description Fetches one subscription's webhook link, transform template, and label filters.
+         * @description Returns one subscription: its webhook link, transform template and settings, label filters and pause state. 404 when it is not in this consumer.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/subscriptions/{subscription_id}.
          */
         get: operations["getSubscription"];
         put?: never;
         post?: never;
         /**
          * Delete a subscription
-         * @description Removes the link between a webhook and an event type. The webhook stops receiving that event's occurrences; its delivery history is unaffected.
+         * @description Deletes the subscription and its template history. The webhook stops receiving that event's occurrences; delivery history is kept. Cannot be undone. A second delete returns 404.
+         *
+         *     Portal tokens: allowed, as DELETE /portal/api/subscriptions/{subscription_id}.
          */
         delete: operations["deleteSubscription"];
         options?: never;
         head?: never;
         /**
          * Partially update a subscription
-         * @description Merge-patches a subscription's headers, method, timeout, transform, or label filters. The linked webhook_id and event_name cannot be changed — delete and recreate instead.
+         * @description Partially updates a subscription's headers, method, timeout, transform, or label filters: only fields present in the body change, and map fields replace the whole map. The linked webhook_id and event_name cannot be changed; delete and recreate instead. A changed transform_template is recorded as a new template version with template_source and template_notes. Returns the updated subscription. Idempotent: repeating the same body records no new version.
+         *
+         *     400 for invalid values, or when the webhook has requires_transform and the result has no enabled template. 404 when it is not in this consumer.
+         *
+         *     Portal tokens: allowed, as PATCH /portal/api/subscriptions/{subscription_id}.
          */
         patch: operations["updateSubscription"];
         trace?: never;
@@ -414,6 +484,8 @@ export interface paths {
         /**
          * List a subscription's saved template history
          * @description Returns the transform templates this subscription has been saved with, newest first; the newest is the current one. A version is recorded whenever a save changes the template, with how it was produced (manual or ai_draft), an optional note, and who saved it. The last 20 are kept. There is no restore endpoint: load a version into the editor and save the subscription, which records it as a new version.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/subscriptions/{subscription_id}/templateVersions.
          */
         get: operations["listSubscriptionTemplateVersions"];
         put?: never;
@@ -435,7 +507,11 @@ export interface paths {
         put?: never;
         /**
          * Pause a subscription
-         * @description Stops the subscription's deliveries from being attempted, for any reason (receiver maintenance, a template being fixed, an investigation). Events keep fanning out to it: each delivery is recorded with status paused and nothing is queued, so nothing is lost. Deliveries already queued finish. A pause never affects the webhook's health. Pausing again updates the reason and keeps the original pause time.
+         * @description Stops the subscription's deliveries from being attempted, for any reason (receiver maintenance, a template being fixed, an investigation). Events keep fanning out to it: each delivery is recorded with status paused and nothing is queued, so nothing is lost. Queued or retrying deliveries of the subscription are held as paused when their turn comes. A pause never affects the webhook's health. Returns the subscription (200), unlike webhook pause, which returns 204.
+         *
+         *     Idempotent: pausing again updates the reason and keeps the original pause time. 400 for a reason over 500 characters, 404 when it is not in this consumer.
+         *
+         *     Portal tokens: allowed, as POST /portal/api/subscriptions/{subscription_id}:pause.
          */
         post: operations["pauseSubscription"];
         delete?: never;
@@ -455,7 +531,9 @@ export interface paths {
         put?: never;
         /**
          * Resume a paused subscription
-         * @description New deliveries are attempted again. Deliveries recorded while paused stay paused and are never sent automatically: the response says how many there are and when the pause began, so you can retry all of them or only those since a time with the delivery retry endpoints.
+         * @description Lets new deliveries be attempted again. Deliveries recorded while paused stay paused and are never sent automatically: the response says how many there are and when the pause began, so you can retry all of them or only those since a time with the delivery retry endpoints. Idempotent: resuming a subscription that is not paused succeeds with no paused_since.
+         *
+         *     Portal tokens: allowed, as POST /portal/api/subscriptions/{subscription_id}:resume.
          */
         post: operations["resumeSubscription"];
         delete?: never;
@@ -473,13 +551,19 @@ export interface paths {
         };
         /**
          * List webhooks
-         * @description Lists webhooks in a consumer, optionally filtered by id, subscribed event, active flag, or computed health status.
+         * @description Lists the webhooks of one consumer, newest first, optionally filtered by id, subscribed event, active flag, or health status. Secrets are masked. Offset paginated with total_count. Deleted webhooks are never listed.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/webhooks.
          */
         get: operations["listWebhooks"];
         put?: never;
         /**
          * Register a webhook
-         * @description Registers a new HTTP endpoint to receive deliveries and auto-creates a subscription for each listed event type. Returns the plaintext webhook secret once — it is masked on every subsequent read.
+         * @description Registers a new HTTP endpoint and creates one subscription per name in events (with transform_template, when given). Generates the HMAC signing secret and returns it in plaintext in http_config.webhook_secret; this response is the only time it is shown. Event names are not required to be registered event types yet.
+         *
+         *     Not idempotent: a second call with the same URL in the same consumer fails with 409 while the first webhook exists. 400 for an invalid URL (scheme, unresolvable or blocked host), invalid headers, http_config out of range, a sparrow.* event outside the _sparrow consumer, or requires_transform without transform_template.
+         *
+         *     Portal tokens: allowed, as POST /portal/api/webhooks.
          */
         post: operations["registerWebhook"];
         delete?: never;
@@ -497,21 +581,29 @@ export interface paths {
         };
         /**
          * Get a webhook by id
-         * @description Fetches a single webhook's configuration, masked secrets, and current health.
+         * @description Returns one webhook's configuration, subscribed events, masked secrets, and current health label. 404 when it does not exist in this consumer or was deleted.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/webhooks/{webhook_id}.
          */
         get: operations["getWebhook"];
         put?: never;
         post?: never;
         /**
          * Delete a webhook
-         * @description Deletes a webhook: it stops receiving events and no longer appears in webhook lists, and its URL can be registered again. Its delivery history is kept and stays listed under deliveries until retention removes it. Queued deliveries for it fail with "Webhook was deleted". This cannot be undone.
+         * @description Deletes a webhook (a soft delete): it stops receiving events and no longer appears in webhook lists, and its URL can be registered again in the consumer. Its subscriptions and delivery history are kept, and its deliveries stay listed until retention removes them. Queued deliveries for it fail with "Webhook was deleted". This cannot be undone. A second delete returns 404.
+         *
+         *     Portal tokens: allowed, as DELETE /portal/api/webhooks/{webhook_id}.
          */
         delete: operations["deleteWebhook"];
         options?: never;
         head?: never;
         /**
          * Partially update a webhook
-         * @description Merge-patches a webhook: only fields present in the request body are changed. Omit a field to leave it untouched.
+         * @description Partially updates a webhook: only fields present in the body change. Within http_config only the sent fields change, and the merged result is validated as on register (400 if out of range). Sending events replaces every subscription of the webhook (see events). Setting active toggles delivery like :pause/:resume but never fails when the state is already as requested. Returns the updated webhook. Idempotent: repeating the same body leaves the same state.
+         *
+         *     409 when turning requires_transform on while a subscription has no enabled transform, or replacing events while it is on. The deprecated top-level timeout is applied only when http_config.request_timeout_seconds is not sent.
+         *
+         *     Portal tokens: allowed, as PATCH /portal/api/webhooks/{webhook_id}.
          */
         patch: operations["updateWebhook"];
         trace?: never;
@@ -525,7 +617,9 @@ export interface paths {
         };
         /**
          * Get health status and metrics for a webhook
-         * @description Returns one webhook's computed health status (healthy/degraded/unhealthy) plus rolling delivery counts and per-category error counts (client, server, timeout, network, unexpected-status).
+         * @description Returns one webhook's health label plus attempt counts and per-category error counts (client, server, timeout, network, unexpected-status) over the last rules.window_hours hours, and the thresholds the label is derived from. The label lags by up to SPARROW_HEALTH_EVAL_INTERVAL. Counts are zero before the first attempt. 404 when the webhook is not in this consumer.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/webhooks/{webhook_id}/health.
          */
         get: operations["getWebhookHealth"];
         put?: never;
@@ -547,7 +641,9 @@ export interface paths {
         put?: never;
         /**
          * Pause a webhook
-         * @description Stops deliveries to this webhook without deleting it. Events keep fanning out to it: each delivery, and any not yet sent, is held with status paused until it is retried after resuming. Holding never affects the webhook's health.
+         * @description Stops deliveries to this webhook without deleting it. Returns 204 with no body. Events keep fanning out to it: each new delivery, and any queued or retrying one, is held with status paused until it is retried after resuming. Holding never affects the webhook's health. 409 when the webhook is already paused.
+         *
+         *     Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:pause.
          */
         post: operations["pauseWebhook"];
         delete?: never;
@@ -567,7 +663,9 @@ export interface paths {
         put?: never;
         /**
          * Resume a paused webhook
-         * @description Re-enables deliveries to a webhook paused by an operator or auto-disabled. Deliveries held while it was paused stay paused and are never sent automatically: the response says how many there are, so you can retry them with status=paused&webhook_id=... and the delivery retry endpoints.
+         * @description Re-enables deliveries to a webhook paused by an operator or auto-disabled, and clears auto_disabled_at/auto_disabled_reason. Deliveries held while it was paused stay paused and are never sent automatically: the response says how many there are, so you can retry them with status=paused&webhook_id=... and the delivery retry endpoints. 409 when the webhook is already active.
+         *
+         *     Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:resume.
          */
         post: operations["resumeWebhook"];
         delete?: never;
@@ -587,7 +685,9 @@ export interface paths {
         put?: never;
         /**
          * Rotate a webhook's signing secret
-         * @description Replaces the webhook's HMAC signing secret with a newly generated one and returns it in plaintext. This response is the only time the new secret is shown; it is masked on every later read. Deliveries sent after the rotation are signed with the new secret, so update the receiver right away.
+         * @description Replaces the webhook's HMAC signing secret with a newly generated one and returns it in plaintext. This response is the only time the new secret is shown; it is masked on every later read. There is no overlap window: every attempt made after the rotation, including retries of older deliveries, is signed with the new secret only, so update the receiver right away. Not idempotent: each call generates a new secret. The Ed25519 key, if any, is not rotated.
+         *
+         *     Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:rotateSecret.
          */
         post: operations["rotateWebhookSecret"];
         delete?: never;
@@ -605,7 +705,9 @@ export interface paths {
         };
         /**
          * List deliveries across all consumers
-         * @description Cross-consumer delivery listing with the same filters as the per-consumer route. Pass consumer to scope to one consumer.
+         * @description Lists deliveries across every consumer, newest first, with the same filters, cursor pagination and prepare_retry side effect as the per-consumer route. Pass consumer to scope to one consumer.
+         *
+         *     Portal tokens: not allowed.
          */
         get: operations["listDeliveriesGlobal"];
         put?: never;
@@ -625,7 +727,9 @@ export interface paths {
         };
         /**
          * Get a delivery by id (any consumer)
-         * @description Consumer-agnostic lookup by delivery id, for callers that only have the id (e.g. a webhook-signature verification failure report) and don't know which consumer it belongs to.
+         * @description Looks a delivery up by id in any consumer, for callers that only have the id (e.g. the X-Sparrow-Delivery-ID header a receiver logged). 404 when it does not exist.
+         *
+         *     Portal tokens: not allowed.
          */
         get: operations["getDeliveryGlobal"];
         put?: never;
@@ -645,7 +749,9 @@ export interface paths {
         };
         /**
          * Get a delivery's per-attempt history (any consumer)
-         * @description Consumer-agnostic variant of getDeliveryAttempts.
+         * @description Same as getDeliveryAttempts, without a consumer.
+         *
+         *     Portal tokens: not allowed.
          */
         get: operations["getDeliveryAttemptsGlobal"];
         put?: never;
@@ -667,7 +773,9 @@ export interface paths {
         put?: never;
         /**
          * Retry a single delivery (any consumer)
-         * @description Consumer-agnostic variant of retryDelivery.
+         * @description Same as retryDelivery, for a delivery in any consumer.
+         *
+         *     Portal tokens: not allowed.
          */
         post: operations["retryDeliveryGlobal"];
         delete?: never;
@@ -685,13 +793,19 @@ export interface paths {
         };
         /**
          * List event type definitions
-         * @description Lists registered event types, optionally only active ones. Sparrow's own sparrow.* events are listed only with consumer=_sparrow.
+         * @description Lists registered event types sorted by name, optionally only active ones. Sparrow's own sparrow.* events are listed only with consumer=_sparrow. Offset paginated with total_count.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/event-types; consumer is set to the token's consumer.
          */
         get: operations["listEventTypes"];
         put?: never;
         /**
          * Register an event type definition
-         * @description Defines a named event type, optionally with a JSON Schema. Subscriptions reference event types by name; pushing an event requires that its type already be registered.
+         * @description Defines a named event type at version 1, optionally with a JSON Schema; the response includes a sample_payload generated from the schema. Pushing an event requires its type to be registered (unless SPARROW_AUTO_REGISTER_EVENTS=true). Event types are never deleted; deactivate one with active: false.
+         *
+         *     Not idempotent: 409 when the name already exists (use PATCH, or :import, to change it). 400 for a missing, too long or reserved (sparrow.*) name or an invalid schema.
+         *
+         *     Portal tokens: not allowed.
          */
         post: operations["registerEventType"];
         delete?: never;
@@ -709,7 +823,9 @@ export interface paths {
         };
         /**
          * Get an event type by name
-         * @description Fetches one event type's schema, sample payload, and metadata.
+         * @description Returns one event type's current version: schema, sample payload, and metadata. 404 when the name is not registered.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/event-types/{name}.
          */
         get: operations["getEventType"];
         put?: never;
@@ -719,7 +835,11 @@ export interface paths {
         head?: never;
         /**
          * Update an event type definition
-         * @description Merge-patches an event type: only fields present in the request body are changed. A schema change creates a new version and keeps the previous one; adding a first schema to a schema-less version, and any change to description, metadata or active, updates the current version in place. The response's change field says which happened. A breaking schema change (see change.compatibility) to an event type that subscriptions receive is refused with 409 unless allow_breaking=true.
+         * @description Partially updates an event type: only fields present in the request body are changed (metadata, when sent, replaces the whole map). A schema change creates a new version and keeps the previous one; adding a first schema to a schema-less version, and any change to description, metadata or active, updates the current version in place. The response's change field says which happened; repeating the same body is a no-op (change.action unchanged).
+         *
+         *     A breaking schema change (see change.compatibility) to an event type that subscriptions receive is refused with 409 unless allow_breaking=true. 404 when the name is not registered.
+         *
+         *     Portal tokens: not allowed.
          */
         patch: operations["updateEventType"];
         trace?: never;
@@ -733,7 +853,9 @@ export interface paths {
         };
         /**
          * List every version of an event type
-         * @description Returns the version history of an event type, newest first. Event types are never deleted; to retire one, set active to false.
+         * @description Returns the version history of an event type, newest first. Not paginated. Event types are never deleted; to retire one, set active to false.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/event-types/{name}/versions.
          */
         get: operations["listEventTypeVersions"];
         put?: never;
@@ -753,7 +875,9 @@ export interface paths {
         };
         /**
          * Get one version of an event type
-         * @description Fetches a specific version's schema, sample payload and description.
+         * @description Returns one version's schema, sample payload and description. 404 when the name or version does not exist.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/event-types/{name}/versions/{version}.
          */
         get: operations["getEventTypeVersion"];
         put?: never;
@@ -775,7 +899,9 @@ export interface paths {
         put?: never;
         /**
          * Validate a payload against an event type's JSON Schema
-         * @description Checks a payload against the event type's registered JSON Schema without pushing an event. Does not affect delivery — pushEvent always accepts events regardless of schema validity; this lets callers (e.g. the Push Test Event UI) enforce a hard gate before submitting.
+         * @description Checks a payload against the event type's current JSON Schema without pushing an event or storing anything. pushEvent accepts events regardless of schema validity; this lets callers (e.g. the Push Test Event UI) enforce a hard gate before submitting. An invalid payload is still 200, with valid: false. 404 when the name is not registered.
+         *
+         *     Portal tokens: not allowed.
          */
         post: operations["validateEventPayload"];
         delete?: never;
@@ -795,7 +921,9 @@ export interface paths {
         put?: never;
         /**
          * Export event type definitions as a bundle
-         * @description Returns the current definitions of the selected event types as one JSON bundle, ready to import into another environment with importEventTypes. Choose exactly one of names, prefix or all. An unknown name fails the whole export. Sparrow's own sparrow.* event types are never exported.
+         * @description Returns the current definitions of the selected event types as one JSON bundle, ready to import into another environment with importEventTypes. Choose exactly one of names, prefix or all. An unknown name fails the whole export. Sparrow's own sparrow.* event types are never exported. Read-only despite POST (the selection travels in the body).
+         *
+         *     Portal tokens: not allowed.
          */
         post: operations["exportEventTypes"];
         delete?: never;
@@ -815,7 +943,9 @@ export interface paths {
         put?: never;
         /**
          * Import a bundle of event type definitions
-         * @description Applies a bundle in one transaction: each item replaces the named event type using the usual version rules, or nothing is written. Event types not in the bundle are never touched; an import does not delete. The full per-item result is returned either way. Nothing is written for a dry run, when a stamp warning is not acknowledged, or when a change is breaking for subscriptions and allow_breaking is not set; blocked_by says why. The body may be an exported bundle as-is, plus the options.
+         * @description Applies a bundle in one transaction: each item replaces the named event type using the usual version rules, or nothing is written. Event types not in the bundle are never touched; an import does not delete. The full per-item result is returned either way. Nothing is written for a dry run, when a stamp warning is not acknowledged, or when a change is breaking for subscriptions and allow_breaking is not set; blocked_by says why. The body may be an exported bundle as-is, plus the options. Idempotent: importing the same bundle again reports every item unchanged. The body is limited to 5 MiB and 500 items.
+         *
+         *     Portal tokens: not allowed.
          */
         post: operations["importEventTypes"];
         delete?: never;
@@ -833,7 +963,9 @@ export interface paths {
         };
         /**
          * List pushed event occurrences across all consumers
-         * @description Cross-consumer event occurrence listing with the same filters as the per-consumer route. Pass consumer to scope to one consumer.
+         * @description Lists event occurrences across every consumer, newest first, with the same filters, cursor pagination and prepare_repush side effect as the per-consumer route. Pass consumer to scope to one consumer.
+         *
+         *     Portal tokens: not allowed.
          */
         get: operations["listEventOccurrencesGlobal"];
         put?: never;
@@ -853,7 +985,9 @@ export interface paths {
         };
         /**
          * Get a pushed event occurrence by id
-         * @description Fetches one event occurrence's payload, labels, and delivery outcome counts. Event ids are globally unique, so no consumer is required.
+         * @description Returns one event occurrence's payload, labels, and delivery outcome counts. Event ids are globally unique, so no consumer is required. 400 when event_id is not a UUID, 404 when it does not exist (or was removed by retention).
+         *
+         *     Portal tokens: not allowed.
          */
         get: operations["getEventOccurrence"];
         put?: never;
@@ -875,7 +1009,11 @@ export interface paths {
         put?: never;
         /**
          * Replay a single pushed event occurrence
-         * @description Re-runs fan-out for one already-pushed event occurrence: matches subscriptions again and creates new deliveries. Useful after fixing a subscription or webhook that was misconfigured.
+         * @description Pushes a stored event occurrence again: creates a new event occurrence (new event_id) with the same consumer, event type, payload, labels, metadata and TTL, validates the payload against the current schema, and fans it out to the subscriptions that match now. The original occurrence and its deliveries are unchanged. Not idempotent: each call creates another event. To resend one existing delivery instead, retry the delivery.
+         *
+         *     404 when the event does not exist; the same errors as pushEvent when the event type is now inactive or unregistered.
+         *
+         *     Portal tokens: not allowed.
          */
         post: operations["repushEvent"];
         delete?: never;
@@ -893,7 +1031,9 @@ export interface paths {
         };
         /**
          * Get aggregate webhook health counts
-         * @description Returns how many webhooks are currently healthy, degraded, unhealthy, or unknown, in one consumer or across every consumer — for a top-level dashboard tile — plus the thresholds behind those statuses.
+         * @description Returns how many webhooks are currently healthy, degraded, unhealthy, or unknown, in one consumer or across every consumer — for a top-level dashboard tile, plus the thresholds behind those statuses. Deleted webhooks are not counted.
+         *
+         *     Portal tokens: not allowed.
          */
         get: operations["getHealthSummary"];
         put?: never;
@@ -913,13 +1053,17 @@ export interface paths {
         };
         /**
          * List invites
-         * @description Newest first. Only pending invites unless include_inactive is set. Secrets are never returned.
+         * @description Lists invites, newest first. Only pending invites unless include_inactive is set. Secrets are never returned. Not paginated.
+         *
+         *     Portal tokens: not allowed.
          */
         get: operations["listInvites"];
         put?: never;
         /**
          * Invite someone with a one-time link
-         * @description Creates a single-use, expiring invite. Opening the returned path in the UI exchanges it for a new access token named after the invitee (POST /invite/redeem), so nobody pastes a key into chat. A consumer invite opens that consumer's portal instead of the operator console.
+         * @description Creates a single-use, expiring invite. Opening the returned path in the UI exchanges it for a new access token named after the invitee (POST /invite/redeem), so nobody pastes a key into chat. A consumer invite opens that consumer's portal instead of the operator console. The secret is returned only here. Redeeming happens at POST /invite/redeem (outside /v1, no credential needed); an unknown, used, cancelled or expired invite gets 400 invalid_invite there.
+         *
+         *     Portal tokens: not allowed.
          */
         post: operations["createInvite"];
         delete?: never;
@@ -938,7 +1082,12 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Cancel a pending invite */
+        /**
+         * Cancel a pending invite
+         * @description Cancels a pending invite so it can no longer be redeemed. Returns 204. 409 when the invite is no longer pending (redeemed, cancelled or expired); a token already created from it keeps working, so revoke that separately. 404 for an unknown id.
+         *
+         *     Portal tokens: not allowed.
+         */
         delete: operations["cancelInvite"];
         options?: never;
         head?: never;
@@ -954,7 +1103,9 @@ export interface paths {
         };
         /**
          * List shipped adapter recipes
-         * @description Lists recipe templates shipped with this Sparrow server. Recipes pre-fill webhook destinations, headers, and optional subscription transforms.
+         * @description Lists the adapter recipes built into this Sparrow server. A recipe pre-fills a webhook destination, headers and a subscription transform; clients (the UI, sparrow use) substitute the params and register the webhook. Static and read-only.
+         *
+         *     Portal tokens: not allowed.
          */
         get: operations["listRecipes"];
         put?: never;
@@ -974,7 +1125,9 @@ export interface paths {
         };
         /**
          * Get aggregate delivery statistics across all consumers
-         * @description Returns the same counters as the per-consumer stats endpoint, aggregated across every consumer.
+         * @description Returns the same counters as the per-consumer stats endpoint, summed across every consumer, with the same lag.
+         *
+         *     Portal tokens: not allowed.
          */
         get: operations["getGlobalStats"];
         put?: never;
@@ -994,7 +1147,9 @@ export interface paths {
         };
         /**
          * List subscriptions across all consumers
-         * @description Cross-consumer subscription listing with the same filters as the per-consumer route. Pass consumer to scope to one consumer.
+         * @description Lists subscriptions across every consumer with the same filters and pagination as the per-consumer route. Pass consumer to scope to one consumer.
+         *
+         *     Portal tokens: not allowed.
          */
         get: operations["listSubscriptionsGlobal"];
         put?: never;
@@ -1017,6 +1172,10 @@ export interface paths {
         /**
          * Draft a transform template with AI
          * @description Drafts a transform_template from a plain-language description, grounded in the event type's JSON Schema and sample payload, the template helper catalog, and optionally a shipped recipe's destination format or an example body the receiver expects. Every draft is rendered against the sample payload (as POST /v1/subscriptions:testTemplate does) and repaired until it renders, so the returned template is known to work. Nothing is saved: put the template into a subscription's transform_template. Requires SPARROW_AI_ENABLED=true and the provider settings (SPARROW_AI_API_KEY for Anthropic, or SPARROW_AI_PROVIDER=openai with SPARROW_AI_BASE_URL and SPARROW_AI_MODEL for any OpenAI-compatible server); otherwise 503, naming the missing setting. Only the sample payload (registered or provided in the request), the schema, and the request's own text are sent to the model, never stored events, headers, or secrets.
+         *
+         *     Not idempotent (model output varies). 404 for an unknown event type or recipe, 429 when the provider rate-limits, 504 when the draft takes longer than SPARROW_AI_TIMEOUT (default 3m).
+         *
+         *     Portal tokens: not allowed.
          */
         post: operations["draftSubscriptionTemplate"];
         delete?: never;
@@ -1036,7 +1195,9 @@ export interface paths {
         put?: never;
         /**
          * Build the AI drafting prompt without calling a model
-         * @description Returns the same prompt POST /v1/subscriptions:draftTemplate would send, as one self-contained text to paste into any chat assistant (ChatGPT, Claude, a local model). Works whether or not the server has an AI provider configured, so installs without SPARROW_AI_* still get a one-click prompt. The user pastes the assistant's template back into the subscription editor and checks it with Run Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched under the delivery network policy to include an excerpt.
+         * @description Returns the same prompt POST /v1/subscriptions:draftTemplate would send, as one self-contained text to paste into any chat assistant (ChatGPT, Claude, a local model). Works whether or not the server has an AI provider configured, so installs without SPARROW_AI_* still get a one-click prompt. The user pastes the assistant's template back into the subscription editor and checks it with Run Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched under the delivery network policy to include an excerpt. No side effects.
+         *
+         *     Portal tokens: not allowed.
          */
         post: operations["buildSubscriptionTemplatePrompt"];
         delete?: never;
@@ -1056,7 +1217,11 @@ export interface paths {
         put?: never;
         /**
          * Render a transform template against an event's sample payload
-         * @description Dry-runs a transform template against the named event type's stored sample payload, without creating a subscription or any delivery. Use this to iterate on transform_template before saving it.
+         * @description Dry-runs a transform template against the named event type's sample payload, without creating a subscription or any delivery. Use this to iterate on transform_template before saving it. Stateless and idempotent.
+         *
+         *     400 when the template does not parse or fails to render (with template_missing_key error, a key the sample lacks is an error), 404 when the event type is not registered, 503 when the template engine is at capacity (retry).
+         *
+         *     Portal tokens: allowed, as POST /portal/api/subscriptions:testTemplate.
          */
         post: operations["testSubscriptionTemplate"];
         delete?: never;
@@ -1074,7 +1239,9 @@ export interface paths {
         };
         /**
          * List available payload-transformation template functions
-         * @description Lists the Go template helper functions available to subscription transform templates (e.g. string/JSON helpers), each with its documentation.
+         * @description Lists the helper functions available to subscription transform templates (on top of Go text/template built-ins), each with Markdown documentation. Static: the same for every caller.
+         *
+         *     Portal tokens: allowed, as GET /portal/api/template-functions.
          */
         get: operations["getTemplateFunctions"];
         put?: never;
@@ -1094,13 +1261,19 @@ export interface paths {
         };
         /**
          * List access tokens
-         * @description Newest first. Secrets are never returned. Revoked and expired tokens are hidden unless include_inactive is set.
+         * @description Lists access tokens, newest first. Secrets are never returned. Revoked and expired tokens are hidden unless include_inactive is set. Not paginated.
+         *
+         *     Portal tokens: not allowed.
          */
         get: operations["listTokens"];
         put?: never;
         /**
          * Create an access token
-         * @description Creates a named token. A tenant-wide token (no consumer) works exactly like SPARROW_API_KEY but can be revoked on its own and never needs the master key to be shared. A consumer token only works through the portal API (/portal/api/), limited to that consumer, and comes with a ready-made portal link (portal_path) to embed or hand to the end consumer. The secret is returned once, or again for the same external_id while the token is valid.
+         * @description Creates a named token. A tenant-wide token (no consumer) works exactly like SPARROW_API_KEY but can be revoked on its own and never needs the master key to be shared. A consumer token only works through the portal API (/portal/api/), limited to that consumer, and comes with a ready-made portal link (portal_path) to embed or hand to the end consumer. The secret is returned once, or again for the same external_id while the token is valid. Without external_id every call creates a new token.
+         *
+         *     400 for an invalid consumer, both ttl_seconds and never_expires, never_expires or more than 30 days on a consumer token, or external_id without a consumer. 503 when the token store is unavailable, or for external_id when no keyring is configured.
+         *
+         *     Portal tokens: not allowed.
          */
         post: operations["createToken"];
         delete?: never;
@@ -1121,7 +1294,9 @@ export interface paths {
         post?: never;
         /**
          * Revoke an access token
-         * @description The token stops working immediately on this server and within 30 seconds everywhere else. Revoking is permanent and idempotent.
+         * @description Revokes a token: it stops working immediately on this server and within 30 seconds on other instances. Revoking is permanent and idempotent (204 again for an already revoked token). Returns 204; 404 for an unknown id.
+         *
+         *     Portal tokens: not allowed.
          */
         delete: operations["revokeToken"];
         options?: never;
@@ -1138,7 +1313,9 @@ export interface paths {
         };
         /**
          * List webhooks across all consumers
-         * @description Cross-consumer webhook listing. Pass consumer to scope to one consumer, health to filter by computed status, or webhook_id for an id-only lookup when the consumer isn't known.
+         * @description Lists webhooks across every consumer, newest first, with masked secrets. Pass consumer to scope to one consumer, health to filter by label, or webhook_id for an id-only lookup when the consumer is not known. Offset paginated with total_count.
+         *
+         *     Portal tokens: not allowed.
          */
         get: operations["listWebhooksByHealth"];
         put?: never;
@@ -1156,7 +1333,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Show which credential this request used */
+        /**
+         * Show which credential this request used
+         * @description Reports whether auth is on and which credential (master key or access token) authenticated this request. No side effects. Useful to check a key or token before using it.
+         *
+         *     Portal tokens: not allowed.
+         */
         get: operations["getWhoAmI"];
         put?: never;
         post?: never;
@@ -1171,16 +1353,16 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         AIDraftingStruct: {
-            /** @description True when the server is started with SPARROW_AI_ENABLED=true. POST /v1/subscriptions:draftTemplate is usable unless problem is set. */
+            /** @description True when the server is started with SPARROW_AI_ENABLED=true, whether or not the provider settings are valid. Drafting (POST /v1/subscriptions:draftTemplate) is usable only when enabled is true and problem is absent. */
             enabled: boolean;
-            /** @description Model id used for drafting, when enabled. */
+            /** @description Model id used for drafting; absent when drafting is off or not usable. */
             model?: string;
             /** @description Why drafting is enabled but not usable: a missing or invalid provider setting. POST /v1/subscriptions:draftTemplate answers 503 with this text. */
             problem?: string;
-            /** @description True when drafting is off. POST /v1/subscriptions:draftTemplatePrompt builds the prompt for pasting into any chat assistant whatever this says. */
+            /** @description Always the opposite of enabled: true when SPARROW_AI_ENABLED is not true, so clients offer only the copy-and-paste prompt. POST /v1/subscriptions:draftTemplatePrompt works whatever this says. */
             prompt_only: boolean;
             /**
-             * @description Chat API behind drafting: anthropic, or openai for any OpenAI-compatible server (Ollama, vLLM, OpenRouter, OpenAI).
+             * @description Chat API behind drafting: anthropic, or openai for any OpenAI-compatible server (Ollama, vLLM, OpenRouter, OpenAI). Absent when drafting is off or not usable.
              * @enum {string}
              */
             provider?: "anthropic" | "openai";
@@ -1219,7 +1401,7 @@ export interface components {
             error_message?: string;
             /**
              * Format: int64
-             * @description HTTP status code returned by the endpoint on this attempt.
+             * @description HTTP status code returned by the endpoint on this attempt; 0 when no response was received.
              */
             response_code: number;
             /**
@@ -1227,7 +1409,7 @@ export interface components {
              * @description Round-trip time of this attempt, in milliseconds.
              */
             response_time: number;
-            /** @description Whether this attempt succeeded (matched an expected status code). */
+            /** @description Whether this attempt succeeded (got one of the webhook's expected_status_codes). */
             success: boolean;
             /** @description When this attempt was made, RFC3339. */
             timestamp: string;
@@ -1239,6 +1421,7 @@ export interface components {
              * @example https://example.com/schemas/AttemptsOutputBody.json
              */
             readonly $schema?: string;
+            /** @description Every recorded attempt, oldest first. */
             items: components["schemas"]["AttemptItem"][] | null;
         };
         BatchJobOutputBody: {
@@ -1248,18 +1431,18 @@ export interface components {
              * @example https://example.com/schemas/BatchJobOutputBody.json
              */
             readonly $schema?: string;
-            /** @description Tenant consumer the job runs in. */
+            /** @description Consumer the snapshot was taken in; empty for a snapshot taken from a cross-consumer list. */
             consumer: string;
             /** @description Creation timestamp, RFC3339. */
             created_at: string;
-            /** @description When the job's underlying snapshot expires, RFC3339. */
+            /** @description When the snapshot expires, RFC3339: 15 minutes after it was taken. An expired snapshot can no longer be started. */
             expires_at: string;
             /**
              * Format: int64
-             * @description Items that failed to process.
+             * @description Items that could not be re-pushed or retried (e.g. the event or delivery no longer exists).
              */
             failed: number;
-            /** @description Batch job id (UUID) — the repush_id/retry_id used elsewhere. */
+            /** @description Batch job id (UUID): the repush_id or retry_id from the list call. */
             id: string;
             /**
              * @description Which batch operation this job performs.
@@ -1268,11 +1451,11 @@ export interface components {
             job_type: "event_repush" | "delivery_retry";
             /**
              * Format: int64
-             * @description Items processed so far (successes + failures).
+             * @description Items handled successfully so far.
              */
             processed: number;
             /**
-             * @description Current job status.
+             * @description pending: snapshot taken, not started. processing: running. completed: every item was handled (see failed for the ones that could not be). failed: every item failed. cancelled: stopped by a cancel call.
              * @enum {string}
              */
             status: "pending" | "processing" | "completed" | "failed" | "cancelled";
@@ -1386,7 +1569,7 @@ export interface components {
              * @description Recipient email address.
              */
             email: string;
-            /** @description Sparrow system event types to alert on: sparrow.webhook.health_changed, sparrow.webhook.delivery_failed, sparrow.webhook.disabled. */
+            /** @description Sparrow system event types to alert on, at least one of: sparrow.webhook.health_changed, sparrow.webhook.delivery_failed, sparrow.webhook.disabled. */
             event_types: string[] | null;
             /** @description Scope the alert to one webhook. Omit for a consumer-wide alert covering every webhook. */
             webhook_id?: string;
@@ -1398,7 +1581,7 @@ export interface components {
              * @example https://example.com/schemas/CreateInviteBody.json
              */
             readonly $schema?: string;
-            /** @description Invite into one consumer's portal. Omit for tenant-wide (operator console) access. */
+            /** @description Invite into one consumer's portal: the token it creates is limited to that consumer. Omit for tenant-wide (operator console) access. Same naming rules as on POST /v1/tokens. */
             consumer?: string;
             /** @description Name for the token the invite creates, e.g. the invitee's name. */
             name: string;
@@ -1406,12 +1589,12 @@ export interface components {
             token_never_expires?: boolean;
             /**
              * Format: int64
-             * @description Lifetime of the token it creates; same defaults and limits as POST /v1/tokens.
+             * @description Lifetime in seconds of the token it creates, counted from redemption; same defaults and limits as ttl_seconds on POST /v1/tokens.
              */
             token_ttl_seconds?: number;
             /**
              * Format: int64
-             * @description How long the invite can be used. Defaults to 24 hours, at most 7 days.
+             * @description How long the invite can be redeemed, in seconds. 0 or omitted means 24 hours; at most 7 days.
              */
             ttl_seconds?: number;
         };
@@ -1422,8 +1605,9 @@ export interface components {
              * @example https://example.com/schemas/CreateInviteOutputBody.json
              */
             readonly $schema?: string;
+            /** @description The created invite. */
             invite: components["schemas"]["InviteOut"];
-            /** @description UI-relative link with the secret in the fragment (never sent to servers or logs). Prepend the base URL the UI is served from. */
+            /** @description UI-relative link with the secret in the fragment (never sent to servers or logs): /#invite=... for a tenant-wide invite, /portal#invite=... for a consumer invite. Prepend the base URL the UI is served from. */
             path: string;
             /** @description The invite secret. Shown only in this response. */
             secret: string;
@@ -1435,17 +1619,17 @@ export interface components {
              * @example https://example.com/schemas/CreateSubscriptionBody.json
              */
             readonly $schema?: string;
-            /** @description Event type name to subscribe to, or "*" to receive every event in the consumer (catch-all). */
+            /** @description Event type name to subscribe to, or "*" to receive every event in the consumer (catch-all). sparrow.* names only under the _sparrow consumer. One subscription per webhook, event name and consumer (409 on a duplicate). */
             event_name: string;
-            /** @description Extra HTTP headers to send with deliveries created by this subscription, merged with the webhook's own headers. */
+            /** @description Extra HTTP headers sent with deliveries from this subscription. They override the webhook's headers of the same name; the webhook's secret_headers override both. Same name and value rules as webhook headers. */
             headers?: {
                 [key: string]: string;
             };
-            /** @description Key/value pairs that must ALL be present in an event's labels for this subscription to receive it. Empty means match every event of event_name. */
+            /** @description Key/value pairs that must ALL be present in an event's labels for this subscription to receive it. Empty means match every event of event_name. Same limits as event labels (20 pairs, 64-character keys, 256-character values). */
             label_filters?: {
                 [key: string]: string;
             };
-            /** @description HTTP method used for deliveries from this subscription. Defaults to POST. */
+            /** @description HTTP method used for deliveries from this subscription, e.g. PUT. Defaults to POST. */
             method?: string;
             /**
              * @description What happens when transform_template fails to render. fail (default): the delivery fails with error category template_error, is not retried automatically, and can be retried once the template is fixed; it does not affect the webhook's health. fallback: the default envelope payload is sent instead, and the error is still recorded on the delivery.
@@ -1459,14 +1643,14 @@ export interface components {
             template_missing_key?: "error" | "zero";
             /**
              * Format: int64
-             * @description Per-delivery request timeout in seconds, overriding the webhook's default.
+             * @description Request timeout for this subscription's deliveries, in seconds, overriding the webhook's request_timeout_seconds. 0 to 300; 0 (default) uses the webhook's.
              */
             timeout?: number;
-            /** @description Whether to render transform_template into the delivered payload instead of sending the raw event payload. */
+            /** @description Whether to render transform_template into the delivered body instead of sending the default envelope. Defaults to false. */
             transform_enabled?: boolean;
-            /** @description Go template rendered against the event to produce the delivered body. See GET /v1/template-functions for available helpers; test it with POST /v1/subscriptions:testTemplate. */
+            /** @description Go text/template rendered against the event to produce the delivered body, used when transform_enabled is true. See GET /v1/template-functions for available helpers; test it with POST /v1/subscriptions:testTemplate. Saving a new template records a version in the template history. */
             transform_template?: string;
-            /** @description Webhook to deliver matching events to. */
+            /** @description Webhook id (UUID) to deliver matching events to. Must belong to this consumer. */
             webhook_id: string;
         };
         CreateTokenBody: {
@@ -1476,7 +1660,7 @@ export interface components {
              * @example https://example.com/schemas/CreateTokenBody.json
              */
             readonly $schema?: string;
-            /** @description Limit the token to one consumer (portal API only). Omit for a tenant-wide token with the same power as SPARROW_API_KEY. */
+            /** @description Limit the token to one consumer: it then works only through the portal API (/portal/api/). Omit for a tenant-wide token with the same power as SPARROW_API_KEY. At most 255 characters, no /, \, ?, #, % or dot segments; _sparrow is not allowed. */
             consumer?: string;
             /** @description Consumer tokens only. Your id for who or what the token is for, e.g. your user id when embedding the portal. There is at most one active token per consumer and external_id: while it is valid, asking again returns it, secret included (reused: true; name and ttl_seconds are ignored), instead of creating another; once it expires or is revoked, a new one is created. This makes minting a portal link on every page view safe. Not a secret: it is fine to log. */
             external_id?: string;
@@ -1486,7 +1670,7 @@ export interface components {
             never_expires?: boolean;
             /**
              * Format: int64
-             * @description Lifetime in seconds. Tenant-wide tokens default to the server's SPARROW_TOKEN_DEFAULT_TTL (90 days unless changed); consumer tokens default to 7 days and allow at most 30.
+             * @description Lifetime in seconds. 0 or omitted takes the default: SPARROW_TOKEN_DEFAULT_TTL (90 days unless changed) for tenant-wide tokens, 7 days for consumer tokens. Consumer tokens allow at most 30 days.
              */
             ttl_seconds?: number;
         };
@@ -1503,12 +1687,16 @@ export interface components {
             reused: boolean;
             /** @description The credential. Shown only in this response (and again for the same external_id); send it as X-API-Key or Authorization: Bearer. */
             secret: string;
+            /** @description The created (or reused) token. */
             token: components["schemas"]["TokenOut"];
         };
         CursorPaginationOutput: {
             /** @description True when older items follow this page. */
             has_more: boolean;
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Page size applied (the requested limit, default 50).
+             */
             limit: number;
             /** @description Pass as cursor to get the next, older page. Absent on the last page. */
             next_cursor?: string;
@@ -1522,17 +1710,17 @@ export interface components {
             readonly $schema?: string;
             /**
              * Format: int64
-             * @description Number of delivery attempts made so far.
+             * @description Number of delivery attempts made so far, including earlier rounds before a manual retry.
              */
             attempt_count: number;
             /** @description Consumer of the webhook. Set in delivery listings. */
             consumer?: string;
-            /** @description Creation timestamp, RFC3339. */
+            /** @description When the delivery was created by fan-out, RFC3339. */
             created_at: string;
             /** @description Delivery id (UUID). */
             delivery_id: string;
             /**
-             * @description Failure classification from the most recent attempt, used to decide retryability. template_error means the subscription's transform failed to render; it is not retried automatically and does not count against the webhook's health.
+             * @description Outcome classification of the most recent attempt, used to decide retryability. server_error (5xx), timeout, connection_refused, network_error and rate_limited (429) are retried; client_error (other 4xx), dns_error, tls_error and unexpected_status (a 2xx/3xx not in expected_status_codes) are not. template_error means the subscription's transform failed to render; it is not retried automatically and does not count against the webhook's health.
              * @enum {string}
              */
             error_category?: "success" | "client_error" | "server_error" | "timeout" | "dns_error" | "tls_error" | "connection_refused" | "network_error" | "rate_limited" | "unexpected_status" | "template_error" | "unknown" | "";
@@ -1546,12 +1734,12 @@ export interface components {
             last_attempted_at?: string;
             /**
              * Format: int64
-             * @description Maximum attempts allowed before the delivery is marked failed.
+             * @description Attempts allowed per round before the delivery is marked failed: the webhook's max_retries + 1 when the delivery was created. A manual retry starts a new round.
              */
             max_attempts: number;
             /** @description Timestamp of the next scheduled retry, RFC3339, if one is pending. */
             next_retry_at?: string;
-            /** @description Endpoint response body from the most recent attempt, if capture_response_body is enabled. */
+            /** @description Endpoint response body from the most recent attempt: up to 1 KiB, or up to SPARROW_MAX_CAPTURED_RESPONSE_BYTES when the webhook has capture_response_body. */
             response_body?: string;
             /**
              * Format: int64
@@ -1559,7 +1747,7 @@ export interface components {
              */
             response_code?: number;
             /**
-             * @description Current delivery status. paused: created while its subscription was paused; not attempted until retried.
+             * @description Current delivery status. pending: queued for its first attempt (or re-queued by a retry). sending: an attempt is in flight. retrying: an attempt failed and another is scheduled (next_retry_at). success: an attempt got an expected status code. failed: attempts exhausted, or a non-retryable error such as template_error. expired: the event's ttl_seconds passed before the attempt. paused: held because the webhook or subscription was paused; not attempted until retried.
              * @enum {string}
              */
             status: "pending" | "sending" | "success" | "failed" | "retrying" | "expired" | "paused";
@@ -1618,7 +1806,7 @@ export interface components {
             /** @description The template rendered against the sample payload used (provided or registered), proving it renders. */
             rendered: string;
             /**
-             * @description Which sample payload grounded and verified the draft.
+             * @description Which sample payload grounded and verified the draft: registered or provided.
              * @enum {string}
              */
             sample_source: "registered" | "provided";
@@ -1635,7 +1823,7 @@ export interface components {
             /** @description A self-contained prompt to paste into any chat assistant: the template data model, rules, helper catalog, the event's schema and sample payload, any recipe, receiver example, docs excerpt, current template, and the instructions. Asks for the template in a code block. */
             prompt: string;
             /**
-             * @description Which sample payload the prompt carries.
+             * @description Which sample payload the prompt carries: registered (the event type's sample_payload) or provided (sample_payload from the request).
              * @enum {string}
              */
             sample_source: "registered" | "provided";
@@ -1709,7 +1897,7 @@ export interface components {
             event_version: number;
             /**
              * Format: int32
-             * @description Deliveries that failed (exhausted retries or non-retryable error).
+             * @description Failed delivery attempts for this occurrence. Counts attempts, not deliveries: a delivery that failed twice and then succeeded adds 2 here and 1 to successful_deliveries.
              */
             failed_deliveries: number;
             /** @description Key/value labels used to match against subscription label filters. */
@@ -1726,19 +1914,19 @@ export interface components {
             };
             /**
              * Format: int32
-             * @description Deliveries still pending or retrying.
+             * @description Deliveries not finished yet: pending, sending or retrying.
              */
             pending_deliveries: number;
             /** @description Whether the payload validated against the event type's JSON Schema at push time. */
             schema_valid: boolean;
             /**
              * Format: int32
-             * @description Deliveries that succeeded.
+             * @description Successful delivery attempts for this occurrence.
              */
             successful_deliveries: number;
             /**
              * Format: int32
-             * @description Number of webhooks whose subscriptions matched this occurrence.
+             * @description Number of distinct webhooks that got a delivery for this occurrence.
              */
             webhook_count: number;
         };
@@ -1749,19 +1937,19 @@ export interface components {
              * @example https://example.com/schemas/EventTypeBody.json
              */
             readonly $schema?: string;
-            /** @description Whether events of this type can be pushed. Defaults to true. */
+            /** @description Whether events of this type can be pushed; a push to an inactive type fails with 409. Defaults to true on register; unchanged on update when omitted. */
             active?: boolean;
-            /** @description Human-readable summary of what this event represents. */
+            /** @description Human-readable summary of what this event represents. On update, an empty string leaves it unchanged. */
             description?: string;
-            /** @description Optional JSON Schema for the payload. Validation is soft: non-conforming payloads are still accepted, with warnings returned from the push call. */
+            /** @description Optional JSON Schema for the payload. Validation is soft: non-conforming payloads are still accepted, with warnings returned from the push call. On update, sending a different schema creates a new version. */
             event_schema?: {
                 [key: string]: unknown;
             };
-            /** @description Arbitrary key/value metadata for your own tooling. */
+            /** @description Arbitrary key/value metadata for your own tooling. On update, replaces the whole map. */
             metadata?: {
                 [key: string]: string;
             };
-            /** @description Unique event type name, e.g. order.created. At most 255 characters. Immutable after creation. */
+            /** @description Unique event type name, e.g. order.created. Required on register, ignored on update (the path names the type). At most 255 characters; the sparrow. prefix is reserved. Immutable after creation. */
             name?: string;
         };
         EventTypeBundle: {
@@ -1941,24 +2129,24 @@ export interface components {
             readonly $schema?: string;
             /**
              * Format: int64
-             * @description Webhooks currently degraded.
+             * @description Webhooks currently labelled degraded.
              */
             degraded_count: number;
             /**
              * Format: int64
-             * @description Webhooks currently healthy.
+             * @description Webhooks currently labelled healthy.
              */
             healthy_count: number;
             /** @description Thresholds the health statuses are derived from. */
             rules: components["schemas"]["HealthRules"];
             /**
              * Format: int64
-             * @description Webhooks currently unhealthy.
+             * @description Webhooks currently labelled unhealthy.
              */
             unhealthy_count: number;
             /**
              * Format: int64
-             * @description Webhooks with no recent delivery attempts.
+             * @description Webhooks labelled unknown: too few recent attempts to judge.
              */
             unknown_count: number;
         };
@@ -2048,30 +2236,44 @@ export interface components {
             version: number;
         };
         InviteOut: {
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When the invite was cancelled, RFC3339. Null: not cancelled.
+             */
             cancelled_at: string | null;
             /** @description Consumer the resulting token is limited to. Null: tenant-wide. */
             consumer: string | null;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When the invite was created, RFC3339.
+             */
             created_at: string;
+            /** @description Name of the credential that created the invite. */
             created_by: string;
             /**
              * Format: date-time
-             * @description When the invite stops working if unused.
+             * @description When the invite stops working if unused, RFC3339.
              */
             expires_at: string;
+            /** @description Invite id (not the secret). */
             id: string;
             /** @description Name given to the token the invite creates. */
             name: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When the invite was redeemed, RFC3339. Null: not redeemed.
+             */
             redeemed_at: string | null;
-            /** @enum {string} */
+            /**
+             * @description pending: can still be redeemed. redeemed: used once, see token_id. cancelled: cancelled by DELETE /v1/invites/{invite_id}. expired: past expires_at unused.
+             * @enum {string}
+             */
             status: "pending" | "redeemed" | "cancelled" | "expired";
             /** @description Token created when the invite was redeemed. */
             token_id: string | null;
             /**
              * Format: int64
-             * @description Lifetime of the token it creates. Null: never expires.
+             * @description Lifetime of the token it creates, in seconds. Null: the token never expires.
              */
             token_ttl_seconds: number | null;
         };
@@ -2082,6 +2284,7 @@ export interface components {
              * @example https://example.com/schemas/ListAlertConfigsOutputBody.json
              */
             readonly $schema?: string;
+            /** @description Alert configs, oldest first. Not paginated. */
             items: components["schemas"]["AlertConfigItem"][] | null;
         };
         ListConsumersOutputBody: {
@@ -2091,6 +2294,7 @@ export interface components {
              * @example https://example.com/schemas/ListConsumersOutputBody.json
              */
             readonly $schema?: string;
+            /** @description Matching consumer names, sorted by name. */
             items: components["schemas"]["ConsumerItem"][] | null;
         };
         ListDeliveriesOutputBody: {
@@ -2100,13 +2304,15 @@ export interface components {
              * @example https://example.com/schemas/ListDeliveriesOutputBody.json
              */
             readonly $schema?: string;
+            /** @description Deliveries, newest first. Includes deliveries of deleted webhooks. */
             items: components["schemas"]["DeliveryItem"][] | null;
+            /** @description Cursor pagination; there is no total count. */
             pagination: components["schemas"]["CursorPaginationOutput"];
-            /** @description Snapshot id for the batch retry endpoint, present when prepare_retry was set and something matched. */
+            /** @description Snapshot (batch job) id, present when prepare_retry was set and something matched. Send it as the repush_id field of POST .../deliveries:retryBatch. Expires after 15 minutes if not started. */
             retry_id?: string;
             /**
              * Format: int64
-             * @description Number of deliveries in that snapshot.
+             * @description Number of deliveries in that snapshot (all matches, not just this page).
              */
             retry_total?: number;
         };
@@ -2117,13 +2323,15 @@ export interface components {
              * @example https://example.com/schemas/ListEventOccurrencesOutputBody.json
              */
             readonly $schema?: string;
+            /** @description Occurrences, newest first. */
             items: components["schemas"]["EventOccurrenceItem"][] | null;
+            /** @description Cursor pagination; there is no total count. */
             pagination: components["schemas"]["CursorPaginationOutput"];
-            /** @description Snapshot id for the batch re-push endpoint, present when prepare_repush was set and something matched. */
+            /** @description Snapshot (batch job) id for POST .../events:rePush, present when prepare_repush was set and something matched. Expires after 15 minutes if not started. */
             repush_id?: string;
             /**
              * Format: int64
-             * @description Number of occurrences in that snapshot.
+             * @description Number of occurrences in that snapshot (all matches, not just this page).
              */
             repush_total?: number;
         };
@@ -2144,7 +2352,9 @@ export interface components {
              * @example https://example.com/schemas/ListEventTypesOutputBody.json
              */
             readonly $schema?: string;
+            /** @description Event types, sorted by name. */
             items: components["schemas"]["EventTypeItem"][] | null;
+            /** @description Offset pagination with a total count. */
             pagination: components["schemas"]["PaginationOutput"];
         };
         ListInvitesOutputBody: {
@@ -2154,6 +2364,7 @@ export interface components {
              * @example https://example.com/schemas/ListInvitesOutputBody.json
              */
             readonly $schema?: string;
+            /** @description Invites, newest first. Not paginated. */
             items: components["schemas"]["InviteOut"][] | null;
         };
         ListRecipesOutputBody: {
@@ -2163,6 +2374,7 @@ export interface components {
              * @example https://example.com/schemas/ListRecipesOutputBody.json
              */
             readonly $schema?: string;
+            /** @description Every shipped recipe. */
             items: components["schemas"]["Recipe"][] | null;
         };
         ListSubscriptionsOutputBody: {
@@ -2172,7 +2384,9 @@ export interface components {
              * @example https://example.com/schemas/ListSubscriptionsOutputBody.json
              */
             readonly $schema?: string;
+            /** @description Subscriptions, newest first. */
             items: components["schemas"]["SubscriptionItem"][] | null;
+            /** @description Offset pagination with a total count. */
             pagination: components["schemas"]["PaginationOutput"];
         };
         ListTemplateVersionsOutputBody: {
@@ -2182,6 +2396,7 @@ export interface components {
              * @example https://example.com/schemas/ListTemplateVersionsOutputBody.json
              */
             readonly $schema?: string;
+            /** @description Saved versions, newest first. */
             items: components["schemas"]["TemplateVersionItem"][] | null;
         };
         ListTokensOutputBody: {
@@ -2191,6 +2406,7 @@ export interface components {
              * @example https://example.com/schemas/ListTokensOutputBody.json
              */
             readonly $schema?: string;
+            /** @description Tokens, newest first. Not paginated. */
             items: components["schemas"]["TokenOut"][] | null;
         };
         ListWebhooksOutputBody: {
@@ -2200,20 +2416,34 @@ export interface components {
              * @example https://example.com/schemas/ListWebhooksOutputBody.json
              */
             readonly $schema?: string;
+            /** @description Webhooks, newest first. */
             items: components["schemas"]["WebhookOut"][] | null;
+            /** @description Offset pagination with a total count. */
             pagination: components["schemas"]["PaginationOutput"];
         };
         PaginationOutput: {
+            /** @description True when offset + limit < total_count. */
             has_more: boolean;
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Page size applied (the requested limit, default 50).
+             */
             limit: number;
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Number of items skipped.
+             */
             offset: number;
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Total items matching the filters.
+             */
             total_count: number;
         };
         Param: {
+            /** @description A missing value blocks enabling an auto-provisioned recipe. */
             activation_required?: boolean;
+            /** @description Value used when none is supplied. */
             default?: string;
             /** @description Destination documentation for this value. */
             docs_url?: string;
@@ -2223,10 +2453,15 @@ export interface components {
             example?: string;
             /** @description What the value is and where to find it. */
             help?: string;
+            /** @description The default is a placeholder: it must be replaced with a real value before the recipe is applied. */
             must_override_default?: boolean;
+            /** @description Param name, as referenced by {{param "name"}}. */
             name: string;
+            /** @description Short label shown for the param. */
             prompt: string;
+            /** @description Whether a value must be supplied. */
             required: boolean;
+            /** @description Whether the value is sensitive (a token or password); clients should mask the input. */
             secret?: boolean;
         };
         PatchSubscriptionBody: {
@@ -2236,11 +2471,11 @@ export interface components {
              * @example https://example.com/schemas/PatchSubscriptionBody.json
              */
             readonly $schema?: string;
-            /** @description Replace the extra HTTP headers. */
+            /** @description Replace all extra HTTP headers. */
             headers?: {
                 [key: string]: string;
             };
-            /** @description Replace the label filters. */
+            /** @description Replace all label filters; an empty object matches every event. */
             label_filters?: {
                 [key: string]: string;
             };
@@ -2265,12 +2500,12 @@ export interface components {
             template_source?: "manual" | "ai_draft";
             /**
              * Format: int64
-             * @description Replace the per-delivery timeout override, in seconds.
+             * @description Replace the request timeout override, in seconds (0 to 300; 0 uses the webhook's).
              */
             timeout?: number;
             /** @description Enable or disable payload transformation. */
             transform_enabled?: boolean;
-            /** @description Replace the transform template. */
+            /** @description Replace the transform template. A change is recorded as a new version in the template history (the last 20 are kept). */
             transform_template?: string;
         };
         PatchWebhookBody: {
@@ -2280,13 +2515,13 @@ export interface components {
              * @example https://example.com/schemas/PatchWebhookBody.json
              */
             readonly $schema?: string;
-            /** @description Enable or disable the webhook. */
+            /** @description false pauses the webhook (like :pause), true resumes it and clears any auto-disable marker (like :resume, but without returning the held count). */
             active?: boolean;
-            /** @description Replace the human-readable description. */
+            /** @description Replace the human-readable description. An empty string leaves it unchanged. */
             description?: string;
-            /** @description Replace the full set of subscribed event type names. */
+            /** @description Replace the full set of subscribed event type names. Every existing subscription of the webhook is deleted, with its transform and label filters, and one plain subscription is created per name. An empty list leaves subscriptions unchanged. Rejected with 409 while requires_transform is on; to keep transforms, add or delete subscriptions individually. */
             events?: string[];
-            /** @description Replace the static headers sent with every delivery. */
+            /** @description Replace all static headers sent with every delivery. Same rules as on register. */
             headers?: {
                 [key: string]: string;
             };
@@ -2294,18 +2529,19 @@ export interface components {
             http_config?: components["schemas"]["WebhookHTTPConfig"];
             /** @description Require (or stop requiring) a payload transform on every subscription. Turning it on fails with 409 while any subscription has no enabled transform_template. While on, events cannot be replaced in bulk (409): add or delete subscriptions individually. */
             requires_transform?: boolean;
-            /** @description Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it. */
+            /** @description Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it. An empty object removes them all. */
             secret_headers?: {
                 [key: string]: string;
             };
-            /** @description Replace the authoritative signature algorithm (hmac or ed25519). */
+            /** @description Change the signing scheme: hmac or ed25519. Switching to ed25519 generates a signing keypair; HMAC signing continues either way. */
             signature_type?: string;
             /**
              * Format: int64
-             * @description Replace the request timeout in seconds (equivalent to http_config.request_timeout_seconds).
+             * @deprecated
+             * @description Deprecated: use http_config.request_timeout_seconds. Shorthand for it, in seconds (1 to 300), applied only when http_config.request_timeout_seconds is not sent (http_config wins when both are sent).
              */
             timeout?: number;
-            /** @description Replace the delivery endpoint URL. */
+            /** @description Replace the delivery endpoint URL. Same rules as on register. */
             url?: string;
         };
         PauseSubscriptionInputBody: {
@@ -2325,9 +2561,9 @@ export interface components {
              * @example https://example.com/schemas/PushEventBody.json
              */
             readonly $schema?: string;
-            /** @description Optional client-supplied key; re-pushing with the same key returns the original event instead of creating a duplicate. */
+            /** @description Client-supplied deduplication key, unique per consumer. A push whose key matches an earlier event in the same consumer still returns 201, with duplicate: true and the original event_id, and creates no event or deliveries. The key is kept as long as the event (see SPARROW_EVENT_RETENTION_DAYS). */
             idempotency_key?: string;
-            /** @description Key/value labels a subscription's label filters can match against to select which subscribers receive this occurrence. */
+            /** @description Key/value labels a subscription's label_filters match against to decide which subscriptions receive this occurrence. At most 20 pairs; keys up to 64 characters of letters, digits, '.', '_' and '-'; values up to 256 characters. */
             labels?: {
                 [key: string]: string;
             };
@@ -2335,13 +2571,13 @@ export interface components {
             metadata?: {
                 [key: string]: string;
             };
-            /** @description Event payload, validated (softly) against the event type's JSON Schema if one is registered. */
+            /** @description Event payload, a JSON object. Validated softly against the event type's JSON Schema if one is registered. The whole request body is limited by SPARROW_MAX_BODY_BYTES (default 5 MiB). */
             payload: {
                 [key: string]: unknown;
             };
             /**
              * Format: int64
-             * @description Optional time-to-live in seconds; deliveries are no longer attempted after this expires.
+             * @description Time-to-live in seconds, counted from fan-out. A delivery attempt that would start after it expires is not made and the delivery fails as expired. 0 or omitted means no expiry. Manual retries ignore it.
              */
             ttl_seconds?: number;
         };
@@ -2352,26 +2588,34 @@ export interface components {
              * @example https://example.com/schemas/PushEventOutputBody.json
              */
             readonly $schema?: string;
-            /** @description True when idempotency_key matched an existing event occurrence; no new event or deliveries were created. */
+            /** @description True when idempotency_key matched an existing event occurrence in this consumer; no new event or deliveries were created and the status is still 201. */
             duplicate: boolean;
             /** @description Id (UUID) of the created event occurrence. When duplicate is true, this is the id of the PREVIOUSLY created event, not a new one. */
             event_id: string;
-            /** @description Whether the payload validated against the event type's JSON Schema. False does not mean the push was rejected — see warnings. */
+            /** @description Whether the payload validated against the event type's JSON Schema (true when it has none). False does not mean the push was rejected; see warnings. For a duplicate, the original event's result. */
             schema_valid: boolean;
-            /** @description Non-fatal schema validation warnings. The event is stored and delivered regardless. */
+            /** @description Non-fatal schema validation warnings. The event is stored and delivered regardless. Absent for a duplicate. */
             warnings?: string[] | null;
         };
         Recipe: {
             /** @description The consumer the recipe is meant to be registered under, when it matters. */
             consumer?: components["schemas"]["ConsumerHint"];
+            /** @description One-line summary of the destination the recipe targets. */
             description: string;
             /** @description What an ideal message for this destination looks like. Advice for template authors and AI drafting, not a rule. */
             guidance?: string;
+            /** @description Recipe name, e.g. slack. Unique among shipped recipes. */
             name: string;
+            /** @description Values the user supplies when applying the recipe. Each {{param "name"}} token in webhook.url, webhook.headers, webhook.secret_headers and subscription.transform_template is replaced with the value by plain string substitution before registration. */
             params?: components["schemas"]["Param"][] | null;
+            /** @description The transform given to the subscriptions created for the webhook. */
             subscription: components["schemas"]["Subscription"];
-            /** Format: int64 */
+            /**
+             * Format: int64
+             * @description Recipe schema version. Always 1.
+             */
             version: number;
+            /** @description The webhook to register. */
             webhook: components["schemas"]["Webhook"];
         };
         RegisterWebhookBody: {
@@ -2381,13 +2625,13 @@ export interface components {
              * @example https://example.com/schemas/RegisterWebhookBody.json
              */
             readonly $schema?: string;
-            /** @description Whether the webhook receives deliveries. Defaults to true. Inactive webhooks accept no new deliveries but keep their history. */
+            /** @description Whether the webhook is sent deliveries. Defaults to true. An inactive (paused) webhook still gets deliveries recorded for new events, held with status paused and sent only when retried. */
             active?: boolean;
             /** @description Free-text note for humans, e.g. which system or team owns this endpoint. */
             description?: string;
             /** @description Event type names this webhook should receive; auto-creates one subscription per entry. Use "*" as the sole entry to subscribe to every event in the consumer. Omit or leave empty to register the webhook with no subscriptions, then attach them individually via POST .../subscriptions (e.g. to set a per-subscription transform_template). */
             events?: string[] | null;
-            /** @description Static HTTP headers sent with every delivery to this webhook. */
+            /** @description Static HTTP headers sent with every delivery to this webhook. Only string values are sent. Names must be valid HTTP tokens, values at most 8 KiB with no CR/LF; framing headers (Host, Content-Length, Transfer-Encoding, Connection, Keep-Alive, Proxy-Connection, TE, Trailer, Upgrade) are rejected. Stored and returned in plaintext: put credentials in secret_headers. */
             headers?: {
                 [key: string]: unknown;
             };
@@ -2400,17 +2644,18 @@ export interface components {
             on_transform_error?: "fail" | "fallback" | "";
             /**
              * Format: double
-             * @description Maximum sustained delivery rate to this webhook, in requests per second. Excess deliveries queue and are sent once the leaky bucket has capacity.
+             * @deprecated
+             * @description Deprecated: use http_config.rate_limit_rps. Shorthand for it, applied only when http_config.rate_limit_rps is not set (http_config wins when both are sent). Requests per second, must be positive.
              */
             rate_limit_rps?: number;
             /** @description Set when the receiver only accepts a transformed payload (Slack, SendGrid, ...). Every subscription must then have transform_enabled and a transform_template: transform_template is required here when events is non-empty, and later subscription writes without one are rejected. Recipes set this. Defaults to false. */
             requires_transform?: boolean;
-            /** @description HTTP headers whose values are envelope-encrypted at rest and masked in every API response (e.g. an upstream auth token). */
+            /** @description HTTP headers sent with every delivery whose values are envelope-encrypted at rest and masked in every API response (e.g. an upstream auth token). Same name and value rules as headers. */
             secret_headers?: {
                 [key: string]: string;
             };
             /**
-             * @description Which signature algorithm to require verification against. Deliveries are HMAC-SHA256 signed (v1,) by default; once signature_type is set to ed25519 (which generates a signing keypair), later deliveries are dual-signed (v1, and v1a,, Standard Webhooks format). Defaults to hmac.
+             * @description Signing scheme. Every delivery carries an HMAC-SHA256 signature (v1,) in the Standard Webhooks webhook-signature header; ed25519 also generates a signing keypair and adds an Ed25519 signature (v1a,) next to it. Defaults to hmac.
              * @enum {string}
              */
             signature_type?: "hmac" | "ed25519" | "";
@@ -2430,7 +2675,7 @@ export interface components {
             transform_template?: string;
             /**
              * Format: uri
-             * @description HTTPS/HTTP endpoint to POST deliveries to. Private, loopback, and cloud metadata addresses are rejected (SSRF protection).
+             * @description http or https endpoint deliveries are POSTed to. The host must resolve: localhost, *.internal, *.local, private, loopback and cloud metadata addresses are rejected (SSRF protection) unless allowed by SPARROW_ALLOW_PRIVATE_NETWORKS or SPARROW_ALLOWED_NETWORKS.
              */
             url: string;
         };
@@ -2441,7 +2686,7 @@ export interface components {
              * @example https://example.com/schemas/RepushBatchInputBody.json
              */
             readonly $schema?: string;
-            /** @description Snapshot id from an earlier prepare_repush=true or prepare_retry=true list call. */
+            /** @description repush_id returned by an earlier GET .../events?prepare_repush=true call. */
             repush_id: string;
         };
         RepushEventOutputBody: {
@@ -2451,9 +2696,9 @@ export interface components {
              * @example https://example.com/schemas/RepushEventOutputBody.json
              */
             readonly $schema?: string;
-            /** @description Id of the re-pushed event occurrence (same id, replayed). */
+            /** @description Id (UUID) of the new event occurrence created by the replay. The original occurrence is unchanged. */
             event_id: string;
-            /** @description Non-fatal schema validation warnings from re-validating the stored payload. */
+            /** @description Non-fatal warnings from validating the stored payload against the event type's current schema. */
             warnings?: string[] | null;
         };
         ResumeSubscriptionOutputBody: {
@@ -2463,7 +2708,7 @@ export interface components {
              * @example https://example.com/schemas/ResumeSubscriptionOutputBody.json
              */
             readonly $schema?: string;
-            /** @description Tenant consumer this subscription belongs to. */
+            /** @description Consumer this subscription belongs to. */
             consumer: string;
             /** @description Creation timestamp, RFC3339. */
             created_at: string;
@@ -2478,7 +2723,7 @@ export interface components {
                 [key: string]: string;
             };
             /**
-             * @description HTTP method used for deliveries from this subscription.
+             * @description HTTP method used for deliveries from this subscription; absent means POST.
              * @enum {string}
              */
             method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -2489,16 +2734,16 @@ export interface components {
             on_transform_error: "fail" | "fallback";
             /** @description Whether the subscription is paused. While paused, events still fan out to it, but each delivery is recorded with status paused and not attempted until retried. A pause never affects the webhook's health. */
             paused: boolean;
-            /** @description When the current pause began, RFC3339. */
+            /** @description When the current pause began, RFC3339. Absent when not paused. */
             paused_at?: string;
             /**
              * Format: int64
-             * @description Deliveries recorded while paused. They are not sent automatically; retry them to deliver.
+             * @description Deliveries of this subscription currently in status paused. They are not sent automatically; retry them to deliver.
              */
             paused_deliveries: number;
             /** @description Why the subscription was paused. */
             paused_reason?: string;
-            /** @description When the pause that just ended began, RFC3339. List or retry what was held with status=paused&subscription_id=...&created_after=<paused_since>. */
+            /** @description When the pause that just ended began, RFC3339; absent when the subscription was not paused. List or retry what was held with status=paused&subscription_id=...&created_after=<paused_since>. */
             paused_since?: string;
             /** @description Subscription id (UUID). */
             subscription_id: string;
@@ -2509,12 +2754,12 @@ export interface components {
             template_missing_key: "error" | "zero";
             /**
              * Format: int64
-             * @description Per-delivery request timeout in seconds, overriding the webhook's default.
+             * @description Request timeout override for this subscription's deliveries, in seconds; absent means the webhook's request_timeout_seconds.
              */
             timeout?: number;
             /** @description Whether transform_template is rendered into the delivered payload. */
             transform_enabled: boolean;
-            /** @description Go template rendered against the event to produce the delivered body. */
+            /** @description Go text/template rendered against the event to produce the delivered body when transform_enabled is true. */
             transform_template?: string;
             /** @description Last-modified timestamp, RFC3339. */
             updated_at: string;
@@ -2541,9 +2786,9 @@ export interface components {
              * @example https://example.com/schemas/RetryDeliveriesByWebhookInputBody.json
              */
             readonly $schema?: string;
-            /** @description If true, also retry deliveries that already exhausted their max attempts. */
+            /** @description false (default) retries deliveries in status failed, pending, retrying or paused. true retries every delivery of the webhook, including successful and expired ones, which resends them. */
             force?: boolean;
-            /** @description Retry every eligible delivery for this webhook. */
+            /** @description Webhook id (UUID) whose deliveries to retry. */
             webhook_id: string;
         };
         RetryOutputBody: {
@@ -2555,10 +2800,10 @@ export interface components {
             readonly $schema?: string;
             /**
              * Format: int32
-             * @description Number of deliveries retried.
+             * @description Number of deliveries queued for another round of attempts.
              */
             count: number;
-            /** @description Ids of the deliveries that were retried. */
+            /** @description Ids of the deliveries queued. Absent when nothing matched. */
             delivery_ids?: string[] | null;
         };
         RotateWebhookSecretOutputBody: {
@@ -2594,6 +2839,7 @@ export interface components {
             warnings?: string[] | null;
         };
         Subscription: {
+            /** @description Go template rendered per delivery to build the destination-native body; may contain {{param}} tokens. */
             transform_template: string;
         };
         SubscriptionItem: {
@@ -2603,7 +2849,7 @@ export interface components {
              * @example https://example.com/schemas/SubscriptionItem.json
              */
             readonly $schema?: string;
-            /** @description Tenant consumer this subscription belongs to. */
+            /** @description Consumer this subscription belongs to. */
             consumer: string;
             /** @description Creation timestamp, RFC3339. */
             created_at: string;
@@ -2618,7 +2864,7 @@ export interface components {
                 [key: string]: string;
             };
             /**
-             * @description HTTP method used for deliveries from this subscription.
+             * @description HTTP method used for deliveries from this subscription; absent means POST.
              * @enum {string}
              */
             method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -2629,7 +2875,7 @@ export interface components {
             on_transform_error: "fail" | "fallback";
             /** @description Whether the subscription is paused. While paused, events still fan out to it, but each delivery is recorded with status paused and not attempted until retried. A pause never affects the webhook's health. */
             paused: boolean;
-            /** @description When the current pause began, RFC3339. */
+            /** @description When the current pause began, RFC3339. Absent when not paused. */
             paused_at?: string;
             /** @description Why the subscription was paused. */
             paused_reason?: string;
@@ -2642,12 +2888,12 @@ export interface components {
             template_missing_key: "error" | "zero";
             /**
              * Format: int64
-             * @description Per-delivery request timeout in seconds, overriding the webhook's default.
+             * @description Request timeout override for this subscription's deliveries, in seconds; absent means the webhook's request_timeout_seconds.
              */
             timeout?: number;
             /** @description Whether transform_template is rendered into the delivered payload. */
             transform_enabled: boolean;
-            /** @description Go template rendered against the event to produce the delivered body. */
+            /** @description Go text/template rendered against the event to produce the delivered body when transform_enabled is true. */
             transform_template?: string;
             /** @description Last-modified timestamp, RFC3339. */
             updated_at: string;
@@ -2703,26 +2949,27 @@ export interface components {
              * @example https://example.com/schemas/TemplateFunctionsOutputBody.json
              */
             readonly $schema?: string;
+            /** @description Every helper function, in the engine's own order. */
             items: components["schemas"]["TemplateFunctionItem"][] | null;
         };
         TemplateVersionItem: {
             /**
              * Format: date-time
-             * @description When it was saved.
+             * @description When it was saved, RFC3339.
              */
             created_at: string;
             /** @description True for the newest version, which is the subscription's current template. */
             current: boolean;
             /** @description Note stored with the version. */
             notes?: string;
-            /** @description Credential name that saved it, when auth is on. */
+            /** @description Name of the master key or access token that saved it; absent when auth is off. */
             saved_by?: string;
             /**
-             * @description How the template was produced.
+             * @description How the template was produced: manual or ai_draft.
              * @enum {string}
              */
             source: "manual" | "ai_draft";
-            /** @description The template as saved. */
+            /** @description The template text as saved. */
             template: string;
             /** @description Version id (UUID). */
             version_id: string;
@@ -2734,7 +2981,7 @@ export interface components {
              * @example https://example.com/schemas/TestTemplateBody.json
              */
             readonly $schema?: string;
-            /** @description Registered event type whose sample payload the template is rendered against. */
+            /** @description Registered event type whose sample_payload (generated from its schema; empty without one) the template is rendered against. */
             event_name: string;
             /** @description Go template to render, in the same syntax used by transform_template. */
             template: string;
@@ -2751,33 +2998,42 @@ export interface components {
              * @example https://example.com/schemas/TestTemplateOutputBody.json
              */
             readonly $schema?: string;
-            /** @description The template rendered against the event type's sample payload. */
+            /** @description The template output, rendered against the event type's sample payload with a placeholder event id and the current time. */
             rendered: string;
         };
         TokenOut: {
             /** @description Consumer the token is limited to (portal API only). Null: tenant-wide, same power as SPARROW_API_KEY. */
             consumer: string | null;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When the token was created, RFC3339.
+             */
             created_at: string;
             /** @description Name of the credential that created it (the master key, or another token). */
             created_by: string;
             /**
              * Format: date-time
-             * @description Null: never expires.
+             * @description When the token stops working, RFC3339. Null: never expires.
              */
             expires_at: string | null;
             /** @description Token id (not the secret). */
             id: string;
             /**
              * Format: date-time
-             * @description Approximate (updated at most once a minute).
+             * @description When the token was last used, RFC3339; approximate (updated at most once a minute). Null: never used.
              */
             last_used_at: string | null;
             /** @description Who or what the token is for. */
             name: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When the token was revoked, RFC3339. Null: not revoked.
+             */
             revoked_at: string | null;
-            /** @enum {string} */
+            /**
+             * @description active: usable. revoked: revoked by DELETE /v1/tokens/{token_id}. expired: past expires_at.
+             * @enum {string}
+             */
             status: "active" | "revoked" | "expired";
         };
         UpdateEventTypeOutputBody: {
@@ -2842,32 +3098,36 @@ export interface components {
             warnings?: string[] | null;
         };
         Webhook: {
+            /** @description Static headers sent with every delivery; values may contain {{param}} tokens. */
             headers?: {
                 [key: string]: string;
             };
+            /** @description The destination only accepts the transformed payload; the webhook is registered with requires_transform. */
             requires_transform?: boolean;
+            /** @description Headers whose values are encrypted at rest and masked in API responses (upstream tokens, passwords); values may contain {{param}} tokens. */
             secret_headers?: {
                 [key: string]: string;
             };
+            /** @description Destination URL; may contain {{param}} tokens. */
             url: string;
         };
         WebhookHTTPConfig: {
-            /** @description Whether to store the endpoint's response body alongside each delivery attempt, for debugging. */
+            /** @description How much of the endpoint's response body is stored with each attempt: false (default) keeps up to 1 KiB, true up to SPARROW_MAX_CAPTURED_RESPONSE_BYTES (default 1 MiB). */
             capture_response_body?: boolean;
-            /** @description Content-Type header sent with deliveries. Defaults to application/json. */
+            /** @description Stored and returned, but deliveries do not use it yet: they send Content-Type: application/json. To send another Content-Type, set it in headers (or the subscription's headers). Must not be empty; defaults to application/json. */
             content_type?: string;
             /** @description HTTP status codes treated as a successful delivery, each between 100 and 599. Defaults to 200, 201, 202 and 204. */
             expected_status_codes?: number[] | null;
-            /** @description Whether to follow HTTP redirects returned by the endpoint. */
+            /** @description Whether to follow HTTP redirects returned by the endpoint. Each redirect target passes the same SSRF checks. Defaults to true. */
             follow_redirects?: boolean;
             /**
              * Format: int64
-             * @description Maximum delivery attempts before a delivery is marked failed. 0 means no retries. Between 0 and 10; defaults to 3.
+             * @description Retries after the first attempt before a delivery is marked failed, so a delivery gets up to max_retries + 1 attempts. 0 means no retries. Between 0 and 10; defaults to 3.
              */
             max_retries?: number;
             /**
              * Format: double
-             * @description Per-webhook delivery rate limit override, in requests per second. Must be positive; unset means no limit.
+             * @description Maximum delivery rate to this webhook, in requests per second (fractions allowed, e.g. 0.5). Must be positive; unset means no limit. Deliveries over the limit wait in the queue.
              */
             rate_limit_rps?: number;
             /**
@@ -2877,31 +3137,31 @@ export interface components {
             request_timeout_seconds?: number;
             /**
              * Format: int64
-             * @description Base delay between retry attempts, in seconds. Backoff grows exponentially from this value. Between 1 and 3600; defaults to 60.
+             * @description Base retry delay, in seconds. The delay after attempt N is retry_backoff_seconds * 2^(N-1), capped at 24 hours. Between 1 and 3600; defaults to 60.
              */
             retry_backoff_seconds?: number;
-            /** @description Custom User-Agent header sent with deliveries. */
+            /** @description Stored and returned, but deliveries do not use it yet: they always send User-Agent: Sparrow-Webhook/<server version>. To send another User-Agent, set it in headers. Defaults to Sparrow-Webhook/1.0. */
             user_agent?: string;
             /** @description Whether to verify the endpoint's TLS certificate. Defaults to true. Set false only for trusted internal endpoints with self-signed certificates; SSRF and redirect checks still apply. */
             verify_ssl?: boolean;
         };
         WebhookHTTPConfigOut: {
-            /** @description Whether the endpoint's response body is stored with each delivery attempt. */
+            /** @description false: up to 1 KiB of each response body is stored; true: up to SPARROW_MAX_CAPTURED_RESPONSE_BYTES (default 1 MiB). */
             capture_response_body: boolean;
-            /** @description Content-Type header sent with deliveries. */
+            /** @description Stored value; deliveries currently send Content-Type: application/json unless headers override it. */
             content_type?: string;
-            /** @description HTTP status codes treated as a successful delivery; 2xx if empty. */
+            /** @description HTTP status codes treated as a successful delivery. */
             expected_status_codes?: number[] | null;
             /** @description Whether HTTP redirects returned by the endpoint are followed. */
             follow_redirects: boolean;
             /**
              * Format: int64
-             * @description Maximum delivery attempts before a delivery is marked failed.
+             * @description Retries after the first attempt before a delivery is marked failed (up to max_retries + 1 attempts).
              */
             max_retries: number;
             /**
              * Format: double
-             * @description Delivery rate limit for this webhook, in requests per second.
+             * @description Delivery rate limit for this webhook, in requests per second; absent means no limit.
              */
             rate_limit_rps?: number;
             /**
@@ -2911,10 +3171,10 @@ export interface components {
             request_timeout_seconds: number;
             /**
              * Format: int64
-             * @description Base delay between retry attempts, in seconds.
+             * @description Base retry delay, in seconds; the delay after attempt N is retry_backoff_seconds * 2^(N-1), capped at 24 hours.
              */
             retry_backoff_seconds: number;
-            /** @description User-Agent header sent with deliveries. */
+            /** @description Stored value; deliveries currently always send User-Agent: Sparrow-Webhook/<server version> unless headers override it. */
             user_agent?: string;
             /** @description Whether the endpoint's TLS certificate is verified. */
             verify_ssl: boolean;
@@ -2930,64 +3190,64 @@ export interface components {
             readonly $schema?: string;
             /**
              * Format: int64
-             * @description Average endpoint response time, in milliseconds.
+             * @description Average endpoint response time over the window, in milliseconds.
              */
             avg_response_time: number;
             /**
              * Format: int64
-             * @description Count of 4xx failures.
+             * @description Failed attempts in the window with a 4xx response (client_error).
              */
             client_errors: number;
             /**
              * Format: int64
-             * @description Current streak of consecutive failed deliveries; resets on success.
+             * @description Current run of consecutive failed attempts; resets on a success.
              */
             consecutive_failures: number;
             /**
              * Format: int64
-             * @description Deliveries that failed.
+             * @description Failed attempts in the window.
              */
             failed_deliveries: number;
             /**
-             * @description Computed rolling health status.
+             * @description Health label from the last health evaluation: healthy, degraded, unhealthy, or unknown (too few recent attempts). Updated every SPARROW_HEALTH_EVAL_INTERVAL (default 1m).
              * @enum {string}
              */
             health: "healthy" | "degraded" | "unhealthy" | "unknown";
             /**
              * Format: int64
-             * @description Count of other network-level failures (DNS, TLS, connection refused, reset).
+             * @description Failed attempts in the window with a network-level error (DNS, TLS, connection refused, reset).
              */
             network_errors: number;
             /** @description Thresholds the health status is derived from. */
             rules: components["schemas"]["HealthRules"];
             /**
              * Format: int64
-             * @description Count of 5xx failures.
+             * @description Failed attempts in the window with a 5xx response (server_error).
              */
             server_errors: number;
             /**
              * Format: double
-             * @description Rolling success rate, 0.0 to 1.0.
+             * @description successful_deliveries / total_deliveries over the window, 0.0 to 1.0.
              */
             success_rate: number;
             /**
              * Format: int64
-             * @description Deliveries that succeeded.
+             * @description Successful attempts in the window.
              */
             successful_deliveries: number;
             /**
              * Format: int64
-             * @description Count of request/connection timeout failures.
+             * @description Failed attempts in the window that timed out.
              */
             timeout_errors: number;
             /**
              * Format: int64
-             * @description Total deliveries recorded for this webhook.
+             * @description Delivery attempts in the last rules.window_hours hours (each retry counts).
              */
             total_deliveries: number;
             /**
              * Format: int64
-             * @description Count of responses outside the webhook's configured expected_status_codes.
+             * @description Attempts in the window whose 2xx/3xx response was not in expected_status_codes.
              */
             unexpected_status_errors: number;
             /** @description Webhook id (UUID). */
@@ -3000,13 +3260,13 @@ export interface components {
              * @example https://example.com/schemas/WebhookOut.json
              */
             readonly $schema?: string;
-            /** @description Whether the webhook currently receives deliveries. */
+            /** @description Whether deliveries are sent. false: paused by an operator or auto-disabled; new deliveries are held as paused. */
             active: boolean;
             /** @description Set when Sparrow paused this webhook itself because its receiver kept failing (see SPARROW_AUTO_DISABLE_AFTER), RFC3339. Cleared when the webhook is resumed. */
             auto_disabled_at?: string;
             /** @description Why Sparrow auto-disabled this webhook. Cleared when the webhook is resumed. */
             auto_disabled_reason?: string;
-            /** @description Tenant consumer this webhook belongs to. */
+            /** @description Consumer this webhook belongs to. */
             consumer: string;
             /** @description Creation timestamp, RFC3339. */
             created_at: string;
@@ -3019,7 +3279,7 @@ export interface components {
                 [key: string]: string;
             };
             /**
-             * @description Computed rolling health status.
+             * @description Health label from the last health evaluation (see getWebhookHealth).
              * @enum {string}
              */
             health: "healthy" | "degraded" | "unhealthy" | "unknown";
@@ -3054,11 +3314,11 @@ export interface components {
             readonly $schema?: string;
             /** @description False when SPARROW_API_KEY is unset: every endpoint is open. */
             auth_enabled: boolean;
-            /** @description True when the request used SPARROW_API_KEY itself. */
+            /** @description True when the request used SPARROW_API_KEY itself. Always false when auth is off. */
             master_key: boolean;
-            /** @description Name of the credential used for this request. */
+            /** @description Name of the credential used for this request: the master key's name, the access token's name, or a placeholder when auth is off. */
             name: string;
-            /** @description Id of the access token used, if any. */
+            /** @description Id of the access token used; null for the master key or when auth is off. */
             token_id: string | null;
         };
     };
@@ -3173,6 +3433,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Consumer whose webhooks the alert covers. */
                 consumer: string;
             };
             cookie?: never;
@@ -3235,7 +3496,9 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Consumer the alert config belongs to. */
                 consumer: string;
+                /** @description Alert config id (UUID). */
                 alert_config_id: string;
             };
             cookie?: never;
@@ -3281,25 +3544,25 @@ export interface operations {
     listDeliveries: {
         parameters: {
             query?: {
-                /** @description Filter to deliveries for one webhook. */
+                /** @description Filter to deliveries for one webhook (UUID; 400 otherwise). */
                 webhook_id?: string;
-                /** @description Filter to deliveries for one pushed event occurrence. */
+                /** @description Filter to deliveries for one pushed event occurrence (UUID; 400 otherwise). */
                 event_id?: string;
                 /** @description Filter by delivery status. */
                 status?: "pending" | "sending" | "success" | "failed" | "retrying" | "expired" | "paused";
-                /** @description Filter by failure classification (e.g. server_error, client_error, timeout). */
+                /** @description Filter by the most recent attempt's error_category, e.g. server_error, client_error, timeout. */
                 error_category?: string;
-                /** @description Filter to deliveries created by one subscription, e.g. its paused deliveries. */
+                /** @description Filter to deliveries created by one subscription (UUID), e.g. its paused deliveries. */
                 subscription_id?: string;
                 /** @description Filter to deliveries of one event type, e.g. order.created. Also matches deliveries whose subscription has since been replaced or deleted. */
                 event_name?: string;
-                /** @description Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at). */
+                /** @description Only deliveries created at or after this time: YYYY-MM-DD (start of that day, UTC) or an RFC3339 timestamp (e.g. an import's imported_at). */
                 created_after?: string;
-                /** @description Filter to deliveries created on or before this date (YYYY-MM-DD) or exact time (RFC3339). */
+                /** @description Only deliveries created at or before this time: YYYY-MM-DD (through the end of that day, UTC) or an RFC3339 timestamp. */
                 created_before?: string;
-                /** @description If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint. */
+                /** @description Side effect: when true, also snapshots the ids of every delivery matching the filters (not just this page; at most 10,000, more is an error) into a batch job and returns its id as retry_id. Pass it as repush_id to POST .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot. */
                 prepare_retry?: boolean;
-                /** @description Maximum items to return. */
+                /** @description Maximum items to return, 1 to 1000. */
                 limit?: number;
                 /** @description Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new deliveries arrive. */
                 cursor?: string;
@@ -3308,7 +3571,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Tenant consumer to list deliveries in. */
+                /** @description Consumer to list deliveries in. */
                 consumer: string;
             };
             cookie?: never;
@@ -3340,7 +3603,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Tenant consumer the delivery belongs to. */
+                /** @description Consumer the delivery belongs to. */
                 consumer: string;
                 /** @description Delivery id (UUID). */
                 delivery_id: string;
@@ -3392,7 +3655,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Tenant consumer the delivery belongs to. */
+                /** @description Consumer the delivery belongs to. */
                 consumer: string;
                 /** @description Delivery id (UUID). */
                 delivery_id: string;
@@ -3444,7 +3707,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Tenant consumer the delivery belongs to. */
+                /** @description Consumer the delivery belongs to. */
                 consumer: string;
                 /** @description Delivery id (UUID) to retry. */
                 delivery_id: string;
@@ -3462,8 +3725,26 @@ export interface operations {
                     "application/json": components["schemas"]["RetryOutputBody"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3496,7 +3777,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Tenant consumer the webhook belongs to. */
+                /** @description Consumer the webhook belongs to. */
                 consumer: string;
             };
             cookie?: never;
@@ -3559,6 +3840,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Consumer name. The job is looked up by id; this segment is not checked against it. */
                 consumer: string;
             };
             cookie?: never;
@@ -3596,6 +3878,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Unprocessable Entity */
             422: {
                 headers: {
@@ -3621,17 +3912,17 @@ export interface operations {
             query?: {
                 /** @description Filter to occurrences of this event type name. */
                 event?: string;
-                /** @description Filter by schema validation result: valid or invalid. */
+                /** @description Filter by schema validation result: valid or invalid. Other values are 400. */
                 schema_valid?: string;
-                /** @description Filter by labels as comma-separated key=value pairs. Matches occurrences whose labels contain every pair. */
+                /** @description Filter by labels as comma-separated key=value pairs, e.g. region=eu,tier=gold. Matches occurrences whose labels contain every pair. */
                 labels?: string;
-                /** @description Filter to occurrences created on or after this date (YYYY-MM-DD). */
+                /** @description Only occurrences created at or after this time: YYYY-MM-DD (start of that day, UTC) or an RFC3339 timestamp. */
                 created_after?: string;
-                /** @description Filter to occurrences created on or before this date (YYYY-MM-DD). */
+                /** @description Only occurrences created at or before this time: YYYY-MM-DD (through the end of that day, UTC) or an RFC3339 timestamp. */
                 created_before?: string;
-                /** @description If true, snapshot the matching occurrences into a repush_id you can pass to the batch re-push endpoint. */
+                /** @description Side effect: when true, also snapshots the ids of every occurrence matching the filters (not just this page; at most 10,000, more is an error) into a batch job and returns its id as repush_id. Pass it to POST .../events:rePush within 15 minutes. Each call creates a new snapshot. */
                 prepare_repush?: boolean;
-                /** @description Maximum items to return. */
+                /** @description Maximum items to return, 1 to 1000. */
                 limit?: number;
                 /** @description Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new events arrive. */
                 cursor?: string;
@@ -3640,7 +3931,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Tenant consumer to list occurrences in. */
+                /** @description Consumer to list occurrences in. */
                 consumer: string;
             };
             cookie?: never;
@@ -3670,12 +3961,12 @@ export interface operations {
     pushEvent: {
         parameters: {
             query: {
-                /** @description Name of a registered event type (at most 255 characters). */
+                /** @description Name of a registered, active event type (at most 255 characters). An unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true; sparrow.* names are reserved (400). */
                 event: string;
             };
             header?: never;
             path: {
-                /** @description Tenant consumer to record the occurrence in. */
+                /** @description Consumer to record the occurrence in. Created implicitly on first use. */
                 consumer: string;
             };
             cookie?: never;
@@ -3713,6 +4004,24 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Unprocessable Entity */
             422: {
                 headers: {
@@ -3738,6 +4047,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Consumer name. The job is looked up by id; this segment is not checked against it. */
                 consumer: string;
             };
             cookie?: never;
@@ -3775,6 +4085,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Unprocessable Entity */
             422: {
                 headers: {
@@ -3800,7 +4119,9 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Consumer name. The job is looked up by id; this segment is not checked against it. */
                 consumer: string;
+                /** @description Batch job id (UUID): the repush_id or retry_id from the list call. */
                 job_id: string;
             };
             cookie?: never;
@@ -3816,8 +4137,26 @@ export interface operations {
                     "application/json": components["schemas"]["BatchJobOutputBody"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3850,7 +4189,9 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Consumer name. The job is looked up by id; this segment is not checked against it. */
                 consumer: string;
+                /** @description Batch job id (UUID): the repush_id or retry_id from the list call. */
                 job_id: string;
             };
             cookie?: never;
@@ -3863,6 +4204,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
             };
             /** @description Not Found */
             404: {
@@ -3907,7 +4257,9 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Consumer name. The job is looked up by id; this segment is not checked against it. */
                 consumer: string;
+                /** @description Batch job id (UUID): the repush_id or retry_id from the list call. */
                 job_id: string;
             };
             cookie?: never;
@@ -3923,8 +4275,26 @@ export interface operations {
                     "application/json": components["schemas"]["BatchJobOutputBody"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3957,7 +4327,9 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Consumer name. The job is looked up by id; this segment is not checked against it. */
                 consumer: string;
+                /** @description Batch job id (UUID): the repush_id or retry_id from the list call. */
                 job_id: string;
             };
             cookie?: never;
@@ -3970,6 +4342,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
             };
             /** @description Not Found */
             404: {
@@ -4014,6 +4395,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Consumer name. */
                 consumer: string;
             };
             cookie?: never;
@@ -4043,18 +4425,18 @@ export interface operations {
     listSubscriptions: {
         parameters: {
             query?: {
-                /** @description Filter to subscriptions for one webhook. */
+                /** @description Filter to subscriptions for one webhook (UUID). Takes precedence over event_name: when both are given, event_name is ignored. */
                 webhook_id?: string;
-                /** @description Filter to subscriptions for one event type name. */
+                /** @description Filter to subscriptions with exactly this event_name ("*" matches only catch-all subscriptions). */
                 event_name?: string;
-                /** @description Maximum items to return. */
+                /** @description Maximum items to return, 1 to 1000. */
                 limit?: number;
                 /** @description Number of items to skip, for pagination. */
                 offset?: number;
             };
             header?: never;
             path: {
-                /** @description Tenant consumer to list subscriptions in. */
+                /** @description Consumer to list subscriptions in. */
                 consumer: string;
             };
             cookie?: never;
@@ -4086,6 +4468,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Consumer the webhook belongs to. */
                 consumer: string;
             };
             cookie?: never;
@@ -4123,6 +4506,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Unprocessable Entity */
             422: {
                 headers: {
@@ -4148,7 +4540,9 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Consumer the subscription belongs to. */
                 consumer: string;
+                /** @description Subscription id (UUID). */
                 subscription_id: string;
             };
             cookie?: never;
@@ -4198,7 +4592,9 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Consumer the subscription belongs to. */
                 consumer: string;
+                /** @description Subscription id (UUID). */
                 subscription_id: string;
             };
             cookie?: never;
@@ -4246,7 +4642,9 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Consumer the subscription belongs to. */
                 consumer: string;
+                /** @description Subscription id (UUID). */
                 subscription_id: string;
             };
             cookie?: never;
@@ -4307,12 +4705,14 @@ export interface operations {
     listSubscriptionTemplateVersions: {
         parameters: {
             query?: {
-                /** @description Max versions to return, newest first. */
+                /** @description Maximum versions to return, newest first, 1 to 20. */
                 limit?: number;
             };
             header?: never;
             path: {
+                /** @description Consumer the subscription belongs to. */
                 consumer: string;
+                /** @description Subscription id (UUID). */
                 subscription_id: string;
             };
             cookie?: never;
@@ -4362,7 +4762,9 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Consumer the subscription belongs to. */
                 consumer: string;
+                /** @description Subscription id (UUID). */
                 subscription_id: string;
             };
             cookie?: never;
@@ -4425,7 +4827,9 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Consumer the subscription belongs to. */
                 consumer: string;
+                /** @description Subscription id (UUID). */
                 subscription_id: string;
             };
             cookie?: never;
@@ -4477,11 +4881,11 @@ export interface operations {
                 webhook_id?: string;
                 /** @description Filter to webhooks subscribed to this event type name. */
                 event?: string;
-                /** @description Only return active webhooks. */
+                /** @description true returns only active (not paused) webhooks; false returns all. */
                 active?: boolean;
                 /** @description Filter by computed health status. */
                 health?: "healthy" | "degraded" | "unhealthy" | "unknown" | "";
-                /** @description Maximum items to return. */
+                /** @description Maximum items to return, 1 to 1000. */
                 limit?: number;
                 /** @description Number of items to skip, for pagination. */
                 offset?: number;
@@ -4520,6 +4924,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Consumer to register the webhook under. Created implicitly on first use. */
                 consumer: string;
             };
             cookie?: never;
@@ -4684,7 +5089,9 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Consumer the webhook belongs to. */
                 consumer: string;
+                /** @description Webhook id (UUID). */
                 webhook_id: string;
             };
             cookie?: never;
@@ -4833,6 +5240,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Unprocessable Entity */
             422: {
                 headers: {
@@ -4878,6 +5294,15 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4962,25 +5387,25 @@ export interface operations {
             query?: {
                 /** @description Filter to one consumer; omit to list deliveries across all consumers. */
                 consumer?: string;
-                /** @description Filter to deliveries for one webhook. */
+                /** @description Filter to deliveries for one webhook (UUID; 400 otherwise). */
                 webhook_id?: string;
-                /** @description Filter to deliveries for one pushed event occurrence. */
+                /** @description Filter to deliveries for one pushed event occurrence (UUID; 400 otherwise). */
                 event_id?: string;
                 /** @description Filter by delivery status. */
                 status?: "pending" | "sending" | "success" | "failed" | "retrying" | "expired" | "paused";
-                /** @description Filter by failure classification (e.g. server_error, client_error, timeout). */
+                /** @description Filter by the most recent attempt's error_category, e.g. server_error, client_error, timeout. */
                 error_category?: string;
-                /** @description Filter to deliveries created by one subscription, e.g. its paused deliveries. */
+                /** @description Filter to deliveries created by one subscription (UUID), e.g. its paused deliveries. */
                 subscription_id?: string;
                 /** @description Filter to deliveries of one event type, e.g. order.created. Also matches deliveries whose subscription has since been replaced or deleted. */
                 event_name?: string;
-                /** @description Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at). */
+                /** @description Only deliveries created at or after this time: YYYY-MM-DD (start of that day, UTC) or an RFC3339 timestamp (e.g. an import's imported_at). */
                 created_after?: string;
-                /** @description Filter to deliveries created on or before this date (YYYY-MM-DD) or exact time (RFC3339). */
+                /** @description Only deliveries created at or before this time: YYYY-MM-DD (through the end of that day, UTC) or an RFC3339 timestamp. */
                 created_before?: string;
-                /** @description If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint. */
+                /** @description Side effect: when true, also snapshots the ids of every delivery matching the filters (not just this page; at most 10,000, more is an error) into a batch job and returns its id as retry_id. Pass it as repush_id to POST .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot. */
                 prepare_retry?: boolean;
-                /** @description Maximum items to return. */
+                /** @description Maximum items to return, 1 to 1000. */
                 limit?: number;
                 /** @description Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new deliveries arrive. */
                 cursor?: string;
@@ -5018,6 +5443,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Delivery id (UUID). */
                 delivery_id: string;
             };
             cookie?: never;
@@ -5067,6 +5493,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Delivery id (UUID). */
                 delivery_id: string;
             };
             cookie?: never;
@@ -5116,6 +5543,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Delivery id (UUID). */
                 delivery_id: string;
             };
             cookie?: never;
@@ -5131,8 +5559,26 @@ export interface operations {
                     "application/json": components["schemas"]["RetryOutputBody"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5163,11 +5609,11 @@ export interface operations {
     listEventTypes: {
         parameters: {
             query?: {
-                /** @description Only return active event types. */
+                /** @description true returns only active event types; false returns all. */
                 active_only?: boolean;
                 /** @description Return the event types this consumer can subscribe to: Sparrow's own sparrow.* events for the _sparrow consumer, tenant event types for any other consumer or when omitted. */
                 consumer?: string;
-                /** @description Maximum items to return. */
+                /** @description Maximum items to return, 1 to 1000. */
                 limit?: number;
                 /** @description Number of items to skip, for pagination. */
                 offset?: number;
@@ -5263,6 +5709,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Event type name, e.g. order.created. */
                 name: string;
             };
             cookie?: never;
@@ -5315,6 +5762,7 @@ export interface operations {
             };
             header?: never;
             path: {
+                /** @description Event type name, e.g. order.created. */
                 name: string;
             };
             cookie?: never;
@@ -5386,6 +5834,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Event type name, e.g. order.created. */
                 name: string;
             };
             cookie?: never;
@@ -5435,6 +5884,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Event type name, e.g. order.created. */
                 name: string;
                 /** @description Version number. */
                 version: number;
@@ -5486,6 +5936,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Event type name, e.g. order.created. */
                 name: string;
             };
             cookie?: never;
@@ -5652,17 +6103,17 @@ export interface operations {
                 consumer?: string;
                 /** @description Filter to occurrences of this event type name. */
                 event?: string;
-                /** @description Filter by schema validation result: valid or invalid. */
+                /** @description Filter by schema validation result: valid or invalid. Other values are 400. */
                 schema_valid?: string;
-                /** @description Filter by labels as comma-separated key=value pairs. Matches occurrences whose labels contain every pair. */
+                /** @description Filter by labels as comma-separated key=value pairs, e.g. region=eu,tier=gold. Matches occurrences whose labels contain every pair. */
                 labels?: string;
-                /** @description Filter to occurrences created on or after this date (YYYY-MM-DD). */
+                /** @description Only occurrences created at or after this time: YYYY-MM-DD (start of that day, UTC) or an RFC3339 timestamp. */
                 created_after?: string;
-                /** @description Filter to occurrences created on or before this date (YYYY-MM-DD). */
+                /** @description Only occurrences created at or before this time: YYYY-MM-DD (through the end of that day, UTC) or an RFC3339 timestamp. */
                 created_before?: string;
-                /** @description If true, snapshot the matching occurrences into a repush_id you can pass to the batch re-push endpoint. */
+                /** @description Side effect: when true, also snapshots the ids of every occurrence matching the filters (not just this page; at most 10,000, more is an error) into a batch job and returns its id as repush_id. Pass it to POST .../events:rePush within 15 minutes. Each call creates a new snapshot. */
                 prepare_repush?: boolean;
-                /** @description Maximum items to return. */
+                /** @description Maximum items to return, 1 to 1000. */
                 limit?: number;
                 /** @description Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new events arrive. */
                 cursor?: string;
@@ -5700,6 +6151,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Event occurrence id (UUID). */
                 event_id: string;
             };
             cookie?: never;
@@ -5758,6 +6210,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Event occurrence id (UUID). */
                 event_id: string;
             };
             cookie?: never;
@@ -5773,8 +6226,26 @@ export interface operations {
                     "application/json": components["schemas"]["RepushEventOutputBody"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5949,6 +6420,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Invite id (the id field, not the secret). */
                 invite_id: string;
             };
             cookie?: never;
@@ -6072,11 +6544,11 @@ export interface operations {
             query?: {
                 /** @description Filter to one consumer; omit to list subscriptions across all consumers. */
                 consumer?: string;
-                /** @description Filter to subscriptions for one webhook. */
+                /** @description Filter to subscriptions for one webhook (UUID). Takes precedence over event_name: when both are given, event_name is ignored. */
                 webhook_id?: string;
-                /** @description Filter to subscriptions for one event type name. */
+                /** @description Filter to subscriptions with exactly this event_name ("*" matches only catch-all subscriptions). */
                 event_name?: string;
-                /** @description Maximum items to return. */
+                /** @description Maximum items to return, 1 to 1000. */
                 limit?: number;
                 /** @description Number of items to skip, for pagination. */
                 offset?: number;
@@ -6312,6 +6784,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
         };
     };
     getTemplateFunctions: {
@@ -6346,7 +6827,7 @@ export interface operations {
     listTokens: {
         parameters: {
             query?: {
-                /** @description Only tokens limited to this consumer. */
+                /** @description Only tokens limited to this consumer. Omit to list every token, tenant-wide ones included. */
                 consumer?: string;
                 /** @description Also return revoked and expired tokens. */
                 include_inactive?: boolean;
@@ -6460,6 +6941,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Token id (the id field, not the secret). */
                 token_id: string;
             };
             cookie?: never;
@@ -6520,7 +7002,7 @@ export interface operations {
                 health?: "healthy" | "degraded" | "unhealthy" | "unknown" | "";
                 /** @description Look up a single webhook by id when its consumer is unknown. */
                 webhook_id?: string;
-                /** @description Maximum items to return. */
+                /** @description Maximum items to return; values above 1000 are capped at 1000. */
                 limit?: number;
                 /** @description Number of items to skip, for pagination. */
                 offset?: number;

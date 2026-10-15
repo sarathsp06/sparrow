@@ -18,7 +18,7 @@ T = TypeVar("T", bound="ListRecipesOutputBody")
 class ListRecipesOutputBody:
     """
     Attributes:
-        items (list[Recipe] | None):
+        items (list[Recipe] | None): Every shipped recipe.
         schema (str | Unset): A URL to the JSON Schema for this object.
     """
 

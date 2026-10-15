@@ -20,16 +20,19 @@ T = TypeVar("T", bound="PushEventBody")
 class PushEventBody:
     """
     Attributes:
-        payload (PushEventBodyPayload): Event payload, validated (softly) against the event type's JSON Schema if one is
-            registered.
+        payload (PushEventBodyPayload): Event payload, a JSON object. Validated softly against the event type's JSON
+            Schema if one is registered. The whole request body is limited by SPARROW_MAX_BODY_BYTES (default 5 MiB).
         schema (str | Unset): A URL to the JSON Schema for this object.
-        idempotency_key (str | Unset): Optional client-supplied key; re-pushing with the same key returns the original
-            event instead of creating a duplicate.
-        labels (PushEventBodyLabels | Unset): Key/value labels a subscription's label filters can match against to
-            select which subscribers receive this occurrence.
+        idempotency_key (str | Unset): Client-supplied deduplication key, unique per consumer. A push whose key matches
+            an earlier event in the same consumer still returns 201, with duplicate: true and the original event_id, and
+            creates no event or deliveries. The key is kept as long as the event (see SPARROW_EVENT_RETENTION_DAYS).
+        labels (PushEventBodyLabels | Unset): Key/value labels a subscription's label_filters match against to decide
+            which subscriptions receive this occurrence. At most 20 pairs; keys up to 64 characters of letters, digits, '.',
+            '_' and '-'; values up to 256 characters.
         metadata (PushEventBodyMetadata | Unset): Arbitrary key/value metadata stored with the occurrence.
-        ttl_seconds (int | Unset): Optional time-to-live in seconds; deliveries are no longer attempted after this
-            expires.
+        ttl_seconds (int | Unset): Time-to-live in seconds, counted from fan-out. A delivery attempt that would start
+            after it expires is not made and the delivery fails as expired. 0 or omitted means no expiry. Manual retries
+            ignore it.
     """
 
     payload: PushEventBodyPayload

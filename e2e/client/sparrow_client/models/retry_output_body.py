@@ -14,9 +14,9 @@ T = TypeVar("T", bound="RetryOutputBody")
 class RetryOutputBody:
     """
     Attributes:
-        count (int): Number of deliveries retried.
+        count (int): Number of deliveries queued for another round of attempts.
         schema (str | Unset): A URL to the JSON Schema for this object.
-        delivery_ids (list[str] | None | Unset): Ids of the deliveries that were retried.
+        delivery_ids (list[str] | None | Unset): Ids of the deliveries queued. Absent when nothing matched.
     """
 
     count: int

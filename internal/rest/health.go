@@ -13,18 +13,18 @@ import (
 type webhookHealthOutput struct {
 	Body struct {
 		WebhookID              string      `json:"webhook_id" doc:"Webhook id (UUID)."`
-		Health                 string      `json:"health" enum:"healthy,degraded,unhealthy,unknown" doc:"Computed rolling health status."`
-		TotalDeliveries        int         `json:"total_deliveries" doc:"Total deliveries recorded for this webhook."`
-		SuccessfulDeliveries   int         `json:"successful_deliveries" doc:"Deliveries that succeeded."`
-		FailedDeliveries       int         `json:"failed_deliveries" doc:"Deliveries that failed."`
-		ConsecutiveFailures    int         `json:"consecutive_failures" doc:"Current streak of consecutive failed deliveries; resets on success."`
-		SuccessRate            float64     `json:"success_rate" doc:"Rolling success rate, 0.0 to 1.0."`
-		AvgResponseTime        int         `json:"avg_response_time" doc:"Average endpoint response time, in milliseconds."`
-		ClientErrors           int         `json:"client_errors" doc:"Count of 4xx failures."`
-		ServerErrors           int         `json:"server_errors" doc:"Count of 5xx failures."`
-		TimeoutErrors          int         `json:"timeout_errors" doc:"Count of request/connection timeout failures."`
-		NetworkErrors          int         `json:"network_errors" doc:"Count of other network-level failures (DNS, TLS, connection refused, reset)."`
-		UnexpectedStatusErrors int         `json:"unexpected_status_errors" doc:"Count of responses outside the webhook's configured expected_status_codes."`
+		Health                 string      `json:"health" enum:"healthy,degraded,unhealthy,unknown" doc:"Health label from the last health evaluation: healthy, degraded, unhealthy, or unknown (too few recent attempts). Updated every SPARROW_HEALTH_EVAL_INTERVAL (default 1m)."`
+		TotalDeliveries        int         `json:"total_deliveries" doc:"Delivery attempts in the last rules.window_hours hours (each retry counts)."`
+		SuccessfulDeliveries   int         `json:"successful_deliveries" doc:"Successful attempts in the window."`
+		FailedDeliveries       int         `json:"failed_deliveries" doc:"Failed attempts in the window."`
+		ConsecutiveFailures    int         `json:"consecutive_failures" doc:"Current run of consecutive failed attempts; resets on a success."`
+		SuccessRate            float64     `json:"success_rate" doc:"successful_deliveries / total_deliveries over the window, 0.0 to 1.0."`
+		AvgResponseTime        int         `json:"avg_response_time" doc:"Average endpoint response time over the window, in milliseconds."`
+		ClientErrors           int         `json:"client_errors" doc:"Failed attempts in the window with a 4xx response (client_error)."`
+		ServerErrors           int         `json:"server_errors" doc:"Failed attempts in the window with a 5xx response (server_error)."`
+		TimeoutErrors          int         `json:"timeout_errors" doc:"Failed attempts in the window that timed out."`
+		NetworkErrors          int         `json:"network_errors" doc:"Failed attempts in the window with a network-level error (DNS, TLS, connection refused, reset)."`
+		UnexpectedStatusErrors int         `json:"unexpected_status_errors" doc:"Attempts in the window whose 2xx/3xx response was not in expected_status_codes."`
 		Rules                  HealthRules `json:"rules" doc:"Thresholds the health status is derived from."`
 	}
 }
@@ -56,10 +56,10 @@ func healthRules() HealthRules {
 
 type healthSummaryOutput struct {
 	Body struct {
-		HealthyCount   int         `json:"healthy_count" doc:"Webhooks currently healthy."`
-		DegradedCount  int         `json:"degraded_count" doc:"Webhooks currently degraded."`
-		UnhealthyCount int         `json:"unhealthy_count" doc:"Webhooks currently unhealthy."`
-		UnknownCount   int         `json:"unknown_count" doc:"Webhooks with no recent delivery attempts."`
+		HealthyCount   int         `json:"healthy_count" doc:"Webhooks currently labelled healthy."`
+		DegradedCount  int         `json:"degraded_count" doc:"Webhooks currently labelled degraded."`
+		UnhealthyCount int         `json:"unhealthy_count" doc:"Webhooks currently labelled unhealthy."`
+		UnknownCount   int         `json:"unknown_count" doc:"Webhooks labelled unknown: too few recent attempts to judge."`
 		Rules          HealthRules `json:"rules" doc:"Thresholds the health statuses are derived from."`
 	}
 }
@@ -76,7 +76,7 @@ type listWebhooksGlobalInput struct {
 	Consumer  string `query:"consumer,omitempty" doc:"Filter to one consumer; omit to list webhooks across all consumers."`
 	Health    string `query:"health,omitempty" enum:"healthy,degraded,unhealthy,unknown," doc:"Filter to webhooks with this computed health status."`
 	WebhookID string `query:"webhook_id,omitempty" doc:"Look up a single webhook by id when its consumer is unknown."`
-	Limit     int32  `query:"limit" default:"50" doc:"Maximum items to return."`
+	Limit     int32  `query:"limit" default:"50" doc:"Maximum items to return; values above 1000 are capped at 1000."`
 	Offset    int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
 }
 
@@ -95,7 +95,7 @@ func registerHealthRoutes(api huma.API, svc healthRouteService) {
 		Method:      http.MethodGet,
 		Path:        "/v1/consumers/{consumer}/webhooks/{webhook_id}/health",
 		Summary:     "Get health status and metrics for a webhook",
-		Description: "Returns one webhook's computed health status (healthy/degraded/unhealthy) plus rolling delivery counts and per-category error counts (client, server, timeout, network, unexpected-status).",
+		Description: "Returns one webhook's health label plus attempt counts and per-category error counts (client, server, timeout, network, unexpected-status) over the last rules.window_hours hours, and the thresholds the label is derived from. The label lags by up to SPARROW_HEALTH_EVAL_INTERVAL. Counts are zero before the first attempt. 404 when the webhook is not in this consumer.\n\nPortal tokens: allowed, as GET /portal/api/webhooks/{webhook_id}/health.",
 		Errors:      []int{404},
 		Tags:        []string{"Health"},
 	}, func(ctx context.Context, in *webhookIDInput) (*webhookHealthOutput, error) {
@@ -126,7 +126,7 @@ func registerHealthRoutes(api huma.API, svc healthRouteService) {
 		Method:      http.MethodGet,
 		Path:        "/v1/health-summary",
 		Summary:     "Get aggregate webhook health counts",
-		Description: "Returns how many webhooks are currently healthy, degraded, unhealthy, or unknown, in one consumer or across every consumer — for a top-level dashboard tile — plus the thresholds behind those statuses.",
+		Description: "Returns how many webhooks are currently healthy, degraded, unhealthy, or unknown, in one consumer or across every consumer — for a top-level dashboard tile, plus the thresholds behind those statuses. Deleted webhooks are not counted.\n\nPortal tokens: not allowed.",
 		Tags:        []string{"Health"},
 	}, func(ctx context.Context, in *healthSummaryInput) (*healthSummaryOutput, error) {
 		s, err := svc.GetHealthSummary(ctx, in.Consumer)
@@ -147,7 +147,7 @@ func registerHealthRoutes(api huma.API, svc healthRouteService) {
 		Method:      http.MethodGet,
 		Path:        "/v1/webhooks",
 		Summary:     "List webhooks across all consumers",
-		Description: "Cross-consumer webhook listing. Pass consumer to scope to one consumer, health to filter by computed status, or webhook_id for an id-only lookup when the consumer isn't known.",
+		Description: "Lists webhooks across every consumer, newest first, with masked secrets. Pass consumer to scope to one consumer, health to filter by label, or webhook_id for an id-only lookup when the consumer is not known. Offset paginated with total_count.\n\nPortal tokens: not allowed.",
 		Tags:        []string{"Health"},
 	}, func(ctx context.Context, in *listWebhooksGlobalInput) (*listWebhooksOutput, error) {
 		regs, total, err := svc.ListWebhooks(ctx, in.Consumer, in.WebhookID, "", false, in.Health, in.Limit, in.Offset)

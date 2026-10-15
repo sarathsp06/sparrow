@@ -12,7 +12,7 @@ T = TypeVar("T", bound="CreateSubscriptionBodyLabelFilters")
 @_attrs_define
 class CreateSubscriptionBodyLabelFilters:
     """Key/value pairs that must ALL be present in an event's labels for this subscription to receive it. Empty means match
-    every event of event_name.
+    every event of event_name. Same limits as event labels (20 pairs, 64-character keys, 256-character values).
 
     """
 

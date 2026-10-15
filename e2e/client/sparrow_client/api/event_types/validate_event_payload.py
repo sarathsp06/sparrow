@@ -82,12 +82,15 @@ def sync_detailed(
 ) -> Response[ErrorModel | ValidateEventPayloadOutputBody]:
     """Validate a payload against an event type's JSON Schema
 
-     Checks a payload against the event type's registered JSON Schema without pushing an event. Does not
-    affect delivery — pushEvent always accepts events regardless of schema validity; this lets callers
-    (e.g. the Push Test Event UI) enforce a hard gate before submitting.
+     Checks a payload against the event type's current JSON Schema without pushing an event or storing
+    anything. pushEvent accepts events regardless of schema validity; this lets callers (e.g. the Push
+    Test Event UI) enforce a hard gate before submitting. An invalid payload is still 200, with valid:
+    false. 404 when the name is not registered.
+
+    Portal tokens: not allowed.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
         body (ValidateEventPayloadInputBody):
 
     Raises:
@@ -118,12 +121,15 @@ def sync(
 ) -> ErrorModel | ValidateEventPayloadOutputBody | None:
     """Validate a payload against an event type's JSON Schema
 
-     Checks a payload against the event type's registered JSON Schema without pushing an event. Does not
-    affect delivery — pushEvent always accepts events regardless of schema validity; this lets callers
-    (e.g. the Push Test Event UI) enforce a hard gate before submitting.
+     Checks a payload against the event type's current JSON Schema without pushing an event or storing
+    anything. pushEvent accepts events regardless of schema validity; this lets callers (e.g. the Push
+    Test Event UI) enforce a hard gate before submitting. An invalid payload is still 200, with valid:
+    false. 404 when the name is not registered.
+
+    Portal tokens: not allowed.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
         body (ValidateEventPayloadInputBody):
 
     Raises:
@@ -149,12 +155,15 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | ValidateEventPayloadOutputBody]:
     """Validate a payload against an event type's JSON Schema
 
-     Checks a payload against the event type's registered JSON Schema without pushing an event. Does not
-    affect delivery — pushEvent always accepts events regardless of schema validity; this lets callers
-    (e.g. the Push Test Event UI) enforce a hard gate before submitting.
+     Checks a payload against the event type's current JSON Schema without pushing an event or storing
+    anything. pushEvent accepts events regardless of schema validity; this lets callers (e.g. the Push
+    Test Event UI) enforce a hard gate before submitting. An invalid payload is still 200, with valid:
+    false. 404 when the name is not registered.
+
+    Portal tokens: not allowed.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
         body (ValidateEventPayloadInputBody):
 
     Raises:
@@ -183,12 +192,15 @@ async def asyncio(
 ) -> ErrorModel | ValidateEventPayloadOutputBody | None:
     """Validate a payload against an event type's JSON Schema
 
-     Checks a payload against the event type's registered JSON Schema without pushing an event. Does not
-    affect delivery — pushEvent always accepts events regardless of schema validity; this lets callers
-    (e.g. the Push Test Event UI) enforce a hard gate before submitting.
+     Checks a payload against the event type's current JSON Schema without pushing an event or storing
+    anything. pushEvent accepts events regardless of schema validity; this lets callers (e.g. the Push
+    Test Event UI) enforce a hard gate before submitting. An invalid payload is still 200, with valid:
+    false. 404 when the name is not registered.
+
+    Portal tokens: not allowed.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
         body (ValidateEventPayloadInputBody):
 
     Raises:

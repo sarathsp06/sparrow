@@ -11,7 +11,12 @@ T = TypeVar("T", bound="RegisterWebhookBodyHeaders")
 
 @_attrs_define
 class RegisterWebhookBodyHeaders:
-    """Static HTTP headers sent with every delivery to this webhook."""
+    """Static HTTP headers sent with every delivery to this webhook. Only string values are sent. Names must be valid HTTP
+    tokens, values at most 8 KiB with no CR/LF; framing headers (Host, Content-Length, Transfer-Encoding, Connection,
+    Keep-Alive, Proxy-Connection, TE, Trailer, Upgrade) are rejected. Stored and returned in plaintext: put credentials
+    in secret_headers.
+
+    """
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 

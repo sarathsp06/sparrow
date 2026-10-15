@@ -19,7 +19,7 @@ T = TypeVar("T", bound="ListWebhooksOutputBody")
 class ListWebhooksOutputBody:
     """
     Attributes:
-        items (list[WebhookOut] | None):
+        items (list[WebhookOut] | None): Webhooks, newest first.
         pagination (PaginationOutput):
         schema (str | Unset): A URL to the JSON Schema for this object.
     """

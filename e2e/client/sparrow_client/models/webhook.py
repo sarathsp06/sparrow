@@ -19,10 +19,12 @@ T = TypeVar("T", bound="Webhook")
 class Webhook:
     """
     Attributes:
-        url (str):
-        headers (WebhookHeaders | Unset):
-        requires_transform (bool | Unset):
-        secret_headers (WebhookSecretHeaders | Unset):
+        url (str): Destination URL; may contain {{param}} tokens.
+        headers (WebhookHeaders | Unset): Static headers sent with every delivery; values may contain {{param}} tokens.
+        requires_transform (bool | Unset): The destination only accepts the transformed payload; the webhook is
+            registered with requires_transform.
+        secret_headers (WebhookSecretHeaders | Unset): Headers whose values are encrypted at rest and masked in API
+            responses (upstream tokens, passwords); values may contain {{param}} tokens.
     """
 
     url: str

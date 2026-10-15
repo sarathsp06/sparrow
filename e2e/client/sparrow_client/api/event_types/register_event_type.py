@@ -82,8 +82,15 @@ def sync_detailed(
 ) -> Response[ErrorModel | EventTypeItem]:
     """Register an event type definition
 
-     Defines a named event type, optionally with a JSON Schema. Subscriptions reference event types by
-    name; pushing an event requires that its type already be registered.
+     Defines a named event type at version 1, optionally with a JSON Schema; the response includes a
+    sample_payload generated from the schema. Pushing an event requires its type to be registered
+    (unless SPARROW_AUTO_REGISTER_EVENTS=true). Event types are never deleted; deactivate one with
+    active: false.
+
+    Not idempotent: 409 when the name already exists (use PATCH, or :import, to change it). 400 for a
+    missing, too long or reserved (sparrow.*) name or an invalid schema.
+
+    Portal tokens: not allowed.
 
     Args:
         body (EventTypeBody):
@@ -114,8 +121,15 @@ def sync(
 ) -> ErrorModel | EventTypeItem | None:
     """Register an event type definition
 
-     Defines a named event type, optionally with a JSON Schema. Subscriptions reference event types by
-    name; pushing an event requires that its type already be registered.
+     Defines a named event type at version 1, optionally with a JSON Schema; the response includes a
+    sample_payload generated from the schema. Pushing an event requires its type to be registered
+    (unless SPARROW_AUTO_REGISTER_EVENTS=true). Event types are never deleted; deactivate one with
+    active: false.
+
+    Not idempotent: 409 when the name already exists (use PATCH, or :import, to change it). 400 for a
+    missing, too long or reserved (sparrow.*) name or an invalid schema.
+
+    Portal tokens: not allowed.
 
     Args:
         body (EventTypeBody):
@@ -141,8 +155,15 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | EventTypeItem]:
     """Register an event type definition
 
-     Defines a named event type, optionally with a JSON Schema. Subscriptions reference event types by
-    name; pushing an event requires that its type already be registered.
+     Defines a named event type at version 1, optionally with a JSON Schema; the response includes a
+    sample_payload generated from the schema. Pushing an event requires its type to be registered
+    (unless SPARROW_AUTO_REGISTER_EVENTS=true). Event types are never deleted; deactivate one with
+    active: false.
+
+    Not idempotent: 409 when the name already exists (use PATCH, or :import, to change it). 400 for a
+    missing, too long or reserved (sparrow.*) name or an invalid schema.
+
+    Portal tokens: not allowed.
 
     Args:
         body (EventTypeBody):
@@ -171,8 +192,15 @@ async def asyncio(
 ) -> ErrorModel | EventTypeItem | None:
     """Register an event type definition
 
-     Defines a named event type, optionally with a JSON Schema. Subscriptions reference event types by
-    name; pushing an event requires that its type already be registered.
+     Defines a named event type at version 1, optionally with a JSON Schema; the response includes a
+    sample_payload generated from the schema. Pushing an event requires its type to be registered
+    (unless SPARROW_AUTO_REGISTER_EVENTS=true). Event types are never deleted; deactivate one with
+    active: false.
+
+    Not idempotent: 409 when the name already exists (use PATCH, or :import, to change it). 400 for a
+    missing, too long or reserved (sparrow.*) name or an invalid schema.
+
+    Portal tokens: not allowed.
 
     Args:
         body (EventTypeBody):

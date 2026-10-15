@@ -14,15 +14,15 @@ T = TypeVar("T", bound="PushEventOutputBody")
 class PushEventOutputBody:
     """
     Attributes:
-        duplicate (bool): True when idempotency_key matched an existing event occurrence; no new event or deliveries
-            were created.
+        duplicate (bool): True when idempotency_key matched an existing event occurrence in this consumer; no new event
+            or deliveries were created and the status is still 201.
         event_id (str): Id (UUID) of the created event occurrence. When duplicate is true, this is the id of the
             PREVIOUSLY created event, not a new one.
-        schema_valid (bool): Whether the payload validated against the event type's JSON Schema. False does not mean the
-            push was rejected — see warnings.
+        schema_valid (bool): Whether the payload validated against the event type's JSON Schema (true when it has none).
+            False does not mean the push was rejected; see warnings. For a duplicate, the original event's result.
         schema (str | Unset): A URL to the JSON Schema for this object.
         warnings (list[str] | None | Unset): Non-fatal schema validation warnings. The event is stored and delivered
-            regardless.
+            regardless. Absent for a duplicate.
     """
 
     duplicate: bool

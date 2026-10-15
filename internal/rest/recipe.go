@@ -11,7 +11,7 @@ import (
 
 type listRecipesOutput struct {
 	Body struct {
-		Items []recipes.Recipe `json:"items"`
+		Items []recipes.Recipe `json:"items" doc:"Every shipped recipe."`
 	}
 }
 
@@ -21,7 +21,7 @@ func registerRecipeRoutes(api huma.API) {
 		Method:      http.MethodGet,
 		Path:        "/v1/recipes",
 		Summary:     "List shipped adapter recipes",
-		Description: "Lists recipe templates shipped with this Sparrow server. Recipes pre-fill webhook destinations, headers, and optional subscription transforms.",
+		Description: "Lists the adapter recipes built into this Sparrow server. A recipe pre-fills a webhook destination, headers and a subscription transform; clients (the UI, sparrow use) substitute the params and register the webhook. Static and read-only.\n\nPortal tokens: not allowed.",
 		Errors:      []int{500},
 		Tags:        []string{"Recipes"},
 	}, func(ctx context.Context, _ *struct{}) (*listRecipesOutput, error) {

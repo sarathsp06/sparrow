@@ -75,8 +75,12 @@ def sync_detailed(
 ) -> Response[ErrorModel | WebhookHealthOutputBody]:
     """Get health status and metrics for a webhook
 
-     Returns one webhook's computed health status (healthy/degraded/unhealthy) plus rolling delivery
-    counts and per-category error counts (client, server, timeout, network, unexpected-status).
+     Returns one webhook's health label plus attempt counts and per-category error counts (client,
+    server, timeout, network, unexpected-status) over the last rules.window_hours hours, and the
+    thresholds the label is derived from. The label lags by up to SPARROW_HEALTH_EVAL_INTERVAL. Counts
+    are zero before the first attempt. 404 when the webhook is not in this consumer.
+
+    Portal tokens: allowed, as GET /portal/api/webhooks/{webhook_id}/health.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.
@@ -110,8 +114,12 @@ def sync(
 ) -> ErrorModel | WebhookHealthOutputBody | None:
     """Get health status and metrics for a webhook
 
-     Returns one webhook's computed health status (healthy/degraded/unhealthy) plus rolling delivery
-    counts and per-category error counts (client, server, timeout, network, unexpected-status).
+     Returns one webhook's health label plus attempt counts and per-category error counts (client,
+    server, timeout, network, unexpected-status) over the last rules.window_hours hours, and the
+    thresholds the label is derived from. The label lags by up to SPARROW_HEALTH_EVAL_INTERVAL. Counts
+    are zero before the first attempt. 404 when the webhook is not in this consumer.
+
+    Portal tokens: allowed, as GET /portal/api/webhooks/{webhook_id}/health.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.
@@ -140,8 +148,12 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | WebhookHealthOutputBody]:
     """Get health status and metrics for a webhook
 
-     Returns one webhook's computed health status (healthy/degraded/unhealthy) plus rolling delivery
-    counts and per-category error counts (client, server, timeout, network, unexpected-status).
+     Returns one webhook's health label plus attempt counts and per-category error counts (client,
+    server, timeout, network, unexpected-status) over the last rules.window_hours hours, and the
+    thresholds the label is derived from. The label lags by up to SPARROW_HEALTH_EVAL_INTERVAL. Counts
+    are zero before the first attempt. 404 when the webhook is not in this consumer.
+
+    Portal tokens: allowed, as GET /portal/api/webhooks/{webhook_id}/health.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.
@@ -173,8 +185,12 @@ async def asyncio(
 ) -> ErrorModel | WebhookHealthOutputBody | None:
     """Get health status and metrics for a webhook
 
-     Returns one webhook's computed health status (healthy/degraded/unhealthy) plus rolling delivery
-    counts and per-category error counts (client, server, timeout, network, unexpected-status).
+     Returns one webhook's health label plus attempt counts and per-category error counts (client,
+    server, timeout, network, unexpected-status) over the last rules.window_hours hours, and the
+    thresholds the label is derived from. The label lags by up to SPARROW_HEALTH_EVAL_INTERVAL. Counts
+    are zero before the first attempt. 404 when the webhook is not in this consumer.
+
+    Portal tokens: allowed, as GET /portal/api/webhooks/{webhook_id}/health.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.

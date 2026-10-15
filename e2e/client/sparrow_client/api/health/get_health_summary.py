@@ -61,7 +61,10 @@ def sync_detailed(
     """Get aggregate webhook health counts
 
      Returns how many webhooks are currently healthy, degraded, unhealthy, or unknown, in one consumer or
-    across every consumer — for a top-level dashboard tile — plus the thresholds behind those statuses.
+    across every consumer — for a top-level dashboard tile, plus the thresholds behind those statuses.
+    Deleted webhooks are not counted.
+
+    Portal tokens: not allowed.
 
     Args:
         consumer (str | Unset): Count one consumer's webhooks; omit to count across all consumers.
@@ -93,7 +96,10 @@ def sync(
     """Get aggregate webhook health counts
 
      Returns how many webhooks are currently healthy, degraded, unhealthy, or unknown, in one consumer or
-    across every consumer — for a top-level dashboard tile — plus the thresholds behind those statuses.
+    across every consumer — for a top-level dashboard tile, plus the thresholds behind those statuses.
+    Deleted webhooks are not counted.
+
+    Portal tokens: not allowed.
 
     Args:
         consumer (str | Unset): Count one consumer's webhooks; omit to count across all consumers.
@@ -120,7 +126,10 @@ async def asyncio_detailed(
     """Get aggregate webhook health counts
 
      Returns how many webhooks are currently healthy, degraded, unhealthy, or unknown, in one consumer or
-    across every consumer — for a top-level dashboard tile — plus the thresholds behind those statuses.
+    across every consumer — for a top-level dashboard tile, plus the thresholds behind those statuses.
+    Deleted webhooks are not counted.
+
+    Portal tokens: not allowed.
 
     Args:
         consumer (str | Unset): Count one consumer's webhooks; omit to count across all consumers.
@@ -150,7 +159,10 @@ async def asyncio(
     """Get aggregate webhook health counts
 
      Returns how many webhooks are currently healthy, degraded, unhealthy, or unknown, in one consumer or
-    across every consumer — for a top-level dashboard tile — plus the thresholds behind those statuses.
+    across every consumer — for a top-level dashboard tile, plus the thresholds behind those statuses.
+    Deleted webhooks are not counted.
+
+    Portal tokens: not allowed.
 
     Args:
         consumer (str | Unset): Count one consumer's webhooks; omit to count across all consumers.

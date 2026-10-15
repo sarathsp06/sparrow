@@ -72,10 +72,12 @@ def sync_detailed(
 ) -> Response[AttemptsOutputBody | ErrorModel]:
     """Get a delivery's per-attempt history (any consumer)
 
-     Consumer-agnostic variant of getDeliveryAttempts.
+     Same as getDeliveryAttempts, without a consumer.
+
+    Portal tokens: not allowed.
 
     Args:
-        delivery_id (str):
+        delivery_id (str): Delivery id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -103,10 +105,12 @@ def sync(
 ) -> AttemptsOutputBody | ErrorModel | None:
     """Get a delivery's per-attempt history (any consumer)
 
-     Consumer-agnostic variant of getDeliveryAttempts.
+     Same as getDeliveryAttempts, without a consumer.
+
+    Portal tokens: not allowed.
 
     Args:
-        delivery_id (str):
+        delivery_id (str): Delivery id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -129,10 +133,12 @@ async def asyncio_detailed(
 ) -> Response[AttemptsOutputBody | ErrorModel]:
     """Get a delivery's per-attempt history (any consumer)
 
-     Consumer-agnostic variant of getDeliveryAttempts.
+     Same as getDeliveryAttempts, without a consumer.
+
+    Portal tokens: not allowed.
 
     Args:
-        delivery_id (str):
+        delivery_id (str): Delivery id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -158,10 +164,12 @@ async def asyncio(
 ) -> AttemptsOutputBody | ErrorModel | None:
     """Get a delivery's per-attempt history (any consumer)
 
-     Consumer-agnostic variant of getDeliveryAttempts.
+     Same as getDeliveryAttempts, without a consumer.
+
+    Portal tokens: not allowed.
 
     Args:
-        delivery_id (str):
+        delivery_id (str): Delivery id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

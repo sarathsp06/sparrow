@@ -16,11 +16,14 @@ class CreateInviteBody:
     Attributes:
         name (str): Name for the token the invite creates, e.g. the invitee's name.
         schema (str | Unset): A URL to the JSON Schema for this object.
-        consumer (str | Unset): Invite into one consumer's portal. Omit for tenant-wide (operator console) access.
+        consumer (str | Unset): Invite into one consumer's portal: the token it creates is limited to that consumer.
+            Omit for tenant-wide (operator console) access. Same naming rules as on POST /v1/tokens.
         token_never_expires (bool | Unset): The token it creates never expires; same rules as never_expires on POST
             /v1/tokens.
-        token_ttl_seconds (int | Unset): Lifetime of the token it creates; same defaults and limits as POST /v1/tokens.
-        ttl_seconds (int | Unset): How long the invite can be used. Defaults to 24 hours, at most 7 days.
+        token_ttl_seconds (int | Unset): Lifetime in seconds of the token it creates, counted from redemption; same
+            defaults and limits as ttl_seconds on POST /v1/tokens.
+        ttl_seconds (int | Unset): How long the invite can be redeemed, in seconds. 0 or omitted means 24 hours; at most
+            7 days.
     """
 
     name: str

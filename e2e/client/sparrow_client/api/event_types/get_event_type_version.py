@@ -75,10 +75,13 @@ def sync_detailed(
 ) -> Response[ErrorModel | EventTypeVersionItem]:
     """Get one version of an event type
 
-     Fetches a specific version's schema, sample payload and description.
+     Returns one version's schema, sample payload and description. 404 when the name or version does not
+    exist.
+
+    Portal tokens: allowed, as GET /portal/api/event-types/{name}/versions/{version}.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
         version (int): Version number.
 
     Raises:
@@ -109,10 +112,13 @@ def sync(
 ) -> ErrorModel | EventTypeVersionItem | None:
     """Get one version of an event type
 
-     Fetches a specific version's schema, sample payload and description.
+     Returns one version's schema, sample payload and description. 404 when the name or version does not
+    exist.
+
+    Portal tokens: allowed, as GET /portal/api/event-types/{name}/versions/{version}.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
         version (int): Version number.
 
     Raises:
@@ -138,10 +144,13 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | EventTypeVersionItem]:
     """Get one version of an event type
 
-     Fetches a specific version's schema, sample payload and description.
+     Returns one version's schema, sample payload and description. 404 when the name or version does not
+    exist.
+
+    Portal tokens: allowed, as GET /portal/api/event-types/{name}/versions/{version}.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
         version (int): Version number.
 
     Raises:
@@ -170,10 +179,13 @@ async def asyncio(
 ) -> ErrorModel | EventTypeVersionItem | None:
     """Get one version of an event type
 
-     Fetches a specific version's schema, sample payload and description.
+     Returns one version's schema, sample payload and description. 404 when the name or version does not
+    exist.
+
+    Portal tokens: allowed, as GET /portal/api/event-types/{name}/versions/{version}.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
         version (int): Version number.
 
     Raises:

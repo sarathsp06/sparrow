@@ -14,17 +14,22 @@ T = TypeVar("T", bound="WebhookHTTPConfigOut")
 class WebhookHTTPConfigOut:
     """
     Attributes:
-        capture_response_body (bool): Whether the endpoint's response body is stored with each delivery attempt.
+        capture_response_body (bool): false: up to 1 KiB of each response body is stored; true: up to
+            SPARROW_MAX_CAPTURED_RESPONSE_BYTES (default 1 MiB).
         follow_redirects (bool): Whether HTTP redirects returned by the endpoint are followed.
-        max_retries (int): Maximum delivery attempts before a delivery is marked failed.
+        max_retries (int): Retries after the first attempt before a delivery is marked failed (up to max_retries + 1
+            attempts).
         request_timeout_seconds (int): Per-attempt request timeout, in seconds.
-        retry_backoff_seconds (int): Base delay between retry attempts, in seconds.
+        retry_backoff_seconds (int): Base retry delay, in seconds; the delay after attempt N is retry_backoff_seconds *
+            2^(N-1), capped at 24 hours.
         verify_ssl (bool): Whether the endpoint's TLS certificate is verified.
-        content_type (str | Unset): Content-Type header sent with deliveries.
-        expected_status_codes (list[int] | None | Unset): HTTP status codes treated as a successful delivery; 2xx if
-            empty.
-        rate_limit_rps (float | Unset): Delivery rate limit for this webhook, in requests per second.
-        user_agent (str | Unset): User-Agent header sent with deliveries.
+        content_type (str | Unset): Stored value; deliveries currently send Content-Type: application/json unless
+            headers override it.
+        expected_status_codes (list[int] | None | Unset): HTTP status codes treated as a successful delivery.
+        rate_limit_rps (float | Unset): Delivery rate limit for this webhook, in requests per second; absent means no
+            limit.
+        user_agent (str | Unset): Stored value; deliveries currently always send User-Agent: Sparrow-Webhook/<server
+            version> unless headers override it.
         webhook_secret (str | Unset): HMAC signing secret. Shown in full only once, in the response to webhook
             registration; masked on every later read.
     """

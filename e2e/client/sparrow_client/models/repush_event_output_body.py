@@ -14,9 +14,11 @@ T = TypeVar("T", bound="RepushEventOutputBody")
 class RepushEventOutputBody:
     """
     Attributes:
-        event_id (str): Id of the re-pushed event occurrence (same id, replayed).
+        event_id (str): Id (UUID) of the new event occurrence created by the replay. The original occurrence is
+            unchanged.
         schema (str | Unset): A URL to the JSON Schema for this object.
-        warnings (list[str] | None | Unset): Non-fatal schema validation warnings from re-validating the stored payload.
+        warnings (list[str] | None | Unset): Non-fatal warnings from validating the stored payload against the event
+            type's current schema.
     """
 
     event_id: str

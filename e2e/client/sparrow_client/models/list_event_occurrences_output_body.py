@@ -19,12 +19,12 @@ T = TypeVar("T", bound="ListEventOccurrencesOutputBody")
 class ListEventOccurrencesOutputBody:
     """
     Attributes:
-        items (list[EventOccurrenceItem] | None):
+        items (list[EventOccurrenceItem] | None): Occurrences, newest first.
         pagination (CursorPaginationOutput):
         schema (str | Unset): A URL to the JSON Schema for this object.
-        repush_id (str | Unset): Snapshot id for the batch re-push endpoint, present when prepare_repush was set and
-            something matched.
-        repush_total (int | Unset): Number of occurrences in that snapshot.
+        repush_id (str | Unset): Snapshot (batch job) id for POST .../events:rePush, present when prepare_repush was set
+            and something matched. Expires after 15 minutes if not started.
+        repush_total (int | Unset): Number of occurrences in that snapshot (all matches, not just this page).
     """
 
     items: list[EventOccurrenceItem] | None

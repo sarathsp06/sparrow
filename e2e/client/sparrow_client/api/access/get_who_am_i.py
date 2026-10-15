@@ -47,6 +47,11 @@ def sync_detailed(
 ) -> Response[ErrorModel | WhoAmIOutputBody]:
     """Show which credential this request used
 
+     Reports whether auth is on and which credential (master key or access token) authenticated this
+    request. No side effects. Useful to check a key or token before using it.
+
+    Portal tokens: not allowed.
+
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
@@ -70,6 +75,11 @@ def sync(
 ) -> ErrorModel | WhoAmIOutputBody | None:
     """Show which credential this request used
 
+     Reports whether auth is on and which credential (master key or access token) authenticated this
+    request. No side effects. Useful to check a key or token before using it.
+
+    Portal tokens: not allowed.
+
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
@@ -88,6 +98,11 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
 ) -> Response[ErrorModel | WhoAmIOutputBody]:
     """Show which credential this request used
+
+     Reports whether auth is on and which credential (master key or access token) authenticated this
+    request. No side effects. Useful to check a key or token before using it.
+
+    Portal tokens: not allowed.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -109,6 +124,11 @@ async def asyncio(
     client: AuthenticatedClient | Client,
 ) -> ErrorModel | WhoAmIOutputBody | None:
     """Show which credential this request used
+
+     Reports whether auth is on and which credential (master key or access token) authenticated this
+    request. No side effects. Useful to check a key or token before using it.
+
+    Portal tokens: not allowed.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

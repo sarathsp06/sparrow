@@ -69,11 +69,11 @@ func extendWriteDeadline(d time.Duration) func(huma.Context, func(huma.Context))
 type capabilitiesOutput struct {
 	Body struct {
 		AIDrafting struct {
-			Enabled    bool   `json:"enabled" doc:"True when the server is started with SPARROW_AI_ENABLED=true. POST /v1/subscriptions:draftTemplate is usable unless problem is set."`
+			Enabled    bool   `json:"enabled" doc:"True when the server is started with SPARROW_AI_ENABLED=true, whether or not the provider settings are valid. Drafting (POST /v1/subscriptions:draftTemplate) is usable only when enabled is true and problem is absent."`
 			Problem    string `json:"problem,omitempty" doc:"Why drafting is enabled but not usable: a missing or invalid provider setting. POST /v1/subscriptions:draftTemplate answers 503 with this text."`
-			Model      string `json:"model,omitempty" doc:"Model id used for drafting, when enabled."`
-			PromptOnly bool   `json:"prompt_only" doc:"True when drafting is off. POST /v1/subscriptions:draftTemplatePrompt builds the prompt for pasting into any chat assistant whatever this says."`
-			Provider   string `json:"provider,omitempty" enum:"anthropic,openai" doc:"Chat API behind drafting: anthropic, or openai for any OpenAI-compatible server (Ollama, vLLM, OpenRouter, OpenAI)."`
+			Model      string `json:"model,omitempty" doc:"Model id used for drafting; absent when drafting is off or not usable."`
+			PromptOnly bool   `json:"prompt_only" doc:"Always the opposite of enabled: true when SPARROW_AI_ENABLED is not true, so clients offer only the copy-and-paste prompt. POST /v1/subscriptions:draftTemplatePrompt works whatever this says."`
+			Provider   string `json:"provider,omitempty" enum:"anthropic,openai" doc:"Chat API behind drafting: anthropic, or openai for any OpenAI-compatible server (Ollama, vLLM, OpenRouter, OpenAI). Absent when drafting is off or not usable."`
 		} `json:"ai_drafting" doc:"AI-assisted transform template drafting."`
 		AlertDelivery struct {
 			Configured bool `json:"configured" doc:"True when an active webhook under the _sparrow consumer has an unpaused subscription to Sparrow's system events, so alert configs actually send email. When false, alert configs are stored but nothing is sent."`
@@ -98,7 +98,7 @@ type draftTemplateInput struct {
 type draftTemplatePromptOutput struct {
 	Body struct {
 		Prompt       string `json:"prompt" doc:"A self-contained prompt to paste into any chat assistant: the template data model, rules, helper catalog, the event's schema and sample payload, any recipe, receiver example, docs excerpt, current template, and the instructions. Asks for the template in a code block."`
-		SampleSource string `json:"sample_source" enum:"registered,provided" doc:"Which sample payload the prompt carries."`
+		SampleSource string `json:"sample_source" enum:"registered,provided" doc:"Which sample payload the prompt carries: registered (the event type's sample_payload) or provided (sample_payload from the request)."`
 	}
 }
 
@@ -106,7 +106,7 @@ type draftTemplateOutput struct {
 	Body struct {
 		Template     string `json:"template" doc:"The drafted Go template, ready to save as transform_template."`
 		Rendered     string `json:"rendered" doc:"The template rendered against the sample payload used (provided or registered), proving it renders."`
-		SampleSource string `json:"sample_source" enum:"registered,provided" doc:"Which sample payload grounded and verified the draft."`
+		SampleSource string `json:"sample_source" enum:"registered,provided" doc:"Which sample payload grounded and verified the draft: registered or provided."`
 		Notes        string `json:"notes,omitempty" doc:"Short explanation from the model of the fields used and assumptions made."`
 		Attempts     int    `json:"attempts" doc:"Draft/render rounds it took; more than 1 means an earlier draft failed to render and was repaired."`
 		Model        string `json:"model" doc:"Model id that produced the draft."`
@@ -120,8 +120,9 @@ func registerAIRoutes(api huma.API, svc webhooks.WebhookServiceInterface, deps A
 		Method:      http.MethodGet,
 		Path:        "/v1/capabilities",
 		Summary:     "List optional server features",
-		Description: "Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, and whether alert email delivery is set up.",
-		Tags:        []string{"Server"},
+		Description: "Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, and whether alert email delivery is set up. Read-only.\n\n" +
+			"ai_drafting.enabled reflects SPARROW_AI_ENABLED=true; drafting is usable only when enabled is true and problem is absent; prompt_only is the opposite of enabled.\n\nPortal tokens: allowed, as GET /portal/api/capabilities.",
+		Tags: []string{"Server"},
 	}, func(ctx context.Context, _ *struct{}) (*capabilitiesOutput, error) {
 		out := &capabilitiesOutput{}
 		out.Body.AIDrafting.Enabled = deps.enabled()
@@ -146,9 +147,10 @@ func registerAIRoutes(api huma.API, svc webhooks.WebhookServiceInterface, deps A
 		Method:      http.MethodPost,
 		Path:        "/v1/subscriptions:draftTemplate",
 		Summary:     "Draft a transform template with AI",
-		Description: "Drafts a transform_template from a plain-language description, grounded in the event type's JSON Schema and sample payload, the template helper catalog, and optionally a shipped recipe's destination format or an example body the receiver expects. Every draft is rendered against the sample payload (as POST /v1/subscriptions:testTemplate does) and repaired until it renders, so the returned template is known to work. Nothing is saved: put the template into a subscription's transform_template. Requires SPARROW_AI_ENABLED=true and the provider settings (SPARROW_AI_API_KEY for Anthropic, or SPARROW_AI_PROVIDER=openai with SPARROW_AI_BASE_URL and SPARROW_AI_MODEL for any OpenAI-compatible server); otherwise 503, naming the missing setting. Only the sample payload (registered or provided in the request), the schema, and the request's own text are sent to the model, never stored events, headers, or secrets.",
-		Errors:      []int{400, 404, 429, 503, 504},
-		Tags:        []string{"Subscriptions"},
+		Description: "Drafts a transform_template from a plain-language description, grounded in the event type's JSON Schema and sample payload, the template helper catalog, and optionally a shipped recipe's destination format or an example body the receiver expects. Every draft is rendered against the sample payload (as POST /v1/subscriptions:testTemplate does) and repaired until it renders, so the returned template is known to work. Nothing is saved: put the template into a subscription's transform_template. Requires SPARROW_AI_ENABLED=true and the provider settings (SPARROW_AI_API_KEY for Anthropic, or SPARROW_AI_PROVIDER=openai with SPARROW_AI_BASE_URL and SPARROW_AI_MODEL for any OpenAI-compatible server); otherwise 503, naming the missing setting. Only the sample payload (registered or provided in the request), the schema, and the request's own text are sent to the model, never stored events, headers, or secrets.\n\n" +
+			"Not idempotent (model output varies). 404 for an unknown event type or recipe, 429 when the provider rate-limits, 504 when the draft takes longer than SPARROW_AI_TIMEOUT (default 3m).\n\nPortal tokens: not allowed.",
+		Errors: []int{400, 404, 429, 503, 504},
+		Tags:   []string{"Subscriptions"},
 		// Room to write the answer (or the 504) after the draft's own budget.
 		Middlewares: huma.Middlewares{extendWriteDeadline(deps.draftTimeout() + 30*time.Second)},
 	}, func(ctx context.Context, in *draftTemplateInput) (*draftTemplateOutput, error) {
@@ -224,7 +226,7 @@ func registerPromptRoute(api huma.API, svc webhooks.WebhookServiceInterface, dep
 		Method:      http.MethodPost,
 		Path:        "/v1/subscriptions:draftTemplatePrompt",
 		Summary:     "Build the AI drafting prompt without calling a model",
-		Description: "Returns the same prompt POST /v1/subscriptions:draftTemplate would send, as one self-contained text to paste into any chat assistant (ChatGPT, Claude, a local model). Works whether or not the server has an AI provider configured, so installs without SPARROW_AI_* still get a one-click prompt. The user pastes the assistant's template back into the subscription editor and checks it with Run Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched under the delivery network policy to include an excerpt.",
+		Description: "Returns the same prompt POST /v1/subscriptions:draftTemplate would send, as one self-contained text to paste into any chat assistant (ChatGPT, Claude, a local model). Works whether or not the server has an AI provider configured, so installs without SPARROW_AI_* still get a one-click prompt. The user pastes the assistant's template back into the subscription editor and checks it with Run Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched under the delivery network policy to include an excerpt. No side effects.\n\nPortal tokens: not allowed.",
 		Errors:      []int{400, 404},
 		Tags:        []string{"Subscriptions"},
 	}, func(ctx context.Context, in *draftTemplateInput) (*draftTemplatePromptOutput, error) {

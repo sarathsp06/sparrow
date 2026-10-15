@@ -84,7 +84,11 @@ def sync_detailed(
 
      Creates a single-use, expiring invite. Opening the returned path in the UI exchanges it for a new
     access token named after the invitee (POST /invite/redeem), so nobody pastes a key into chat. A
-    consumer invite opens that consumer's portal instead of the operator console.
+    consumer invite opens that consumer's portal instead of the operator console. The secret is returned
+    only here. Redeeming happens at POST /invite/redeem (outside /v1, no credential needed); an unknown,
+    used, cancelled or expired invite gets 400 invalid_invite there.
+
+    Portal tokens: not allowed.
 
     Args:
         body (CreateInviteBody):
@@ -117,7 +121,11 @@ def sync(
 
      Creates a single-use, expiring invite. Opening the returned path in the UI exchanges it for a new
     access token named after the invitee (POST /invite/redeem), so nobody pastes a key into chat. A
-    consumer invite opens that consumer's portal instead of the operator console.
+    consumer invite opens that consumer's portal instead of the operator console. The secret is returned
+    only here. Redeeming happens at POST /invite/redeem (outside /v1, no credential needed); an unknown,
+    used, cancelled or expired invite gets 400 invalid_invite there.
+
+    Portal tokens: not allowed.
 
     Args:
         body (CreateInviteBody):
@@ -145,7 +153,11 @@ async def asyncio_detailed(
 
      Creates a single-use, expiring invite. Opening the returned path in the UI exchanges it for a new
     access token named after the invitee (POST /invite/redeem), so nobody pastes a key into chat. A
-    consumer invite opens that consumer's portal instead of the operator console.
+    consumer invite opens that consumer's portal instead of the operator console. The secret is returned
+    only here. Redeeming happens at POST /invite/redeem (outside /v1, no credential needed); an unknown,
+    used, cancelled or expired invite gets 400 invalid_invite there.
+
+    Portal tokens: not allowed.
 
     Args:
         body (CreateInviteBody):
@@ -176,7 +188,11 @@ async def asyncio(
 
      Creates a single-use, expiring invite. Opening the returned path in the UI exchanges it for a new
     access token named after the invitee (POST /invite/redeem), so nobody pastes a key into chat. A
-    consumer invite opens that consumer's portal instead of the operator console.
+    consumer invite opens that consumer's portal instead of the operator console. The secret is returned
+    only here. Redeeming happens at POST /invite/redeem (outside /v1, no credential needed); an unknown,
+    used, cancelled or expired invite gets 400 invalid_invite there.
+
+    Portal tokens: not allowed.
 
     Args:
         body (CreateInviteBody):

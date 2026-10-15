@@ -87,11 +87,17 @@ def sync_detailed(
 ) -> Response[AlertConfigItem | ErrorModel]:
     """Register an email alert recipient
 
-     Opts an email address into Sparrow's self-generated health-change and permanent-delivery-failure
-    notifications, scoped to one webhook or the whole consumer.
+     Opts an email address into Sparrow's self-generated health-change, permanent-delivery-failure and
+    auto-disable notifications, scoped to one webhook or the whole consumer. Emails are only sent once
+    an alert mailer webhook is registered under the _sparrow consumer (see GET /v1/capabilities
+    alert_delivery.configured). Not idempotent: each call adds a config.
+
+    400 for an invalid email or event type, 404 when webhook_id is not in this consumer.
+
+    Portal tokens: allowed, as POST /portal/api/alert-configs.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer whose webhooks the alert covers.
         body (CreateAlertConfigBody):
 
     Raises:
@@ -122,11 +128,17 @@ def sync(
 ) -> AlertConfigItem | ErrorModel | None:
     """Register an email alert recipient
 
-     Opts an email address into Sparrow's self-generated health-change and permanent-delivery-failure
-    notifications, scoped to one webhook or the whole consumer.
+     Opts an email address into Sparrow's self-generated health-change, permanent-delivery-failure and
+    auto-disable notifications, scoped to one webhook or the whole consumer. Emails are only sent once
+    an alert mailer webhook is registered under the _sparrow consumer (see GET /v1/capabilities
+    alert_delivery.configured). Not idempotent: each call adds a config.
+
+    400 for an invalid email or event type, 404 when webhook_id is not in this consumer.
+
+    Portal tokens: allowed, as POST /portal/api/alert-configs.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer whose webhooks the alert covers.
         body (CreateAlertConfigBody):
 
     Raises:
@@ -152,11 +164,17 @@ async def asyncio_detailed(
 ) -> Response[AlertConfigItem | ErrorModel]:
     """Register an email alert recipient
 
-     Opts an email address into Sparrow's self-generated health-change and permanent-delivery-failure
-    notifications, scoped to one webhook or the whole consumer.
+     Opts an email address into Sparrow's self-generated health-change, permanent-delivery-failure and
+    auto-disable notifications, scoped to one webhook or the whole consumer. Emails are only sent once
+    an alert mailer webhook is registered under the _sparrow consumer (see GET /v1/capabilities
+    alert_delivery.configured). Not idempotent: each call adds a config.
+
+    400 for an invalid email or event type, 404 when webhook_id is not in this consumer.
+
+    Portal tokens: allowed, as POST /portal/api/alert-configs.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer whose webhooks the alert covers.
         body (CreateAlertConfigBody):
 
     Raises:
@@ -185,11 +203,17 @@ async def asyncio(
 ) -> AlertConfigItem | ErrorModel | None:
     """Register an email alert recipient
 
-     Opts an email address into Sparrow's self-generated health-change and permanent-delivery-failure
-    notifications, scoped to one webhook or the whole consumer.
+     Opts an email address into Sparrow's self-generated health-change, permanent-delivery-failure and
+    auto-disable notifications, scoped to one webhook or the whole consumer. Emails are only sent once
+    an alert mailer webhook is registered under the _sparrow consumer (see GET /v1/capabilities
+    alert_delivery.configured). Not idempotent: each call adds a config.
+
+    400 for an invalid email or event type, 404 when webhook_id is not in this consumer.
+
+    Portal tokens: allowed, as POST /portal/api/alert-configs.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer whose webhooks the alert covers.
         body (CreateAlertConfigBody):
 
     Raises:

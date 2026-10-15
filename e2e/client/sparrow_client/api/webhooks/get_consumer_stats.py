@@ -55,11 +55,14 @@ def sync_detailed(
 ) -> Response[ConsumerStatsOutputBody | ErrorModel]:
     """Get aggregate delivery statistics for a consumer
 
-     Returns webhook and delivery counts (total, active, successful, failed, pending, success rate)
-    scoped to one consumer.
+     Returns webhook and delivery-attempt counts (total, active, successful, failed, pending, success
+    rate) for one consumer. Attempt counts come from the health evaluator and lag by up to
+    SPARROW_HEALTH_EVAL_INTERVAL; pending is live.
+
+    Portal tokens: allowed, as GET /portal/api/stats.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer name.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -87,11 +90,14 @@ def sync(
 ) -> ConsumerStatsOutputBody | ErrorModel | None:
     """Get aggregate delivery statistics for a consumer
 
-     Returns webhook and delivery counts (total, active, successful, failed, pending, success rate)
-    scoped to one consumer.
+     Returns webhook and delivery-attempt counts (total, active, successful, failed, pending, success
+    rate) for one consumer. Attempt counts come from the health evaluator and lag by up to
+    SPARROW_HEALTH_EVAL_INTERVAL; pending is live.
+
+    Portal tokens: allowed, as GET /portal/api/stats.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer name.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -114,11 +120,14 @@ async def asyncio_detailed(
 ) -> Response[ConsumerStatsOutputBody | ErrorModel]:
     """Get aggregate delivery statistics for a consumer
 
-     Returns webhook and delivery counts (total, active, successful, failed, pending, success rate)
-    scoped to one consumer.
+     Returns webhook and delivery-attempt counts (total, active, successful, failed, pending, success
+    rate) for one consumer. Attempt counts come from the health evaluator and lag by up to
+    SPARROW_HEALTH_EVAL_INTERVAL; pending is live.
+
+    Portal tokens: allowed, as GET /portal/api/stats.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer name.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -144,11 +153,14 @@ async def asyncio(
 ) -> ConsumerStatsOutputBody | ErrorModel | None:
     """Get aggregate delivery statistics for a consumer
 
-     Returns webhook and delivery counts (total, active, successful, failed, pending, success rate)
-    scoped to one consumer.
+     Returns webhook and delivery-attempt counts (total, active, successful, failed, pending, success
+    rate) for one consumer. Attempt counts come from the health evaluator and lag by up to
+    SPARROW_HEALTH_EVAL_INTERVAL; pending is live.
+
+    Portal tokens: allowed, as GET /portal/api/stats.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer name.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

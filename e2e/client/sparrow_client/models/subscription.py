@@ -12,7 +12,8 @@ T = TypeVar("T", bound="Subscription")
 class Subscription:
     """
     Attributes:
-        transform_template (str):
+        transform_template (str): Go template rendered per delivery to build the destination-native body; may contain
+            {{param}} tokens.
     """
 
     transform_template: str

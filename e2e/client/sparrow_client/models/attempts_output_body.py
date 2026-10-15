@@ -18,7 +18,7 @@ T = TypeVar("T", bound="AttemptsOutputBody")
 class AttemptsOutputBody:
     """
     Attributes:
-        items (list[AttemptItem] | None):
+        items (list[AttemptItem] | None): Every recorded attempt, oldest first.
         schema (str | Unset): A URL to the JSON Schema for this object.
     """
 

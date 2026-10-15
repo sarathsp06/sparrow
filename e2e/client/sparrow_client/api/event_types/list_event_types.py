@@ -72,15 +72,18 @@ def sync_detailed(
 ) -> Response[ErrorModel | ListEventTypesOutputBody]:
     """List event type definitions
 
-     Lists registered event types, optionally only active ones. Sparrow's own sparrow.* events are listed
-    only with consumer=_sparrow.
+     Lists registered event types sorted by name, optionally only active ones. Sparrow's own sparrow.*
+    events are listed only with consumer=_sparrow. Offset paginated with total_count.
+
+    Portal tokens: allowed, as GET /portal/api/event-types; consumer is set to the token's consumer.
 
     Args:
-        active_only (bool | Unset): Only return active event types. Default: False.
+        active_only (bool | Unset): true returns only active event types; false returns all.
+            Default: False.
         consumer (str | Unset): Return the event types this consumer can subscribe to: Sparrow's
             own sparrow.* events for the _sparrow consumer, tenant event types for any other consumer
             or when omitted.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:
@@ -115,15 +118,18 @@ def sync(
 ) -> ErrorModel | ListEventTypesOutputBody | None:
     """List event type definitions
 
-     Lists registered event types, optionally only active ones. Sparrow's own sparrow.* events are listed
-    only with consumer=_sparrow.
+     Lists registered event types sorted by name, optionally only active ones. Sparrow's own sparrow.*
+    events are listed only with consumer=_sparrow. Offset paginated with total_count.
+
+    Portal tokens: allowed, as GET /portal/api/event-types; consumer is set to the token's consumer.
 
     Args:
-        active_only (bool | Unset): Only return active event types. Default: False.
+        active_only (bool | Unset): true returns only active event types; false returns all.
+            Default: False.
         consumer (str | Unset): Return the event types this consumer can subscribe to: Sparrow's
             own sparrow.* events for the _sparrow consumer, tenant event types for any other consumer
             or when omitted.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:
@@ -153,15 +159,18 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | ListEventTypesOutputBody]:
     """List event type definitions
 
-     Lists registered event types, optionally only active ones. Sparrow's own sparrow.* events are listed
-    only with consumer=_sparrow.
+     Lists registered event types sorted by name, optionally only active ones. Sparrow's own sparrow.*
+    events are listed only with consumer=_sparrow. Offset paginated with total_count.
+
+    Portal tokens: allowed, as GET /portal/api/event-types; consumer is set to the token's consumer.
 
     Args:
-        active_only (bool | Unset): Only return active event types. Default: False.
+        active_only (bool | Unset): true returns only active event types; false returns all.
+            Default: False.
         consumer (str | Unset): Return the event types this consumer can subscribe to: Sparrow's
             own sparrow.* events for the _sparrow consumer, tenant event types for any other consumer
             or when omitted.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:
@@ -194,15 +203,18 @@ async def asyncio(
 ) -> ErrorModel | ListEventTypesOutputBody | None:
     """List event type definitions
 
-     Lists registered event types, optionally only active ones. Sparrow's own sparrow.* events are listed
-    only with consumer=_sparrow.
+     Lists registered event types sorted by name, optionally only active ones. Sparrow's own sparrow.*
+    events are listed only with consumer=_sparrow. Offset paginated with total_count.
+
+    Portal tokens: allowed, as GET /portal/api/event-types; consumer is set to the token's consumer.
 
     Args:
-        active_only (bool | Unset): Only return active event types. Default: False.
+        active_only (bool | Unset): true returns only active event types; false returns all.
+            Default: False.
         consumer (str | Unset): Return the event types this consumer can subscribe to: Sparrow's
             own sparrow.* events for the _sparrow consumer, tenant event types for any other consumer
             or when omitted.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:

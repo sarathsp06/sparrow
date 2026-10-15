@@ -85,8 +85,17 @@ The development defaults (`make run`, the local Compose file) use an all-zeros
 key, which is public. With `ENVIRONMENT=production`, 1.0 refuses to start if
 any key in `SPARROW_ENCRYPTION_KEYS` is all zeros; elsewhere it logs a warning.
 If production ever ran on it, add a real key (`openssl rand -hex 32`), make it
-primary, and keep the zero key in the ring until existing secrets are
-re-saved: see [the keyring](#encryption-keyring-never-remove-an-old-key).
+primary, and keep the zero key in the ring permanently, like any key that has
+been primary: see [the keyring](#encryption-keyring-never-remove-an-old-key).
+Re-saving webhook secrets does not free it, because access-token secrets are
+sealed with the keyring too and cannot be re-saved.
+
+Such a ring fails the production check above, so the server will not start
+with `ENVIRONMENT=production` until a rewrap tool lets you retire the zero key.
+Until then, run it without `ENVIRONMENT=production` and set what production
+mode would otherwise enforce yourself: a `SPARROW_API_KEY` of at least 32
+characters and an explicit `CORS_ALLOWED_ORIGINS` (with it empty, CORS allows
+every origin outside production).
 
 ## `/health` is liveness only
 
@@ -112,6 +121,9 @@ deliveries with `template_error`; check yours with
   Before, a hidden 30 second client timeout cut longer requests short.
 - A delivery whose webhook or event lookup fails transiently stays `retrying`
   instead of showing `failed` and later flipping to `success`.
+- `SPARROW_UI_INJECT_KEY` is no longer supported. If it is still set, the
+  server logs a warning at startup and ignores it; the UI asks for a
+  credential on the first `401` instead (master key, access token or invite).
 
 ## AI drafting needs `SPARROW_AI_ENABLED=true`
 

@@ -15,7 +15,9 @@ the response you should get back.
 
 - **Sparrow is running** on `http://localhost:8080`. The quickest way is the
   [Docker Compose file](/sparrow/getting-started/installation/#docker-compose-recommended):
-  `docker compose up -d`.
+  `docker compose up -d`. If port 8080 is taken, run
+  `SPARROW_PORT=8090 docker compose up -d` and use that port in the commands
+  below.
 - **No API key needed.** The local Compose file runs with an open API. If you
   started the server with `SPARROW_API_KEY`, add `-H "X-API-Key: <your key>"`
   to every command below; without it you get `401`.

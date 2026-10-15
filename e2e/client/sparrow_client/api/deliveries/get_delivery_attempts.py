@@ -75,11 +75,14 @@ def sync_detailed(
 ) -> Response[AttemptsOutputBody | ErrorModel]:
     """Get a delivery's per-attempt history
 
-     Returns the full per-attempt record for one delivery: response code, timing, and error
-    classification for every attempt made so far.
+     Returns the per-attempt record for one delivery, oldest first: response code, timing, and error
+    classification for every attempt made so far, across manual retries. An unknown id returns an empty
+    list.
+
+    Portal tokens: allowed, as GET /portal/api/deliveries/{delivery_id}/attempts.
 
     Args:
-        consumer (str): Tenant consumer the delivery belongs to.
+        consumer (str): Consumer the delivery belongs to.
         delivery_id (str): Delivery id (UUID).
 
     Raises:
@@ -110,11 +113,14 @@ def sync(
 ) -> AttemptsOutputBody | ErrorModel | None:
     """Get a delivery's per-attempt history
 
-     Returns the full per-attempt record for one delivery: response code, timing, and error
-    classification for every attempt made so far.
+     Returns the per-attempt record for one delivery, oldest first: response code, timing, and error
+    classification for every attempt made so far, across manual retries. An unknown id returns an empty
+    list.
+
+    Portal tokens: allowed, as GET /portal/api/deliveries/{delivery_id}/attempts.
 
     Args:
-        consumer (str): Tenant consumer the delivery belongs to.
+        consumer (str): Consumer the delivery belongs to.
         delivery_id (str): Delivery id (UUID).
 
     Raises:
@@ -140,11 +146,14 @@ async def asyncio_detailed(
 ) -> Response[AttemptsOutputBody | ErrorModel]:
     """Get a delivery's per-attempt history
 
-     Returns the full per-attempt record for one delivery: response code, timing, and error
-    classification for every attempt made so far.
+     Returns the per-attempt record for one delivery, oldest first: response code, timing, and error
+    classification for every attempt made so far, across manual retries. An unknown id returns an empty
+    list.
+
+    Portal tokens: allowed, as GET /portal/api/deliveries/{delivery_id}/attempts.
 
     Args:
-        consumer (str): Tenant consumer the delivery belongs to.
+        consumer (str): Consumer the delivery belongs to.
         delivery_id (str): Delivery id (UUID).
 
     Raises:
@@ -173,11 +182,14 @@ async def asyncio(
 ) -> AttemptsOutputBody | ErrorModel | None:
     """Get a delivery's per-attempt history
 
-     Returns the full per-attempt record for one delivery: response code, timing, and error
-    classification for every attempt made so far.
+     Returns the per-attempt record for one delivery, oldest first: response code, timing, and error
+    classification for every attempt made so far, across manual retries. An unknown id returns an empty
+    list.
+
+    Portal tokens: allowed, as GET /portal/api/deliveries/{delivery_id}/attempts.
 
     Args:
-        consumer (str): Tenant consumer the delivery belongs to.
+        consumer (str): Consumer the delivery belongs to.
         delivery_id (str): Delivery id (UUID).
 
     Raises:

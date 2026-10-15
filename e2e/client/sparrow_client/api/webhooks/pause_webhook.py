@@ -36,6 +36,11 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
         return response_404
 
+    if response.status_code == 409:
+        response_409 = ErrorModel.from_dict(response.json())
+
+        return response_409
+
     if response.status_code == 422:
         response_422 = ErrorModel.from_dict(response.json())
 
@@ -69,9 +74,12 @@ def sync_detailed(
 ) -> Response[Any | ErrorModel]:
     """Pause a webhook
 
-     Stops deliveries to this webhook without deleting it. Events keep fanning out to it: each delivery,
-    and any not yet sent, is held with status paused until it is retried after resuming. Holding never
-    affects the webhook's health.
+     Stops deliveries to this webhook without deleting it. Returns 204 with no body. Events keep fanning
+    out to it: each new delivery, and any queued or retrying one, is held with status paused until it is
+    retried after resuming. Holding never affects the webhook's health. 409 when the webhook is already
+    paused.
+
+    Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:pause.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.
@@ -105,9 +113,12 @@ def sync(
 ) -> Any | ErrorModel | None:
     """Pause a webhook
 
-     Stops deliveries to this webhook without deleting it. Events keep fanning out to it: each delivery,
-    and any not yet sent, is held with status paused until it is retried after resuming. Holding never
-    affects the webhook's health.
+     Stops deliveries to this webhook without deleting it. Returns 204 with no body. Events keep fanning
+    out to it: each new delivery, and any queued or retrying one, is held with status paused until it is
+    retried after resuming. Holding never affects the webhook's health. 409 when the webhook is already
+    paused.
+
+    Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:pause.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.
@@ -136,9 +147,12 @@ async def asyncio_detailed(
 ) -> Response[Any | ErrorModel]:
     """Pause a webhook
 
-     Stops deliveries to this webhook without deleting it. Events keep fanning out to it: each delivery,
-    and any not yet sent, is held with status paused until it is retried after resuming. Holding never
-    affects the webhook's health.
+     Stops deliveries to this webhook without deleting it. Returns 204 with no body. Events keep fanning
+    out to it: each new delivery, and any queued or retrying one, is held with status paused until it is
+    retried after resuming. Holding never affects the webhook's health. 409 when the webhook is already
+    paused.
+
+    Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:pause.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.
@@ -170,9 +184,12 @@ async def asyncio(
 ) -> Any | ErrorModel | None:
     """Pause a webhook
 
-     Stops deliveries to this webhook without deleting it. Events keep fanning out to it: each delivery,
-    and any not yet sent, is held with status paused until it is retried after resuming. Holding never
-    affects the webhook's health.
+     Stops deliveries to this webhook without deleting it. Returns 204 with no body. Events keep fanning
+    out to it: each new delivery, and any queued or retrying one, is held with status paused until it is
+    retried after resuming. Holding never affects the webhook's health. 409 when the webhook is already
+    paused.
+
+    Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:pause.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.

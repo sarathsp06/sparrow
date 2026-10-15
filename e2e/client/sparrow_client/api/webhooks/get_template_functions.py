@@ -49,8 +49,10 @@ def sync_detailed(
 ) -> Response[ErrorModel | TemplateFunctionsOutputBody]:
     """List available payload-transformation template functions
 
-     Lists the Go template helper functions available to subscription transform templates (e.g.
-    string/JSON helpers), each with its documentation.
+     Lists the helper functions available to subscription transform templates (on top of Go text/template
+    built-ins), each with Markdown documentation. Static: the same for every caller.
+
+    Portal tokens: allowed, as GET /portal/api/template-functions.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -75,8 +77,10 @@ def sync(
 ) -> ErrorModel | TemplateFunctionsOutputBody | None:
     """List available payload-transformation template functions
 
-     Lists the Go template helper functions available to subscription transform templates (e.g.
-    string/JSON helpers), each with its documentation.
+     Lists the helper functions available to subscription transform templates (on top of Go text/template
+    built-ins), each with Markdown documentation. Static: the same for every caller.
+
+    Portal tokens: allowed, as GET /portal/api/template-functions.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -97,8 +101,10 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | TemplateFunctionsOutputBody]:
     """List available payload-transformation template functions
 
-     Lists the Go template helper functions available to subscription transform templates (e.g.
-    string/JSON helpers), each with its documentation.
+     Lists the helper functions available to subscription transform templates (on top of Go text/template
+    built-ins), each with Markdown documentation. Static: the same for every caller.
+
+    Portal tokens: allowed, as GET /portal/api/template-functions.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -121,8 +127,10 @@ async def asyncio(
 ) -> ErrorModel | TemplateFunctionsOutputBody | None:
     """List available payload-transformation template functions
 
-     Lists the Go template helper functions available to subscription transform templates (e.g.
-    string/JSON helpers), each with its documentation.
+     Lists the helper functions available to subscription transform templates (on top of Go text/template
+    built-ins), each with Markdown documentation. Static: the same for every caller.
+
+    Portal tokens: allowed, as GET /portal/api/template-functions.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

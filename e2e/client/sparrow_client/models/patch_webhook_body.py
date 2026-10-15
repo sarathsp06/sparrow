@@ -21,20 +21,27 @@ class PatchWebhookBody:
     """
     Attributes:
         schema (str | Unset): A URL to the JSON Schema for this object.
-        active (bool | Unset): Enable or disable the webhook.
-        description (str | Unset): Replace the human-readable description.
-        events (list[str] | Unset): Replace the full set of subscribed event type names.
-        headers (PatchWebhookBodyHeaders | Unset): Replace the static headers sent with every delivery.
+        active (bool | Unset): false pauses the webhook (like :pause), true resumes it and clears any auto-disable
+            marker (like :resume, but without returning the held count).
+        description (str | Unset): Replace the human-readable description. An empty string leaves it unchanged.
+        events (list[str] | Unset): Replace the full set of subscribed event type names. Every existing subscription of
+            the webhook is deleted, with its transform and label filters, and one plain subscription is created per name. An
+            empty list leaves subscriptions unchanged. Rejected with 409 while requires_transform is on; to keep transforms,
+            add or delete subscriptions individually.
+        headers (PatchWebhookBodyHeaders | Unset): Replace all static headers sent with every delivery. Same rules as on
+            register.
         http_config (WebhookHTTPConfig | Unset):
         requires_transform (bool | Unset): Require (or stop requiring) a payload transform on every subscription.
             Turning it on fails with 409 while any subscription has no enabled transform_template. While on, events cannot
             be replaced in bulk (409): add or delete subscriptions individually.
         secret_headers (PatchWebhookBodySecretHeaders | Unset): Merge-patch encrypted secret headers by name. Send a new
-            value to replace one header, omit a key to leave it untouched, or send an empty string to remove it.
-        signature_type (str | Unset): Replace the authoritative signature algorithm (hmac or ed25519).
-        timeout (int | Unset): Replace the request timeout in seconds (equivalent to
-            http_config.request_timeout_seconds).
-        url (str | Unset): Replace the delivery endpoint URL.
+            value to replace one header, omit a key to leave it untouched, or send an empty string to remove it. An empty
+            object removes them all.
+        signature_type (str | Unset): Change the signing scheme: hmac or ed25519. Switching to ed25519 generates a
+            signing keypair; HMAC signing continues either way.
+        timeout (int | Unset): Deprecated: use http_config.request_timeout_seconds. Shorthand for it, in seconds (1 to
+            300), applied only when http_config.request_timeout_seconds is not sent (http_config wins when both are sent).
+        url (str | Unset): Replace the delivery endpoint URL. Same rules as on register.
     """
 
     schema: str | Unset = UNSET

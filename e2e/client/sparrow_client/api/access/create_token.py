@@ -86,7 +86,13 @@ def sync_detailed(
     be revoked on its own and never needs the master key to be shared. A consumer token only works
     through the portal API (/portal/api/), limited to that consumer, and comes with a ready-made portal
     link (portal_path) to embed or hand to the end consumer. The secret is returned once, or again for
-    the same external_id while the token is valid.
+    the same external_id while the token is valid. Without external_id every call creates a new token.
+
+    400 for an invalid consumer, both ttl_seconds and never_expires, never_expires or more than 30 days
+    on a consumer token, or external_id without a consumer. 503 when the token store is unavailable, or
+    for external_id when no keyring is configured.
+
+    Portal tokens: not allowed.
 
     Args:
         body (CreateTokenBody):
@@ -121,7 +127,13 @@ def sync(
     be revoked on its own and never needs the master key to be shared. A consumer token only works
     through the portal API (/portal/api/), limited to that consumer, and comes with a ready-made portal
     link (portal_path) to embed or hand to the end consumer. The secret is returned once, or again for
-    the same external_id while the token is valid.
+    the same external_id while the token is valid. Without external_id every call creates a new token.
+
+    400 for an invalid consumer, both ttl_seconds and never_expires, never_expires or more than 30 days
+    on a consumer token, or external_id without a consumer. 503 when the token store is unavailable, or
+    for external_id when no keyring is configured.
+
+    Portal tokens: not allowed.
 
     Args:
         body (CreateTokenBody):
@@ -151,7 +163,13 @@ async def asyncio_detailed(
     be revoked on its own and never needs the master key to be shared. A consumer token only works
     through the portal API (/portal/api/), limited to that consumer, and comes with a ready-made portal
     link (portal_path) to embed or hand to the end consumer. The secret is returned once, or again for
-    the same external_id while the token is valid.
+    the same external_id while the token is valid. Without external_id every call creates a new token.
+
+    400 for an invalid consumer, both ttl_seconds and never_expires, never_expires or more than 30 days
+    on a consumer token, or external_id without a consumer. 503 when the token store is unavailable, or
+    for external_id when no keyring is configured.
+
+    Portal tokens: not allowed.
 
     Args:
         body (CreateTokenBody):
@@ -184,7 +202,13 @@ async def asyncio(
     be revoked on its own and never needs the master key to be shared. A consumer token only works
     through the portal API (/portal/api/), limited to that consumer, and comes with a ready-made portal
     link (portal_path) to embed or hand to the end consumer. The secret is returned once, or again for
-    the same external_id while the token is valid.
+    the same external_id while the token is valid. Without external_id every call creates a new token.
+
+    400 for an invalid consumer, both ttl_seconds and never_expires, never_expires or more than 30 days
+    on a consumer token, or external_id without a consumer. 503 when the token store is unavailable, or
+    for external_id when no keyring is configured.
+
+    Portal tokens: not allowed.
 
     Args:
         body (CreateTokenBody):

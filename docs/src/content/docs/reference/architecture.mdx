@@ -108,11 +108,11 @@ stateDiagram-v2
 ```
 
 **How it works:**
-1. Each delivery outcome is recorded as a health event
-2. Health state is atomically upserted (tracks consecutive failures, last success/failure timestamps)
-3. Webhook health status is recalculated and persisted
-4. Hourly aggregation computes per-webhook summaries (p95 response time, error category breakdown)
-5. After a failed attempt, the webhook is auto-disabled (paused, with `auto_disabled_at`/`auto_disabled_reason`, and a `sparrow.webhook.disabled` system event) if `webhook_health_state.failing_since` is older than `SPARROW_AUTO_DISABLE_AFTER` and the run is at least `SPARROW_AUTO_DISABLE_MIN_FAILURES` attempts long. Check and pause are one `UPDATE`, so concurrent workers disable a webhook once. See [Automatic disabling](/sparrow/guides/webhook-health-alerts/#automatic-disabling).
+1. The delivery worker records each attempt as one append-only `webhook_health_events` row, in the same transaction as the delivery update. It never writes webhook-owned rows.
+2. `HealthEvaluatorWorker` runs every `SPARROW_HEALTH_EVAL_INTERVAL` (default `1m`) and folds the events since its last run into per-minute buckets, the running 24-hour counters and `webhook_health_state` (consecutive failures, `failing_since`).
+3. When a webhook's label changes, the same pass rewrites `webhook_registrations.health` and Sparrow emits `sparrow.webhook.health_changed`. The label therefore lags by up to the evaluation interval.
+4. The health endpoint computes its summary (attempt counts, error category breakdown, average response time) from the buckets on request.
+5. In the same evaluator pass, a webhook in a failure run is auto-disabled (paused, with `auto_disabled_at`/`auto_disabled_reason`, and a `sparrow.webhook.disabled` system event) if `webhook_health_state.failing_since` is older than `SPARROW_AUTO_DISABLE_AFTER` and the run is at least `SPARROW_AUTO_DISABLE_MIN_FAILURES` attempts long. Check and pause are one `UPDATE`, so concurrent workers disable a webhook once. See [Automatic disabling](/sparrow/guides/webhook-health-alerts/#automatic-disabling).
 
 ### Pausing
 
@@ -124,13 +124,13 @@ A paused webhook (by hand or auto-disabled) and a paused subscription behave the
 
 A centralized, OTel-instrumented HTTP client (`internal/webhooks/client/`):
 
-- **Connection pooling**: 100 max idle connections, 10 per host, 90s idle timeout
+- **Connection pooling**: up to `SPARROW_WEBHOOK_WORKERS` connections per receiver host (default 20) and twice that idle in total, 90s idle timeout
 - **Signing**: Support for both HMAC-SHA256 and Ed25519 using [Standard Webhooks](https://www.standardwebhooks.com/) format.
 - **Leaky Bucket**: Per-webhook rate limiting implemented via atomic PostgreSQL `UPDATE` statements. Workers "snooze" jobs when rate limits are hit.
 - **Template engine**: Go `text/template` with LRU cache (100 entries, SHA-256 keyed), 37 built-in helper functions (json, base64, urlencode, string manipulation, etc.)
 - **Object pooling**: `sync.Pool` for `bytes.Buffer`, `[]byte` slices, and header maps to reduce GC pressure
 - **Header merging**: Subscription-level headers override webhook-level defaults
-- **In-process metrics**: Lock-free atomic counters for request totals, error categories, cache hit rates, and response time statistics
+- **Metrics**: OpenTelemetry instruments on the HTTP transport plus Sparrow's own delivery-attempt counters and duration histogram, exported over OTLP and at `/metrics`
 
 ### Default Webhook Body
 
@@ -158,7 +158,7 @@ Every webhook delivery sends a JSON envelope with snake_case field names:
 - `event_name` -- The event type (e.g. `user.created`, `order.paid`).
 - `consumer` -- Consumer the event belongs to.
 - `webhook_id` -- UUID of the webhook registration receiving this delivery.
-- `delivery_id` -- UUID of this specific delivery attempt.
+- `delivery_id` -- UUID of the delivery. It stays the same on every retry of that delivery; use it to deduplicate.
 - `timestamp` -- ISO 8601 / RFC 3339 timestamp of when the delivery was sent.
 - `attempt` -- Delivery attempt number (1 = first attempt, 2+ = retries).
 - `payload` -- The original event payload as submitted by the producer.
@@ -169,8 +169,8 @@ When a subscription has `transform_enabled = true` and a `transform_template`, t
 
 Every webhook delivery includes these headers:
 
-- `Content-Type: application/json`
-- `User-Agent: Sparrow-Webhook/<version>` (set at build time, e.g. `Sparrow-Webhook/0.5.6`)
+- `Content-Type: application/json` (a `Content-Type` in the webhook or subscription headers replaces it, e.g. for a form-encoded transform)
+- `User-Agent: Sparrow-Webhook/<version>` (the server version, e.g. `Sparrow-Webhook/1.0.0`). A `User-Agent` in the webhook or subscription headers replaces it. `http_config.user_agent` and `http_config.content_type` are stored but not applied yet; set those headers in `headers` instead.
 - `X-Sparrow-Event-ID` -- Same as `event_id` in the body.
 - `X-Sparrow-Delivery-ID` -- Same as `delivery_id` in the body.
 - `X-Sparrow-Webhook-ID` -- Same as `webhook_id` in the body.
@@ -236,13 +236,13 @@ isolation.
 ```mermaid
 flowchart TD
     accTitle: Package structure
-    accDescr: Package structure: cmd/server/main.go is the composition root wiring internal/tenant, internal/webhooks, and internal/rest. tenant depends on internal/storage; webhooks depends on internal/storage and internal/errors and contains store/ (internal/storage), queue/ (store, client, internal/errors, internal/observability), and client/ (store models, internal/errors); internal/rest is the transport layer over both domain packages. tenant and webhooks never import each other.
+    accDescr: Package structure: cmd/server/main.go is the composition root wiring internal/tenant, internal/webhooks, and internal/rest. tenant imports no other Sparrow package; webhooks imports tenant (for the default tenant ID and the reserved _sparrow consumer), internal/storage and internal/errors, and contains store/ (internal/storage, tenant), queue/ (store, client, tenant, internal/errors, internal/observability), and client/ (store models, internal/crypto); internal/rest is the transport layer over webhooks.
     Main["cmd/server/main.go<br>composition root — wires everything"]
     Main --> Tenant["internal/tenant"]
     Main --> Webhooks["internal/webhooks"]
     Main --> Rest["internal/rest<br>transport layer"]
-    Tenant --> Storage[internal/storage]
-    Webhooks --> Storage
+    Webhooks --> Tenant
+    Webhooks --> Storage[internal/storage]
     Webhooks --> Errors[internal/errors]
     Webhooks --> Store["store/"]
     Webhooks --> Queue["queue/"]
@@ -250,19 +250,20 @@ flowchart TD
     Store --> Storage
     Queue --> Store
     Queue --> Client
+    Queue --> Tenant
     Queue --> Errors
     Queue --> Obs[internal/observability]
     Client --> Store
-    Client --> Errors
     Rest --> Webhooks
-    Rest --> Tenant
 ```
 
-`tenant` and `webhooks` never import each other. Zero cycles.
+`internal/tenant` is a leaf: it imports no other Sparrow package, so
+`webhooks` can use its constants (`DefaultTenantID`, `SystemConsumer`)
+without a cycle. Zero cycles.
 
 ### Domain Packages
 
-**`internal/tenant`** -- Tenant lifecycle. A default tenant is bootstrapped on first boot.
+**`internal/tenant`** -- The default tenant and the reserved `_sparrow` consumer. At startup, `main.go` checks that migrations created the default tenant.
 
 - Tables: `tenants`
 
@@ -271,12 +272,12 @@ flowchart TD
 - Tables: See OKF / DB schema for full table list
 - Sub-packages:
   - `store/` -- Data access (repository pattern, SQL queries)
-  - `queue/` -- Async processing (River workers: `EventWorker`, `WebhookWorker`)
+  - `queue/` -- Async processing (River workers: `EventProcessingWorker` for fan-out, `WebhookWorker` for delivery, `BatchJobWorker` for bulk re-push and retry, and the periodic `HealthEvaluatorWorker`, `RetentionWorker`, `TokenPurgeWorker` and `BatchCleanupWorker`)
   - `client/` -- HTTP delivery (request building, HMAC signing, templating)
 
 ### Infrastructure Packages
 
-**`internal/rest`** -- HTTP REST handlers (transport layer) built with Huma, serving the OpenAPI-described API on `:8080`. Delegates to the domain services and is the only package that imports both domain packages.
+**`internal/rest`** -- HTTP REST handlers (transport layer) built with Huma, serving the OpenAPI-described API on `:8080`. Delegates to the webhook service; it does not touch storage directly.
 
 **`internal/observability`** -- OpenTelemetry setup (traces, metrics, logs via OTLP) and the Prometheus `/metrics` handler.
 
@@ -293,7 +294,7 @@ flowchart TD
 
 ### Design Principles
 
-**Composition root in `main.go`** -- `cmd/server/main.go` is the only file that imports both domain packages. It constructs repositories, services, and wires them together. No framework -- just constructor functions and explicit wiring.
+**Composition root in `main.go`** -- `cmd/server/main.go` constructs repositories, services, and the HTTP stack, and wires them together. No framework -- just constructor functions and explicit wiring.
 
 **Repository per domain, not per table** -- Each domain owns a `Repository` interface and implementation. The repository encapsulates all SQL for that domain's tables.
 

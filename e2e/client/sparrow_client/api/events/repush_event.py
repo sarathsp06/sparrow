@@ -33,10 +33,20 @@ def _parse_response(
 
         return response_200
 
+    if response.status_code == 400:
+        response_400 = ErrorModel.from_dict(response.json())
+
+        return response_400
+
     if response.status_code == 404:
         response_404 = ErrorModel.from_dict(response.json())
 
         return response_404
+
+    if response.status_code == 409:
+        response_409 = ErrorModel.from_dict(response.json())
+
+        return response_409
 
     if response.status_code == 422:
         response_422 = ErrorModel.from_dict(response.json())
@@ -72,11 +82,19 @@ def sync_detailed(
 ) -> Response[ErrorModel | RepushEventOutputBody]:
     """Replay a single pushed event occurrence
 
-     Re-runs fan-out for one already-pushed event occurrence: matches subscriptions again and creates new
-    deliveries. Useful after fixing a subscription or webhook that was misconfigured.
+     Pushes a stored event occurrence again: creates a new event occurrence (new event_id) with the same
+    consumer, event type, payload, labels, metadata and TTL, validates the payload against the current
+    schema, and fans it out to the subscriptions that match now. The original occurrence and its
+    deliveries are unchanged. Not idempotent: each call creates another event. To resend one existing
+    delivery instead, retry the delivery.
+
+    404 when the event does not exist; the same errors as pushEvent when the event type is now inactive
+    or unregistered.
+
+    Portal tokens: not allowed.
 
     Args:
-        event_id (str):
+        event_id (str): Event occurrence id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -104,11 +122,19 @@ def sync(
 ) -> ErrorModel | RepushEventOutputBody | None:
     """Replay a single pushed event occurrence
 
-     Re-runs fan-out for one already-pushed event occurrence: matches subscriptions again and creates new
-    deliveries. Useful after fixing a subscription or webhook that was misconfigured.
+     Pushes a stored event occurrence again: creates a new event occurrence (new event_id) with the same
+    consumer, event type, payload, labels, metadata and TTL, validates the payload against the current
+    schema, and fans it out to the subscriptions that match now. The original occurrence and its
+    deliveries are unchanged. Not idempotent: each call creates another event. To resend one existing
+    delivery instead, retry the delivery.
+
+    404 when the event does not exist; the same errors as pushEvent when the event type is now inactive
+    or unregistered.
+
+    Portal tokens: not allowed.
 
     Args:
-        event_id (str):
+        event_id (str): Event occurrence id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -131,11 +157,19 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | RepushEventOutputBody]:
     """Replay a single pushed event occurrence
 
-     Re-runs fan-out for one already-pushed event occurrence: matches subscriptions again and creates new
-    deliveries. Useful after fixing a subscription or webhook that was misconfigured.
+     Pushes a stored event occurrence again: creates a new event occurrence (new event_id) with the same
+    consumer, event type, payload, labels, metadata and TTL, validates the payload against the current
+    schema, and fans it out to the subscriptions that match now. The original occurrence and its
+    deliveries are unchanged. Not idempotent: each call creates another event. To resend one existing
+    delivery instead, retry the delivery.
+
+    404 when the event does not exist; the same errors as pushEvent when the event type is now inactive
+    or unregistered.
+
+    Portal tokens: not allowed.
 
     Args:
-        event_id (str):
+        event_id (str): Event occurrence id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -161,11 +195,19 @@ async def asyncio(
 ) -> ErrorModel | RepushEventOutputBody | None:
     """Replay a single pushed event occurrence
 
-     Re-runs fan-out for one already-pushed event occurrence: matches subscriptions again and creates new
-    deliveries. Useful after fixing a subscription or webhook that was misconfigured.
+     Pushes a stored event occurrence again: creates a new event occurrence (new event_id) with the same
+    consumer, event type, payload, labels, metadata and TTL, validates the payload against the current
+    schema, and fans it out to the subscriptions that match now. The original occurrence and its
+    deliveries are unchanged. Not idempotent: each call creates another event. To resend one existing
+    delivery instead, retry the delivery.
+
+    404 when the event does not exist; the same errors as pushEvent when the event type is now inactive
+    or unregistered.
+
+    Portal tokens: not allowed.
 
     Args:
-        event_id (str):
+        event_id (str): Event occurrence id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

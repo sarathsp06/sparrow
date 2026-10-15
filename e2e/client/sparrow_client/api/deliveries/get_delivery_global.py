@@ -72,11 +72,13 @@ def sync_detailed(
 ) -> Response[DeliveryItem | ErrorModel]:
     """Get a delivery by id (any consumer)
 
-     Consumer-agnostic lookup by delivery id, for callers that only have the id (e.g. a webhook-signature
-    verification failure report) and don't know which consumer it belongs to.
+     Looks a delivery up by id in any consumer, for callers that only have the id (e.g. the X-Sparrow-
+    Delivery-ID header a receiver logged). 404 when it does not exist.
+
+    Portal tokens: not allowed.
 
     Args:
-        delivery_id (str):
+        delivery_id (str): Delivery id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -104,11 +106,13 @@ def sync(
 ) -> DeliveryItem | ErrorModel | None:
     """Get a delivery by id (any consumer)
 
-     Consumer-agnostic lookup by delivery id, for callers that only have the id (e.g. a webhook-signature
-    verification failure report) and don't know which consumer it belongs to.
+     Looks a delivery up by id in any consumer, for callers that only have the id (e.g. the X-Sparrow-
+    Delivery-ID header a receiver logged). 404 when it does not exist.
+
+    Portal tokens: not allowed.
 
     Args:
-        delivery_id (str):
+        delivery_id (str): Delivery id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -131,11 +135,13 @@ async def asyncio_detailed(
 ) -> Response[DeliveryItem | ErrorModel]:
     """Get a delivery by id (any consumer)
 
-     Consumer-agnostic lookup by delivery id, for callers that only have the id (e.g. a webhook-signature
-    verification failure report) and don't know which consumer it belongs to.
+     Looks a delivery up by id in any consumer, for callers that only have the id (e.g. the X-Sparrow-
+    Delivery-ID header a receiver logged). 404 when it does not exist.
+
+    Portal tokens: not allowed.
 
     Args:
-        delivery_id (str):
+        delivery_id (str): Delivery id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -161,11 +167,13 @@ async def asyncio(
 ) -> DeliveryItem | ErrorModel | None:
     """Get a delivery by id (any consumer)
 
-     Consumer-agnostic lookup by delivery id, for callers that only have the id (e.g. a webhook-signature
-    verification failure report) and don't know which consumer it belongs to.
+     Looks a delivery up by id in any consumer, for callers that only have the id (e.g. the X-Sparrow-
+    Delivery-ID header a receiver logged). 404 when it does not exist.
+
+    Portal tokens: not allowed.
 
     Args:
-        delivery_id (str):
+        delivery_id (str): Delivery id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

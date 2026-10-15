@@ -22,13 +22,17 @@ class CreateSubscriptionBody:
     """
     Attributes:
         event_name (str): Event type name to subscribe to, or "*" to receive every event in the consumer (catch-all).
-        webhook_id (str): Webhook to deliver matching events to.
+            sparrow.* names only under the _sparrow consumer. One subscription per webhook, event name and consumer (409 on
+            a duplicate).
+        webhook_id (str): Webhook id (UUID) to deliver matching events to. Must belong to this consumer.
         schema (str | Unset): A URL to the JSON Schema for this object.
-        headers (CreateSubscriptionBodyHeaders | Unset): Extra HTTP headers to send with deliveries created by this
-            subscription, merged with the webhook's own headers.
+        headers (CreateSubscriptionBodyHeaders | Unset): Extra HTTP headers sent with deliveries from this subscription.
+            They override the webhook's headers of the same name; the webhook's secret_headers override both. Same name and
+            value rules as webhook headers.
         label_filters (CreateSubscriptionBodyLabelFilters | Unset): Key/value pairs that must ALL be present in an
-            event's labels for this subscription to receive it. Empty means match every event of event_name.
-        method (str | Unset): HTTP method used for deliveries from this subscription. Defaults to POST.
+            event's labels for this subscription to receive it. Empty means match every event of event_name. Same limits as
+            event labels (20 pairs, 64-character keys, 256-character values).
+        method (str | Unset): HTTP method used for deliveries from this subscription, e.g. PUT. Defaults to POST.
         on_transform_error (CreateSubscriptionBodyOnTransformError | Unset): What happens when transform_template fails
             to render. fail (default): the delivery fails with error category template_error, is not retried automatically,
             and can be retried once the template is fixed; it does not affect the webhook's health. fallback: the default
@@ -37,11 +41,13 @@ class CreateSubscriptionBody:
             payload does not have. error (default): the render fails, so a field removed from the event schema cannot
             silently turn into "<no value>" in the body; read optional fields with index or dig (default only fills a key
             that is present but empty). zero: the key renders as "<no value>".
-        timeout (int | Unset): Per-delivery request timeout in seconds, overriding the webhook's default.
-        transform_enabled (bool | Unset): Whether to render transform_template into the delivered payload instead of
-            sending the raw event payload.
-        transform_template (str | Unset): Go template rendered against the event to produce the delivered body. See GET
-            /v1/template-functions for available helpers; test it with POST /v1/subscriptions:testTemplate.
+        timeout (int | Unset): Request timeout for this subscription's deliveries, in seconds, overriding the webhook's
+            request_timeout_seconds. 0 to 300; 0 (default) uses the webhook's.
+        transform_enabled (bool | Unset): Whether to render transform_template into the delivered body instead of
+            sending the default envelope. Defaults to false.
+        transform_template (str | Unset): Go text/template rendered against the event to produce the delivered body,
+            used when transform_enabled is true. See GET /v1/template-functions for available helpers; test it with POST
+            /v1/subscriptions:testTemplate. Saving a new template records a version in the template history.
     """
 
     event_name: str

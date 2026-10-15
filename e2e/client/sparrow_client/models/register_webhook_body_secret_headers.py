@@ -11,8 +11,8 @@ T = TypeVar("T", bound="RegisterWebhookBodySecretHeaders")
 
 @_attrs_define
 class RegisterWebhookBodySecretHeaders:
-    """HTTP headers whose values are envelope-encrypted at rest and masked in every API response (e.g. an upstream auth
-    token).
+    """HTTP headers sent with every delivery whose values are envelope-encrypted at rest and masked in every API response
+    (e.g. an upstream auth token). Same name and value rules as headers.
 
     """
 

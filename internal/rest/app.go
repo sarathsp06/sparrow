@@ -28,14 +28,14 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps Access
 		"- **Event** (`Events`) — one occurrence of an event type, pushed with a payload. Pushing " +
 		"an event asynchronously fans it out to every matching subscription.\n" +
 		"- **Webhook** (`Webhooks`) — a registered HTTP endpoint plus its delivery configuration " +
-		"(retries, timeouts, signing). Every delivery is signed with HMAC-SHA256 and Ed25519.\n" +
+		"(retries, timeouts, signing). Every delivery is signed with HMAC-SHA256 (Standard Webhooks), plus Ed25519 when the webhook's signature_type is ed25519.\n" +
 		"- **Subscription** (`Subscriptions`) — links one webhook to one event type within a " +
 		"consumer, optionally with a Go-template payload transform and label filters. Registering a " +
 		"webhook auto-creates matching subscriptions.\n" +
 		"- **Delivery** (`Deliveries`) — one attempt (and its retry history) to send an event to a " +
 		"webhook. Failures are classified as retryable (5xx, timeout, network) or not (4xx, DNS, TLS).\n" +
-		"- **Health** (`Health`) — a rolling per-webhook status (healthy/degraded/unhealthy) " +
-		"computed from recent delivery outcomes.\n\n" +
+		"- **Health** (`Health`) — a per-webhook label (healthy/degraded/unhealthy/unknown) " +
+		"derived from the last 24 hours of attempts, refreshed every `SPARROW_HEALTH_EVAL_INTERVAL`.\n\n" +
 		"## Consumers\n\n" +
 		"Webhooks, events, subscriptions, and deliveries are scoped to a `consumer` path segment " +
 		"(defaults to `default` if you don't need multi-tenancy). A handful of read endpoints are " +
@@ -43,13 +43,33 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps Access
 		"resource id is already globally unique.\n\n" +
 		"## Authentication\n\n" +
 		"Optional. When the server is started with `SPARROW_API_KEY` set, every `/v1/*` request " +
-		"must include it in the `X-API-Key` header. When unset, all endpoints are open.\n\n" +
-		"Alternatively, a consumer-scoped access token (`createToken` with a `consumer`) " +
-		"powers the embedded portal at `/portal`, whose API calls are served under the single " +
-		"`/portal/api/` prefix — the consumer is carried by the token, not the URL, so exposing " +
-		"the portal means allowlisting only `/portal`, `/_app`, and `/portal/api`. Portal tokens " +
-		"reach their own consumer's webhooks, subscriptions, and deliveries (never event injection, " +
-		"token minting, other consumers, or admin routes)."
+		"must carry that master key or a tenant-wide access token (`createToken` without a " +
+		"`consumer`), in the `X-API-Key` header or as `Authorization: Bearer <credential>`. When " +
+		"`SPARROW_API_KEY` is unset, every endpoint is open, and outside `ENVIRONMENT=production` " +
+		"CORS also allows any origin: never expose such a server beyond a trusted network.\n\n" +
+		"## Portal tokens\n\n" +
+		"A consumer-scoped access token (`createToken` with a `consumer`) powers the embedded " +
+		"portal at `/portal`. It is refused on `/v1` (403); its API calls go to the single " +
+		"`/portal/api/` prefix with `Authorization: Bearer <token>`, and the consumer is carried " +
+		"by the token, not the URL, so exposing the portal means allowlisting only `/portal`, " +
+		"`/_app`, and `/portal/api`. `/portal/api/<rest>` is served by " +
+		"`/v1/consumers/<token's consumer>/<rest>`, except `POST events` (refused), plus these " +
+		"global helpers: `GET event-types[/...]` (listed for the token's consumer), " +
+		"`GET template-functions`, `GET capabilities`, and `POST subscriptions:testTemplate`. " +
+		"Each operation's description says whether portal tokens can call it.\n\n" +
+		"## Errors\n\n" +
+		"Errors from the API itself are RFC 9457 problem details " +
+		"(`Content-Type: application/problem+json`): `{\"title\", \"status\", \"detail\", " +
+		"\"errors\"}`, where `errors` lists per-field validation problems. Two layers in front of " +
+		"the API answer with plain `application/json` instead:\n\n" +
+		"- Authentication (`401`, `503`): `{\"error\": \"unauthorized\", \"reason\": " +
+		"\"missing|invalid|expired|revoked\", \"message\": \"...\"}`; `reason` is absent for " +
+		"`503 unavailable` (retry after the `Retry-After` header).\n" +
+		"- Authorization and the portal gateway (`401`, `403`): `{\"error\": \"forbidden\" or " +
+		"\"unauthorized\", \"message\": \"...\"}`, e.g. a consumer-scoped token on `/v1`.\n\n" +
+		"Status codes: `400` invalid input, `404` not found, `409` conflict or wrong state, `413` " +
+		"body over `SPARROW_MAX_BODY_BYTES`, `429` rate limited, `500` internal (details are " +
+		"logged, not returned), `503` temporarily unavailable, `504` timed out."
 	config.Info.Contact = &huma.Contact{
 		Name: "Sparrow",
 		URL:  "https://github.com/sarathsp06/sparrow",
@@ -76,6 +96,7 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps Access
 		{Name: "Alert Configs", Description: "Opt-in email recipients for Sparrow's own self-generated " +
 			"webhook.health_changed, webhook.delivery_failed and webhook.disabled system events."},
 		{Name: "Recipes", Description: "Shipped webhook adapter recipes that pre-fill destinations, headers, and payload transforms."},
+		{Name: "Access", Description: "Access tokens and invites. Tenant-wide tokens work like SPARROW_API_KEY but can be revoked one by one; consumer-scoped tokens only reach the portal API. Secrets are shown once."},
 		{Name: "Server", Description: "Deployment-level information about this server, such as which optional features are configured."},
 	}
 	config.DocsPath = "/docs"
@@ -86,7 +107,7 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps Access
 			Type:        "apiKey",
 			In:          "header",
 			Name:        "X-API-Key",
-			Description: "Required only when the server is started with SPARROW_API_KEY set; otherwise all endpoints are open. Note: if the embedded dashboard is enabled (SPARROW_SERVE_UI=true), it is served without authentication and exposes this key to any browser that can load it — treat the deployment as trusted-network-only, or disable the dashboard / put it behind an authenticating proxy for untrusted networks.",
+			Description: "The master key (SPARROW_API_KEY) or a tenant-wide access token. Also accepted as Authorization: Bearer <credential>. Required only when the server is started with SPARROW_API_KEY set; otherwise all endpoints are open. The embedded UI never receives the key: it asks for a credential on the first 401.",
 		},
 	}
 	// Optional auth: try the API key, but an empty requirement ({}) means

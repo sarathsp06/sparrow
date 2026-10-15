@@ -40,6 +40,11 @@ def _parse_response(
 
         return response_404
 
+    if response.status_code == 409:
+        response_409 = ErrorModel.from_dict(response.json())
+
+        return response_409
+
     if response.status_code == 422:
         response_422 = ErrorModel.from_dict(response.json())
 
@@ -75,9 +80,13 @@ def sync_detailed(
 ) -> Response[ErrorModel | ResumeWebhookOutputBody]:
     """Resume a paused webhook
 
-     Re-enables deliveries to a webhook paused by an operator or auto-disabled. Deliveries held while it
-    was paused stay paused and are never sent automatically: the response says how many there are, so
-    you can retry them with status=paused&webhook_id=... and the delivery retry endpoints.
+     Re-enables deliveries to a webhook paused by an operator or auto-disabled, and clears
+    auto_disabled_at/auto_disabled_reason. Deliveries held while it was paused stay paused and are never
+    sent automatically: the response says how many there are, so you can retry them with
+    status=paused&webhook_id=... and the delivery retry endpoints. 409 when the webhook is already
+    active.
+
+    Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:resume.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.
@@ -111,9 +120,13 @@ def sync(
 ) -> ErrorModel | ResumeWebhookOutputBody | None:
     """Resume a paused webhook
 
-     Re-enables deliveries to a webhook paused by an operator or auto-disabled. Deliveries held while it
-    was paused stay paused and are never sent automatically: the response says how many there are, so
-    you can retry them with status=paused&webhook_id=... and the delivery retry endpoints.
+     Re-enables deliveries to a webhook paused by an operator or auto-disabled, and clears
+    auto_disabled_at/auto_disabled_reason. Deliveries held while it was paused stay paused and are never
+    sent automatically: the response says how many there are, so you can retry them with
+    status=paused&webhook_id=... and the delivery retry endpoints. 409 when the webhook is already
+    active.
+
+    Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:resume.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.
@@ -142,9 +155,13 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | ResumeWebhookOutputBody]:
     """Resume a paused webhook
 
-     Re-enables deliveries to a webhook paused by an operator or auto-disabled. Deliveries held while it
-    was paused stay paused and are never sent automatically: the response says how many there are, so
-    you can retry them with status=paused&webhook_id=... and the delivery retry endpoints.
+     Re-enables deliveries to a webhook paused by an operator or auto-disabled, and clears
+    auto_disabled_at/auto_disabled_reason. Deliveries held while it was paused stay paused and are never
+    sent automatically: the response says how many there are, so you can retry them with
+    status=paused&webhook_id=... and the delivery retry endpoints. 409 when the webhook is already
+    active.
+
+    Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:resume.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.
@@ -176,9 +193,13 @@ async def asyncio(
 ) -> ErrorModel | ResumeWebhookOutputBody | None:
     """Resume a paused webhook
 
-     Re-enables deliveries to a webhook paused by an operator or auto-disabled. Deliveries held while it
-    was paused stay paused and are never sent automatically: the response says how many there are, so
-    you can retry them with status=paused&webhook_id=... and the delivery retry endpoints.
+     Re-enables deliveries to a webhook paused by an operator or auto-disabled, and clears
+    auto_disabled_at/auto_disabled_reason. Deliveries held while it was paused stay paused and are never
+    sent automatically: the response says how many there are, so you can retry them with
+    status=paused&webhook_id=... and the delivery retry endpoints. 409 when the webhook is already
+    active.
+
+    Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:resume.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.

@@ -49,7 +49,10 @@ def sync_detailed(
 ) -> Response[ConsumerStatsOutputBody | ErrorModel]:
     """Get aggregate delivery statistics across all consumers
 
-     Returns the same counters as the per-consumer stats endpoint, aggregated across every consumer.
+     Returns the same counters as the per-consumer stats endpoint, summed across every consumer, with the
+    same lag.
+
+    Portal tokens: not allowed.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -74,7 +77,10 @@ def sync(
 ) -> ConsumerStatsOutputBody | ErrorModel | None:
     """Get aggregate delivery statistics across all consumers
 
-     Returns the same counters as the per-consumer stats endpoint, aggregated across every consumer.
+     Returns the same counters as the per-consumer stats endpoint, summed across every consumer, with the
+    same lag.
+
+    Portal tokens: not allowed.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -95,7 +101,10 @@ async def asyncio_detailed(
 ) -> Response[ConsumerStatsOutputBody | ErrorModel]:
     """Get aggregate delivery statistics across all consumers
 
-     Returns the same counters as the per-consumer stats endpoint, aggregated across every consumer.
+     Returns the same counters as the per-consumer stats endpoint, summed across every consumer, with the
+    same lag.
+
+    Portal tokens: not allowed.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -118,7 +127,10 @@ async def asyncio(
 ) -> ConsumerStatsOutputBody | ErrorModel | None:
     """Get aggregate delivery statistics across all consumers
 
-     Returns the same counters as the per-consumer stats endpoint, aggregated across every consumer.
+     Returns the same counters as the per-consumer stats endpoint, summed across every consumer, with the
+    same lag.
+
+    Portal tokens: not allowed.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

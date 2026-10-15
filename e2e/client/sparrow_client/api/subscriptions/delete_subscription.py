@@ -69,12 +69,14 @@ def sync_detailed(
 ) -> Response[Any | ErrorModel]:
     """Delete a subscription
 
-     Removes the link between a webhook and an event type. The webhook stops receiving that event's
-    occurrences; its delivery history is unaffected.
+     Deletes the subscription and its template history. The webhook stops receiving that event's
+    occurrences; delivery history is kept. Cannot be undone. A second delete returns 404.
+
+    Portal tokens: allowed, as DELETE /portal/api/subscriptions/{subscription_id}.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -104,12 +106,14 @@ def sync(
 ) -> Any | ErrorModel | None:
     """Delete a subscription
 
-     Removes the link between a webhook and an event type. The webhook stops receiving that event's
-    occurrences; its delivery history is unaffected.
+     Deletes the subscription and its template history. The webhook stops receiving that event's
+    occurrences; delivery history is kept. Cannot be undone. A second delete returns 404.
+
+    Portal tokens: allowed, as DELETE /portal/api/subscriptions/{subscription_id}.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -134,12 +138,14 @@ async def asyncio_detailed(
 ) -> Response[Any | ErrorModel]:
     """Delete a subscription
 
-     Removes the link between a webhook and an event type. The webhook stops receiving that event's
-    occurrences; its delivery history is unaffected.
+     Deletes the subscription and its template history. The webhook stops receiving that event's
+    occurrences; delivery history is kept. Cannot be undone. A second delete returns 404.
+
+    Portal tokens: allowed, as DELETE /portal/api/subscriptions/{subscription_id}.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -167,12 +173,14 @@ async def asyncio(
 ) -> Any | ErrorModel | None:
     """Delete a subscription
 
-     Removes the link between a webhook and an event type. The webhook stops receiving that event's
-    occurrences; its delivery history is unaffected.
+     Deletes the subscription and its template history. The webhook stops receiving that event's
+    occurrences; delivery history is kept. Cannot be undone. A second delete returns 404.
+
+    Portal tokens: allowed, as DELETE /portal/api/subscriptions/{subscription_id}.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

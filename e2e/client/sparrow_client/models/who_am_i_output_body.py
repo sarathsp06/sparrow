@@ -15,9 +15,10 @@ class WhoAmIOutputBody:
     """
     Attributes:
         auth_enabled (bool): False when SPARROW_API_KEY is unset: every endpoint is open.
-        master_key (bool): True when the request used SPARROW_API_KEY itself.
-        name (str): Name of the credential used for this request.
-        token_id (None | str): Id of the access token used, if any.
+        master_key (bool): True when the request used SPARROW_API_KEY itself. Always false when auth is off.
+        name (str): Name of the credential used for this request: the master key's name, the access token's name, or a
+            placeholder when auth is off.
+        token_id (None | str): Id of the access token used; null for the master key or when auth is off.
         schema (str | Unset): A URL to the JSON Schema for this object.
     """
 

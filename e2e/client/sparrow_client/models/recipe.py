@@ -21,15 +21,17 @@ T = TypeVar("T", bound="Recipe")
 class Recipe:
     """
     Attributes:
-        description (str):
-        name (str):
+        description (str): One-line summary of the destination the recipe targets.
+        name (str): Recipe name, e.g. slack. Unique among shipped recipes.
         subscription (Subscription):
-        version (int):
+        version (int): Recipe schema version. Always 1.
         webhook (Webhook):
         consumer (ConsumerHint | Unset):
         guidance (str | Unset): What an ideal message for this destination looks like. Advice for template authors and
             AI drafting, not a rule.
-        params (list[Param] | None | Unset):
+        params (list[Param] | None | Unset): Values the user supplies when applying the recipe. Each {{param "name"}}
+            token in webhook.url, webhook.headers, webhook.secret_headers and subscription.transform_template is replaced
+            with the value by plain string substitution before registration.
     """
 
     description: str

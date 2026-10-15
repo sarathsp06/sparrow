@@ -11,7 +11,7 @@ T = TypeVar("T", bound="PatchWebhookBodyHeaders")
 
 @_attrs_define
 class PatchWebhookBodyHeaders:
-    """Replace the static headers sent with every delivery."""
+    """Replace all static headers sent with every delivery. Same rules as on register."""
 
     additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 

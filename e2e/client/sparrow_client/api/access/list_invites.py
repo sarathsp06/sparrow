@@ -77,7 +77,10 @@ def sync_detailed(
 ) -> Response[ErrorModel | ListInvitesOutputBody]:
     """List invites
 
-     Newest first. Only pending invites unless include_inactive is set. Secrets are never returned.
+     Lists invites, newest first. Only pending invites unless include_inactive is set. Secrets are never
+    returned. Not paginated.
+
+    Portal tokens: not allowed.
 
     Args:
         include_inactive (bool | Unset): Also return redeemed, cancelled, and expired invites.
@@ -108,7 +111,10 @@ def sync(
 ) -> ErrorModel | ListInvitesOutputBody | None:
     """List invites
 
-     Newest first. Only pending invites unless include_inactive is set. Secrets are never returned.
+     Lists invites, newest first. Only pending invites unless include_inactive is set. Secrets are never
+    returned. Not paginated.
+
+    Portal tokens: not allowed.
 
     Args:
         include_inactive (bool | Unset): Also return redeemed, cancelled, and expired invites.
@@ -134,7 +140,10 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | ListInvitesOutputBody]:
     """List invites
 
-     Newest first. Only pending invites unless include_inactive is set. Secrets are never returned.
+     Lists invites, newest first. Only pending invites unless include_inactive is set. Secrets are never
+    returned. Not paginated.
+
+    Portal tokens: not allowed.
 
     Args:
         include_inactive (bool | Unset): Also return redeemed, cancelled, and expired invites.
@@ -163,7 +172,10 @@ async def asyncio(
 ) -> ErrorModel | ListInvitesOutputBody | None:
     """List invites
 
-     Newest first. Only pending invites unless include_inactive is set. Secrets are never returned.
+     Lists invites, newest first. Only pending invites unless include_inactive is set. Secrets are never
+    returned. Not paginated.
+
+    Portal tokens: not allowed.
 
     Args:
         include_inactive (bool | Unset): Also return redeemed, cancelled, and expired invites.

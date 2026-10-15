@@ -15,7 +15,8 @@ T = TypeVar("T", bound="TestTemplateBody")
 class TestTemplateBody:
     """
     Attributes:
-        event_name (str): Registered event type whose sample payload the template is rendered against.
+        event_name (str): Registered event type whose sample_payload (generated from its schema; empty without one) the
+            template is rendered against.
         template (str): Go template to render, in the same syntax used by transform_template.
         schema (str | Unset): A URL to the JSON Schema for this object.
         template_missing_key (TestTemplateBodyTemplateMissingKey | Unset): Render as a subscription with this

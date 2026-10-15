@@ -87,11 +87,17 @@ def sync_detailed(
 ) -> Response[ErrorModel | RetryOutputBody]:
     """Retry deliveries in bulk for a webhook
 
-     Retries every eligible (failed/pending) delivery for one webhook. Set force to also retry deliveries
-    that already exhausted max_attempts.
+     Queues every failed, pending, retrying or paused delivery of one webhook for another round of
+    attempts (see retryDelivery), in one request. With force, every delivery of the webhook is resent,
+    including successful and expired ones. Returns count 0 when nothing matched. For a filtered or very
+    large set, use prepare_retry and :retryBatch instead.
+
+    404 when the webhook does not exist in this consumer.
+
+    Portal tokens: allowed, as POST /portal/api/deliveries:retry.
 
     Args:
-        consumer (str): Tenant consumer the webhook belongs to.
+        consumer (str): Consumer the webhook belongs to.
         body (RetryDeliveriesByWebhookInputBody):
 
     Raises:
@@ -122,11 +128,17 @@ def sync(
 ) -> ErrorModel | RetryOutputBody | None:
     """Retry deliveries in bulk for a webhook
 
-     Retries every eligible (failed/pending) delivery for one webhook. Set force to also retry deliveries
-    that already exhausted max_attempts.
+     Queues every failed, pending, retrying or paused delivery of one webhook for another round of
+    attempts (see retryDelivery), in one request. With force, every delivery of the webhook is resent,
+    including successful and expired ones. Returns count 0 when nothing matched. For a filtered or very
+    large set, use prepare_retry and :retryBatch instead.
+
+    404 when the webhook does not exist in this consumer.
+
+    Portal tokens: allowed, as POST /portal/api/deliveries:retry.
 
     Args:
-        consumer (str): Tenant consumer the webhook belongs to.
+        consumer (str): Consumer the webhook belongs to.
         body (RetryDeliveriesByWebhookInputBody):
 
     Raises:
@@ -152,11 +164,17 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | RetryOutputBody]:
     """Retry deliveries in bulk for a webhook
 
-     Retries every eligible (failed/pending) delivery for one webhook. Set force to also retry deliveries
-    that already exhausted max_attempts.
+     Queues every failed, pending, retrying or paused delivery of one webhook for another round of
+    attempts (see retryDelivery), in one request. With force, every delivery of the webhook is resent,
+    including successful and expired ones. Returns count 0 when nothing matched. For a filtered or very
+    large set, use prepare_retry and :retryBatch instead.
+
+    404 when the webhook does not exist in this consumer.
+
+    Portal tokens: allowed, as POST /portal/api/deliveries:retry.
 
     Args:
-        consumer (str): Tenant consumer the webhook belongs to.
+        consumer (str): Consumer the webhook belongs to.
         body (RetryDeliveriesByWebhookInputBody):
 
     Raises:
@@ -185,11 +203,17 @@ async def asyncio(
 ) -> ErrorModel | RetryOutputBody | None:
     """Retry deliveries in bulk for a webhook
 
-     Retries every eligible (failed/pending) delivery for one webhook. Set force to also retry deliveries
-    that already exhausted max_attempts.
+     Queues every failed, pending, retrying or paused delivery of one webhook for another round of
+    attempts (see retryDelivery), in one request. With force, every delivery of the webhook is resent,
+    including successful and expired ones. Returns count 0 when nothing matched. For a filtered or very
+    large set, use prepare_retry and :retryBatch instead.
+
+    404 when the webhook does not exist in this consumer.
+
+    Portal tokens: allowed, as POST /portal/api/deliveries:retry.
 
     Args:
-        consumer (str): Tenant consumer the webhook belongs to.
+        consumer (str): Consumer the webhook belongs to.
         body (RetryDeliveriesByWebhookInputBody):
 
     Raises:

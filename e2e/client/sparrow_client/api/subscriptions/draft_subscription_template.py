@@ -108,6 +108,11 @@ def sync_detailed(
     (registered or provided in the request), the schema, and the request's own text are sent to the
     model, never stored events, headers, or secrets.
 
+    Not idempotent (model output varies). 404 for an unknown event type or recipe, 429 when the provider
+    rate-limits, 504 when the draft takes longer than SPARROW_AI_TIMEOUT (default 3m).
+
+    Portal tokens: not allowed.
+
     Args:
         body (DraftTemplateBody):
 
@@ -148,6 +153,11 @@ def sync(
     (registered or provided in the request), the schema, and the request's own text are sent to the
     model, never stored events, headers, or secrets.
 
+    Not idempotent (model output varies). 404 for an unknown event type or recipe, 429 when the provider
+    rate-limits, 504 when the draft takes longer than SPARROW_AI_TIMEOUT (default 3m).
+
+    Portal tokens: not allowed.
+
     Args:
         body (DraftTemplateBody):
 
@@ -182,6 +192,11 @@ async def asyncio_detailed(
     OpenAI-compatible server); otherwise 503, naming the missing setting. Only the sample payload
     (registered or provided in the request), the schema, and the request's own text are sent to the
     model, never stored events, headers, or secrets.
+
+    Not idempotent (model output varies). 404 for an unknown event type or recipe, 429 when the provider
+    rate-limits, 504 when the draft takes longer than SPARROW_AI_TIMEOUT (default 3m).
+
+    Portal tokens: not allowed.
 
     Args:
         body (DraftTemplateBody):
@@ -220,6 +235,11 @@ async def asyncio(
     OpenAI-compatible server); otherwise 503, naming the missing setting. Only the sample payload
     (registered or provided in the request), the schema, and the request's own text are sent to the
     model, never stored events, headers, or secrets.
+
+    Not idempotent (model output varies). 404 for an unknown event type or recipe, 429 when the provider
+    rate-limits, 504 when the draft takes longer than SPARROW_AI_TIMEOUT (default 3m).
+
+    Portal tokens: not allowed.
 
     Args:
         body (DraftTemplateBody):

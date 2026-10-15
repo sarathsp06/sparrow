@@ -60,6 +60,16 @@ def _parse_response(
 
         return response_404
 
+    if response.status_code == 409:
+        response_409 = ErrorModel.from_dict(response.json())
+
+        return response_409
+
+    if response.status_code == 413:
+        response_413 = ErrorModel.from_dict(response.json())
+
+        return response_413
+
     if response.status_code == 422:
         response_422 = ErrorModel.from_dict(response.json())
 
@@ -97,12 +107,25 @@ def sync_detailed(
     """Push an event occurrence for asynchronous delivery
 
      Records one occurrence of a registered event type and asynchronously fans it out to every
-    subscription whose event name and label filters match. Returns immediately; delivery happens in the
-    background — check Deliveries for outcomes.
+    subscription whose event name and label filters match. Returns 201 as soon as the event is stored
+    and queued; delivery happens in the background, so check Deliveries for outcomes. A payload that
+    fails the event type's JSON Schema is still accepted (schema_valid: false, with warnings).
+
+    Idempotency: with idempotency_key, a repeat push with the same key in the same consumer returns 201
+    with duplicate: true and the original event_id, and creates nothing. Without a key every call
+    creates a new event.
+
+    Failures: 404 for an unregistered event type (unless SPARROW_AUTO_REGISTER_EVENTS=true), 409 for an
+    inactive one, 400 for a reserved sparrow.* name, a name over 255 characters or invalid labels, 413
+    for a body over SPARROW_MAX_BODY_BYTES.
+
+    Portal tokens: not allowed (pushing is the producer's job).
 
     Args:
-        consumer (str): Tenant consumer to record the occurrence in.
-        event (str): Name of a registered event type (at most 255 characters).
+        consumer (str): Consumer to record the occurrence in. Created implicitly on first use.
+        event (str): Name of a registered, active event type (at most 255 characters). An
+            unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true; sparrow.* names are
+            reserved (400).
         body (PushEventBody):
 
     Raises:
@@ -136,12 +159,25 @@ def sync(
     """Push an event occurrence for asynchronous delivery
 
      Records one occurrence of a registered event type and asynchronously fans it out to every
-    subscription whose event name and label filters match. Returns immediately; delivery happens in the
-    background — check Deliveries for outcomes.
+    subscription whose event name and label filters match. Returns 201 as soon as the event is stored
+    and queued; delivery happens in the background, so check Deliveries for outcomes. A payload that
+    fails the event type's JSON Schema is still accepted (schema_valid: false, with warnings).
+
+    Idempotency: with idempotency_key, a repeat push with the same key in the same consumer returns 201
+    with duplicate: true and the original event_id, and creates nothing. Without a key every call
+    creates a new event.
+
+    Failures: 404 for an unregistered event type (unless SPARROW_AUTO_REGISTER_EVENTS=true), 409 for an
+    inactive one, 400 for a reserved sparrow.* name, a name over 255 characters or invalid labels, 413
+    for a body over SPARROW_MAX_BODY_BYTES.
+
+    Portal tokens: not allowed (pushing is the producer's job).
 
     Args:
-        consumer (str): Tenant consumer to record the occurrence in.
-        event (str): Name of a registered event type (at most 255 characters).
+        consumer (str): Consumer to record the occurrence in. Created implicitly on first use.
+        event (str): Name of a registered, active event type (at most 255 characters). An
+            unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true; sparrow.* names are
+            reserved (400).
         body (PushEventBody):
 
     Raises:
@@ -170,12 +206,25 @@ async def asyncio_detailed(
     """Push an event occurrence for asynchronous delivery
 
      Records one occurrence of a registered event type and asynchronously fans it out to every
-    subscription whose event name and label filters match. Returns immediately; delivery happens in the
-    background — check Deliveries for outcomes.
+    subscription whose event name and label filters match. Returns 201 as soon as the event is stored
+    and queued; delivery happens in the background, so check Deliveries for outcomes. A payload that
+    fails the event type's JSON Schema is still accepted (schema_valid: false, with warnings).
+
+    Idempotency: with idempotency_key, a repeat push with the same key in the same consumer returns 201
+    with duplicate: true and the original event_id, and creates nothing. Without a key every call
+    creates a new event.
+
+    Failures: 404 for an unregistered event type (unless SPARROW_AUTO_REGISTER_EVENTS=true), 409 for an
+    inactive one, 400 for a reserved sparrow.* name, a name over 255 characters or invalid labels, 413
+    for a body over SPARROW_MAX_BODY_BYTES.
+
+    Portal tokens: not allowed (pushing is the producer's job).
 
     Args:
-        consumer (str): Tenant consumer to record the occurrence in.
-        event (str): Name of a registered event type (at most 255 characters).
+        consumer (str): Consumer to record the occurrence in. Created implicitly on first use.
+        event (str): Name of a registered, active event type (at most 255 characters). An
+            unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true; sparrow.* names are
+            reserved (400).
         body (PushEventBody):
 
     Raises:
@@ -207,12 +256,25 @@ async def asyncio(
     """Push an event occurrence for asynchronous delivery
 
      Records one occurrence of a registered event type and asynchronously fans it out to every
-    subscription whose event name and label filters match. Returns immediately; delivery happens in the
-    background — check Deliveries for outcomes.
+    subscription whose event name and label filters match. Returns 201 as soon as the event is stored
+    and queued; delivery happens in the background, so check Deliveries for outcomes. A payload that
+    fails the event type's JSON Schema is still accepted (schema_valid: false, with warnings).
+
+    Idempotency: with idempotency_key, a repeat push with the same key in the same consumer returns 201
+    with duplicate: true and the original event_id, and creates nothing. Without a key every call
+    creates a new event.
+
+    Failures: 404 for an unregistered event type (unless SPARROW_AUTO_REGISTER_EVENTS=true), 409 for an
+    inactive one, 400 for a reserved sparrow.* name, a name over 255 characters or invalid labels, 413
+    for a body over SPARROW_MAX_BODY_BYTES.
+
+    Portal tokens: not allowed (pushing is the producer's job).
 
     Args:
-        consumer (str): Tenant consumer to record the occurrence in.
-        event (str): Name of a registered event type (at most 255 characters).
+        consumer (str): Consumer to record the occurrence in. Created implicitly on first use.
+        event (str): Name of a registered, active event type (at most 255 characters). An
+            unregistered name is 404 unless SPARROW_AUTO_REGISTER_EVENTS=true; sparrow.* names are
+            reserved (400).
         body (PushEventBody):
 
     Raises:

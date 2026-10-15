@@ -11,8 +11,8 @@ T = TypeVar("T", bound="PushEventBodyLabels")
 
 @_attrs_define
 class PushEventBodyLabels:
-    """Key/value labels a subscription's label filters can match against to select which subscribers receive this
-    occurrence.
+    """Key/value labels a subscription's label_filters match against to decide which subscriptions receive this occurrence.
+    At most 20 pairs; keys up to 64 characters of letters, digits, '.', '_' and '-'; values up to 256 characters.
 
     """
 

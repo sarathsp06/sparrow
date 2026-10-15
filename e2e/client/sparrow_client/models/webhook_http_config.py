@@ -14,21 +14,26 @@ T = TypeVar("T", bound="WebhookHTTPConfig")
 class WebhookHTTPConfig:
     """
     Attributes:
-        capture_response_body (bool | Unset): Whether to store the endpoint's response body alongside each delivery
-            attempt, for debugging.
-        content_type (str | Unset): Content-Type header sent with deliveries. Defaults to application/json.
+        capture_response_body (bool | Unset): How much of the endpoint's response body is stored with each attempt:
+            false (default) keeps up to 1 KiB, true up to SPARROW_MAX_CAPTURED_RESPONSE_BYTES (default 1 MiB).
+        content_type (str | Unset): Stored and returned, but deliveries do not use it yet: they send Content-Type:
+            application/json. To send another Content-Type, set it in headers (or the subscription's headers). Must not be
+            empty; defaults to application/json.
         expected_status_codes (list[int] | None | Unset): HTTP status codes treated as a successful delivery, each
             between 100 and 599. Defaults to 200, 201, 202 and 204.
-        follow_redirects (bool | Unset): Whether to follow HTTP redirects returned by the endpoint.
-        max_retries (int | Unset): Maximum delivery attempts before a delivery is marked failed. 0 means no retries.
-            Between 0 and 10; defaults to 3.
-        rate_limit_rps (float | Unset): Per-webhook delivery rate limit override, in requests per second. Must be
-            positive; unset means no limit.
+        follow_redirects (bool | Unset): Whether to follow HTTP redirects returned by the endpoint. Each redirect target
+            passes the same SSRF checks. Defaults to true.
+        max_retries (int | Unset): Retries after the first attempt before a delivery is marked failed, so a delivery
+            gets up to max_retries + 1 attempts. 0 means no retries. Between 0 and 10; defaults to 3.
+        rate_limit_rps (float | Unset): Maximum delivery rate to this webhook, in requests per second (fractions
+            allowed, e.g. 0.5). Must be positive; unset means no limit. Deliveries over the limit wait in the queue.
         request_timeout_seconds (int | Unset): How long to wait for the endpoint to respond before treating the attempt
             as a timeout, in seconds. Between 1 and 300; defaults to 30.
-        retry_backoff_seconds (int | Unset): Base delay between retry attempts, in seconds. Backoff grows exponentially
-            from this value. Between 1 and 3600; defaults to 60.
-        user_agent (str | Unset): Custom User-Agent header sent with deliveries.
+        retry_backoff_seconds (int | Unset): Base retry delay, in seconds. The delay after attempt N is
+            retry_backoff_seconds * 2^(N-1), capped at 24 hours. Between 1 and 3600; defaults to 60.
+        user_agent (str | Unset): Stored and returned, but deliveries do not use it yet: they always send User-Agent:
+            Sparrow-Webhook/<server version>. To send another User-Agent, set it in headers. Defaults to Sparrow-
+            Webhook/1.0.
         verify_ssl (bool | Unset): Whether to verify the endpoint's TLS certificate. Defaults to true. Set false only
             for trusted internal endpoints with self-signed certificates; SSRF and redirect checks still apply.
     """

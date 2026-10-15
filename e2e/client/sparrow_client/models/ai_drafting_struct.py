@@ -15,15 +15,16 @@ T = TypeVar("T", bound="AIDraftingStruct")
 class AIDraftingStruct:
     """
     Attributes:
-        enabled (bool): True when the server is started with SPARROW_AI_ENABLED=true. POST
-            /v1/subscriptions:draftTemplate is usable unless problem is set.
-        prompt_only (bool): True when drafting is off. POST /v1/subscriptions:draftTemplatePrompt builds the prompt for
-            pasting into any chat assistant whatever this says.
-        model (str | Unset): Model id used for drafting, when enabled.
+        enabled (bool): True when the server is started with SPARROW_AI_ENABLED=true, whether or not the provider
+            settings are valid. Drafting (POST /v1/subscriptions:draftTemplate) is usable only when enabled is true and
+            problem is absent.
+        prompt_only (bool): Always the opposite of enabled: true when SPARROW_AI_ENABLED is not true, so clients offer
+            only the copy-and-paste prompt. POST /v1/subscriptions:draftTemplatePrompt works whatever this says.
+        model (str | Unset): Model id used for drafting; absent when drafting is off or not usable.
         problem (str | Unset): Why drafting is enabled but not usable: a missing or invalid provider setting. POST
             /v1/subscriptions:draftTemplate answers 503 with this text.
         provider (AIDraftingStructProvider | Unset): Chat API behind drafting: anthropic, or openai for any OpenAI-
-            compatible server (Ollama, vLLM, OpenRouter, OpenAI).
+            compatible server (Ollama, vLLM, OpenRouter, OpenAI). Absent when drafting is off or not usable.
     """
 
     enabled: bool

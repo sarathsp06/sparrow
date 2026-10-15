@@ -15,17 +15,18 @@ T = TypeVar("T", bound="InviteOut")
 class InviteOut:
     """
     Attributes:
-        cancelled_at (datetime.datetime | None):
+        cancelled_at (datetime.datetime | None): When the invite was cancelled, RFC3339. Null: not cancelled.
         consumer (None | str): Consumer the resulting token is limited to. Null: tenant-wide.
-        created_at (datetime.datetime):
-        created_by (str):
-        expires_at (datetime.datetime): When the invite stops working if unused.
-        id (str):
+        created_at (datetime.datetime): When the invite was created, RFC3339.
+        created_by (str): Name of the credential that created the invite.
+        expires_at (datetime.datetime): When the invite stops working if unused, RFC3339.
+        id (str): Invite id (not the secret).
         name (str): Name given to the token the invite creates.
-        redeemed_at (datetime.datetime | None):
-        status (InviteOutStatus):
+        redeemed_at (datetime.datetime | None): When the invite was redeemed, RFC3339. Null: not redeemed.
+        status (InviteOutStatus): pending: can still be redeemed. redeemed: used once, see token_id. cancelled:
+            cancelled by DELETE /v1/invites/{invite_id}. expired: past expires_at unused.
         token_id (None | str): Token created when the invite was redeemed.
-        token_ttl_seconds (int | None): Lifetime of the token it creates. Null: never expires.
+        token_ttl_seconds (int | None): Lifetime of the token it creates, in seconds. Null: the token never expires.
     """
 
     cancelled_at: datetime.datetime | None

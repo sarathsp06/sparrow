@@ -138,7 +138,7 @@ func registerEventBundleRoutes(api huma.API, svc eventRouteService) {
 		Method:      http.MethodPost,
 		Path:        "/v1/event-types:export",
 		Summary:     "Export event type definitions as a bundle",
-		Description: "Returns the current definitions of the selected event types as one JSON bundle, ready to import into another environment with importEventTypes. Choose exactly one of names, prefix or all. An unknown name fails the whole export. Sparrow's own sparrow.* event types are never exported.",
+		Description: "Returns the current definitions of the selected event types as one JSON bundle, ready to import into another environment with importEventTypes. Choose exactly one of names, prefix or all. An unknown name fails the whole export. Sparrow's own sparrow.* event types are never exported. Read-only despite POST (the selection travels in the body).\n\nPortal tokens: not allowed.",
 		Errors:      []int{400, 404},
 		Tags:        []string{"Event Types"},
 	}, func(ctx context.Context, in *exportEventTypesInput) (*exportEventTypesOutput, error) {
@@ -159,7 +159,7 @@ func registerEventBundleRoutes(api huma.API, svc eventRouteService) {
 		Method:       http.MethodPost,
 		Path:         "/v1/event-types:import",
 		Summary:      "Import a bundle of event type definitions",
-		Description:  "Applies a bundle in one transaction: each item replaces the named event type using the usual version rules, or nothing is written. Event types not in the bundle are never touched; an import does not delete. The full per-item result is returned either way. Nothing is written for a dry run, when a stamp warning is not acknowledged, or when a change is breaking for subscriptions and allow_breaking is not set; blocked_by says why. The body may be an exported bundle as-is, plus the options.",
+		Description:  "Applies a bundle in one transaction: each item replaces the named event type using the usual version rules, or nothing is written. Event types not in the bundle are never touched; an import does not delete. The full per-item result is returned either way. Nothing is written for a dry run, when a stamp warning is not acknowledged, or when a change is breaking for subscriptions and allow_breaking is not set; blocked_by says why. The body may be an exported bundle as-is, plus the options. Idempotent: importing the same bundle again reports every item unchanged. The body is limited to 5 MiB and 500 items.\n\nPortal tokens: not allowed.",
 		Errors:       []int{400},
 		Tags:         []string{"Event Types"},
 		MaxBodyBytes: maxBundleBytes,

@@ -63,6 +63,7 @@ spec:
       labels:
         app: sparrow
     spec:
+      terminationGracePeriodSeconds: 30   # > preStop sleep + SPARROW_SHUTDOWN_TIMEOUT (default 10s)
       containers:
         - name: sparrow
           image: ghcr.io/sarathsp06/sparrow:X.Y.Z    # pin a release (no leading v), not latest
@@ -92,6 +93,10 @@ spec:
               port: 8080
             initialDelaySeconds: 3
             periodSeconds: 10
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 10       # let endpoints drop the pod before shutdown starts (see below)
           resources:
             requests:
               cpu: 100m
@@ -102,6 +107,28 @@ spec:
 ```
 
 Each replica opens up to 75 Postgres connections, so two replicas already exceed Postgres' default `max_connections = 100`. Size it for `75 × (replicas + maxSurge)` plus headroom; see the [connection budget](/sparrow/deployment/upgrading-to-1-0/#postgres-connection-budget). Large instances should also run migrations in a [pre-deploy Job](/sparrow/deployment/upgrading-to-1-0/#run-migrations-before-the-rollout-on-large-instances).
+
+### Graceful shutdown
+
+On `SIGTERM` (or `SIGINT`) Sparrow marks itself not ready and starts shutting
+down at once. `/ready` turns `503`, but the HTTP listener closes immediately
+after, so in practice a readiness probe rarely sees the `503` before
+connections are refused. Kubernetes removes a pod from Service endpoints
+asynchronously, and requests routed to it in that gap fail. Give the
+endpoints time to update before the signal reaches Sparrow with a `preStop`
+sleep of 5-10 seconds, as in the Deployment above. The image is distroless
+and has no shell or `sleep` binary, so use the built-in `sleep` action
+(Kubernetes 1.30+) rather than `exec: [sleep, ...]`.
+
+`SPARROW_SHUTDOWN_TIMEOUT` (default `10s`) is one budget for the whole
+shutdown: in-flight HTTP requests finish first, then the queue stops taking
+jobs and waits for running deliveries. Jobs still running when the budget
+runs out are cancelled and retried later by another replica, so an attempt
+can be repeated. Kubernetes counts the `preStop` hook against
+`terminationGracePeriodSeconds`, so set it above the sum: with a 10 second
+`preStop` sleep and the default 10 second shutdown timeout, 30 seconds leaves
+room. If the grace period runs out first, the kubelet kills the process
+mid-shutdown.
 
 ### Service
 
@@ -238,7 +265,7 @@ Give each person and CI job their own access token instead of sharing `SPARROW_A
 - [ ] `DATABASE_URL` points to a managed Postgres with `sslmode=require` or stronger.
 - [ ] Image tag pinned to a release (not `latest`).
 - [ ] Container runs as non-root (UID 65532), read-only filesystem, no privilege escalation, all capabilities dropped.
-- [ ] Liveness (`/health`) and readiness (`/ready`) probes configured. `/health` only says the process is up, so a database outage never restarts pods; `/ready` checks the database and answers `503` from the moment shutdown starts. Set `SPARROW_SHUTDOWN_TIMEOUT` below `terminationGracePeriodSeconds`.
+- [ ] Liveness (`/health`) and readiness (`/ready`) probes configured. `/health` only says the process is up, so a database outage never restarts pods; `/ready` checks the database and answers `503` from the moment shutdown starts. Add a `preStop` sleep and keep `terminationGracePeriodSeconds` above the `preStop` sleep plus `SPARROW_SHUTDOWN_TIMEOUT`; see [Graceful shutdown](#graceful-shutdown).
 - [ ] Prometheus scraping `/metrics` (or OTLP export configured), with alerts on delivery success rate, `sparrow_queue_jobs` backlog, and `sparrow_webhooks_auto_disabled_total`. `/metrics` needs no API key: keep it off public networks, or set `SPARROW_METRICS_ENABLED=false`.
 - [ ] `SPARROW_AUTO_DISABLE_AFTER` reviewed (default 5 days of failures pauses a webhook; deliveries are held, not dropped) and an alert config opted into `sparrow.webhook.disabled`.
 - [ ] Exposed only through an internal ingress or VPN -- never a public LoadBalancer.

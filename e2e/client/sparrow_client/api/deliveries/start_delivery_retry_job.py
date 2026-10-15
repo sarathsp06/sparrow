@@ -52,6 +52,11 @@ def _parse_response(
 
         return response_404
 
+    if response.status_code == 409:
+        response_409 = ErrorModel.from_dict(response.json())
+
+        return response_409
+
     if response.status_code == 422:
         response_422 = ErrorModel.from_dict(response.json())
 
@@ -87,11 +92,20 @@ def sync_detailed(
 ) -> Response[BatchJobOutputBody | ErrorModel]:
     """Start a batch retry job from a prepared snapshot
 
-     Starts an async job that retries every delivery captured by an earlier prepare_retry=true list call.
-    Poll the returned job with getDeliveryRetryJob.
+     Starts an async job that retries every delivery in a snapshot taken by an earlier GET
+    .../deliveries?prepare_retry=true call, like retryDelivery for each one. The body field is named
+    repush_id, but it takes the retry_id returned by the deliveries list. Returns 202 with the job; poll
+    it with getDeliveryRetryJob.
+
+    A snapshot can be started once: 409 when it is not pending (already started or cancelled), expired
+    (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400
+    when it is not a UUID.
+
+    Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
+            against it.
         body (RepushBatchInputBody):
 
     Raises:
@@ -122,11 +136,20 @@ def sync(
 ) -> BatchJobOutputBody | ErrorModel | None:
     """Start a batch retry job from a prepared snapshot
 
-     Starts an async job that retries every delivery captured by an earlier prepare_retry=true list call.
-    Poll the returned job with getDeliveryRetryJob.
+     Starts an async job that retries every delivery in a snapshot taken by an earlier GET
+    .../deliveries?prepare_retry=true call, like retryDelivery for each one. The body field is named
+    repush_id, but it takes the retry_id returned by the deliveries list. Returns 202 with the job; poll
+    it with getDeliveryRetryJob.
+
+    A snapshot can be started once: 409 when it is not pending (already started or cancelled), expired
+    (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400
+    when it is not a UUID.
+
+    Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
+            against it.
         body (RepushBatchInputBody):
 
     Raises:
@@ -152,11 +175,20 @@ async def asyncio_detailed(
 ) -> Response[BatchJobOutputBody | ErrorModel]:
     """Start a batch retry job from a prepared snapshot
 
-     Starts an async job that retries every delivery captured by an earlier prepare_retry=true list call.
-    Poll the returned job with getDeliveryRetryJob.
+     Starts an async job that retries every delivery in a snapshot taken by an earlier GET
+    .../deliveries?prepare_retry=true call, like retryDelivery for each one. The body field is named
+    repush_id, but it takes the retry_id returned by the deliveries list. Returns 202 with the job; poll
+    it with getDeliveryRetryJob.
+
+    A snapshot can be started once: 409 when it is not pending (already started or cancelled), expired
+    (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400
+    when it is not a UUID.
+
+    Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
+            against it.
         body (RepushBatchInputBody):
 
     Raises:
@@ -185,11 +217,20 @@ async def asyncio(
 ) -> BatchJobOutputBody | ErrorModel | None:
     """Start a batch retry job from a prepared snapshot
 
-     Starts an async job that retries every delivery captured by an earlier prepare_retry=true list call.
-    Poll the returned job with getDeliveryRetryJob.
+     Starts an async job that retries every delivery in a snapshot taken by an earlier GET
+    .../deliveries?prepare_retry=true call, like retryDelivery for each one. The body field is named
+    repush_id, but it takes the retry_id returned by the deliveries list. Returns 202 with the job; poll
+    it with getDeliveryRetryJob.
+
+    A snapshot can be started once: 409 when it is not pending (already started or cancelled), expired
+    (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400
+    when it is not a UUID.
+
+    Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
+            against it.
         body (RepushBatchInputBody):
 
     Raises:

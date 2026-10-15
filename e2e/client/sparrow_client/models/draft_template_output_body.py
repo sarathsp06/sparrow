@@ -20,7 +20,8 @@ class DraftTemplateOutputBody:
         model (str): Model id that produced the draft.
         rendered (str): The template rendered against the sample payload used (provided or registered), proving it
             renders.
-        sample_source (DraftTemplateOutputBodySampleSource): Which sample payload grounded and verified the draft.
+        sample_source (DraftTemplateOutputBodySampleSource): Which sample payload grounded and verified the draft:
+            registered or provided.
         template (str): The drafted Go template, ready to save as transform_template.
         schema (str | Unset): A URL to the JSON Schema for this object.
         notes (str | Unset): Short explanation from the model of the fields used and assumptions made.

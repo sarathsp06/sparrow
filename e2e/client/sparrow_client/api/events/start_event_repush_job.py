@@ -52,6 +52,11 @@ def _parse_response(
 
         return response_404
 
+    if response.status_code == 409:
+        response_409 = ErrorModel.from_dict(response.json())
+
+        return response_409
+
     if response.status_code == 422:
         response_422 = ErrorModel.from_dict(response.json())
 
@@ -87,11 +92,19 @@ def sync_detailed(
 ) -> Response[BatchJobOutputBody | ErrorModel]:
     """Start a batch re-push job from a prepared snapshot
 
-     Starts an async job that replays every event occurrence captured by an earlier prepare_repush=true
-    list call. Poll the returned job with getEventRepushJob.
+     Starts an async job that re-pushes every event occurrence in a snapshot taken by an earlier GET
+    .../events?prepare_repush=true call. Each re-push creates a new event occurrence with the original
+    payload, without re-validating it; sparrow.* system events are skipped and counted as failed.
+    Returns 202 with the job; poll it with getEventRepushJob.
+
+    A snapshot can be started once: 409 when it is not pending (already started or cancelled) or expired
+    (15 minutes after it was taken), 404 when the id is unknown, 400 when it is not a UUID.
+
+    Portal tokens: allowed, as POST /portal/api/events:rePush.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
+            against it.
         body (RepushBatchInputBody):
 
     Raises:
@@ -122,11 +135,19 @@ def sync(
 ) -> BatchJobOutputBody | ErrorModel | None:
     """Start a batch re-push job from a prepared snapshot
 
-     Starts an async job that replays every event occurrence captured by an earlier prepare_repush=true
-    list call. Poll the returned job with getEventRepushJob.
+     Starts an async job that re-pushes every event occurrence in a snapshot taken by an earlier GET
+    .../events?prepare_repush=true call. Each re-push creates a new event occurrence with the original
+    payload, without re-validating it; sparrow.* system events are skipped and counted as failed.
+    Returns 202 with the job; poll it with getEventRepushJob.
+
+    A snapshot can be started once: 409 when it is not pending (already started or cancelled) or expired
+    (15 minutes after it was taken), 404 when the id is unknown, 400 when it is not a UUID.
+
+    Portal tokens: allowed, as POST /portal/api/events:rePush.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
+            against it.
         body (RepushBatchInputBody):
 
     Raises:
@@ -152,11 +173,19 @@ async def asyncio_detailed(
 ) -> Response[BatchJobOutputBody | ErrorModel]:
     """Start a batch re-push job from a prepared snapshot
 
-     Starts an async job that replays every event occurrence captured by an earlier prepare_repush=true
-    list call. Poll the returned job with getEventRepushJob.
+     Starts an async job that re-pushes every event occurrence in a snapshot taken by an earlier GET
+    .../events?prepare_repush=true call. Each re-push creates a new event occurrence with the original
+    payload, without re-validating it; sparrow.* system events are skipped and counted as failed.
+    Returns 202 with the job; poll it with getEventRepushJob.
+
+    A snapshot can be started once: 409 when it is not pending (already started or cancelled) or expired
+    (15 minutes after it was taken), 404 when the id is unknown, 400 when it is not a UUID.
+
+    Portal tokens: allowed, as POST /portal/api/events:rePush.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
+            against it.
         body (RepushBatchInputBody):
 
     Raises:
@@ -185,11 +214,19 @@ async def asyncio(
 ) -> BatchJobOutputBody | ErrorModel | None:
     """Start a batch re-push job from a prepared snapshot
 
-     Starts an async job that replays every event occurrence captured by an earlier prepare_repush=true
-    list call. Poll the returned job with getEventRepushJob.
+     Starts an async job that re-pushes every event occurrence in a snapshot taken by an earlier GET
+    .../events?prepare_repush=true call. Each re-push creates a new event occurrence with the original
+    payload, without re-validating it; sparrow.* system events are skipped and counted as failed.
+    Returns 202 with the job; poll it with getEventRepushJob.
+
+    A snapshot can be started once: 409 when it is not pending (already started or cancelled) or expired
+    (15 minutes after it was taken), 404 when the id is unknown, 400 when it is not a UUID.
+
+    Portal tokens: allowed, as POST /portal/api/events:rePush.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
+            against it.
         body (RepushBatchInputBody):
 
     Raises:

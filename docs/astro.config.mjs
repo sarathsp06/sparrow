@@ -118,6 +118,7 @@ export default defineConfig({
           items: [
             { slug: 'reference/client-libraries' },
             { slug: 'reference/template-functions' },
+            { slug: 'reference/api-errors' },
             { slug: 'reference/error-classification' },
             { slug: 'reference/architecture' },
             { slug: 'reference/security' },

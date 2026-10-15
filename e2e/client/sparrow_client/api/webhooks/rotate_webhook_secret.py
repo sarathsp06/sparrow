@@ -76,8 +76,12 @@ def sync_detailed(
     """Rotate a webhook's signing secret
 
      Replaces the webhook's HMAC signing secret with a newly generated one and returns it in plaintext.
-    This response is the only time the new secret is shown; it is masked on every later read. Deliveries
-    sent after the rotation are signed with the new secret, so update the receiver right away.
+    This response is the only time the new secret is shown; it is masked on every later read. There is
+    no overlap window: every attempt made after the rotation, including retries of older deliveries, is
+    signed with the new secret only, so update the receiver right away. Not idempotent: each call
+    generates a new secret. The Ed25519 key, if any, is not rotated.
+
+    Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:rotateSecret.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.
@@ -112,8 +116,12 @@ def sync(
     """Rotate a webhook's signing secret
 
      Replaces the webhook's HMAC signing secret with a newly generated one and returns it in plaintext.
-    This response is the only time the new secret is shown; it is masked on every later read. Deliveries
-    sent after the rotation are signed with the new secret, so update the receiver right away.
+    This response is the only time the new secret is shown; it is masked on every later read. There is
+    no overlap window: every attempt made after the rotation, including retries of older deliveries, is
+    signed with the new secret only, so update the receiver right away. Not idempotent: each call
+    generates a new secret. The Ed25519 key, if any, is not rotated.
+
+    Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:rotateSecret.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.
@@ -143,8 +151,12 @@ async def asyncio_detailed(
     """Rotate a webhook's signing secret
 
      Replaces the webhook's HMAC signing secret with a newly generated one and returns it in plaintext.
-    This response is the only time the new secret is shown; it is masked on every later read. Deliveries
-    sent after the rotation are signed with the new secret, so update the receiver right away.
+    This response is the only time the new secret is shown; it is masked on every later read. There is
+    no overlap window: every attempt made after the rotation, including retries of older deliveries, is
+    signed with the new secret only, so update the receiver right away. Not idempotent: each call
+    generates a new secret. The Ed25519 key, if any, is not rotated.
+
+    Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:rotateSecret.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.
@@ -177,8 +189,12 @@ async def asyncio(
     """Rotate a webhook's signing secret
 
      Replaces the webhook's HMAC signing secret with a newly generated one and returns it in plaintext.
-    This response is the only time the new secret is shown; it is masked on every later read. Deliveries
-    sent after the rotation are signed with the new secret, so update the receiver right away.
+    This response is the only time the new secret is shown; it is masked on every later read. There is
+    no overlap window: every attempt made after the rotation, including retries of older deliveries, is
+    signed with the new secret only, so update the receiver right away. Not idempotent: each call
+    generates a new secret. The Ed25519 key, if any, is not rotated.
+
+    Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:rotateSecret.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.

@@ -58,6 +58,11 @@ def _parse_response(
 
         return response_500
 
+    if response.status_code == 503:
+        response_503 = ErrorModel.from_dict(response.json())
+
+        return response_503
+
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
     else:
@@ -82,8 +87,15 @@ def sync_detailed(
 ) -> Response[ErrorModel | TestTemplateOutputBody]:
     """Render a transform template against an event's sample payload
 
-     Dry-runs a transform template against the named event type's stored sample payload, without creating
-    a subscription or any delivery. Use this to iterate on transform_template before saving it.
+     Dry-runs a transform template against the named event type's sample payload, without creating a
+    subscription or any delivery. Use this to iterate on transform_template before saving it. Stateless
+    and idempotent.
+
+    400 when the template does not parse or fails to render (with template_missing_key error, a key the
+    sample lacks is an error), 404 when the event type is not registered, 503 when the template engine
+    is at capacity (retry).
+
+    Portal tokens: allowed, as POST /portal/api/subscriptions:testTemplate.
 
     Args:
         body (TestTemplateBody):
@@ -114,8 +126,15 @@ def sync(
 ) -> ErrorModel | TestTemplateOutputBody | None:
     """Render a transform template against an event's sample payload
 
-     Dry-runs a transform template against the named event type's stored sample payload, without creating
-    a subscription or any delivery. Use this to iterate on transform_template before saving it.
+     Dry-runs a transform template against the named event type's sample payload, without creating a
+    subscription or any delivery. Use this to iterate on transform_template before saving it. Stateless
+    and idempotent.
+
+    400 when the template does not parse or fails to render (with template_missing_key error, a key the
+    sample lacks is an error), 404 when the event type is not registered, 503 when the template engine
+    is at capacity (retry).
+
+    Portal tokens: allowed, as POST /portal/api/subscriptions:testTemplate.
 
     Args:
         body (TestTemplateBody):
@@ -141,8 +160,15 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | TestTemplateOutputBody]:
     """Render a transform template against an event's sample payload
 
-     Dry-runs a transform template against the named event type's stored sample payload, without creating
-    a subscription or any delivery. Use this to iterate on transform_template before saving it.
+     Dry-runs a transform template against the named event type's sample payload, without creating a
+    subscription or any delivery. Use this to iterate on transform_template before saving it. Stateless
+    and idempotent.
+
+    400 when the template does not parse or fails to render (with template_missing_key error, a key the
+    sample lacks is an error), 404 when the event type is not registered, 503 when the template engine
+    is at capacity (retry).
+
+    Portal tokens: allowed, as POST /portal/api/subscriptions:testTemplate.
 
     Args:
         body (TestTemplateBody):
@@ -171,8 +197,15 @@ async def asyncio(
 ) -> ErrorModel | TestTemplateOutputBody | None:
     """Render a transform template against an event's sample payload
 
-     Dry-runs a transform template against the named event type's stored sample payload, without creating
-    a subscription or any delivery. Use this to iterate on transform_template before saving it.
+     Dry-runs a transform template against the named event type's sample payload, without creating a
+    subscription or any delivery. Use this to iterate on transform_template before saving it. Stateless
+    and idempotent.
+
+    400 when the template does not parse or fails to render (with template_missing_key error, a key the
+    sample lacks is an error), 404 when the event type is not registered, 503 when the template engine
+    is at capacity (retry).
+
+    Portal tokens: allowed, as POST /portal/api/subscriptions:testTemplate.
 
     Args:
         body (TestTemplateBody):

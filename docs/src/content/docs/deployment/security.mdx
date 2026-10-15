@@ -26,7 +26,7 @@ Model](/sparrow/reference/security/) reference page.
 |---|---|
 | API authentication | `SPARROW_API_KEY` (master key) or per-person [access tokens](/sparrow/deployment/access/) → `X-API-Key` or `Authorization: Bearer` header; master key mandatory in production |
 | Secrets at rest | Envelope encryption (AES-256-GCM, per-record DEK) keyed by the `SPARROW_ENCRYPTION_KEYS` keyring |
-| Outbound signing | Standard Webhooks signatures (`v1` HMAC-SHA256, `v1a` Ed25519) on every delivery |
+| Outbound signing | Standard Webhooks signatures on every delivery: `v1` HMAC-SHA256, plus `v1a` Ed25519 for webhooks with `signature_type: ed25519` |
 | SSRF protection | Private/loopback/link-local/metadata IPs blocked at connect time in every mode; cloud metadata endpoints stay blocked even with `SPARROW_ALLOW_PRIVATE_NETWORKS=true`, but an explicit `SPARROW_ALLOWED_NETWORKS` entry can reach them; redirects re-validated |
 | Custom header validation | Header names must be valid HTTP tokens; values reject CR/LF/control chars and are capped at 8 KiB; reserved framing headers (`Host`, `Content-Length`, `Transfer-Encoding`, `Connection`, `Keep-Alive`, `Proxy-Connection`, `TE`, `Trailer`, `Upgrade`) are refused; Sparrow's own signature and ID headers always win over custom headers |
 | Portal path validation | The portal gateway rejects paths containing `.`, `..`, empty segments, backslashes, or control characters (`403`) |
@@ -248,6 +248,9 @@ Whether or not you add SSO:
 - [ ] Set `SPARROW_API_KEY` (generate: `openssl rand -hex 32`, at least 32
       characters) — mandatory when `ENVIRONMENT=production`, and without it
       anyone who can reach the port owns the instance regardless of environment.
+- [ ] Set `ENVIRONMENT=production` exactly (lowercase). Any other spelling runs
+      as development: no key required, CORS open to every origin when
+      `CORS_ALLOWED_ORIGINS` is unset, and the all-zeros key accepted.
 - [ ] Configure `SPARROW_ENCRYPTION_KEYS` and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID`, and store the key material in a secret manager, never in
       the database or repo.
 - [ ] Use TLS to PostgreSQL (`sslmode=require` or stronger) whenever the
@@ -266,10 +269,15 @@ Whether or not you add SSO:
 - [ ] Give people and CI jobs their own [access tokens](/sparrow/deployment/access/)
       instead of sharing `SPARROW_API_KEY`. Use invites for people, direct
       token creation for machines.
+- [ ] Plan webhook secret rotations with the receiver's owner: `:rotateSecret`
+      has no overlap window, so deliveries signed with the new secret fail
+      verification until the receiver is updated. See
+      [Webhook Secret Rotation](/sparrow/reference/security/#webhook-secret-rotation).
 - [ ] Revoke tokens when someone leaves or a machine credential is retired
       (`sparrow tokens revoke <id>` or `DELETE /v1/tokens/{id}`).
 - [ ] Keep `/health`, `/ready`, `/metrics`, `/docs`, and `/openapi.*` in mind:
       they are intentionally unauthenticated. `/metrics` (Prometheus scrape,
-      on by default via `SPARROW_METRICS_ENABLED`) exposes aggregate counters --
-      firewall it or disable it if the data is sensitive. Restrict the others
+      on by default via `SPARROW_METRICS_ENABLED`) exposes aggregate counters
+      whose labels include receiver host names -- firewall it or disable it if
+      the data is sensitive. Restrict the others
       at the proxy if the OpenAPI spec is sensitive in your environment.

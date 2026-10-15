@@ -87,7 +87,9 @@ def sync_detailed(
     has an AI provider configured, so installs without SPARROW_AI_* still get a one-click prompt. The
     user pastes the assistant's template back into the subscription editor and checks it with Run
     Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched under the delivery
-    network policy to include an excerpt.
+    network policy to include an excerpt. No side effects.
+
+    Portal tokens: not allowed.
 
     Args:
         body (DraftTemplateBody):
@@ -123,7 +125,9 @@ def sync(
     has an AI provider configured, so installs without SPARROW_AI_* still get a one-click prompt. The
     user pastes the assistant's template back into the subscription editor and checks it with Run
     Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched under the delivery
-    network policy to include an excerpt.
+    network policy to include an excerpt. No side effects.
+
+    Portal tokens: not allowed.
 
     Args:
         body (DraftTemplateBody):
@@ -154,7 +158,9 @@ async def asyncio_detailed(
     has an AI provider configured, so installs without SPARROW_AI_* still get a one-click prompt. The
     user pastes the assistant's template back into the subscription editor and checks it with Run
     Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched under the delivery
-    network policy to include an excerpt.
+    network policy to include an excerpt. No side effects.
+
+    Portal tokens: not allowed.
 
     Args:
         body (DraftTemplateBody):
@@ -188,7 +194,9 @@ async def asyncio(
     has an AI provider configured, so installs without SPARROW_AI_* still get a one-click prompt. The
     user pastes the assistant's template back into the subscription editor and checks it with Run
     Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched under the delivery
-    network policy to include an excerpt.
+    network policy to include an excerpt. No side effects.
+
+    Portal tokens: not allowed.
 
     Args:
         body (DraftTemplateBody):

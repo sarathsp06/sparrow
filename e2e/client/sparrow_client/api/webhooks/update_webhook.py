@@ -95,12 +95,21 @@ def sync_detailed(
 ) -> Response[ErrorModel | WebhookOut]:
     """Partially update a webhook
 
-     Merge-patches a webhook: only fields present in the request body are changed. Omit a field to leave
-    it untouched.
+     Partially updates a webhook: only fields present in the body change. Within http_config only the
+    sent fields change, and the merged result is validated as on register (400 if out of range). Sending
+    events replaces every subscription of the webhook (see events). Setting active toggles delivery like
+    :pause/:resume but never fails when the state is already as requested. Returns the updated webhook.
+    Idempotent: repeating the same body leaves the same state.
+
+    409 when turning requires_transform on while a subscription has no enabled transform, or replacing
+    events while it is on. The deprecated top-level timeout is applied only when
+    http_config.request_timeout_seconds is not sent.
+
+    Portal tokens: allowed, as PATCH /portal/api/webhooks/{webhook_id}.
 
     Args:
-        consumer (str):
-        webhook_id (str):
+        consumer (str): Consumer the webhook belongs to.
+        webhook_id (str): Webhook id (UUID).
         body (PatchWebhookBody):
 
     Raises:
@@ -133,12 +142,21 @@ def sync(
 ) -> ErrorModel | WebhookOut | None:
     """Partially update a webhook
 
-     Merge-patches a webhook: only fields present in the request body are changed. Omit a field to leave
-    it untouched.
+     Partially updates a webhook: only fields present in the body change. Within http_config only the
+    sent fields change, and the merged result is validated as on register (400 if out of range). Sending
+    events replaces every subscription of the webhook (see events). Setting active toggles delivery like
+    :pause/:resume but never fails when the state is already as requested. Returns the updated webhook.
+    Idempotent: repeating the same body leaves the same state.
+
+    409 when turning requires_transform on while a subscription has no enabled transform, or replacing
+    events while it is on. The deprecated top-level timeout is applied only when
+    http_config.request_timeout_seconds is not sent.
+
+    Portal tokens: allowed, as PATCH /portal/api/webhooks/{webhook_id}.
 
     Args:
-        consumer (str):
-        webhook_id (str):
+        consumer (str): Consumer the webhook belongs to.
+        webhook_id (str): Webhook id (UUID).
         body (PatchWebhookBody):
 
     Raises:
@@ -166,12 +184,21 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | WebhookOut]:
     """Partially update a webhook
 
-     Merge-patches a webhook: only fields present in the request body are changed. Omit a field to leave
-    it untouched.
+     Partially updates a webhook: only fields present in the body change. Within http_config only the
+    sent fields change, and the merged result is validated as on register (400 if out of range). Sending
+    events replaces every subscription of the webhook (see events). Setting active toggles delivery like
+    :pause/:resume but never fails when the state is already as requested. Returns the updated webhook.
+    Idempotent: repeating the same body leaves the same state.
+
+    409 when turning requires_transform on while a subscription has no enabled transform, or replacing
+    events while it is on. The deprecated top-level timeout is applied only when
+    http_config.request_timeout_seconds is not sent.
+
+    Portal tokens: allowed, as PATCH /portal/api/webhooks/{webhook_id}.
 
     Args:
-        consumer (str):
-        webhook_id (str):
+        consumer (str): Consumer the webhook belongs to.
+        webhook_id (str): Webhook id (UUID).
         body (PatchWebhookBody):
 
     Raises:
@@ -202,12 +229,21 @@ async def asyncio(
 ) -> ErrorModel | WebhookOut | None:
     """Partially update a webhook
 
-     Merge-patches a webhook: only fields present in the request body are changed. Omit a field to leave
-    it untouched.
+     Partially updates a webhook: only fields present in the body change. Within http_config only the
+    sent fields change, and the merged result is validated as on register (400 if out of range). Sending
+    events replaces every subscription of the webhook (see events). Setting active toggles delivery like
+    :pause/:resume but never fails when the state is already as requested. Returns the updated webhook.
+    Idempotent: repeating the same body leaves the same state.
+
+    409 when turning requires_transform on while a subscription has no enabled transform, or replacing
+    events while it is on. The deprecated top-level timeout is applied only when
+    http_config.request_timeout_seconds is not sent.
+
+    Portal tokens: allowed, as PATCH /portal/api/webhooks/{webhook_id}.
 
     Args:
-        consumer (str):
-        webhook_id (str):
+        consumer (str): Consumer the webhook belongs to.
+        webhook_id (str): Webhook id (UUID).
         body (PatchWebhookBody):
 
     Raises:

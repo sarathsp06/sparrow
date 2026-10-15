@@ -91,10 +91,12 @@ def sync_detailed(
     restore endpoint: load a version into the editor and save the subscription, which records it as a
     new version.
 
+    Portal tokens: allowed, as GET /portal/api/subscriptions/{subscription_id}/templateVersions.
+
     Args:
-        consumer (str):
-        subscription_id (str):
-        limit (int | Unset): Max versions to return, newest first. Default: 20.
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
+        limit (int | Unset): Maximum versions to return, newest first, 1 to 20. Default: 20.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -132,10 +134,12 @@ def sync(
     restore endpoint: load a version into the editor and save the subscription, which records it as a
     new version.
 
+    Portal tokens: allowed, as GET /portal/api/subscriptions/{subscription_id}/templateVersions.
+
     Args:
-        consumer (str):
-        subscription_id (str):
-        limit (int | Unset): Max versions to return, newest first. Default: 20.
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
+        limit (int | Unset): Maximum versions to return, newest first, 1 to 20. Default: 20.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -168,10 +172,12 @@ async def asyncio_detailed(
     restore endpoint: load a version into the editor and save the subscription, which records it as a
     new version.
 
+    Portal tokens: allowed, as GET /portal/api/subscriptions/{subscription_id}/templateVersions.
+
     Args:
-        consumer (str):
-        subscription_id (str):
-        limit (int | Unset): Max versions to return, newest first. Default: 20.
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
+        limit (int | Unset): Maximum versions to return, newest first, 1 to 20. Default: 20.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -207,10 +213,12 @@ async def asyncio(
     restore endpoint: load a version into the editor and save the subscription, which records it as a
     new version.
 
+    Portal tokens: allowed, as GET /portal/api/subscriptions/{subscription_id}/templateVersions.
+
     Args:
-        consumer (str):
-        subscription_id (str):
-        limit (int | Unset): Max versions to return, newest first. Default: 20.
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
+        limit (int | Unset): Maximum versions to return, newest first, 1 to 20. Default: 20.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

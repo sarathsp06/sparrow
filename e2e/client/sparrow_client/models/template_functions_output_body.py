@@ -18,7 +18,7 @@ T = TypeVar("T", bound="TemplateFunctionsOutputBody")
 class TemplateFunctionsOutputBody:
     """
     Attributes:
-        items (list[TemplateFunctionItem] | None):
+        items (list[TemplateFunctionItem] | None): Every helper function, in the engine's own order.
         schema (str | Unset): A URL to the JSON Schema for this object.
     """
 

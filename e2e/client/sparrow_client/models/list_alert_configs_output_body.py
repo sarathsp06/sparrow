@@ -18,7 +18,7 @@ T = TypeVar("T", bound="ListAlertConfigsOutputBody")
 class ListAlertConfigsOutputBody:
     """
     Attributes:
-        items (list[AlertConfigItem] | None):
+        items (list[AlertConfigItem] | None): Alert configs, oldest first. Not paginated.
         schema (str | Unset): A URL to the JSON Schema for this object.
     """
 

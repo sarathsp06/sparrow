@@ -15,8 +15,8 @@ class CreateAlertConfigBody:
     """
     Attributes:
         email (str): Recipient email address.
-        event_types (list[str] | None): Sparrow system event types to alert on: sparrow.webhook.health_changed,
-            sparrow.webhook.delivery_failed, sparrow.webhook.disabled.
+        event_types (list[str] | None): Sparrow system event types to alert on, at least one of:
+            sparrow.webhook.health_changed, sparrow.webhook.delivery_failed, sparrow.webhook.disabled.
         schema (str | Unset): A URL to the JSON Schema for this object.
         webhook_id (str | Unset): Scope the alert to one webhook. Omit for a consumer-wide alert covering every webhook.
     """

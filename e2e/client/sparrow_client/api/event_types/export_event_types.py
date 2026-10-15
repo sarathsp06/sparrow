@@ -84,7 +84,10 @@ def sync_detailed(
 
      Returns the current definitions of the selected event types as one JSON bundle, ready to import into
     another environment with importEventTypes. Choose exactly one of names, prefix or all. An unknown
-    name fails the whole export. Sparrow's own sparrow.* event types are never exported.
+    name fails the whole export. Sparrow's own sparrow.* event types are never exported. Read-only
+    despite POST (the selection travels in the body).
+
+    Portal tokens: not allowed.
 
     Args:
         body (ExportEventTypesInputBody):
@@ -117,7 +120,10 @@ def sync(
 
      Returns the current definitions of the selected event types as one JSON bundle, ready to import into
     another environment with importEventTypes. Choose exactly one of names, prefix or all. An unknown
-    name fails the whole export. Sparrow's own sparrow.* event types are never exported.
+    name fails the whole export. Sparrow's own sparrow.* event types are never exported. Read-only
+    despite POST (the selection travels in the body).
+
+    Portal tokens: not allowed.
 
     Args:
         body (ExportEventTypesInputBody):
@@ -145,7 +151,10 @@ async def asyncio_detailed(
 
      Returns the current definitions of the selected event types as one JSON bundle, ready to import into
     another environment with importEventTypes. Choose exactly one of names, prefix or all. An unknown
-    name fails the whole export. Sparrow's own sparrow.* event types are never exported.
+    name fails the whole export. Sparrow's own sparrow.* event types are never exported. Read-only
+    despite POST (the selection travels in the body).
+
+    Portal tokens: not allowed.
 
     Args:
         body (ExportEventTypesInputBody):
@@ -176,7 +185,10 @@ async def asyncio(
 
      Returns the current definitions of the selected event types as one JSON bundle, ready to import into
     another environment with importEventTypes. Choose exactly one of names, prefix or all. An unknown
-    name fails the whole export. Sparrow's own sparrow.* event types are never exported.
+    name fails the whole export. Sparrow's own sparrow.* event types are never exported. Read-only
+    despite POST (the selection travels in the body).
+
+    Portal tokens: not allowed.
 
     Args:
         body (ExportEventTypesInputBody):

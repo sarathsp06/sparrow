@@ -18,7 +18,7 @@ T = TypeVar("T", bound="ListConsumersOutputBody")
 class ListConsumersOutputBody:
     """
     Attributes:
-        items (list[ConsumerItem] | None):
+        items (list[ConsumerItem] | None): Matching consumer names, sorted by name.
         schema (str | Unset): A URL to the JSON Schema for this object.
     """
 

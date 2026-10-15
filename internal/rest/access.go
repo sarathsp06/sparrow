@@ -35,26 +35,26 @@ type TokenOut struct {
 	ID         string     `json:"id" doc:"Token id (not the secret)."`
 	Name       string     `json:"name" doc:"Who or what the token is for."`
 	Consumer   *string    `json:"consumer" doc:"Consumer the token is limited to (portal API only). Null: tenant-wide, same power as SPARROW_API_KEY."`
-	Status     string     `json:"status" enum:"active,revoked,expired"`
+	Status     string     `json:"status" enum:"active,revoked,expired" doc:"active: usable. revoked: revoked by DELETE /v1/tokens/{token_id}. expired: past expires_at."`
 	CreatedBy  string     `json:"created_by" doc:"Name of the credential that created it (the master key, or another token)."`
-	CreatedAt  time.Time  `json:"created_at"`
-	ExpiresAt  *time.Time `json:"expires_at" doc:"Null: never expires."`
-	RevokedAt  *time.Time `json:"revoked_at"`
-	LastUsedAt *time.Time `json:"last_used_at" doc:"Approximate (updated at most once a minute)."`
+	CreatedAt  time.Time  `json:"created_at" doc:"When the token was created, RFC3339."`
+	ExpiresAt  *time.Time `json:"expires_at" doc:"When the token stops working, RFC3339. Null: never expires."`
+	RevokedAt  *time.Time `json:"revoked_at" doc:"When the token was revoked, RFC3339. Null: not revoked."`
+	LastUsedAt *time.Time `json:"last_used_at" doc:"When the token was last used, RFC3339; approximate (updated at most once a minute). Null: never used."`
 }
 
 // InviteOut describes an invite. The secret is never included.
 type InviteOut struct {
-	ID              string     `json:"id"`
+	ID              string     `json:"id" doc:"Invite id (not the secret)."`
 	Name            string     `json:"name" doc:"Name given to the token the invite creates."`
 	Consumer        *string    `json:"consumer" doc:"Consumer the resulting token is limited to. Null: tenant-wide."`
-	Status          string     `json:"status" enum:"pending,redeemed,cancelled,expired"`
-	TokenTTLSeconds *int64     `json:"token_ttl_seconds" doc:"Lifetime of the token it creates. Null: never expires."`
-	CreatedBy       string     `json:"created_by"`
-	CreatedAt       time.Time  `json:"created_at"`
-	ExpiresAt       time.Time  `json:"expires_at" doc:"When the invite stops working if unused."`
-	RedeemedAt      *time.Time `json:"redeemed_at"`
-	CancelledAt     *time.Time `json:"cancelled_at"`
+	Status          string     `json:"status" enum:"pending,redeemed,cancelled,expired" doc:"pending: can still be redeemed. redeemed: used once, see token_id. cancelled: cancelled by DELETE /v1/invites/{invite_id}. expired: past expires_at unused."`
+	TokenTTLSeconds *int64     `json:"token_ttl_seconds" doc:"Lifetime of the token it creates, in seconds. Null: the token never expires."`
+	CreatedBy       string     `json:"created_by" doc:"Name of the credential that created the invite."`
+	CreatedAt       time.Time  `json:"created_at" doc:"When the invite was created, RFC3339."`
+	ExpiresAt       time.Time  `json:"expires_at" doc:"When the invite stops working if unused, RFC3339."`
+	RedeemedAt      *time.Time `json:"redeemed_at" doc:"When the invite was redeemed, RFC3339. Null: not redeemed."`
+	CancelledAt     *time.Time `json:"cancelled_at" doc:"When the invite was cancelled, RFC3339. Null: not cancelled."`
 	TokenID         *string    `json:"token_id" doc:"Token created when the invite was redeemed."`
 }
 
@@ -82,16 +82,16 @@ func toInviteOut(inv access.Invite, now time.Time) InviteOut {
 type whoAmIOutput struct {
 	Body struct {
 		AuthEnabled bool    `json:"auth_enabled" doc:"False when SPARROW_API_KEY is unset: every endpoint is open."`
-		Name        string  `json:"name" doc:"Name of the credential used for this request."`
-		MasterKey   bool    `json:"master_key" doc:"True when the request used SPARROW_API_KEY itself."`
-		TokenID     *string `json:"token_id" doc:"Id of the access token used, if any."`
+		Name        string  `json:"name" doc:"Name of the credential used for this request: the master key's name, the access token's name, or a placeholder when auth is off."`
+		MasterKey   bool    `json:"master_key" doc:"True when the request used SPARROW_API_KEY itself. Always false when auth is off."`
+		TokenID     *string `json:"token_id" doc:"Id of the access token used; null for the master key or when auth is off."`
 	}
 }
 
 type createTokenBody struct {
 	Name         string `json:"name" required:"true" minLength:"1" maxLength:"200" doc:"Who or what the token is for, e.g. \"alice\" or \"ci-deploy\"."`
-	Consumer     string `json:"consumer,omitempty" doc:"Limit the token to one consumer (portal API only). Omit for a tenant-wide token with the same power as SPARROW_API_KEY."`
-	TTLSeconds   int64  `json:"ttl_seconds,omitempty" minimum:"0" doc:"Lifetime in seconds. Tenant-wide tokens default to the server's SPARROW_TOKEN_DEFAULT_TTL (90 days unless changed); consumer tokens default to 7 days and allow at most 30."`
+	Consumer     string `json:"consumer,omitempty" doc:"Limit the token to one consumer: it then works only through the portal API (/portal/api/). Omit for a tenant-wide token with the same power as SPARROW_API_KEY. At most 255 characters, no /, \\, ?, #, % or dot segments; _sparrow is not allowed."`
+	TTLSeconds   int64  `json:"ttl_seconds,omitempty" minimum:"0" doc:"Lifetime in seconds. 0 or omitted takes the default: SPARROW_TOKEN_DEFAULT_TTL (90 days unless changed) for tenant-wide tokens, 7 days for consumer tokens. Consumer tokens allow at most 30 days."`
 	NeverExpires bool   `json:"never_expires,omitempty" doc:"Create a tenant-wide token that never expires (revoke it when no longer needed). Not allowed with ttl_seconds or for consumer tokens."`
 	// ExternalID needs a consumer: a tenant-wide secret is never stored in a
 	// recoverable form.
@@ -100,7 +100,7 @@ type createTokenBody struct {
 
 type createTokenOutput struct {
 	Body struct {
-		Token      TokenOut `json:"token"`
+		Token      TokenOut `json:"token" doc:"The created (or reused) token."`
 		Secret     string   `json:"secret" doc:"The credential. Shown only in this response (and again for the same external_id); send it as X-API-Key or Authorization: Bearer."`
 		Reused     bool     `json:"reused" doc:"True when external_id matched a still-valid token, which is returned instead of a new one."`
 		PortalPath string   `json:"portal_path,omitempty" doc:"Consumer tokens only: server-relative portal URL with the token in the fragment (never sent to the server or logged). Prepend the base URL the UI is served from (the Sparrow server with SPARROW_SERVE_UI=true, or your separately hosted UI) and hand it to the end consumer."`
@@ -108,33 +108,33 @@ type createTokenOutput struct {
 }
 
 type listTokensInput struct {
-	Consumer        string `query:"consumer" doc:"Only tokens limited to this consumer."`
+	Consumer        string `query:"consumer" doc:"Only tokens limited to this consumer. Omit to list every token, tenant-wide ones included."`
 	IncludeInactive bool   `query:"include_inactive" doc:"Also return revoked and expired tokens."`
 }
 
 type listTokensOutput struct {
 	Body struct {
-		Items []TokenOut `json:"items"`
+		Items []TokenOut `json:"items" doc:"Tokens, newest first. Not paginated."`
 	}
 }
 
 type tokenIDInput struct {
-	TokenID string `path:"token_id"`
+	TokenID string `path:"token_id" doc:"Token id (the id field, not the secret)."`
 }
 
 type createInviteBody struct {
 	Name              string `json:"name" required:"true" minLength:"1" maxLength:"200" doc:"Name for the token the invite creates, e.g. the invitee's name."`
-	Consumer          string `json:"consumer,omitempty" doc:"Invite into one consumer's portal. Omit for tenant-wide (operator console) access."`
-	TTLSeconds        int64  `json:"ttl_seconds,omitempty" minimum:"0" doc:"How long the invite can be used. Defaults to 24 hours, at most 7 days."`
-	TokenTTLSeconds   int64  `json:"token_ttl_seconds,omitempty" minimum:"0" doc:"Lifetime of the token it creates; same defaults and limits as POST /v1/tokens."`
+	Consumer          string `json:"consumer,omitempty" doc:"Invite into one consumer's portal: the token it creates is limited to that consumer. Omit for tenant-wide (operator console) access. Same naming rules as on POST /v1/tokens."`
+	TTLSeconds        int64  `json:"ttl_seconds,omitempty" minimum:"0" doc:"How long the invite can be redeemed, in seconds. 0 or omitted means 24 hours; at most 7 days."`
+	TokenTTLSeconds   int64  `json:"token_ttl_seconds,omitempty" minimum:"0" doc:"Lifetime in seconds of the token it creates, counted from redemption; same defaults and limits as ttl_seconds on POST /v1/tokens."`
 	TokenNeverExpires bool   `json:"token_never_expires,omitempty" doc:"The token it creates never expires; same rules as never_expires on POST /v1/tokens."`
 }
 
 type createInviteOutput struct {
 	Body struct {
-		Invite InviteOut `json:"invite"`
+		Invite InviteOut `json:"invite" doc:"The created invite."`
 		Secret string    `json:"secret" doc:"The invite secret. Shown only in this response."`
-		Path   string    `json:"path" doc:"UI-relative link with the secret in the fragment (never sent to servers or logs). Prepend the base URL the UI is served from."`
+		Path   string    `json:"path" doc:"UI-relative link with the secret in the fragment (never sent to servers or logs): /#invite=... for a tenant-wide invite, /portal#invite=... for a consumer invite. Prepend the base URL the UI is served from."`
 	}
 }
 
@@ -144,12 +144,12 @@ type listInvitesInput struct {
 
 type listInvitesOutput struct {
 	Body struct {
-		Items []InviteOut `json:"items"`
+		Items []InviteOut `json:"items" doc:"Invites, newest first. Not paginated."`
 	}
 }
 
 type inviteIDInput struct {
-	InviteID string `path:"invite_id"`
+	InviteID string `path:"invite_id" doc:"Invite id (the id field, not the secret)."`
 }
 
 // principalName is recorded as created_by. Requests reach these handlers
@@ -214,6 +214,7 @@ func registerAccessRoutes(api huma.API, deps AccessDeps) {
 		Method:      http.MethodGet,
 		Path:        "/v1/whoami",
 		Summary:     "Show which credential this request used",
+		Description: "Reports whether auth is on and which credential (master key or access token) authenticated this request. No side effects. Useful to check a key or token before using it.\n\nPortal tokens: not allowed.",
 		Tags:        []string{"Access"},
 	}, func(ctx context.Context, _ *struct{}) (*whoAmIOutput, error) {
 		out := &whoAmIOutput{}
@@ -237,7 +238,8 @@ func registerAccessRoutes(api huma.API, deps AccessDeps) {
 			"but can be revoked on its own and never needs the master key to be shared. A consumer token only " +
 			"works through the portal API (/portal/api/), limited to that consumer, and comes with a ready-made " +
 			"portal link (portal_path) to embed or hand to the end consumer. The secret is returned once, or again " +
-			"for the same external_id while the token is valid.",
+			"for the same external_id while the token is valid. Without external_id every call creates a new token.\n\n" +
+			"400 for an invalid consumer, both ttl_seconds and never_expires, never_expires or more than 30 days on a consumer token, or external_id without a consumer. 503 when the token store is unavailable, or for external_id when no keyring is configured.\n\nPortal tokens: not allowed.",
 		Errors:        []int{400, 503},
 		Tags:          []string{"Access"},
 		DefaultStatus: http.StatusCreated,
@@ -285,7 +287,7 @@ func registerAccessRoutes(api huma.API, deps AccessDeps) {
 		Method:      http.MethodGet,
 		Path:        "/v1/tokens",
 		Summary:     "List access tokens",
-		Description: "Newest first. Secrets are never returned. Revoked and expired tokens are hidden unless include_inactive is set.",
+		Description: "Lists access tokens, newest first. Secrets are never returned. Revoked and expired tokens are hidden unless include_inactive is set. Not paginated.\n\nPortal tokens: not allowed.",
 		Errors:      []int{503},
 		Tags:        []string{"Access"},
 	}, func(ctx context.Context, in *listTokensInput) (*listTokensOutput, error) {
@@ -316,7 +318,7 @@ func registerAccessRoutes(api huma.API, deps AccessDeps) {
 		Method:        http.MethodDelete,
 		Path:          "/v1/tokens/{token_id}",
 		Summary:       "Revoke an access token",
-		Description:   "The token stops working immediately on this server and within 30 seconds everywhere else. Revoking is permanent and idempotent.",
+		Description:   "Revokes a token: it stops working immediately on this server and within 30 seconds on other instances. Revoking is permanent and idempotent (204 again for an already revoked token). Returns 204; 404 for an unknown id.\n\nPortal tokens: not allowed.",
 		Errors:        []int{404, 503},
 		Tags:          []string{"Access"},
 		DefaultStatus: http.StatusNoContent,
@@ -337,7 +339,8 @@ func registerAccessRoutes(api huma.API, deps AccessDeps) {
 		Summary:     "Invite someone with a one-time link",
 		Description: "Creates a single-use, expiring invite. Opening the returned path in the UI exchanges it for a new " +
 			"access token named after the invitee (POST /invite/redeem), so nobody pastes a key into chat. " +
-			"A consumer invite opens that consumer's portal instead of the operator console.",
+			"A consumer invite opens that consumer's portal instead of the operator console. The secret is returned only here. " +
+			"Redeeming happens at POST /invite/redeem (outside /v1, no credential needed); an unknown, used, cancelled or expired invite gets 400 invalid_invite there.\n\nPortal tokens: not allowed.",
 		Errors:        []int{400, 503},
 		Tags:          []string{"Access"},
 		DefaultStatus: http.StatusCreated,
@@ -377,7 +380,7 @@ func registerAccessRoutes(api huma.API, deps AccessDeps) {
 		Method:      http.MethodGet,
 		Path:        "/v1/invites",
 		Summary:     "List invites",
-		Description: "Newest first. Only pending invites unless include_inactive is set. Secrets are never returned.",
+		Description: "Lists invites, newest first. Only pending invites unless include_inactive is set. Secrets are never returned. Not paginated.\n\nPortal tokens: not allowed.",
 		Errors:      []int{503},
 		Tags:        []string{"Access"},
 	}, func(ctx context.Context, in *listInvitesInput) (*listInvitesOutput, error) {
@@ -405,6 +408,7 @@ func registerAccessRoutes(api huma.API, deps AccessDeps) {
 		Method:        http.MethodDelete,
 		Path:          "/v1/invites/{invite_id}",
 		Summary:       "Cancel a pending invite",
+		Description:   "Cancels a pending invite so it can no longer be redeemed. Returns 204. 409 when the invite is no longer pending (redeemed, cancelled or expired); a token already created from it keeps working, so revoke that separately. 404 for an unknown id.\n\nPortal tokens: not allowed.",
 		Errors:        []int{404, 409, 503},
 		Tags:          []string{"Access"},
 		DefaultStatus: http.StatusNoContent,

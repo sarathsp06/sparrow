@@ -38,6 +38,17 @@ For anything reachable by more than you, also set `SPARROW_API_KEY` and
 lists the rest. To serve the web UI from the same server, set
 `SPARROW_SERVE_UI=true`.
 
+:::caution[Without `SPARROW_API_KEY` the API is open]
+With `SPARROW_API_KEY` unset, every `/v1` endpoint answers anyone who can
+reach the port, and unless `ENVIRONMENT` is `production` CORS also allows
+every origin, so any web page a user opens can call the API from their
+browser. Only run like this on your own machine or a fully trusted network.
+
+`ENVIRONMENT` must be exactly `production`, lowercase. `Production`, `prod`
+or `PRODUCTION` count as development: no key is required and CORS stays open,
+with no warning.
+:::
+
 ## All variables
 
 Grouped by what they control. Durations use Go syntax: `90s`, `20ms`, `1m`,
@@ -50,9 +61,9 @@ Grouped by what they control. Durations use Go syntax: `90s`, `20ms`, `1m`,
 | `SPARROW_HTTP_PORT` | `8080` | Port for the REST API, health endpoints, `/metrics` and (if enabled) the UI. |
 | `SPARROW_SERVE_UI` | `false` | Serve the embedded web dashboard on the same port. |
 | `SPARROW_LOG_LEVEL` | `info` | Lowest level the server logs: `debug`, `info`, `warn` or `error`. `info` writes a line for every event and delivery; `warn` keeps only problems and saves that work on a busy instance. Logs are JSON on stdout (and exported through OpenTelemetry when it is enabled). An unknown value stops startup. |
-| `ENVIRONMENT` | unset | Set `production` to reject cross-origin requests unless `CORS_ALLOWED_ORIGINS` allows them, to require a 32+ character `SPARROW_API_KEY`, and to tag logs and telemetry. Any other value behaves as development. |
+| `ENVIRONMENT` | unset | Set `production` to reject cross-origin requests unless `CORS_ALLOWED_ORIGINS` allows them, to require a 32+ character `SPARROW_API_KEY`, to refuse an all-zeros encryption key, and to tag logs and telemetry. The match is exact and case-sensitive: any other value, `Production` included, behaves as development. |
 | `CORS_ALLOWED_ORIGINS` | unset | Comma-separated browser origins allowed to call the API, e.g. `https://ui.example.com`. Needed when the UI is [hosted separately](/sparrow/deployment/separate-ui/). Unset: every origin is allowed, except with `ENVIRONMENT=production`, where none is. |
-| `SPARROW_SHUTDOWN_TIMEOUT` | `10s` | Budget for a graceful shutdown on `SIGTERM`/`SIGINT`. `/ready` turns `503` at once, in-flight HTTP requests finish, then the queue stops taking jobs and waits for running ones; deliveries still running near the end are cancelled and retried later (a cancelled attempt is not recorded as a failure). Keep it below the orchestrator's kill deadline (Kubernetes: `terminationGracePeriodSeconds`, 30s by default). |
+| `SPARROW_SHUTDOWN_TIMEOUT` | `10s` | Budget for a graceful shutdown on `SIGTERM`/`SIGINT`, HTTP drain and queue stop together. `/ready` turns `503` at once, but the listener closes right after (on Kubernetes add a `preStop` sleep; see [Graceful shutdown](/sparrow/deployment/production/#graceful-shutdown)); in-flight HTTP requests finish, then the queue stops taking jobs and waits for running ones; deliveries still running near the end are cancelled and retried later (a cancelled attempt is not recorded as a failure). Keep it below the orchestrator's kill deadline minus any `preStop` sleep (Kubernetes: `terminationGracePeriodSeconds`, 30s by default). |
 | `SPARROW_MAX_BODY_BYTES` | `5242880` (5 MiB) | Largest accepted request body; larger ones get `413`. Minimum 1 MiB. |
 
 ### Access
@@ -101,9 +112,9 @@ addresses unless you allow them.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | unset (export off) | OTLP collector URL for traces, metrics and logs, e.g. `http://collector:4318`. See [Observability](#observability). |
-| `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` | `http/protobuf` or `grpc`. Any other value disables export (with a warning). |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` | `http/protobuf` or `grpc`. With an endpoint set, any other value (or an unknown `SPARROW_OTLP_SIGNALS` entry) makes OpenTelemetry setup fail with a warning: the server starts, but without export, tracing or the `/metrics` endpoint. |
 | `SPARROW_OTLP_SIGNALS` | `traces,metrics,logs` | Which signals are exported. `traces` for a traces-only backend such as Jaeger or Tempo. |
-| `SPARROW_METRICS_ENABLED` | `true` | Serve all metrics in Prometheus format at `GET /metrics` (no API key). |
+| `SPARROW_METRICS_ENABLED` | `true` | Serve all metrics in Prometheus format at `GET /metrics`. The endpoint needs no API key, and its labels include consumer names and webhook IDs: set `false`, or block `/metrics` at your proxy, if that is a concern. |
 
 ### AI drafting
 

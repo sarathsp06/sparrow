@@ -82,6 +82,10 @@ def sync_detailed(
     delete. The full per-item result is returned either way. Nothing is written for a dry run, when a
     stamp warning is not acknowledged, or when a change is breaking for subscriptions and allow_breaking
     is not set; blocked_by says why. The body may be an exported bundle as-is, plus the options.
+    Idempotent: importing the same bundle again reports every item unchanged. The body is limited to 5
+    MiB and 500 items.
+
+    Portal tokens: not allowed.
 
     Args:
         body (ImportEventTypesInputBody):
@@ -117,6 +121,10 @@ def sync(
     delete. The full per-item result is returned either way. Nothing is written for a dry run, when a
     stamp warning is not acknowledged, or when a change is breaking for subscriptions and allow_breaking
     is not set; blocked_by says why. The body may be an exported bundle as-is, plus the options.
+    Idempotent: importing the same bundle again reports every item unchanged. The body is limited to 5
+    MiB and 500 items.
+
+    Portal tokens: not allowed.
 
     Args:
         body (ImportEventTypesInputBody):
@@ -147,6 +155,10 @@ async def asyncio_detailed(
     delete. The full per-item result is returned either way. Nothing is written for a dry run, when a
     stamp warning is not acknowledged, or when a change is breaking for subscriptions and allow_breaking
     is not set; blocked_by says why. The body may be an exported bundle as-is, plus the options.
+    Idempotent: importing the same bundle again reports every item unchanged. The body is limited to 5
+    MiB and 500 items.
+
+    Portal tokens: not allowed.
 
     Args:
         body (ImportEventTypesInputBody):
@@ -180,6 +192,10 @@ async def asyncio(
     delete. The full per-item result is returned either way. Nothing is written for a dry run, when a
     stamp warning is not acknowledged, or when a change is breaking for subscriptions and allow_breaking
     is not set; blocked_by says why. The body may be an exported bundle as-is, plus the options.
+    Idempotent: importing the same bundle again reports every item unchanged. The body is limited to 5
+    MiB and 500 items.
+
+    Portal tokens: not allowed.
 
     Args:
         body (ImportEventTypesInputBody):

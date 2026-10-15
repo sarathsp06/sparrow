@@ -75,13 +75,16 @@ def sync_detailed(
 ) -> Response[ErrorModel | ResumeSubscriptionOutputBody]:
     """Resume a paused subscription
 
-     New deliveries are attempted again. Deliveries recorded while paused stay paused and are never sent
-    automatically: the response says how many there are and when the pause began, so you can retry all
-    of them or only those since a time with the delivery retry endpoints.
+     Lets new deliveries be attempted again. Deliveries recorded while paused stay paused and are never
+    sent automatically: the response says how many there are and when the pause began, so you can retry
+    all of them or only those since a time with the delivery retry endpoints. Idempotent: resuming a
+    subscription that is not paused succeeds with no paused_since.
+
+    Portal tokens: allowed, as POST /portal/api/subscriptions/{subscription_id}:resume.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -111,13 +114,16 @@ def sync(
 ) -> ErrorModel | ResumeSubscriptionOutputBody | None:
     """Resume a paused subscription
 
-     New deliveries are attempted again. Deliveries recorded while paused stay paused and are never sent
-    automatically: the response says how many there are and when the pause began, so you can retry all
-    of them or only those since a time with the delivery retry endpoints.
+     Lets new deliveries be attempted again. Deliveries recorded while paused stay paused and are never
+    sent automatically: the response says how many there are and when the pause began, so you can retry
+    all of them or only those since a time with the delivery retry endpoints. Idempotent: resuming a
+    subscription that is not paused succeeds with no paused_since.
+
+    Portal tokens: allowed, as POST /portal/api/subscriptions/{subscription_id}:resume.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -142,13 +148,16 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | ResumeSubscriptionOutputBody]:
     """Resume a paused subscription
 
-     New deliveries are attempted again. Deliveries recorded while paused stay paused and are never sent
-    automatically: the response says how many there are and when the pause began, so you can retry all
-    of them or only those since a time with the delivery retry endpoints.
+     Lets new deliveries be attempted again. Deliveries recorded while paused stay paused and are never
+    sent automatically: the response says how many there are and when the pause began, so you can retry
+    all of them or only those since a time with the delivery retry endpoints. Idempotent: resuming a
+    subscription that is not paused succeeds with no paused_since.
+
+    Portal tokens: allowed, as POST /portal/api/subscriptions/{subscription_id}:resume.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -176,13 +185,16 @@ async def asyncio(
 ) -> ErrorModel | ResumeSubscriptionOutputBody | None:
     """Resume a paused subscription
 
-     New deliveries are attempted again. Deliveries recorded while paused stay paused and are never sent
-    automatically: the response says how many there are and when the pause began, so you can retry all
-    of them or only those since a time with the delivery retry endpoints.
+     Lets new deliveries be attempted again. Deliveries recorded while paused stay paused and are never
+    sent automatically: the response says how many there are and when the pause began, so you can retry
+    all of them or only those since a time with the delivery retry endpoints. Idempotent: resuming a
+    subscription that is not paused succeeds with no paused_since.
+
+    Portal tokens: allowed, as POST /portal/api/subscriptions/{subscription_id}:resume.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

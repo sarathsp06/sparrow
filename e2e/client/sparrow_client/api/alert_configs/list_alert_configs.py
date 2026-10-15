@@ -65,7 +65,10 @@ def sync_detailed(
 ) -> Response[ErrorModel | ListAlertConfigsOutputBody]:
     """List email alert recipients
 
-     Lists alert configs in a consumer, optionally filtered to one webhook's own configs.
+     Lists alert configs in a consumer, oldest first, optionally filtered to one webhook's own configs.
+    Not paginated.
+
+    Portal tokens: allowed, as GET /portal/api/alert-configs.
 
     Args:
         consumer (str): Consumer to list alert configs in.
@@ -100,7 +103,10 @@ def sync(
 ) -> ErrorModel | ListAlertConfigsOutputBody | None:
     """List email alert recipients
 
-     Lists alert configs in a consumer, optionally filtered to one webhook's own configs.
+     Lists alert configs in a consumer, oldest first, optionally filtered to one webhook's own configs.
+    Not paginated.
+
+    Portal tokens: allowed, as GET /portal/api/alert-configs.
 
     Args:
         consumer (str): Consumer to list alert configs in.
@@ -130,7 +136,10 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | ListAlertConfigsOutputBody]:
     """List email alert recipients
 
-     Lists alert configs in a consumer, optionally filtered to one webhook's own configs.
+     Lists alert configs in a consumer, oldest first, optionally filtered to one webhook's own configs.
+    Not paginated.
+
+    Portal tokens: allowed, as GET /portal/api/alert-configs.
 
     Args:
         consumer (str): Consumer to list alert configs in.
@@ -163,7 +172,10 @@ async def asyncio(
 ) -> ErrorModel | ListAlertConfigsOutputBody | None:
     """List email alert recipients
 
-     Lists alert configs in a consumer, optionally filtered to one webhook's own configs.
+     Lists alert configs in a consumer, oldest first, optionally filtered to one webhook's own configs.
+    Not paginated.
+
+    Portal tokens: allowed, as GET /portal/api/alert-configs.
 
     Args:
         consumer (str): Consumer to list alert configs in.

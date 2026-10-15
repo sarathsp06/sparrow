@@ -19,19 +19,21 @@ T = TypeVar("T", bound="WebhookHealthOutputBody")
 class WebhookHealthOutputBody:
     """
     Attributes:
-        avg_response_time (int): Average endpoint response time, in milliseconds.
-        client_errors (int): Count of 4xx failures.
-        consecutive_failures (int): Current streak of consecutive failed deliveries; resets on success.
-        failed_deliveries (int): Deliveries that failed.
-        health (WebhookHealthOutputBodyHealth): Computed rolling health status.
-        network_errors (int): Count of other network-level failures (DNS, TLS, connection refused, reset).
+        avg_response_time (int): Average endpoint response time over the window, in milliseconds.
+        client_errors (int): Failed attempts in the window with a 4xx response (client_error).
+        consecutive_failures (int): Current run of consecutive failed attempts; resets on a success.
+        failed_deliveries (int): Failed attempts in the window.
+        health (WebhookHealthOutputBodyHealth): Health label from the last health evaluation: healthy, degraded,
+            unhealthy, or unknown (too few recent attempts). Updated every SPARROW_HEALTH_EVAL_INTERVAL (default 1m).
+        network_errors (int): Failed attempts in the window with a network-level error (DNS, TLS, connection refused,
+            reset).
         rules (HealthRules):
-        server_errors (int): Count of 5xx failures.
-        success_rate (float): Rolling success rate, 0.0 to 1.0.
-        successful_deliveries (int): Deliveries that succeeded.
-        timeout_errors (int): Count of request/connection timeout failures.
-        total_deliveries (int): Total deliveries recorded for this webhook.
-        unexpected_status_errors (int): Count of responses outside the webhook's configured expected_status_codes.
+        server_errors (int): Failed attempts in the window with a 5xx response (server_error).
+        success_rate (float): successful_deliveries / total_deliveries over the window, 0.0 to 1.0.
+        successful_deliveries (int): Successful attempts in the window.
+        timeout_errors (int): Failed attempts in the window that timed out.
+        total_deliveries (int): Delivery attempts in the last rules.window_hours hours (each retry counts).
+        unexpected_status_errors (int): Attempts in the window whose 2xx/3xx response was not in expected_status_codes.
         webhook_id (str): Webhook id (UUID).
         schema (str | Unset): A URL to the JSON Schema for this object.
     """

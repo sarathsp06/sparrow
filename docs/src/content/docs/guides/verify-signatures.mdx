@@ -48,8 +48,11 @@ Every helper rejects a delivery when:
   protection);
 - no signature of the requested scheme matches.
 
-Several signatures may appear during secret rotation, and matching any one of
-them is enough.
+The header can carry several space-separated signatures (`v1,` for HMAC and,
+on ed25519 webhooks, `v1a,`); matching any one of the requested scheme is
+enough. Sparrow does not dual-sign with an old and a new secret: after a
+rotation every attempt carries only the new HMAC signature, so there is no
+overlap window.
 
 <Aside type="caution" title="Verify the raw body">
 Verify the request body **exactly as received**, before any JSON parsing.
@@ -61,7 +64,7 @@ Each example below shows how to get the raw bytes in that framework.
 
 | Scheme | Value the receiver needs | Where you get it |
 |--------|--------------------------|------------------|
-| HMAC (`v1`, the default) | `http_config.webhook_secret`, e.g. `whsec_7P18Fjmj...` | The response to `POST /v1/consumers/{consumer}/webhooks`, **only there**. Reading the webhook later returns it masked (`whsec_••••`). Store it in the receiver's secret store when you register. If it's lost, rotate it: **Rotate secret** on the webhook page, or `POST /v1/consumers/{consumer}/webhooks/{webhook_id}:rotateSecret`, which returns the new secret once. Deliveries after the rotation are signed with the new secret, so update the receiver right away. |
+| HMAC (`v1`, the default) | `http_config.webhook_secret`, e.g. `whsec_7P18Fjmj...` | The response to `POST /v1/consumers/{consumer}/webhooks`, **only there**. Reading the webhook later returns it masked (`whsec_••••`). Store it in the receiver's secret store when you register. If it's lost, rotate it: **Rotate secret** on the webhook page, or `POST /v1/consumers/{consumer}/webhooks/{webhook_id}:rotateSecret`, which returns the new secret once. Every attempt after the rotation, retries included, is signed with the new secret only (no overlap window), so update the receiver right away. |
 | Ed25519 (`v1a`) | `signing_public_key`, 64 hex characters | Register with `"signature_type": "ed25519"`. The key is in the registration response and in every later `GET /v1/consumers/{consumer}/webhooks/{webhook_id}`, since it isn't secret. |
 
 ```bash

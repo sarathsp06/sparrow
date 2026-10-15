@@ -18,7 +18,8 @@ class DraftTemplatePromptOutputBody:
         prompt (str): A self-contained prompt to paste into any chat assistant: the template data model, rules, helper
             catalog, the event's schema and sample payload, any recipe, receiver example, docs excerpt, current template,
             and the instructions. Asks for the template in a code block.
-        sample_source (DraftTemplatePromptOutputBodySampleSource): Which sample payload the prompt carries.
+        sample_source (DraftTemplatePromptOutputBodySampleSource): Which sample payload the prompt carries: registered
+            (the event type's sample_payload) or provided (sample_payload from the request).
         schema (str | Unset): A URL to the JSON Schema for this object.
     """
 

@@ -81,8 +81,11 @@ def sync_detailed(
 ) -> Response[ErrorModel | ListWebhooksOutputBody]:
     """List webhooks across all consumers
 
-     Cross-consumer webhook listing. Pass consumer to scope to one consumer, health to filter by computed
-    status, or webhook_id for an id-only lookup when the consumer isn't known.
+     Lists webhooks across every consumer, newest first, with masked secrets. Pass consumer to scope to
+    one consumer, health to filter by label, or webhook_id for an id-only lookup when the consumer is
+    not known. Offset paginated with total_count.
+
+    Portal tokens: not allowed.
 
     Args:
         consumer (str | Unset): Filter to one consumer; omit to list webhooks across all
@@ -90,7 +93,8 @@ def sync_detailed(
         health (ListWebhooksByHealthHealth | Unset): Filter to webhooks with this computed health
             status.
         webhook_id (str | Unset): Look up a single webhook by id when its consumer is unknown.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        limit (int | Unset): Maximum items to return; values above 1000 are capped at 1000.
+            Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:
@@ -127,8 +131,11 @@ def sync(
 ) -> ErrorModel | ListWebhooksOutputBody | None:
     """List webhooks across all consumers
 
-     Cross-consumer webhook listing. Pass consumer to scope to one consumer, health to filter by computed
-    status, or webhook_id for an id-only lookup when the consumer isn't known.
+     Lists webhooks across every consumer, newest first, with masked secrets. Pass consumer to scope to
+    one consumer, health to filter by label, or webhook_id for an id-only lookup when the consumer is
+    not known. Offset paginated with total_count.
+
+    Portal tokens: not allowed.
 
     Args:
         consumer (str | Unset): Filter to one consumer; omit to list webhooks across all
@@ -136,7 +143,8 @@ def sync(
         health (ListWebhooksByHealthHealth | Unset): Filter to webhooks with this computed health
             status.
         webhook_id (str | Unset): Look up a single webhook by id when its consumer is unknown.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        limit (int | Unset): Maximum items to return; values above 1000 are capped at 1000.
+            Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:
@@ -168,8 +176,11 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | ListWebhooksOutputBody]:
     """List webhooks across all consumers
 
-     Cross-consumer webhook listing. Pass consumer to scope to one consumer, health to filter by computed
-    status, or webhook_id for an id-only lookup when the consumer isn't known.
+     Lists webhooks across every consumer, newest first, with masked secrets. Pass consumer to scope to
+    one consumer, health to filter by label, or webhook_id for an id-only lookup when the consumer is
+    not known. Offset paginated with total_count.
+
+    Portal tokens: not allowed.
 
     Args:
         consumer (str | Unset): Filter to one consumer; omit to list webhooks across all
@@ -177,7 +188,8 @@ async def asyncio_detailed(
         health (ListWebhooksByHealthHealth | Unset): Filter to webhooks with this computed health
             status.
         webhook_id (str | Unset): Look up a single webhook by id when its consumer is unknown.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        limit (int | Unset): Maximum items to return; values above 1000 are capped at 1000.
+            Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:
@@ -212,8 +224,11 @@ async def asyncio(
 ) -> ErrorModel | ListWebhooksOutputBody | None:
     """List webhooks across all consumers
 
-     Cross-consumer webhook listing. Pass consumer to scope to one consumer, health to filter by computed
-    status, or webhook_id for an id-only lookup when the consumer isn't known.
+     Lists webhooks across every consumer, newest first, with masked secrets. Pass consumer to scope to
+    one consumer, health to filter by label, or webhook_id for an id-only lookup when the consumer is
+    not known. Offset paginated with total_count.
+
+    Portal tokens: not allowed.
 
     Args:
         consumer (str | Unset): Filter to one consumer; omit to list webhooks across all
@@ -221,7 +236,8 @@ async def asyncio(
         health (ListWebhooksByHealthHealth | Unset): Filter to webhooks with this computed health
             status.
         webhook_id (str | Unset): Look up a single webhook by id when its consumer is unknown.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        limit (int | Unset): Maximum items to return; values above 1000 are capped at 1000.
+            Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:

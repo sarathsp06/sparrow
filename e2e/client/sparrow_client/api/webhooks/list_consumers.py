@@ -66,7 +66,10 @@ def sync_detailed(
 
      Lists the consumers that own a webhook or an event, sorted by name, optionally only those whose name
     contains q (case-insensitive). Consumers are created implicitly by registering a webhook or pushing
-    an event under them; this is how clients find them, e.g. for a consumer picker.
+    an event under them; this is how clients find them, e.g. for a consumer picker. Not paginated:
+    returns at most limit names.
+
+    Portal tokens: not allowed.
 
     Args:
         q (str | Unset): Only consumers whose name contains this text, case-insensitive.
@@ -102,7 +105,10 @@ def sync(
 
      Lists the consumers that own a webhook or an event, sorted by name, optionally only those whose name
     contains q (case-insensitive). Consumers are created implicitly by registering a webhook or pushing
-    an event under them; this is how clients find them, e.g. for a consumer picker.
+    an event under them; this is how clients find them, e.g. for a consumer picker. Not paginated:
+    returns at most limit names.
+
+    Portal tokens: not allowed.
 
     Args:
         q (str | Unset): Only consumers whose name contains this text, case-insensitive.
@@ -133,7 +139,10 @@ async def asyncio_detailed(
 
      Lists the consumers that own a webhook or an event, sorted by name, optionally only those whose name
     contains q (case-insensitive). Consumers are created implicitly by registering a webhook or pushing
-    an event under them; this is how clients find them, e.g. for a consumer picker.
+    an event under them; this is how clients find them, e.g. for a consumer picker. Not paginated:
+    returns at most limit names.
+
+    Portal tokens: not allowed.
 
     Args:
         q (str | Unset): Only consumers whose name contains this text, case-insensitive.
@@ -167,7 +176,10 @@ async def asyncio(
 
      Lists the consumers that own a webhook or an event, sorted by name, optionally only those whose name
     contains q (case-insensitive). Consumers are created implicitly by registering a webhook or pushing
-    an event under them; this is how clients find them, e.g. for a consumer picker.
+    an event under them; this is how clients find them, e.g. for a consumer picker. Not paginated:
+    returns at most limit names.
+
+    Portal tokens: not allowed.
 
     Args:
         q (str | Unset): Only consumers whose name contains this text, case-insensitive.

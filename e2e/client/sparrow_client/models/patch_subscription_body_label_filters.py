@@ -11,7 +11,7 @@ T = TypeVar("T", bound="PatchSubscriptionBodyLabelFilters")
 
 @_attrs_define
 class PatchSubscriptionBodyLabelFilters:
-    """Replace the label filters."""
+    """Replace all label filters; an empty object matches every event."""
 
     additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 

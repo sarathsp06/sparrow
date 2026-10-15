@@ -96,8 +96,9 @@ Rendering is also capped: output over 1 MB, a render taking more than 5
 seconds, more than 1,000,000 loop iterations and template calls, or more than
 16 MB of strings and lists built along the way (by `print`, `printf`, `json`,
 `replace`, `list`, `dict`, ...) fails the delivery. `range` iterates arrays and
-maps only, never an integer, and `printf` widths and precisions are limited
-to 1000.
+maps only, never an integer, `range` may nest at most 3 levels deep (a deeper
+template is rejected when it is parsed), and `printf` widths and precisions
+are limited to 1000.
 
 ## A complete template
 

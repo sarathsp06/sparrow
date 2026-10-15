@@ -101,14 +101,19 @@ def sync_detailed(
 ) -> Response[ErrorModel | UpdateEventTypeOutputBody]:
     """Update an event type definition
 
-     Merge-patches an event type: only fields present in the request body are changed. A schema change
-    creates a new version and keeps the previous one; adding a first schema to a schema-less version,
-    and any change to description, metadata or active, updates the current version in place. The
-    response's change field says which happened. A breaking schema change (see change.compatibility) to
-    an event type that subscriptions receive is refused with 409 unless allow_breaking=true.
+     Partially updates an event type: only fields present in the request body are changed (metadata, when
+    sent, replaces the whole map). A schema change creates a new version and keeps the previous one;
+    adding a first schema to a schema-less version, and any change to description, metadata or active,
+    updates the current version in place. The response's change field says which happened; repeating the
+    same body is a no-op (change.action unchanged).
+
+    A breaking schema change (see change.compatibility) to an event type that subscriptions receive is
+    refused with 409 unless allow_breaking=true. 404 when the name is not registered.
+
+    Portal tokens: not allowed.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
         allow_breaking (bool | Unset): Apply a breaking schema change even though subscriptions
             receive this event type. Without it, a breaking change to a subscribed type is refused
             with 409 and the reasons. Default: False.
@@ -144,14 +149,19 @@ def sync(
 ) -> ErrorModel | UpdateEventTypeOutputBody | None:
     """Update an event type definition
 
-     Merge-patches an event type: only fields present in the request body are changed. A schema change
-    creates a new version and keeps the previous one; adding a first schema to a schema-less version,
-    and any change to description, metadata or active, updates the current version in place. The
-    response's change field says which happened. A breaking schema change (see change.compatibility) to
-    an event type that subscriptions receive is refused with 409 unless allow_breaking=true.
+     Partially updates an event type: only fields present in the request body are changed (metadata, when
+    sent, replaces the whole map). A schema change creates a new version and keeps the previous one;
+    adding a first schema to a schema-less version, and any change to description, metadata or active,
+    updates the current version in place. The response's change field says which happened; repeating the
+    same body is a no-op (change.action unchanged).
+
+    A breaking schema change (see change.compatibility) to an event type that subscriptions receive is
+    refused with 409 unless allow_breaking=true. 404 when the name is not registered.
+
+    Portal tokens: not allowed.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
         allow_breaking (bool | Unset): Apply a breaking schema change even though subscriptions
             receive this event type. Without it, a breaking change to a subscribed type is refused
             with 409 and the reasons. Default: False.
@@ -182,14 +192,19 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | UpdateEventTypeOutputBody]:
     """Update an event type definition
 
-     Merge-patches an event type: only fields present in the request body are changed. A schema change
-    creates a new version and keeps the previous one; adding a first schema to a schema-less version,
-    and any change to description, metadata or active, updates the current version in place. The
-    response's change field says which happened. A breaking schema change (see change.compatibility) to
-    an event type that subscriptions receive is refused with 409 unless allow_breaking=true.
+     Partially updates an event type: only fields present in the request body are changed (metadata, when
+    sent, replaces the whole map). A schema change creates a new version and keeps the previous one;
+    adding a first schema to a schema-less version, and any change to description, metadata or active,
+    updates the current version in place. The response's change field says which happened; repeating the
+    same body is a no-op (change.action unchanged).
+
+    A breaking schema change (see change.compatibility) to an event type that subscriptions receive is
+    refused with 409 unless allow_breaking=true. 404 when the name is not registered.
+
+    Portal tokens: not allowed.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
         allow_breaking (bool | Unset): Apply a breaking schema change even though subscriptions
             receive this event type. Without it, a breaking change to a subscribed type is refused
             with 409 and the reasons. Default: False.
@@ -223,14 +238,19 @@ async def asyncio(
 ) -> ErrorModel | UpdateEventTypeOutputBody | None:
     """Update an event type definition
 
-     Merge-patches an event type: only fields present in the request body are changed. A schema change
-    creates a new version and keeps the previous one; adding a first schema to a schema-less version,
-    and any change to description, metadata or active, updates the current version in place. The
-    response's change field says which happened. A breaking schema change (see change.compatibility) to
-    an event type that subscriptions receive is refused with 409 unless allow_breaking=true.
+     Partially updates an event type: only fields present in the request body are changed (metadata, when
+    sent, replaces the whole map). A schema change creates a new version and keeps the previous one;
+    adding a first schema to a schema-less version, and any change to description, metadata or active,
+    updates the current version in place. The response's change field says which happened; repeating the
+    same body is a no-op (change.action unchanged).
+
+    A breaking schema change (see change.compatibility) to an event type that subscriptions receive is
+    refused with 409 unless allow_breaking=true. 404 when the name is not registered.
+
+    Portal tokens: not allowed.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
         allow_breaking (bool | Unset): Apply a breaking schema change even though subscriptions
             receive this event type. Without it, a breaking change to a subscribed type is refused
             with 409 and the reasons. Default: False.

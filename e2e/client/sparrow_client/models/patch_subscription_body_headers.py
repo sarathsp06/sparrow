@@ -11,7 +11,7 @@ T = TypeVar("T", bound="PatchSubscriptionBodyHeaders")
 
 @_attrs_define
 class PatchSubscriptionBodyHeaders:
-    """Replace the extra HTTP headers."""
+    """Replace all extra HTTP headers."""
 
     additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 

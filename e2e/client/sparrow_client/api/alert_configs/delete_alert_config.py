@@ -69,11 +69,14 @@ def sync_detailed(
 ) -> Response[Any | ErrorModel]:
     """Delete an email alert recipient
 
-     Removes an alert config. The webhook and its delivery history are unaffected.
+     Removes an alert config. The webhook and its delivery history are unaffected. Returns 204; 404 when
+    it is not in this consumer.
+
+    Portal tokens: allowed, as DELETE /portal/api/alert-configs/{alert_config_id}.
 
     Args:
-        consumer (str):
-        alert_config_id (str):
+        consumer (str): Consumer the alert config belongs to.
+        alert_config_id (str): Alert config id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -103,11 +106,14 @@ def sync(
 ) -> Any | ErrorModel | None:
     """Delete an email alert recipient
 
-     Removes an alert config. The webhook and its delivery history are unaffected.
+     Removes an alert config. The webhook and its delivery history are unaffected. Returns 204; 404 when
+    it is not in this consumer.
+
+    Portal tokens: allowed, as DELETE /portal/api/alert-configs/{alert_config_id}.
 
     Args:
-        consumer (str):
-        alert_config_id (str):
+        consumer (str): Consumer the alert config belongs to.
+        alert_config_id (str): Alert config id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -132,11 +138,14 @@ async def asyncio_detailed(
 ) -> Response[Any | ErrorModel]:
     """Delete an email alert recipient
 
-     Removes an alert config. The webhook and its delivery history are unaffected.
+     Removes an alert config. The webhook and its delivery history are unaffected. Returns 204; 404 when
+    it is not in this consumer.
+
+    Portal tokens: allowed, as DELETE /portal/api/alert-configs/{alert_config_id}.
 
     Args:
-        consumer (str):
-        alert_config_id (str):
+        consumer (str): Consumer the alert config belongs to.
+        alert_config_id (str): Alert config id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -164,11 +173,14 @@ async def asyncio(
 ) -> Any | ErrorModel | None:
     """Delete an email alert recipient
 
-     Removes an alert config. The webhook and its delivery history are unaffected.
+     Removes an alert config. The webhook and its delivery history are unaffected. Returns 204; 404 when
+    it is not in this consumer.
+
+    Portal tokens: allowed, as DELETE /portal/api/alert-configs/{alert_config_id}.
 
     Args:
-        consumer (str):
-        alert_config_id (str):
+        consumer (str): Consumer the alert config belongs to.
+        alert_config_id (str): Alert config id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

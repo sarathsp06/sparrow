@@ -81,11 +81,14 @@ def sync_detailed(
 ) -> Response[ErrorModel | ListTokensOutputBody]:
     """List access tokens
 
-     Newest first. Secrets are never returned. Revoked and expired tokens are hidden unless
-    include_inactive is set.
+     Lists access tokens, newest first. Secrets are never returned. Revoked and expired tokens are hidden
+    unless include_inactive is set. Not paginated.
+
+    Portal tokens: not allowed.
 
     Args:
-        consumer (str | Unset): Only tokens limited to this consumer.
+        consumer (str | Unset): Only tokens limited to this consumer. Omit to list every token,
+            tenant-wide ones included.
         include_inactive (bool | Unset): Also return revoked and expired tokens.
 
     Raises:
@@ -116,11 +119,14 @@ def sync(
 ) -> ErrorModel | ListTokensOutputBody | None:
     """List access tokens
 
-     Newest first. Secrets are never returned. Revoked and expired tokens are hidden unless
-    include_inactive is set.
+     Lists access tokens, newest first. Secrets are never returned. Revoked and expired tokens are hidden
+    unless include_inactive is set. Not paginated.
+
+    Portal tokens: not allowed.
 
     Args:
-        consumer (str | Unset): Only tokens limited to this consumer.
+        consumer (str | Unset): Only tokens limited to this consumer. Omit to list every token,
+            tenant-wide ones included.
         include_inactive (bool | Unset): Also return revoked and expired tokens.
 
     Raises:
@@ -146,11 +152,14 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | ListTokensOutputBody]:
     """List access tokens
 
-     Newest first. Secrets are never returned. Revoked and expired tokens are hidden unless
-    include_inactive is set.
+     Lists access tokens, newest first. Secrets are never returned. Revoked and expired tokens are hidden
+    unless include_inactive is set. Not paginated.
+
+    Portal tokens: not allowed.
 
     Args:
-        consumer (str | Unset): Only tokens limited to this consumer.
+        consumer (str | Unset): Only tokens limited to this consumer. Omit to list every token,
+            tenant-wide ones included.
         include_inactive (bool | Unset): Also return revoked and expired tokens.
 
     Raises:
@@ -179,11 +188,14 @@ async def asyncio(
 ) -> ErrorModel | ListTokensOutputBody | None:
     """List access tokens
 
-     Newest first. Secrets are never returned. Revoked and expired tokens are hidden unless
-    include_inactive is set.
+     Lists access tokens, newest first. Secrets are never returned. Revoked and expired tokens are hidden
+    unless include_inactive is set. Not paginated.
+
+    Portal tokens: not allowed.
 
     Args:
-        consumer (str | Unset): Only tokens limited to this consumer.
+        consumer (str | Unset): Only tokens limited to this consumer. Omit to list every token,
+            tenant-wide ones included.
         include_inactive (bool | Unset): Also return revoked and expired tokens.
 
     Raises:

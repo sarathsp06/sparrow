@@ -15,10 +15,10 @@ import (
 // PaginationOutput is the shared pagination envelope returned by every list
 // endpoint's response body, embedded alongside the `items` field.
 type PaginationOutput struct {
-	Limit      int32 `json:"limit"`
-	Offset     int32 `json:"offset"`
-	TotalCount int32 `json:"total_count"`
-	HasMore    bool  `json:"has_more"`
+	Limit      int32 `json:"limit" doc:"Page size applied (the requested limit, default 50)."`
+	Offset     int32 `json:"offset" doc:"Number of items skipped."`
+	TotalCount int32 `json:"total_count" doc:"Total items matching the filters."`
+	HasMore    bool  `json:"has_more" doc:"True when offset + limit < total_count."`
 }
 
 // newPagination builds the pagination envelope, normalizing limit/offset the
@@ -43,7 +43,7 @@ func newPagination(limit, offset, totalCount int32) PaginationOutput {
 // newest-first lists (deliveries, event occurrences). There is no total:
 // counting every match cost more than the page itself on large tables.
 type CursorPaginationOutput struct {
-	Limit      int32  `json:"limit"`
+	Limit      int32  `json:"limit" doc:"Page size applied (the requested limit, default 50)."`
 	HasMore    bool   `json:"has_more" doc:"True when older items follow this page."`
 	NextCursor string `json:"next_cursor,omitempty" doc:"Pass as cursor to get the next, older page. Absent on the last page."`
 }

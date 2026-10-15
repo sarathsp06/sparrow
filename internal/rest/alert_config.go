@@ -14,11 +14,11 @@ import (
 type createAlertConfigBody struct {
 	WebhookID  string   `json:"webhook_id,omitempty" doc:"Scope the alert to one webhook. Omit for a consumer-wide alert covering every webhook."`
 	Email      string   `json:"email" required:"true" format:"email" doc:"Recipient email address."`
-	EventTypes []string `json:"event_types" required:"true" doc:"Sparrow system event types to alert on: sparrow.webhook.health_changed, sparrow.webhook.delivery_failed, sparrow.webhook.disabled."`
+	EventTypes []string `json:"event_types" required:"true" doc:"Sparrow system event types to alert on, at least one of: sparrow.webhook.health_changed, sparrow.webhook.delivery_failed, sparrow.webhook.disabled."`
 }
 
 type createAlertConfigInput struct {
-	Consumer string `path:"consumer"`
+	Consumer string `path:"consumer" doc:"Consumer whose webhooks the alert covers."`
 	Body     createAlertConfigBody
 }
 
@@ -56,22 +56,23 @@ type listAlertConfigsInput struct {
 
 type listAlertConfigsOutput struct {
 	Body struct {
-		Items []alertConfigItem `json:"items"`
+		Items []alertConfigItem `json:"items" doc:"Alert configs, oldest first. Not paginated."`
 	}
 }
 
 type alertConfigIDInput struct {
-	Consumer      string `path:"consumer"`
-	AlertConfigID string `path:"alert_config_id"`
+	Consumer      string `path:"consumer" doc:"Consumer the alert config belongs to."`
+	AlertConfigID string `path:"alert_config_id" doc:"Alert config id (UUID)."`
 }
 
 func registerAlertConfigRoutes(api huma.API, svc webhooks.AlertConfigManager) {
 	huma.Register(api, huma.Operation{
-		OperationID:   "createAlertConfig",
-		Method:        http.MethodPost,
-		Path:          "/v1/consumers/{consumer}/alert-configs",
-		Summary:       "Register an email alert recipient",
-		Description:   "Opts an email address into Sparrow's self-generated health-change and permanent-delivery-failure notifications, scoped to one webhook or the whole consumer.",
+		OperationID: "createAlertConfig",
+		Method:      http.MethodPost,
+		Path:        "/v1/consumers/{consumer}/alert-configs",
+		Summary:     "Register an email alert recipient",
+		Description: "Opts an email address into Sparrow's self-generated health-change, permanent-delivery-failure and auto-disable notifications, scoped to one webhook or the whole consumer. Emails are only sent once an alert mailer webhook is registered under the _sparrow consumer (see GET /v1/capabilities alert_delivery.configured). Not idempotent: each call adds a config.\n\n" +
+			"400 for an invalid email or event type, 404 when webhook_id is not in this consumer.\n\nPortal tokens: allowed, as POST /portal/api/alert-configs.",
 		Errors:        []int{400, 404},
 		Tags:          []string{"Alert Configs"},
 		DefaultStatus: http.StatusCreated,
@@ -88,7 +89,7 @@ func registerAlertConfigRoutes(api huma.API, svc webhooks.AlertConfigManager) {
 		Method:      http.MethodGet,
 		Path:        "/v1/consumers/{consumer}/alert-configs",
 		Summary:     "List email alert recipients",
-		Description: "Lists alert configs in a consumer, optionally filtered to one webhook's own configs.",
+		Description: "Lists alert configs in a consumer, oldest first, optionally filtered to one webhook's own configs. Not paginated.\n\nPortal tokens: allowed, as GET /portal/api/alert-configs.",
 		Tags:        []string{"Alert Configs"},
 	}, func(ctx context.Context, in *listAlertConfigsInput) (*listAlertConfigsOutput, error) {
 		configs, err := svc.ListAlertConfigs(ctx, in.Consumer, in.WebhookID)
@@ -108,7 +109,7 @@ func registerAlertConfigRoutes(api huma.API, svc webhooks.AlertConfigManager) {
 		Method:        http.MethodDelete,
 		Path:          "/v1/consumers/{consumer}/alert-configs/{alert_config_id}",
 		Summary:       "Delete an email alert recipient",
-		Description:   "Removes an alert config. The webhook and its delivery history are unaffected.",
+		Description:   "Removes an alert config. The webhook and its delivery history are unaffected. Returns 204; 404 when it is not in this consumer.\n\nPortal tokens: allowed, as DELETE /portal/api/alert-configs/{alert_config_id}.",
 		Errors:        []int{404},
 		Tags:          []string{"Alert Configs"},
 		DefaultStatus: http.StatusNoContent,

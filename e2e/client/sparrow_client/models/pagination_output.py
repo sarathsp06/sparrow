@@ -12,10 +12,10 @@ T = TypeVar("T", bound="PaginationOutput")
 class PaginationOutput:
     """
     Attributes:
-        has_more (bool):
-        limit (int):
-        offset (int):
-        total_count (int):
+        has_more (bool): True when offset + limit < total_count.
+        limit (int): Page size applied (the requested limit, default 50).
+        offset (int): Number of items skipped.
+        total_count (int): Total items matching the filters.
     """
 
     has_more: bool

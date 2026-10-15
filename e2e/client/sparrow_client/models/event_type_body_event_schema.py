@@ -12,7 +12,7 @@ T = TypeVar("T", bound="EventTypeBodyEventSchema")
 @_attrs_define
 class EventTypeBodyEventSchema:
     """Optional JSON Schema for the payload. Validation is soft: non-conforming payloads are still accepted, with warnings
-    returned from the push call.
+    returned from the push call. On update, sending a different schema creates a new version.
 
     """
 

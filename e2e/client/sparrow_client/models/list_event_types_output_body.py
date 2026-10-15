@@ -19,7 +19,7 @@ T = TypeVar("T", bound="ListEventTypesOutputBody")
 class ListEventTypesOutputBody:
     """
     Attributes:
-        items (list[EventTypeItem] | None):
+        items (list[EventTypeItem] | None): Event types, sorted by name.
         pagination (PaginationOutput):
         schema (str | Unset): A URL to the JSON Schema for this object.
     """

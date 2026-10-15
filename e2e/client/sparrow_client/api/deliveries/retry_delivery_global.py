@@ -33,10 +33,20 @@ def _parse_response(
 
         return response_200
 
+    if response.status_code == 400:
+        response_400 = ErrorModel.from_dict(response.json())
+
+        return response_400
+
     if response.status_code == 404:
         response_404 = ErrorModel.from_dict(response.json())
 
         return response_404
+
+    if response.status_code == 409:
+        response_409 = ErrorModel.from_dict(response.json())
+
+        return response_409
 
     if response.status_code == 422:
         response_422 = ErrorModel.from_dict(response.json())
@@ -72,10 +82,12 @@ def sync_detailed(
 ) -> Response[ErrorModel | RetryOutputBody]:
     """Retry a single delivery (any consumer)
 
-     Consumer-agnostic variant of retryDelivery.
+     Same as retryDelivery, for a delivery in any consumer.
+
+    Portal tokens: not allowed.
 
     Args:
-        delivery_id (str):
+        delivery_id (str): Delivery id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -103,10 +115,12 @@ def sync(
 ) -> ErrorModel | RetryOutputBody | None:
     """Retry a single delivery (any consumer)
 
-     Consumer-agnostic variant of retryDelivery.
+     Same as retryDelivery, for a delivery in any consumer.
+
+    Portal tokens: not allowed.
 
     Args:
-        delivery_id (str):
+        delivery_id (str): Delivery id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -129,10 +143,12 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | RetryOutputBody]:
     """Retry a single delivery (any consumer)
 
-     Consumer-agnostic variant of retryDelivery.
+     Same as retryDelivery, for a delivery in any consumer.
+
+    Portal tokens: not allowed.
 
     Args:
-        delivery_id (str):
+        delivery_id (str): Delivery id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -158,10 +174,12 @@ async def asyncio(
 ) -> ErrorModel | RetryOutputBody | None:
     """Retry a single delivery (any consumer)
 
-     Consumer-agnostic variant of retryDelivery.
+     Same as retryDelivery, for a delivery in any consumer.
+
+    Portal tokens: not allowed.
 
     Args:
-        delivery_id (str):
+        delivery_id (str): Delivery id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

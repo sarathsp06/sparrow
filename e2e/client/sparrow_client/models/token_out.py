@@ -17,14 +17,16 @@ class TokenOut:
     Attributes:
         consumer (None | str): Consumer the token is limited to (portal API only). Null: tenant-wide, same power as
             SPARROW_API_KEY.
-        created_at (datetime.datetime):
+        created_at (datetime.datetime): When the token was created, RFC3339.
         created_by (str): Name of the credential that created it (the master key, or another token).
-        expires_at (datetime.datetime | None): Null: never expires.
+        expires_at (datetime.datetime | None): When the token stops working, RFC3339. Null: never expires.
         id (str): Token id (not the secret).
-        last_used_at (datetime.datetime | None): Approximate (updated at most once a minute).
+        last_used_at (datetime.datetime | None): When the token was last used, RFC3339; approximate (updated at most
+            once a minute). Null: never used.
         name (str): Who or what the token is for.
-        revoked_at (datetime.datetime | None):
-        status (TokenOutStatus):
+        revoked_at (datetime.datetime | None): When the token was revoked, RFC3339. Null: not revoked.
+        status (TokenOutStatus): active: usable. revoked: revoked by DELETE /v1/tokens/{token_id}. expired: past
+            expires_at.
     """
 
     consumer: None | str

@@ -69,9 +69,12 @@ def sync_detailed(
 ) -> Response[Any | ErrorModel]:
     """Delete a webhook
 
-     Deletes a webhook: it stops receiving events and no longer appears in webhook lists, and its URL can
-    be registered again. Its delivery history is kept and stays listed under deliveries until retention
-    removes it. Queued deliveries for it fail with "Webhook was deleted". This cannot be undone.
+     Deletes a webhook (a soft delete): it stops receiving events and no longer appears in webhook lists,
+    and its URL can be registered again in the consumer. Its subscriptions and delivery history are
+    kept, and its deliveries stay listed until retention removes them. Queued deliveries for it fail
+    with "Webhook was deleted". This cannot be undone. A second delete returns 404.
+
+    Portal tokens: allowed, as DELETE /portal/api/webhooks/{webhook_id}.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.
@@ -105,9 +108,12 @@ def sync(
 ) -> Any | ErrorModel | None:
     """Delete a webhook
 
-     Deletes a webhook: it stops receiving events and no longer appears in webhook lists, and its URL can
-    be registered again. Its delivery history is kept and stays listed under deliveries until retention
-    removes it. Queued deliveries for it fail with "Webhook was deleted". This cannot be undone.
+     Deletes a webhook (a soft delete): it stops receiving events and no longer appears in webhook lists,
+    and its URL can be registered again in the consumer. Its subscriptions and delivery history are
+    kept, and its deliveries stay listed until retention removes them. Queued deliveries for it fail
+    with "Webhook was deleted". This cannot be undone. A second delete returns 404.
+
+    Portal tokens: allowed, as DELETE /portal/api/webhooks/{webhook_id}.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.
@@ -136,9 +142,12 @@ async def asyncio_detailed(
 ) -> Response[Any | ErrorModel]:
     """Delete a webhook
 
-     Deletes a webhook: it stops receiving events and no longer appears in webhook lists, and its URL can
-    be registered again. Its delivery history is kept and stays listed under deliveries until retention
-    removes it. Queued deliveries for it fail with "Webhook was deleted". This cannot be undone.
+     Deletes a webhook (a soft delete): it stops receiving events and no longer appears in webhook lists,
+    and its URL can be registered again in the consumer. Its subscriptions and delivery history are
+    kept, and its deliveries stay listed until retention removes them. Queued deliveries for it fail
+    with "Webhook was deleted". This cannot be undone. A second delete returns 404.
+
+    Portal tokens: allowed, as DELETE /portal/api/webhooks/{webhook_id}.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.
@@ -170,9 +179,12 @@ async def asyncio(
 ) -> Any | ErrorModel | None:
     """Delete a webhook
 
-     Deletes a webhook: it stops receiving events and no longer appears in webhook lists, and its URL can
-    be registered again. Its delivery history is kept and stays listed under deliveries until retention
-    removes it. Queued deliveries for it fail with "Webhook was deleted". This cannot be undone.
+     Deletes a webhook (a soft delete): it stops receiving events and no longer appears in webhook lists,
+    and its URL can be registered again in the consumer. Its subscriptions and delivery history are
+    kept, and its deliveries stay listed until retention removes them. Queued deliveries for it fail
+    with "Webhook was deleted". This cannot be undone. A second delete returns 404.
+
+    Portal tokens: allowed, as DELETE /portal/api/webhooks/{webhook_id}.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.

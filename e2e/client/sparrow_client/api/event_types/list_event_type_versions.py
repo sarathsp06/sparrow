@@ -72,11 +72,13 @@ def sync_detailed(
 ) -> Response[ErrorModel | ListEventTypeVersionsOutputBody]:
     """List every version of an event type
 
-     Returns the version history of an event type, newest first. Event types are never deleted; to retire
-    one, set active to false.
+     Returns the version history of an event type, newest first. Not paginated. Event types are never
+    deleted; to retire one, set active to false.
+
+    Portal tokens: allowed, as GET /portal/api/event-types/{name}/versions.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -104,11 +106,13 @@ def sync(
 ) -> ErrorModel | ListEventTypeVersionsOutputBody | None:
     """List every version of an event type
 
-     Returns the version history of an event type, newest first. Event types are never deleted; to retire
-    one, set active to false.
+     Returns the version history of an event type, newest first. Not paginated. Event types are never
+    deleted; to retire one, set active to false.
+
+    Portal tokens: allowed, as GET /portal/api/event-types/{name}/versions.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -131,11 +135,13 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | ListEventTypeVersionsOutputBody]:
     """List every version of an event type
 
-     Returns the version history of an event type, newest first. Event types are never deleted; to retire
-    one, set active to false.
+     Returns the version history of an event type, newest first. Not paginated. Event types are never
+    deleted; to retire one, set active to false.
+
+    Portal tokens: allowed, as GET /portal/api/event-types/{name}/versions.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -161,11 +167,13 @@ async def asyncio(
 ) -> ErrorModel | ListEventTypeVersionsOutputBody | None:
     """List every version of an event type
 
-     Returns the version history of an event type, newest first. Event types are never deleted; to retire
-    one, set active to false.
+     Returns the version history of an event type, newest first. Not paginated. Event types are never
+    deleted; to retire one, set active to false.
+
+    Portal tokens: allowed, as GET /portal/api/event-types/{name}/versions.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

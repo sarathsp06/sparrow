@@ -75,11 +75,14 @@ def sync_detailed(
 ) -> Response[ErrorModel | SubscriptionItem]:
     """Get a subscription by id
 
-     Fetches one subscription's webhook link, transform template, and label filters.
+     Returns one subscription: its webhook link, transform template and settings, label filters and pause
+    state. 404 when it is not in this consumer.
+
+    Portal tokens: allowed, as GET /portal/api/subscriptions/{subscription_id}.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -109,11 +112,14 @@ def sync(
 ) -> ErrorModel | SubscriptionItem | None:
     """Get a subscription by id
 
-     Fetches one subscription's webhook link, transform template, and label filters.
+     Returns one subscription: its webhook link, transform template and settings, label filters and pause
+    state. 404 when it is not in this consumer.
+
+    Portal tokens: allowed, as GET /portal/api/subscriptions/{subscription_id}.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -138,11 +144,14 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | SubscriptionItem]:
     """Get a subscription by id
 
-     Fetches one subscription's webhook link, transform template, and label filters.
+     Returns one subscription: its webhook link, transform template and settings, label filters and pause
+    state. 404 when it is not in this consumer.
+
+    Portal tokens: allowed, as GET /portal/api/subscriptions/{subscription_id}.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -170,11 +179,14 @@ async def asyncio(
 ) -> ErrorModel | SubscriptionItem | None:
     """Get a subscription by id
 
-     Fetches one subscription's webhook link, transform template, and label filters.
+     Returns one subscription: its webhook link, transform template and settings, label filters and pause
+    state. 404 when it is not in this consumer.
+
+    Portal tokens: allowed, as GET /portal/api/subscriptions/{subscription_id}.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

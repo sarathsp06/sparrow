@@ -16,8 +16,9 @@ class CreateTokenBody:
     Attributes:
         name (str): Who or what the token is for, e.g. "alice" or "ci-deploy".
         schema (str | Unset): A URL to the JSON Schema for this object.
-        consumer (str | Unset): Limit the token to one consumer (portal API only). Omit for a tenant-wide token with the
-            same power as SPARROW_API_KEY.
+        consumer (str | Unset): Limit the token to one consumer: it then works only through the portal API
+            (/portal/api/). Omit for a tenant-wide token with the same power as SPARROW_API_KEY. At most 255 characters, no
+            /, \\, ?, #, % or dot segments; _sparrow is not allowed.
         external_id (str | Unset): Consumer tokens only. Your id for who or what the token is for, e.g. your user id
             when embedding the portal. There is at most one active token per consumer and external_id: while it is valid,
             asking again returns it, secret included (reused: true; name and ttl_seconds are ignored), instead of creating
@@ -25,8 +26,8 @@ class CreateTokenBody:
             view safe. Not a secret: it is fine to log.
         never_expires (bool | Unset): Create a tenant-wide token that never expires (revoke it when no longer needed).
             Not allowed with ttl_seconds or for consumer tokens.
-        ttl_seconds (int | Unset): Lifetime in seconds. Tenant-wide tokens default to the server's
-            SPARROW_TOKEN_DEFAULT_TTL (90 days unless changed); consumer tokens default to 7 days and allow at most 30.
+        ttl_seconds (int | Unset): Lifetime in seconds. 0 or omitted takes the default: SPARROW_TOKEN_DEFAULT_TTL (90
+            days unless changed) for tenant-wide tokens, 7 days for consumer tokens. Consumer tokens allow at most 30 days.
     """
 
     name: str

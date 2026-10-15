@@ -15,7 +15,7 @@ class CursorPaginationOutput:
     """
     Attributes:
         has_more (bool): True when older items follow this page.
-        limit (int):
+        limit (int): Page size applied (the requested limit, default 50).
         next_cursor (str | Unset): Pass as cursor to get the next, older page. Absent on the last page.
     """
 

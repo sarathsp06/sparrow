@@ -16,25 +16,31 @@ T = TypeVar("T", bound="DeliveryItem")
 class DeliveryItem:
     """
     Attributes:
-        attempt_count (int): Number of delivery attempts made so far.
-        created_at (str): Creation timestamp, RFC3339.
+        attempt_count (int): Number of delivery attempts made so far, including earlier rounds before a manual retry.
+        created_at (str): When the delivery was created by fan-out, RFC3339.
         delivery_id (str): Delivery id (UUID).
         event_id (str): Pushed event occurrence this delivery originated from.
-        max_attempts (int): Maximum attempts allowed before the delivery is marked failed.
-        status (DeliveryItemStatus): Current delivery status. paused: created while its subscription was paused; not
-            attempted until retried.
+        max_attempts (int): Attempts allowed per round before the delivery is marked failed: the webhook's max_retries +
+            1 when the delivery was created. A manual retry starts a new round.
+        status (DeliveryItemStatus): Current delivery status. pending: queued for its first attempt (or re-queued by a
+            retry). sending: an attempt is in flight. retrying: an attempt failed and another is scheduled (next_retry_at).
+            success: an attempt got an expected status code. failed: attempts exhausted, or a non-retryable error such as
+            template_error. expired: the event's ttl_seconds passed before the attempt. paused: held because the webhook or
+            subscription was paused; not attempted until retried.
         webhook_id (str): Webhook this delivery was sent to.
         schema (str | Unset): A URL to the JSON Schema for this object.
         consumer (str | Unset): Consumer of the webhook. Set in delivery listings.
-        error_category (DeliveryItemErrorCategory | Unset): Failure classification from the most recent attempt, used to
-            decide retryability. template_error means the subscription's transform failed to render; it is not retried
-            automatically and does not count against the webhook's health.
+        error_category (DeliveryItemErrorCategory | Unset): Outcome classification of the most recent attempt, used to
+            decide retryability. server_error (5xx), timeout, connection_refused, network_error and rate_limited (429) are
+            retried; client_error (other 4xx), dns_error, tls_error and unexpected_status (a 2xx/3xx not in
+            expected_status_codes) are not. template_error means the subscription's transform failed to render; it is not
+            retried automatically and does not count against the webhook's health.
         error_message (str | Unset): Human-readable failure reason from the most recent attempt.
         event_name (str | Unset): Event type of that occurrence, e.g. order.created. Set in delivery listings.
         last_attempted_at (str | Unset): Timestamp of the most recent attempt, RFC3339.
         next_retry_at (str | Unset): Timestamp of the next scheduled retry, RFC3339, if one is pending.
-        response_body (str | Unset): Endpoint response body from the most recent attempt, if capture_response_body is
-            enabled.
+        response_body (str | Unset): Endpoint response body from the most recent attempt: up to 1 KiB, or up to
+            SPARROW_MAX_CAPTURED_RESPONSE_BYTES when the webhook has capture_response_body.
         response_code (int | Unset): HTTP status code returned by the endpoint on the most recent attempt, if any.
         template_error (str | Unset): The payload transform error, when the subscription's template failed to render.
             Set for both on_transform_error modes: with fail the delivery was not sent; with fallback the default envelope

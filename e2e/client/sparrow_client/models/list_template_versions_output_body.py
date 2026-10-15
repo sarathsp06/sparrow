@@ -18,7 +18,7 @@ T = TypeVar("T", bound="ListTemplateVersionsOutputBody")
 class ListTemplateVersionsOutputBody:
     """
     Attributes:
-        items (list[TemplateVersionItem] | None):
+        items (list[TemplateVersionItem] | None): Saved versions, newest first.
         schema (str | Unset): A URL to the JSON Schema for this object.
     """
 

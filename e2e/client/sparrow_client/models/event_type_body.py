@@ -20,13 +20,17 @@ class EventTypeBody:
     """
     Attributes:
         schema (str | Unset): A URL to the JSON Schema for this object.
-        active (bool | Unset): Whether events of this type can be pushed. Defaults to true.
-        description (str | Unset): Human-readable summary of what this event represents.
+        active (bool | Unset): Whether events of this type can be pushed; a push to an inactive type fails with 409.
+            Defaults to true on register; unchanged on update when omitted.
+        description (str | Unset): Human-readable summary of what this event represents. On update, an empty string
+            leaves it unchanged.
         event_schema (EventTypeBodyEventSchema | Unset): Optional JSON Schema for the payload. Validation is soft: non-
-            conforming payloads are still accepted, with warnings returned from the push call.
-        metadata (EventTypeBodyMetadata | Unset): Arbitrary key/value metadata for your own tooling.
-        name (str | Unset): Unique event type name, e.g. order.created. At most 255 characters. Immutable after
-            creation.
+            conforming payloads are still accepted, with warnings returned from the push call. On update, sending a
+            different schema creates a new version.
+        metadata (EventTypeBodyMetadata | Unset): Arbitrary key/value metadata for your own tooling. On update, replaces
+            the whole map.
+        name (str | Unset): Unique event type name, e.g. order.created. Required on register, ignored on update (the
+            path names the type). At most 255 characters; the sparrow. prefix is reserved. Immutable after creation.
     """
 
     schema: str | Unset = UNSET

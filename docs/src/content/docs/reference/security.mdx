@@ -24,6 +24,18 @@ Empty `SPARROW_API_KEY` disables auth entirely -- intentional for local dev.
 With `ENVIRONMENT=production`, the server refuses to boot without a key, so
 this can't ship silently misconfigured.
 
+:::caution[Open API, open CORS]
+With `SPARROW_API_KEY` unset, the whole `/v1` API is open, and outside
+`ENVIRONMENT=production` CORS allows every origin (unless
+`CORS_ALLOWED_ORIGINS` is set): any web page opened by someone who can reach
+the server can call the API from their browser. Keep such a server on
+localhost or a trusted network.
+
+`ENVIRONMENT` must be exactly `production`. The check is case-sensitive, so
+`Production`, `PRODUCTION` or `prod` silently run as development: no key
+required, CORS open, the all-zeros encryption key accepted.
+:::
+
 ### Access tokens
 
 Named, stored credentials that can be created, listed, and individually
@@ -73,8 +85,8 @@ never send to the server, so it stays out of access logs.
 
 A portal token authorizes exactly: everything under its own consumer's routes
 **except** pushing events and minting further tokens, plus the read-only
-helpers the portal UI needs (event-type catalog, template functions, template
-dry-run). The portal calls these through the single `/portal/api/` gateway
+helpers the portal UI needs (event-type catalog, template functions, server
+capabilities, template dry-run). The portal calls these through the single `/portal/api/` gateway
 prefix — the consumer is carried by the token, not the URL, so cross-consumer
 access is structurally impossible and event injection, token minting, other
 consumers, global routes, and admin operations all return 401/403.
@@ -123,9 +135,7 @@ entry can reach them. Off by default.
 Deliveries verify the receiver's TLS certificate. A webhook can opt out with
 `http_config.verify_ssl: false`, for trusted internal endpoints with
 self-signed certificates; it defaults to `true`, and the SSRF checks above
-still apply to opted-out webhooks. (Before v0.5.17 this flag was accepted but
-ignored, so certificates were always verified. Webhooks that explicitly set
-it to `false` now skip verification, as requested.)
+still apply to opted-out webhooks.
 
 ## HTTP Hardening
 
@@ -145,10 +155,46 @@ Two more request-level controls:
   `SPARROW_MAX_BODY_BYTES` (default 5 MiB) -- bounds memory use against
   oversized payloads before they're read. Values below 1 MiB are rejected
   at startup.
-- **Per-webhook rate limiting**: optional leaky-bucket `rate_limit_rps` per
+- **Per-webhook rate limiting**: optional leaky-bucket `http_config.rate_limit_rps` per
   webhook throttles *outbound* delivery -- protects the receiver from being
   hammered. (It does not protect Sparrow's own inbound API; see the note
   under [API Authentication](#api-authentication).)
+
+## Webhook Secret Rotation
+
+`POST .../webhooks/{id}:rotateSecret` replaces the HMAC signing secret at
+once. There is no overlap window: every attempt made after the rotation,
+retries of older deliveries included, is signed with the new secret only, and
+a receiver still verifying with the old one rejects them. Update the receiver
+promptly, or pause the webhook, rotate, update the receiver, and resume
+(held deliveries are retried by hand). Rotation does not change an Ed25519
+signing key.
+
+## Metrics Endpoint
+
+`GET /metrics` serves Prometheus metrics with no authentication, like
+`/health`. Its labels include the host names and ports of webhook receivers
+(from the outbound HTTP client metrics), webhook counts by health and status,
+queue depths, and database pool statistics. If that is sensitive, set
+`SPARROW_METRICS_ENABLED=false` or block `/metrics` at the reverse proxy and
+scrape it from inside the network.
+
+## Credentials in the Browser
+
+The operator UI keeps the credential it signs in with (an access token from
+an invite or from exchanging the master key, or a pasted credential) in
+`localStorage` (`sparrow_api_key`), and the portal keeps its consumer token
+there too, so a session survives restarts. Any script running on the UI's
+origin could read it; the strict Content-Security-Policy above, which allows
+only Sparrow's own scripts, is what stands between the two. Signing out
+removes it and revokes tokens the browser created. Use a separate origin for
+the UI if other content is served next to it.
+
+The portal (`/portal` paths) is sent with `frame-ancestors *` so it can be
+embedded in an iframe on any site; the operator UI is sent with
+`frame-ancestors 'none'` and `X-Frame-Options: DENY`. To restrict who can
+frame the portal, have the reverse proxy replace `frame-ancestors *` in that
+header with your own list, keeping the rest of the policy as Sparrow sent it.
 
 ## Secret Masking in Responses
 
@@ -188,9 +234,10 @@ The global list routes (`GET /v1/webhooks`, `/v1/deliveries`, etc.) can span
 consumers, but never cross the instance's data boundary.
 
 :::caution
-Consumers organize resources; they are **not** a security boundary. Sparrow
-has one API key per instance, and any valid key can read and write every
-consumer. Need hard isolation between teams or customers? Run separate
+Consumers organize resources; for operators they are **not** a security
+boundary. The master key and every tenant-wide access token can read and
+write every consumer. Only consumer-scoped (portal) tokens are pinned to one
+consumer, and only through `/portal/api/`. Need hard isolation between teams or customers? Run separate
 Sparrow instances -- see [Securing
 Sparrow](/sparrow/deployment/security/#what-sparrow-provides-natively) for
 the full trust model.
@@ -204,11 +251,12 @@ What Sparrow enforces before the server will boot, and what you should set:
 |---|---|
 | `SPARROW_ENCRYPTION_KEYS` | Always required. Comma-separated `<key-id>=<64-char-hex-key>` entries. |
 | `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` | Always required. Selects the primary key for new encryption. |
-| `SPARROW_API_KEY` | Required when `ENVIRONMENT=production`. Empty is fine for local dev only. |
+| `ENVIRONMENT` | Set to exactly `production` (case-sensitive). Any other value runs as development, without the checks in this table. |
+| `SPARROW_API_KEY` | Required, at least 32 characters, when `ENVIRONMENT=production`. Empty is fine for local dev only. |
 | `DATABASE_URL` | Always required. |
 | `SPARROW_MAX_BODY_BYTES` | Optional, default 5 MiB. Values below 1 MiB are rejected at startup. |
 | `SPARROW_ALLOW_PRIVATE_NETWORKS` | Leave unset (`false`) unless your webhook targets live on your own private network -- `true` disables most SSRF network checks (cloud metadata stays blocked; only `SPARROW_ALLOWED_NETWORKS` can reach it). |
-| `SPARROW_METRICS_ENABLED` | Optional, default `true`. Serves Prometheus metrics at `/metrics`, unauthenticated. Firewall it or set to `false` if the data is sensitive. |
+| `SPARROW_METRICS_ENABLED` | Optional, default `true`. Serves Prometheus metrics at `/metrics`, unauthenticated; labels include receiver host names. Firewall it or set to `false` if the data is sensitive. See [Metrics Endpoint](#metrics-endpoint). |
 | `SPARROW_EVENT_RETENTION_DAYS` | Optional, default `0` (keep forever). Purges events and their deliveries older than N days -- event payloads are stored in plaintext, so pair a retention window with storage-layer encryption when payloads are sensitive. See [Securing Sparrow](/sparrow/deployment/security/#data-retention-and-compliance-posture). |
 
 :::danger

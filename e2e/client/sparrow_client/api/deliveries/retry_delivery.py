@@ -35,10 +35,20 @@ def _parse_response(
 
         return response_200
 
+    if response.status_code == 400:
+        response_400 = ErrorModel.from_dict(response.json())
+
+        return response_400
+
     if response.status_code == 404:
         response_404 = ErrorModel.from_dict(response.json())
 
         return response_404
+
+    if response.status_code == 409:
+        response_409 = ErrorModel.from_dict(response.json())
+
+        return response_409
 
     if response.status_code == 422:
         response_422 = ErrorModel.from_dict(response.json())
@@ -75,10 +85,16 @@ def sync_detailed(
 ) -> Response[ErrorModel | RetryOutputBody]:
     """Retry a single delivery
 
-     Immediately re-attempts one delivery, regardless of its current status or remaining attempt budget.
+     Queues one delivery for another round of attempts right away: it is reset to pending and gets up to
+    max_attempts new attempts, without TTL expiry. Works for failed, expired, paused, pending and
+    retrying deliveries; a successful one is refused with 409 (use the bulk route with force to resend
+    it). If the webhook or subscription is still paused the delivery is held as paused again. Not
+    idempotent: each call queues another round.
+
+    Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry.
 
     Args:
-        consumer (str): Tenant consumer the delivery belongs to.
+        consumer (str): Consumer the delivery belongs to.
         delivery_id (str): Delivery id (UUID) to retry.
 
     Raises:
@@ -109,10 +125,16 @@ def sync(
 ) -> ErrorModel | RetryOutputBody | None:
     """Retry a single delivery
 
-     Immediately re-attempts one delivery, regardless of its current status or remaining attempt budget.
+     Queues one delivery for another round of attempts right away: it is reset to pending and gets up to
+    max_attempts new attempts, without TTL expiry. Works for failed, expired, paused, pending and
+    retrying deliveries; a successful one is refused with 409 (use the bulk route with force to resend
+    it). If the webhook or subscription is still paused the delivery is held as paused again. Not
+    idempotent: each call queues another round.
+
+    Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry.
 
     Args:
-        consumer (str): Tenant consumer the delivery belongs to.
+        consumer (str): Consumer the delivery belongs to.
         delivery_id (str): Delivery id (UUID) to retry.
 
     Raises:
@@ -138,10 +160,16 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | RetryOutputBody]:
     """Retry a single delivery
 
-     Immediately re-attempts one delivery, regardless of its current status or remaining attempt budget.
+     Queues one delivery for another round of attempts right away: it is reset to pending and gets up to
+    max_attempts new attempts, without TTL expiry. Works for failed, expired, paused, pending and
+    retrying deliveries; a successful one is refused with 409 (use the bulk route with force to resend
+    it). If the webhook or subscription is still paused the delivery is held as paused again. Not
+    idempotent: each call queues another round.
+
+    Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry.
 
     Args:
-        consumer (str): Tenant consumer the delivery belongs to.
+        consumer (str): Consumer the delivery belongs to.
         delivery_id (str): Delivery id (UUID) to retry.
 
     Raises:
@@ -170,10 +198,16 @@ async def asyncio(
 ) -> ErrorModel | RetryOutputBody | None:
     """Retry a single delivery
 
-     Immediately re-attempts one delivery, regardless of its current status or remaining attempt budget.
+     Queues one delivery for another round of attempts right away: it is reset to pending and gets up to
+    max_attempts new attempts, without TTL expiry. Works for failed, expired, paused, pending and
+    retrying deliveries; a successful one is refused with 409 (use the bulk route with force to resend
+    it). If the webhook or subscription is still paused the delivery is held as paused again. Not
+    idempotent: each call queues another round.
+
+    Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry.
 
     Args:
-        consumer (str): Tenant consumer the delivery belongs to.
+        consumer (str): Consumer the delivery belongs to.
         delivery_id (str): Delivery id (UUID) to retry.
 
     Raises:

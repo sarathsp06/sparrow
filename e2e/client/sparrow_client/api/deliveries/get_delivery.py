@@ -75,10 +75,13 @@ def sync_detailed(
 ) -> Response[DeliveryItem | ErrorModel]:
     """Get a delivery by id
 
-     Fetches one delivery's status, response code/body, and error classification.
+     Returns one delivery's status, latest response code/body, and error classification. 404 when it does
+    not exist in this consumer.
+
+    Portal tokens: allowed, as GET /portal/api/deliveries/{delivery_id}.
 
     Args:
-        consumer (str): Tenant consumer the delivery belongs to.
+        consumer (str): Consumer the delivery belongs to.
         delivery_id (str): Delivery id (UUID).
 
     Raises:
@@ -109,10 +112,13 @@ def sync(
 ) -> DeliveryItem | ErrorModel | None:
     """Get a delivery by id
 
-     Fetches one delivery's status, response code/body, and error classification.
+     Returns one delivery's status, latest response code/body, and error classification. 404 when it does
+    not exist in this consumer.
+
+    Portal tokens: allowed, as GET /portal/api/deliveries/{delivery_id}.
 
     Args:
-        consumer (str): Tenant consumer the delivery belongs to.
+        consumer (str): Consumer the delivery belongs to.
         delivery_id (str): Delivery id (UUID).
 
     Raises:
@@ -138,10 +144,13 @@ async def asyncio_detailed(
 ) -> Response[DeliveryItem | ErrorModel]:
     """Get a delivery by id
 
-     Fetches one delivery's status, response code/body, and error classification.
+     Returns one delivery's status, latest response code/body, and error classification. 404 when it does
+    not exist in this consumer.
+
+    Portal tokens: allowed, as GET /portal/api/deliveries/{delivery_id}.
 
     Args:
-        consumer (str): Tenant consumer the delivery belongs to.
+        consumer (str): Consumer the delivery belongs to.
         delivery_id (str): Delivery id (UUID).
 
     Raises:
@@ -170,10 +179,13 @@ async def asyncio(
 ) -> DeliveryItem | ErrorModel | None:
     """Get a delivery by id
 
-     Fetches one delivery's status, response code/body, and error classification.
+     Returns one delivery's status, latest response code/body, and error classification. 404 when it does
+    not exist in this consumer.
+
+    Portal tokens: allowed, as GET /portal/api/deliveries/{delivery_id}.
 
     Args:
-        consumer (str): Tenant consumer the delivery belongs to.
+        consumer (str): Consumer the delivery belongs to.
         delivery_id (str): Delivery id (UUID).
 
     Raises:

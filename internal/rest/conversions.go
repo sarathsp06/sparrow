@@ -87,17 +87,17 @@ func getWebhookEventsMap(ctx context.Context, svc conversionService, regs []*sto
 // WebhookHTTPConfigOut is the REST representation of per-webhook HTTP
 // delivery configuration.
 type WebhookHTTPConfigOut struct {
-	MaxRetries            int      `json:"max_retries" doc:"Maximum delivery attempts before a delivery is marked failed."`
-	RetryBackoffSeconds   int      `json:"retry_backoff_seconds" doc:"Base delay between retry attempts, in seconds."`
-	CaptureResponseBody   bool     `json:"capture_response_body" doc:"Whether the endpoint's response body is stored with each delivery attempt."`
+	MaxRetries            int      `json:"max_retries" doc:"Retries after the first attempt before a delivery is marked failed (up to max_retries + 1 attempts)."`
+	RetryBackoffSeconds   int      `json:"retry_backoff_seconds" doc:"Base retry delay, in seconds; the delay after attempt N is retry_backoff_seconds * 2^(N-1), capped at 24 hours."`
+	CaptureResponseBody   bool     `json:"capture_response_body" doc:"false: up to 1 KiB of each response body is stored; true: up to SPARROW_MAX_CAPTURED_RESPONSE_BYTES (default 1 MiB)."`
 	FollowRedirects       bool     `json:"follow_redirects" doc:"Whether HTTP redirects returned by the endpoint are followed."`
 	VerifySSL             bool     `json:"verify_ssl" doc:"Whether the endpoint's TLS certificate is verified."`
 	RequestTimeoutSeconds int      `json:"request_timeout_seconds" doc:"Per-attempt request timeout, in seconds."`
-	ExpectedStatusCodes   []int32  `json:"expected_status_codes,omitempty" doc:"HTTP status codes treated as a successful delivery; 2xx if empty."`
+	ExpectedStatusCodes   []int32  `json:"expected_status_codes,omitempty" doc:"HTTP status codes treated as a successful delivery."`
 	WebhookSecret         string   `json:"webhook_secret,omitempty" doc:"HMAC signing secret. Shown in full only once, in the response to webhook registration; masked on every later read."`
-	UserAgent             string   `json:"user_agent,omitempty" doc:"User-Agent header sent with deliveries."`
-	ContentType           string   `json:"content_type,omitempty" doc:"Content-Type header sent with deliveries."`
-	RateLimitRPS          *float64 `json:"rate_limit_rps,omitempty" doc:"Delivery rate limit for this webhook, in requests per second."`
+	UserAgent             string   `json:"user_agent,omitempty" doc:"Stored value; deliveries currently always send User-Agent: Sparrow-Webhook/<server version> unless headers override it."`
+	ContentType           string   `json:"content_type,omitempty" doc:"Stored value; deliveries currently send Content-Type: application/json unless headers override it."`
+	RateLimitRPS          *float64 `json:"rate_limit_rps,omitempty" doc:"Delivery rate limit for this webhook, in requests per second; absent means no limit."`
 }
 
 // WebhookOut is the REST representation of a registered webhook (list/get).
@@ -105,13 +105,13 @@ type WebhookHTTPConfigOut struct {
 // retrieve the real secret once.
 type WebhookOut struct {
 	WebhookID          string               `json:"webhook_id" doc:"Webhook id (UUID)."`
-	Consumer           string               `json:"consumer" doc:"Tenant consumer this webhook belongs to."`
+	Consumer           string               `json:"consumer" doc:"Consumer this webhook belongs to."`
 	Events             []string             `json:"events" doc:"Event type names this webhook is currently subscribed to, derived from its subscriptions."`
 	URL                string               `json:"url" doc:"HTTP endpoint deliveries are POSTed to."`
 	Headers            map[string]string    `json:"headers,omitempty" doc:"Static HTTP headers sent with every delivery."`
-	Active             bool                 `json:"active" doc:"Whether the webhook currently receives deliveries."`
+	Active             bool                 `json:"active" doc:"Whether deliveries are sent. false: paused by an operator or auto-disabled; new deliveries are held as paused."`
 	Description        string               `json:"description,omitempty" doc:"Human-readable note about this webhook."`
-	Health             string               `json:"health" enum:"healthy,degraded,unhealthy,unknown" doc:"Computed rolling health status."`
+	Health             string               `json:"health" enum:"healthy,degraded,unhealthy,unknown" doc:"Health label from the last health evaluation (see getWebhookHealth)."`
 	SecretHeaders      map[string]string    `json:"secret_headers,omitempty" doc:"Encrypted secret header names, with values always masked. Update them via PATCH secret_headers; send an empty string to remove one."`
 	SigningPublicKey   string               `json:"signing_public_key,omitempty" doc:"Hex-encoded Ed25519 public key for verifying the v1a, delivery signature. Safe to expose; there is no private-key equivalent to mask."`
 	SignatureType      string               `json:"signature_type" enum:"hmac,ed25519" doc:"Signing scheme. \"hmac\" (default) signs every delivery with HMAC-SHA256 (v1,); \"ed25519\" adds an Ed25519 signature (v1a,) alongside the HMAC one."`

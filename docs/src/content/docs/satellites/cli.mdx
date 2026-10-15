@@ -28,8 +28,8 @@ Flags (pass them with `sh -s -- ...`) or environment variables pin a version
 or change the destination:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sarathsp06/sparrow/main/scripts/install.sh | sh -s -- -v v0.8.2 -b ~/bin
-SPARROW_VERSION=v0.8.2 SPARROW_INSTALL_DIR=~/bin sh install.sh     # same thing
+curl -fsSL https://raw.githubusercontent.com/sarathsp06/sparrow/main/scripts/install.sh | sh -s -- -v v1.0.0 -b ~/bin
+SPARROW_VERSION=v1.0.0 SPARROW_INSTALL_DIR=~/bin sh install.sh     # same thing
 sh install.sh -c server                                             # the server binary (sparrow-server) instead of the CLI
 sh install.sh -f                                                    # reinstall the current version
 ```
@@ -84,7 +84,7 @@ endpoints:
 
 | Command | API calls |
 | --- | --- |
-| `init` | `GET /health` (probe), then writes `~/.sparrow/config.yaml` locally |
+| `init` | `GET /health` (probe; falls back to `GET /v1/event-types?limit=1`), then writes `~/.sparrow/config.yaml` locally |
 | `push` | `POST /v1/consumers/{consumer}/events?event=<name>`; on `404` or `422`, `POST /v1/event-types` and one retry |
 | `events` | `GET /v1/event-types?consumer=<consumer>` (list) or `GET /v1/event-types/{name}` (detail) |
 | `events export/import` | `POST /v1/event-types:export` / `POST /v1/event-types:import` |
@@ -143,11 +143,19 @@ Every value can be overridden — precedence is
 | `SPARROW_API_KEY`   | `--api-key`   | `api_key`    |
 | `SPARROW_CONSUMER` | `--consumer` | `consumer`  |
 
+For each setting the first non-empty source wins, in that order, then the
+built-in default (`http://localhost:8080`, consumer `default`). Note that an
+environment variable beats a flag on the same command line: with
+`SPARROW_URL` exported, `--url` is ignored, so unset the variable to use the
+flag. `SPARROW_API_KEY` is also the server's master-key variable, so a shell
+that runs the server hands the same key to the CLI. `SPARROW_CONFIG` points
+the CLI at another config file instead of `~/.sparrow/config.yaml`.
+
 ## Commands
 
 ### `sparrow init`
 
-Probes the server (`GET /health`) and writes the config file. Interactive when
+Probes the server (`GET /health`, falling back to `GET /v1/event-types?limit=1`) and writes the config file. Interactive when
 run in a terminal; fully scriptable with flags. Idempotent — re-running
 overwrites the file.
 

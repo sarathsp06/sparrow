@@ -22,6 +22,13 @@ docker compose up -d
 - **REST API:** http://localhost:8080/v1
 - **API docs:** http://localhost:8080/docs
 
+Port 8080 already in use? Set `SPARROW_PORT` to publish another host port
+(the container still listens on 8080):
+
+```bash
+SPARROW_PORT=8090 docker compose up -d   # then open http://localhost:8090
+```
+
 SSRF protection is relaxed so webhooks can target services on your machine. Use `http://host.docker.internal:<port>` to reach the host from inside Docker (works on macOS, Windows, and Linux with the Compose file's `extra_hosts` mapping).
 
 ### Trying authentication locally
@@ -54,7 +61,7 @@ docker pull ghcr.io/sarathsp06/sparrow:latest
 You can also pin to a specific version (image tags have no leading `v`; see the [releases](https://github.com/sarathsp06/sparrow/releases) for the latest):
 
 ```bash
-docker pull ghcr.io/sarathsp06/sparrow:0.9.0
+docker pull ghcr.io/sarathsp06/sparrow:1.0.0
 ```
 
 ## Development (Build from Source)

@@ -11,7 +11,7 @@ T = TypeVar("T", bound="EventTypeBodyMetadata")
 
 @_attrs_define
 class EventTypeBodyMetadata:
-    """Arbitrary key/value metadata for your own tooling."""
+    """Arbitrary key/value metadata for your own tooling. On update, replaces the whole map."""
 
     additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 

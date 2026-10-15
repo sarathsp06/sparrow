@@ -92,13 +92,18 @@ def sync_detailed(
 
      Stops the subscription's deliveries from being attempted, for any reason (receiver maintenance, a
     template being fixed, an investigation). Events keep fanning out to it: each delivery is recorded
-    with status paused and nothing is queued, so nothing is lost. Deliveries already queued finish. A
-    pause never affects the webhook's health. Pausing again updates the reason and keeps the original
-    pause time.
+    with status paused and nothing is queued, so nothing is lost. Queued or retrying deliveries of the
+    subscription are held as paused when their turn comes. A pause never affects the webhook's health.
+    Returns the subscription (200), unlike webhook pause, which returns 204.
+
+    Idempotent: pausing again updates the reason and keeps the original pause time. 400 for a reason
+    over 500 characters, 404 when it is not in this consumer.
+
+    Portal tokens: allowed, as POST /portal/api/subscriptions/{subscription_id}:pause.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
         body (PauseSubscriptionInputBody):
 
     Raises:
@@ -133,13 +138,18 @@ def sync(
 
      Stops the subscription's deliveries from being attempted, for any reason (receiver maintenance, a
     template being fixed, an investigation). Events keep fanning out to it: each delivery is recorded
-    with status paused and nothing is queued, so nothing is lost. Deliveries already queued finish. A
-    pause never affects the webhook's health. Pausing again updates the reason and keeps the original
-    pause time.
+    with status paused and nothing is queued, so nothing is lost. Queued or retrying deliveries of the
+    subscription are held as paused when their turn comes. A pause never affects the webhook's health.
+    Returns the subscription (200), unlike webhook pause, which returns 204.
+
+    Idempotent: pausing again updates the reason and keeps the original pause time. 400 for a reason
+    over 500 characters, 404 when it is not in this consumer.
+
+    Portal tokens: allowed, as POST /portal/api/subscriptions/{subscription_id}:pause.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
         body (PauseSubscriptionInputBody):
 
     Raises:
@@ -169,13 +179,18 @@ async def asyncio_detailed(
 
      Stops the subscription's deliveries from being attempted, for any reason (receiver maintenance, a
     template being fixed, an investigation). Events keep fanning out to it: each delivery is recorded
-    with status paused and nothing is queued, so nothing is lost. Deliveries already queued finish. A
-    pause never affects the webhook's health. Pausing again updates the reason and keeps the original
-    pause time.
+    with status paused and nothing is queued, so nothing is lost. Queued or retrying deliveries of the
+    subscription are held as paused when their turn comes. A pause never affects the webhook's health.
+    Returns the subscription (200), unlike webhook pause, which returns 204.
+
+    Idempotent: pausing again updates the reason and keeps the original pause time. 400 for a reason
+    over 500 characters, 404 when it is not in this consumer.
+
+    Portal tokens: allowed, as POST /portal/api/subscriptions/{subscription_id}:pause.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
         body (PauseSubscriptionInputBody):
 
     Raises:
@@ -208,13 +223,18 @@ async def asyncio(
 
      Stops the subscription's deliveries from being attempted, for any reason (receiver maintenance, a
     template being fixed, an investigation). Events keep fanning out to it: each delivery is recorded
-    with status paused and nothing is queued, so nothing is lost. Deliveries already queued finish. A
-    pause never affects the webhook's health. Pausing again updates the reason and keeps the original
-    pause time.
+    with status paused and nothing is queued, so nothing is lost. Queued or retrying deliveries of the
+    subscription are held as paused when their turn comes. A pause never affects the webhook's health.
+    Returns the subscription (200), unlike webhook pause, which returns 204.
+
+    Idempotent: pausing again updates the reason and keeps the original pause time. 400 for a reason
+    over 500 characters, 404 when it is not in this consumer.
+
+    Portal tokens: allowed, as POST /portal/api/subscriptions/{subscription_id}:pause.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
         body (PauseSubscriptionInputBody):
 
     Raises:

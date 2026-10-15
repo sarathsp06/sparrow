@@ -16,14 +16,17 @@ T = TypeVar("T", bound="BatchJobOutputBody")
 class BatchJobOutputBody:
     """
     Attributes:
-        consumer (str): Tenant consumer the job runs in.
+        consumer (str): Consumer the snapshot was taken in; empty for a snapshot taken from a cross-consumer list.
         created_at (str): Creation timestamp, RFC3339.
-        expires_at (str): When the job's underlying snapshot expires, RFC3339.
-        failed (int): Items that failed to process.
-        id (str): Batch job id (UUID) — the repush_id/retry_id used elsewhere.
+        expires_at (str): When the snapshot expires, RFC3339: 15 minutes after it was taken. An expired snapshot can no
+            longer be started.
+        failed (int): Items that could not be re-pushed or retried (e.g. the event or delivery no longer exists).
+        id (str): Batch job id (UUID): the repush_id or retry_id from the list call.
         job_type (BatchJobOutputBodyJobType): Which batch operation this job performs.
-        processed (int): Items processed so far (successes + failures).
-        status (BatchJobOutputBodyStatus): Current job status.
+        processed (int): Items handled successfully so far.
+        status (BatchJobOutputBodyStatus): pending: snapshot taken, not started. processing: running. completed: every
+            item was handled (see failed for the ones that could not be). failed: every item failed. cancelled: stopped by a
+            cancel call.
         total (int): Total items in the batch snapshot.
         schema (str | Unset): A URL to the JSON Schema for this object.
     """

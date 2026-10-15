@@ -19,12 +19,12 @@ T = TypeVar("T", bound="ListDeliveriesOutputBody")
 class ListDeliveriesOutputBody:
     """
     Attributes:
-        items (list[DeliveryItem] | None):
+        items (list[DeliveryItem] | None): Deliveries, newest first. Includes deliveries of deleted webhooks.
         pagination (CursorPaginationOutput):
         schema (str | Unset): A URL to the JSON Schema for this object.
-        retry_id (str | Unset): Snapshot id for the batch retry endpoint, present when prepare_retry was set and
-            something matched.
-        retry_total (int | Unset): Number of deliveries in that snapshot.
+        retry_id (str | Unset): Snapshot (batch job) id, present when prepare_retry was set and something matched. Send
+            it as the repush_id field of POST .../deliveries:retryBatch. Expires after 15 minutes if not started.
+        retry_total (int | Unset): Number of deliveries in that snapshot (all matches, not just this page).
     """
 
     items: list[DeliveryItem] | None

@@ -52,6 +52,11 @@ def _parse_response(
 
         return response_404
 
+    if response.status_code == 409:
+        response_409 = ErrorModel.from_dict(response.json())
+
+        return response_409
+
     if response.status_code == 422:
         response_422 = ErrorModel.from_dict(response.json())
 
@@ -88,11 +93,18 @@ def sync_detailed(
     """Create a subscription linking a webhook to an event
 
      Subscribes a webhook to an event type within a consumer, with an optional payload transform and
-    label filters. Registering a webhook already auto-creates one subscription per listed event — use
-    this endpoint for additional or catch-all ("*") subscriptions.
+    label filters. Registering a webhook with events already creates one subscription per name; use this
+    for additional, catch-all ("*") or per-subscription-template subscriptions. A non-empty
+    transform_template is recorded as the first template version.
+
+    Not idempotent: 409 when the webhook already has a subscription for event_name. 404 when the webhook
+    is not in this consumer. 400 for invalid headers, timeout or label filters, a sparrow.* event
+    outside _sparrow, or a missing transform when the webhook has requires_transform.
+
+    Portal tokens: allowed, as POST /portal/api/subscriptions.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer the webhook belongs to.
         body (CreateSubscriptionBody):
 
     Raises:
@@ -124,11 +136,18 @@ def sync(
     """Create a subscription linking a webhook to an event
 
      Subscribes a webhook to an event type within a consumer, with an optional payload transform and
-    label filters. Registering a webhook already auto-creates one subscription per listed event — use
-    this endpoint for additional or catch-all ("*") subscriptions.
+    label filters. Registering a webhook with events already creates one subscription per name; use this
+    for additional, catch-all ("*") or per-subscription-template subscriptions. A non-empty
+    transform_template is recorded as the first template version.
+
+    Not idempotent: 409 when the webhook already has a subscription for event_name. 404 when the webhook
+    is not in this consumer. 400 for invalid headers, timeout or label filters, a sparrow.* event
+    outside _sparrow, or a missing transform when the webhook has requires_transform.
+
+    Portal tokens: allowed, as POST /portal/api/subscriptions.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer the webhook belongs to.
         body (CreateSubscriptionBody):
 
     Raises:
@@ -155,11 +174,18 @@ async def asyncio_detailed(
     """Create a subscription linking a webhook to an event
 
      Subscribes a webhook to an event type within a consumer, with an optional payload transform and
-    label filters. Registering a webhook already auto-creates one subscription per listed event — use
-    this endpoint for additional or catch-all ("*") subscriptions.
+    label filters. Registering a webhook with events already creates one subscription per name; use this
+    for additional, catch-all ("*") or per-subscription-template subscriptions. A non-empty
+    transform_template is recorded as the first template version.
+
+    Not idempotent: 409 when the webhook already has a subscription for event_name. 404 when the webhook
+    is not in this consumer. 400 for invalid headers, timeout or label filters, a sparrow.* event
+    outside _sparrow, or a missing transform when the webhook has requires_transform.
+
+    Portal tokens: allowed, as POST /portal/api/subscriptions.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer the webhook belongs to.
         body (CreateSubscriptionBody):
 
     Raises:
@@ -189,11 +215,18 @@ async def asyncio(
     """Create a subscription linking a webhook to an event
 
      Subscribes a webhook to an event type within a consumer, with an optional payload transform and
-    label filters. Registering a webhook already auto-creates one subscription per listed event — use
-    this endpoint for additional or catch-all ("*") subscriptions.
+    label filters. Registering a webhook with events already creates one subscription per name; use this
+    for additional, catch-all ("*") or per-subscription-template subscriptions. A non-empty
+    transform_template is recorded as the first template version.
+
+    Not idempotent: 409 when the webhook already has a subscription for event_name. 404 when the webhook
+    is not in this consumer. 400 for invalid headers, timeout or label filters, a sparrow.* event
+    outside _sparrow, or a missing transform when the webhook has requires_transform.
+
+    Portal tokens: allowed, as POST /portal/api/subscriptions.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer the webhook belongs to.
         body (CreateSubscriptionBody):
 
     Raises:

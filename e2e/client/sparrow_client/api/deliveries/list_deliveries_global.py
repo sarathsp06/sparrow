@@ -113,28 +113,34 @@ def sync_detailed(
 ) -> Response[ErrorModel | ListDeliveriesOutputBody]:
     """List deliveries across all consumers
 
-     Cross-consumer delivery listing with the same filters as the per-consumer route. Pass consumer to
-    scope to one consumer.
+     Lists deliveries across every consumer, newest first, with the same filters, cursor pagination and
+    prepare_retry side effect as the per-consumer route. Pass consumer to scope to one consumer.
+
+    Portal tokens: not allowed.
 
     Args:
         consumer (str | Unset): Filter to one consumer; omit to list deliveries across all
             consumers.
-        webhook_id (str | Unset): Filter to deliveries for one webhook.
-        event_id (str | Unset): Filter to deliveries for one pushed event occurrence.
+        webhook_id (str | Unset): Filter to deliveries for one webhook (UUID; 400 otherwise).
+        event_id (str | Unset): Filter to deliveries for one pushed event occurrence (UUID; 400
+            otherwise).
         status (ListDeliveriesGlobalStatus | Unset): Filter by delivery status.
-        error_category (str | Unset): Filter by failure classification (e.g. server_error,
-            client_error, timeout).
-        subscription_id (str | Unset): Filter to deliveries created by one subscription, e.g. its
-            paused deliveries.
+        error_category (str | Unset): Filter by the most recent attempt's error_category, e.g.
+            server_error, client_error, timeout.
+        subscription_id (str | Unset): Filter to deliveries created by one subscription (UUID),
+            e.g. its paused deliveries.
         event_name (str | Unset): Filter to deliveries of one event type, e.g. order.created. Also
             matches deliveries whose subscription has since been replaced or deleted.
-        created_after (str | Unset): Filter to deliveries created on or after this date (YYYY-MM-
-            DD) or exact time (RFC3339, e.g. an import's imported_at).
-        created_before (str | Unset): Filter to deliveries created on or before this date (YYYY-
-            MM-DD) or exact time (RFC3339).
-        prepare_retry (bool | Unset): If true, snapshot the matching deliveries into a retry_id
-            you can pass to the batch retry endpoint. Default: False.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        created_after (str | Unset): Only deliveries created at or after this time: YYYY-MM-DD
+            (start of that day, UTC) or an RFC3339 timestamp (e.g. an import's imported_at).
+        created_before (str | Unset): Only deliveries created at or before this time: YYYY-MM-DD
+            (through the end of that day, UTC) or an RFC3339 timestamp.
+        prepare_retry (bool | Unset): Side effect: when true, also snapshots the ids of every
+            delivery matching the filters (not just this page; at most 10,000, more is an error) into
+            a batch job and returns its id as retry_id. Pass it as repush_id to POST
+            .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot. Default:
+            False.
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         cursor (str | Unset): Continue after the page this came from: pagination.next_cursor of
             the previous response. Stable while new deliveries arrive.
         offset (int | Unset): Removed: page with cursor. Any value other than 0 is rejected with
@@ -191,28 +197,34 @@ def sync(
 ) -> ErrorModel | ListDeliveriesOutputBody | None:
     """List deliveries across all consumers
 
-     Cross-consumer delivery listing with the same filters as the per-consumer route. Pass consumer to
-    scope to one consumer.
+     Lists deliveries across every consumer, newest first, with the same filters, cursor pagination and
+    prepare_retry side effect as the per-consumer route. Pass consumer to scope to one consumer.
+
+    Portal tokens: not allowed.
 
     Args:
         consumer (str | Unset): Filter to one consumer; omit to list deliveries across all
             consumers.
-        webhook_id (str | Unset): Filter to deliveries for one webhook.
-        event_id (str | Unset): Filter to deliveries for one pushed event occurrence.
+        webhook_id (str | Unset): Filter to deliveries for one webhook (UUID; 400 otherwise).
+        event_id (str | Unset): Filter to deliveries for one pushed event occurrence (UUID; 400
+            otherwise).
         status (ListDeliveriesGlobalStatus | Unset): Filter by delivery status.
-        error_category (str | Unset): Filter by failure classification (e.g. server_error,
-            client_error, timeout).
-        subscription_id (str | Unset): Filter to deliveries created by one subscription, e.g. its
-            paused deliveries.
+        error_category (str | Unset): Filter by the most recent attempt's error_category, e.g.
+            server_error, client_error, timeout.
+        subscription_id (str | Unset): Filter to deliveries created by one subscription (UUID),
+            e.g. its paused deliveries.
         event_name (str | Unset): Filter to deliveries of one event type, e.g. order.created. Also
             matches deliveries whose subscription has since been replaced or deleted.
-        created_after (str | Unset): Filter to deliveries created on or after this date (YYYY-MM-
-            DD) or exact time (RFC3339, e.g. an import's imported_at).
-        created_before (str | Unset): Filter to deliveries created on or before this date (YYYY-
-            MM-DD) or exact time (RFC3339).
-        prepare_retry (bool | Unset): If true, snapshot the matching deliveries into a retry_id
-            you can pass to the batch retry endpoint. Default: False.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        created_after (str | Unset): Only deliveries created at or after this time: YYYY-MM-DD
+            (start of that day, UTC) or an RFC3339 timestamp (e.g. an import's imported_at).
+        created_before (str | Unset): Only deliveries created at or before this time: YYYY-MM-DD
+            (through the end of that day, UTC) or an RFC3339 timestamp.
+        prepare_retry (bool | Unset): Side effect: when true, also snapshots the ids of every
+            delivery matching the filters (not just this page; at most 10,000, more is an error) into
+            a batch job and returns its id as retry_id. Pass it as repush_id to POST
+            .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot. Default:
+            False.
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         cursor (str | Unset): Continue after the page this came from: pagination.next_cursor of
             the previous response. Stable while new deliveries arrive.
         offset (int | Unset): Removed: page with cursor. Any value other than 0 is rejected with
@@ -264,28 +276,34 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | ListDeliveriesOutputBody]:
     """List deliveries across all consumers
 
-     Cross-consumer delivery listing with the same filters as the per-consumer route. Pass consumer to
-    scope to one consumer.
+     Lists deliveries across every consumer, newest first, with the same filters, cursor pagination and
+    prepare_retry side effect as the per-consumer route. Pass consumer to scope to one consumer.
+
+    Portal tokens: not allowed.
 
     Args:
         consumer (str | Unset): Filter to one consumer; omit to list deliveries across all
             consumers.
-        webhook_id (str | Unset): Filter to deliveries for one webhook.
-        event_id (str | Unset): Filter to deliveries for one pushed event occurrence.
+        webhook_id (str | Unset): Filter to deliveries for one webhook (UUID; 400 otherwise).
+        event_id (str | Unset): Filter to deliveries for one pushed event occurrence (UUID; 400
+            otherwise).
         status (ListDeliveriesGlobalStatus | Unset): Filter by delivery status.
-        error_category (str | Unset): Filter by failure classification (e.g. server_error,
-            client_error, timeout).
-        subscription_id (str | Unset): Filter to deliveries created by one subscription, e.g. its
-            paused deliveries.
+        error_category (str | Unset): Filter by the most recent attempt's error_category, e.g.
+            server_error, client_error, timeout.
+        subscription_id (str | Unset): Filter to deliveries created by one subscription (UUID),
+            e.g. its paused deliveries.
         event_name (str | Unset): Filter to deliveries of one event type, e.g. order.created. Also
             matches deliveries whose subscription has since been replaced or deleted.
-        created_after (str | Unset): Filter to deliveries created on or after this date (YYYY-MM-
-            DD) or exact time (RFC3339, e.g. an import's imported_at).
-        created_before (str | Unset): Filter to deliveries created on or before this date (YYYY-
-            MM-DD) or exact time (RFC3339).
-        prepare_retry (bool | Unset): If true, snapshot the matching deliveries into a retry_id
-            you can pass to the batch retry endpoint. Default: False.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        created_after (str | Unset): Only deliveries created at or after this time: YYYY-MM-DD
+            (start of that day, UTC) or an RFC3339 timestamp (e.g. an import's imported_at).
+        created_before (str | Unset): Only deliveries created at or before this time: YYYY-MM-DD
+            (through the end of that day, UTC) or an RFC3339 timestamp.
+        prepare_retry (bool | Unset): Side effect: when true, also snapshots the ids of every
+            delivery matching the filters (not just this page; at most 10,000, more is an error) into
+            a batch job and returns its id as retry_id. Pass it as repush_id to POST
+            .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot. Default:
+            False.
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         cursor (str | Unset): Continue after the page this came from: pagination.next_cursor of
             the previous response. Stable while new deliveries arrive.
         offset (int | Unset): Removed: page with cursor. Any value other than 0 is rejected with
@@ -340,28 +358,34 @@ async def asyncio(
 ) -> ErrorModel | ListDeliveriesOutputBody | None:
     """List deliveries across all consumers
 
-     Cross-consumer delivery listing with the same filters as the per-consumer route. Pass consumer to
-    scope to one consumer.
+     Lists deliveries across every consumer, newest first, with the same filters, cursor pagination and
+    prepare_retry side effect as the per-consumer route. Pass consumer to scope to one consumer.
+
+    Portal tokens: not allowed.
 
     Args:
         consumer (str | Unset): Filter to one consumer; omit to list deliveries across all
             consumers.
-        webhook_id (str | Unset): Filter to deliveries for one webhook.
-        event_id (str | Unset): Filter to deliveries for one pushed event occurrence.
+        webhook_id (str | Unset): Filter to deliveries for one webhook (UUID; 400 otherwise).
+        event_id (str | Unset): Filter to deliveries for one pushed event occurrence (UUID; 400
+            otherwise).
         status (ListDeliveriesGlobalStatus | Unset): Filter by delivery status.
-        error_category (str | Unset): Filter by failure classification (e.g. server_error,
-            client_error, timeout).
-        subscription_id (str | Unset): Filter to deliveries created by one subscription, e.g. its
-            paused deliveries.
+        error_category (str | Unset): Filter by the most recent attempt's error_category, e.g.
+            server_error, client_error, timeout.
+        subscription_id (str | Unset): Filter to deliveries created by one subscription (UUID),
+            e.g. its paused deliveries.
         event_name (str | Unset): Filter to deliveries of one event type, e.g. order.created. Also
             matches deliveries whose subscription has since been replaced or deleted.
-        created_after (str | Unset): Filter to deliveries created on or after this date (YYYY-MM-
-            DD) or exact time (RFC3339, e.g. an import's imported_at).
-        created_before (str | Unset): Filter to deliveries created on or before this date (YYYY-
-            MM-DD) or exact time (RFC3339).
-        prepare_retry (bool | Unset): If true, snapshot the matching deliveries into a retry_id
-            you can pass to the batch retry endpoint. Default: False.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        created_after (str | Unset): Only deliveries created at or after this time: YYYY-MM-DD
+            (start of that day, UTC) or an RFC3339 timestamp (e.g. an import's imported_at).
+        created_before (str | Unset): Only deliveries created at or before this time: YYYY-MM-DD
+            (through the end of that day, UTC) or an RFC3339 timestamp.
+        prepare_retry (bool | Unset): Side effect: when true, also snapshots the ids of every
+            delivery matching the filters (not just this page; at most 10,000, more is an error) into
+            a batch job and returns its id as retry_id. Pass it as repush_id to POST
+            .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot. Default:
+            False.
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         cursor (str | Unset): Continue after the page this came from: pagination.next_cursor of
             the previous response. Stable while new deliveries arrive.
         offset (int | Unset): Removed: page with cursor. Any value other than 0 is rejected with

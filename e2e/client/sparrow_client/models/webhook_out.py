@@ -22,12 +22,13 @@ T = TypeVar("T", bound="WebhookOut")
 class WebhookOut:
     """
     Attributes:
-        active (bool): Whether the webhook currently receives deliveries.
-        consumer (str): Tenant consumer this webhook belongs to.
+        active (bool): Whether deliveries are sent. false: paused by an operator or auto-disabled; new deliveries are
+            held as paused.
+        consumer (str): Consumer this webhook belongs to.
         created_at (str): Creation timestamp, RFC3339.
         events (list[str] | None): Event type names this webhook is currently subscribed to, derived from its
             subscriptions.
-        health (WebhookOutHealth): Computed rolling health status.
+        health (WebhookOutHealth): Health label from the last health evaluation (see getWebhookHealth).
         http_config (WebhookHTTPConfigOut):
         requires_transform (bool): Whether every subscription must carry an enabled transform_template because the
             receiver only accepts transformed payloads.

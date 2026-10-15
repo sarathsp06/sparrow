@@ -22,7 +22,7 @@ T = TypeVar("T", bound="SubscriptionItem")
 class SubscriptionItem:
     """
     Attributes:
-        consumer (str): Tenant consumer this subscription belongs to.
+        consumer (str): Consumer this subscription belongs to.
         created_at (str): Creation timestamp, RFC3339.
         event_name (str): Event type name this subscription matches, or "*" for catch-all.
         on_transform_error (SubscriptionItemOnTransformError): What happens when transform_template fails to render.
@@ -43,11 +43,14 @@ class SubscriptionItem:
         headers (SubscriptionItemHeaders | Unset): Extra HTTP headers sent with deliveries from this subscription.
         label_filters (SubscriptionItemLabelFilters | Unset): Key/value pairs that must all be present in an event's
             labels for this subscription to receive it.
-        method (SubscriptionItemMethod | Unset): HTTP method used for deliveries from this subscription.
-        paused_at (str | Unset): When the current pause began, RFC3339.
+        method (SubscriptionItemMethod | Unset): HTTP method used for deliveries from this subscription; absent means
+            POST.
+        paused_at (str | Unset): When the current pause began, RFC3339. Absent when not paused.
         paused_reason (str | Unset): Why the subscription was paused.
-        timeout (int | Unset): Per-delivery request timeout in seconds, overriding the webhook's default.
-        transform_template (str | Unset): Go template rendered against the event to produce the delivered body.
+        timeout (int | Unset): Request timeout override for this subscription's deliveries, in seconds; absent means the
+            webhook's request_timeout_seconds.
+        transform_template (str | Unset): Go text/template rendered against the event to produce the delivered body when
+            transform_enabled is true.
     """
 
     consumer: str

@@ -14,17 +14,18 @@ T = TypeVar("T", bound="Param")
 class Param:
     """
     Attributes:
-        name (str):
-        prompt (str):
-        required (bool):
-        activation_required (bool | Unset):
-        default (str | Unset):
+        name (str): Param name, as referenced by {{param "name"}}.
+        prompt (str): Short label shown for the param.
+        required (bool): Whether a value must be supplied.
+        activation_required (bool | Unset): A missing value blocks enabling an auto-provisioned recipe.
+        default (str | Unset): Value used when none is supplied.
         docs_url (str | Unset): Destination documentation for this value.
         enum (list[str] | None | Unset): The only accepted values, when set.
         example (str | Unset): A sample value.
         help_ (str | Unset): What the value is and where to find it.
-        must_override_default (bool | Unset):
-        secret (bool | Unset):
+        must_override_default (bool | Unset): The default is a placeholder: it must be replaced with a real value before
+            the recipe is applied.
+        secret (bool | Unset): Whether the value is sensitive (a token or password); clients should mask the input.
     """
 
     name: str

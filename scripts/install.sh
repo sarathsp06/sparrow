@@ -6,7 +6,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/sarathsp06/sparrow/main/scripts/install.sh | sh
 #
 # Options (flags or environment variables):
-#   -v, --version VERSION   release to install, e.g. v0.8.2 (default: latest)   SPARROW_VERSION
+#   -v, --version VERSION   release to install, e.g. v1.0.0 (default: latest)   SPARROW_VERSION
 #   -b, --bin-dir DIR       where to put the binary (default: the directory of    SPARROW_INSTALL_DIR
 #                           the existing install, else /usr/local/bin if
 #                           writable, else ~/.local/bin)
@@ -14,7 +14,7 @@
 #   -f, --force             reinstall even when already at that version        SPARROW_FORCE=1
 #   -h, --help
 #
-# Pass flags through curl with:  curl -fsSL ... | sh -s -- -v v0.8.2
+# Pass flags through curl with:  curl -fsSL ... | sh -s -- -v v1.0.0
 #
 # The archive's SHA-256 is verified against the release's checksums.txt.
 # macOS and Linux only (amd64, arm64); on Windows download the .zip from

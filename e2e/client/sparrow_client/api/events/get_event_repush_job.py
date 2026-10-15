@@ -35,10 +35,20 @@ def _parse_response(
 
         return response_200
 
+    if response.status_code == 400:
+        response_400 = ErrorModel.from_dict(response.json())
+
+        return response_400
+
     if response.status_code == 404:
         response_404 = ErrorModel.from_dict(response.json())
 
         return response_404
+
+    if response.status_code == 409:
+        response_409 = ErrorModel.from_dict(response.json())
+
+        return response_409
 
     if response.status_code == 422:
         response_422 = ErrorModel.from_dict(response.json())
@@ -75,11 +85,15 @@ def sync_detailed(
 ) -> Response[BatchJobOutputBody | ErrorModel]:
     """Get batch re-push job progress
 
-     Returns a batch re-push job's status and processed/failed/total counts.
+     Returns a batch re-push job's status and processed/failed/total counts. 404 when the id is unknown,
+    409 when the id belongs to a delivery retry job.
+
+    Portal tokens: allowed, as GET /portal/api/repush-jobs/{job_id}.
 
     Args:
-        consumer (str):
-        job_id (str):
+        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
+            against it.
+        job_id (str): Batch job id (UUID): the repush_id or retry_id from the list call.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -109,11 +123,15 @@ def sync(
 ) -> BatchJobOutputBody | ErrorModel | None:
     """Get batch re-push job progress
 
-     Returns a batch re-push job's status and processed/failed/total counts.
+     Returns a batch re-push job's status and processed/failed/total counts. 404 when the id is unknown,
+    409 when the id belongs to a delivery retry job.
+
+    Portal tokens: allowed, as GET /portal/api/repush-jobs/{job_id}.
 
     Args:
-        consumer (str):
-        job_id (str):
+        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
+            against it.
+        job_id (str): Batch job id (UUID): the repush_id or retry_id from the list call.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -138,11 +156,15 @@ async def asyncio_detailed(
 ) -> Response[BatchJobOutputBody | ErrorModel]:
     """Get batch re-push job progress
 
-     Returns a batch re-push job's status and processed/failed/total counts.
+     Returns a batch re-push job's status and processed/failed/total counts. 404 when the id is unknown,
+    409 when the id belongs to a delivery retry job.
+
+    Portal tokens: allowed, as GET /portal/api/repush-jobs/{job_id}.
 
     Args:
-        consumer (str):
-        job_id (str):
+        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
+            against it.
+        job_id (str): Batch job id (UUID): the repush_id or retry_id from the list call.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -170,11 +192,15 @@ async def asyncio(
 ) -> BatchJobOutputBody | ErrorModel | None:
     """Get batch re-push job progress
 
-     Returns a batch re-push job's status and processed/failed/total counts.
+     Returns a batch re-push job's status and processed/failed/total counts. 404 when the id is unknown,
+    409 when the id belongs to a delivery retry job.
+
+    Portal tokens: allowed, as GET /portal/api/repush-jobs/{job_id}.
 
     Args:
-        consumer (str):
-        job_id (str):
+        consumer (str): Consumer name. The job is looked up by id; this segment is not checked
+            against it.
+        job_id (str): Batch job id (UUID): the repush_id or retry_id from the list call.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

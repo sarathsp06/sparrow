@@ -90,12 +90,20 @@ def sync_detailed(
 ) -> Response[ErrorModel | SubscriptionItem]:
     """Partially update a subscription
 
-     Merge-patches a subscription's headers, method, timeout, transform, or label filters. The linked
-    webhook_id and event_name cannot be changed — delete and recreate instead.
+     Partially updates a subscription's headers, method, timeout, transform, or label filters: only
+    fields present in the body change, and map fields replace the whole map. The linked webhook_id and
+    event_name cannot be changed; delete and recreate instead. A changed transform_template is recorded
+    as a new template version with template_source and template_notes. Returns the updated subscription.
+    Idempotent: repeating the same body records no new version.
+
+    400 for invalid values, or when the webhook has requires_transform and the result has no enabled
+    template. 404 when it is not in this consumer.
+
+    Portal tokens: allowed, as PATCH /portal/api/subscriptions/{subscription_id}.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
         body (PatchSubscriptionBody):
 
     Raises:
@@ -128,12 +136,20 @@ def sync(
 ) -> ErrorModel | SubscriptionItem | None:
     """Partially update a subscription
 
-     Merge-patches a subscription's headers, method, timeout, transform, or label filters. The linked
-    webhook_id and event_name cannot be changed — delete and recreate instead.
+     Partially updates a subscription's headers, method, timeout, transform, or label filters: only
+    fields present in the body change, and map fields replace the whole map. The linked webhook_id and
+    event_name cannot be changed; delete and recreate instead. A changed transform_template is recorded
+    as a new template version with template_source and template_notes. Returns the updated subscription.
+    Idempotent: repeating the same body records no new version.
+
+    400 for invalid values, or when the webhook has requires_transform and the result has no enabled
+    template. 404 when it is not in this consumer.
+
+    Portal tokens: allowed, as PATCH /portal/api/subscriptions/{subscription_id}.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
         body (PatchSubscriptionBody):
 
     Raises:
@@ -161,12 +177,20 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | SubscriptionItem]:
     """Partially update a subscription
 
-     Merge-patches a subscription's headers, method, timeout, transform, or label filters. The linked
-    webhook_id and event_name cannot be changed — delete and recreate instead.
+     Partially updates a subscription's headers, method, timeout, transform, or label filters: only
+    fields present in the body change, and map fields replace the whole map. The linked webhook_id and
+    event_name cannot be changed; delete and recreate instead. A changed transform_template is recorded
+    as a new template version with template_source and template_notes. Returns the updated subscription.
+    Idempotent: repeating the same body records no new version.
+
+    400 for invalid values, or when the webhook has requires_transform and the result has no enabled
+    template. 404 when it is not in this consumer.
+
+    Portal tokens: allowed, as PATCH /portal/api/subscriptions/{subscription_id}.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
         body (PatchSubscriptionBody):
 
     Raises:
@@ -197,12 +221,20 @@ async def asyncio(
 ) -> ErrorModel | SubscriptionItem | None:
     """Partially update a subscription
 
-     Merge-patches a subscription's headers, method, timeout, transform, or label filters. The linked
-    webhook_id and event_name cannot be changed — delete and recreate instead.
+     Partially updates a subscription's headers, method, timeout, transform, or label filters: only
+    fields present in the body change, and map fields replace the whole map. The linked webhook_id and
+    event_name cannot be changed; delete and recreate instead. A changed transform_template is recorded
+    as a new template version with template_source and template_notes. Returns the updated subscription.
+    Idempotent: repeating the same body records no new version.
+
+    400 for invalid values, or when the webhook has requires_transform and the result has no enabled
+    template. 404 when it is not in this consumer.
+
+    Portal tokens: allowed, as PATCH /portal/api/subscriptions/{subscription_id}.
 
     Args:
-        consumer (str):
-        subscription_id (str):
+        consumer (str): Consumer the subscription belongs to.
+        subscription_id (str): Subscription id (UUID).
         body (PatchSubscriptionBody):
 
     Raises:

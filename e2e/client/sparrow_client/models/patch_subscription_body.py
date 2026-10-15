@@ -23,8 +23,9 @@ class PatchSubscriptionBody:
     """
     Attributes:
         schema (str | Unset): A URL to the JSON Schema for this object.
-        headers (PatchSubscriptionBodyHeaders | Unset): Replace the extra HTTP headers.
-        label_filters (PatchSubscriptionBodyLabelFilters | Unset): Replace the label filters.
+        headers (PatchSubscriptionBodyHeaders | Unset): Replace all extra HTTP headers.
+        label_filters (PatchSubscriptionBodyLabelFilters | Unset): Replace all label filters; an empty object matches
+            every event.
         method (str | Unset): Replace the HTTP method.
         on_transform_error (PatchSubscriptionBodyOnTransformError | Unset): Replace what happens when the template fails
             to render.
@@ -33,9 +34,10 @@ class PatchSubscriptionBody:
         template_notes (str | Unset): Optional note stored with the template version, e.g. the AI drafter's summary.
         template_source (PatchSubscriptionBodyTemplateSource | Unset): How a changed transform_template was produced,
             recorded in the subscription's template history. Defaults to manual.
-        timeout (int | Unset): Replace the per-delivery timeout override, in seconds.
+        timeout (int | Unset): Replace the request timeout override, in seconds (0 to 300; 0 uses the webhook's).
         transform_enabled (bool | Unset): Enable or disable payload transformation.
-        transform_template (str | Unset): Replace the transform template.
+        transform_template (str | Unset): Replace the transform template. A change is recorded as a new version in the
+            template history (the last 20 are kept).
     """
 
     schema: str | Unset = UNSET

@@ -25,12 +25,13 @@ class EventOccurrenceItem:
         event (str): Event type name.
         event_id (str): Event occurrence id (UUID).
         event_version (int): Event type version this occurrence was accepted under.
-        failed_deliveries (int): Deliveries that failed (exhausted retries or non-retryable error).
+        failed_deliveries (int): Failed delivery attempts for this occurrence. Counts attempts, not deliveries: a
+            delivery that failed twice and then succeeded adds 2 here and 1 to successful_deliveries.
         payload (EventOccurrenceItemPayload): The pushed payload.
-        pending_deliveries (int): Deliveries still pending or retrying.
+        pending_deliveries (int): Deliveries not finished yet: pending, sending or retrying.
         schema_valid (bool): Whether the payload validated against the event type's JSON Schema at push time.
-        successful_deliveries (int): Deliveries that succeeded.
-        webhook_count (int): Number of webhooks whose subscriptions matched this occurrence.
+        successful_deliveries (int): Successful delivery attempts for this occurrence.
+        webhook_count (int): Number of distinct webhooks that got a delivery for this occurrence.
         schema (str | Unset): A URL to the JSON Schema for this object.
         labels (EventOccurrenceItemLabels | Unset): Key/value labels used to match against subscription label filters.
         metadata (EventOccurrenceItemMetadata | Unset): Arbitrary key/value metadata stored with the occurrence.

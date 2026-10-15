@@ -11,6 +11,11 @@ T = TypeVar("T", bound="WebhookSecretHeaders")
 
 @_attrs_define
 class WebhookSecretHeaders:
+    """Headers whose values are encrypted at rest and masked in API responses (upstream tokens, passwords); values may
+    contain {{param}} tokens.
+
+    """
+
     additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:

@@ -56,8 +56,11 @@ def sync_detailed(
 ) -> Response[ErrorModel | ListRecipesOutputBody]:
     """List shipped adapter recipes
 
-     Lists recipe templates shipped with this Sparrow server. Recipes pre-fill webhook destinations,
-    headers, and optional subscription transforms.
+     Lists the adapter recipes built into this Sparrow server. A recipe pre-fills a webhook destination,
+    headers and a subscription transform; clients (the UI, sparrow use) substitute the params and
+    register the webhook. Static and read-only.
+
+    Portal tokens: not allowed.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -82,8 +85,11 @@ def sync(
 ) -> ErrorModel | ListRecipesOutputBody | None:
     """List shipped adapter recipes
 
-     Lists recipe templates shipped with this Sparrow server. Recipes pre-fill webhook destinations,
-    headers, and optional subscription transforms.
+     Lists the adapter recipes built into this Sparrow server. A recipe pre-fills a webhook destination,
+    headers and a subscription transform; clients (the UI, sparrow use) substitute the params and
+    register the webhook. Static and read-only.
+
+    Portal tokens: not allowed.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -104,8 +110,11 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | ListRecipesOutputBody]:
     """List shipped adapter recipes
 
-     Lists recipe templates shipped with this Sparrow server. Recipes pre-fill webhook destinations,
-    headers, and optional subscription transforms.
+     Lists the adapter recipes built into this Sparrow server. A recipe pre-fills a webhook destination,
+    headers and a subscription transform; clients (the UI, sparrow use) substitute the params and
+    register the webhook. Static and read-only.
+
+    Portal tokens: not allowed.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -128,8 +137,11 @@ async def asyncio(
 ) -> ErrorModel | ListRecipesOutputBody | None:
     """List shipped adapter recipes
 
-     Lists recipe templates shipped with this Sparrow server. Recipes pre-fill webhook destinations,
-    headers, and optional subscription transforms.
+     Lists the adapter recipes built into this Sparrow server. A recipe pre-fills a webhook destination,
+    headers and a subscription transform; clients (the UI, sparrow use) substitute the params and
+    register the webhook. Static and read-only.
+
+    Portal tokens: not allowed.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

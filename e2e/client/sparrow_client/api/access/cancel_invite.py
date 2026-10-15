@@ -76,8 +76,14 @@ def sync_detailed(
 ) -> Response[Any | ErrorModel]:
     """Cancel a pending invite
 
+     Cancels a pending invite so it can no longer be redeemed. Returns 204. 409 when the invite is no
+    longer pending (redeemed, cancelled or expired); a token already created from it keeps working, so
+    revoke that separately. 404 for an unknown id.
+
+    Portal tokens: not allowed.
+
     Args:
-        invite_id (str):
+        invite_id (str): Invite id (the id field, not the secret).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -105,8 +111,14 @@ def sync(
 ) -> Any | ErrorModel | None:
     """Cancel a pending invite
 
+     Cancels a pending invite so it can no longer be redeemed. Returns 204. 409 when the invite is no
+    longer pending (redeemed, cancelled or expired); a token already created from it keeps working, so
+    revoke that separately. 404 for an unknown id.
+
+    Portal tokens: not allowed.
+
     Args:
-        invite_id (str):
+        invite_id (str): Invite id (the id field, not the secret).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -129,8 +141,14 @@ async def asyncio_detailed(
 ) -> Response[Any | ErrorModel]:
     """Cancel a pending invite
 
+     Cancels a pending invite so it can no longer be redeemed. Returns 204. 409 when the invite is no
+    longer pending (redeemed, cancelled or expired); a token already created from it keeps working, so
+    revoke that separately. 404 for an unknown id.
+
+    Portal tokens: not allowed.
+
     Args:
-        invite_id (str):
+        invite_id (str): Invite id (the id field, not the secret).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -156,8 +174,14 @@ async def asyncio(
 ) -> Any | ErrorModel | None:
     """Cancel a pending invite
 
+     Cancels a pending invite so it can no longer be redeemed. Returns 204. 409 when the invite is no
+    longer pending (redeemed, cancelled or expired); a token already created from it keeps working, so
+    revoke that separately. 404 for an unknown id.
+
+    Portal tokens: not allowed.
+
     Args:
-        invite_id (str):
+        invite_id (str): Invite id (the id field, not the secret).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

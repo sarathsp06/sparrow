@@ -22,7 +22,7 @@ T = TypeVar("T", bound="ResumeSubscriptionOutputBody")
 class ResumeSubscriptionOutputBody:
     """
     Attributes:
-        consumer (str): Tenant consumer this subscription belongs to.
+        consumer (str): Consumer this subscription belongs to.
         created_at (str): Creation timestamp, RFC3339.
         event_name (str): Event type name this subscription matches, or "*" for catch-all.
         on_transform_error (ResumeSubscriptionOutputBodyOnTransformError): What happens when transform_template fails to
@@ -31,8 +31,8 @@ class ResumeSubscriptionOutputBody:
             envelope payload is sent instead, and the error is still recorded on the delivery.
         paused (bool): Whether the subscription is paused. While paused, events still fan out to it, but each delivery
             is recorded with status paused and not attempted until retried. A pause never affects the webhook's health.
-        paused_deliveries (int): Deliveries recorded while paused. They are not sent automatically; retry them to
-            deliver.
+        paused_deliveries (int): Deliveries of this subscription currently in status paused. They are not sent
+            automatically; retry them to deliver.
         subscription_id (str): Subscription id (UUID).
         template_missing_key (ResumeSubscriptionOutputBodyTemplateMissingKey): How transform_template reads a key the
             payload does not have. error (default): the render fails, so a field removed from the event schema cannot
@@ -46,13 +46,16 @@ class ResumeSubscriptionOutputBody:
             subscription.
         label_filters (ResumeSubscriptionOutputBodyLabelFilters | Unset): Key/value pairs that must all be present in an
             event's labels for this subscription to receive it.
-        method (ResumeSubscriptionOutputBodyMethod | Unset): HTTP method used for deliveries from this subscription.
-        paused_at (str | Unset): When the current pause began, RFC3339.
+        method (ResumeSubscriptionOutputBodyMethod | Unset): HTTP method used for deliveries from this subscription;
+            absent means POST.
+        paused_at (str | Unset): When the current pause began, RFC3339. Absent when not paused.
         paused_reason (str | Unset): Why the subscription was paused.
-        paused_since (str | Unset): When the pause that just ended began, RFC3339. List or retry what was held with
-            status=paused&subscription_id=...&created_after=<paused_since>.
-        timeout (int | Unset): Per-delivery request timeout in seconds, overriding the webhook's default.
-        transform_template (str | Unset): Go template rendered against the event to produce the delivered body.
+        paused_since (str | Unset): When the pause that just ended began, RFC3339; absent when the subscription was not
+            paused. List or retry what was held with status=paused&subscription_id=...&created_after=<paused_since>.
+        timeout (int | Unset): Request timeout override for this subscription's deliveries, in seconds; absent means the
+            webhook's request_timeout_seconds.
+        transform_template (str | Unset): Go text/template rendered against the event to produce the delivered body when
+            transform_enabled is true.
     """
 
     consumer: str

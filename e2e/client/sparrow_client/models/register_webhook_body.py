@@ -24,33 +24,38 @@ T = TypeVar("T", bound="RegisterWebhookBody")
 class RegisterWebhookBody:
     """
     Attributes:
-        url (str): HTTPS/HTTP endpoint to POST deliveries to. Private, loopback, and cloud metadata addresses are
-            rejected (SSRF protection).
+        url (str): http or https endpoint deliveries are POSTed to. The host must resolve: localhost, *.internal,
+            *.local, private, loopback and cloud metadata addresses are rejected (SSRF protection) unless allowed by
+            SPARROW_ALLOW_PRIVATE_NETWORKS or SPARROW_ALLOWED_NETWORKS.
         schema (str | Unset): A URL to the JSON Schema for this object.
-        active (bool | Unset): Whether the webhook receives deliveries. Defaults to true. Inactive webhooks accept no
-            new deliveries but keep their history.
+        active (bool | Unset): Whether the webhook is sent deliveries. Defaults to true. An inactive (paused) webhook
+            still gets deliveries recorded for new events, held with status paused and sent only when retried.
         description (str | Unset): Free-text note for humans, e.g. which system or team owns this endpoint.
         events (list[str] | None | Unset): Event type names this webhook should receive; auto-creates one subscription
             per entry. Use "*" as the sole entry to subscribe to every event in the consumer. Omit or leave empty to
             register the webhook with no subscriptions, then attach them individually via POST .../subscriptions (e.g. to
             set a per-subscription transform_template).
-        headers (RegisterWebhookBodyHeaders | Unset): Static HTTP headers sent with every delivery to this webhook.
+        headers (RegisterWebhookBodyHeaders | Unset): Static HTTP headers sent with every delivery to this webhook. Only
+            string values are sent. Names must be valid HTTP tokens, values at most 8 KiB with no CR/LF; framing headers
+            (Host, Content-Length, Transfer-Encoding, Connection, Keep-Alive, Proxy-Connection, TE, Trailer, Upgrade) are
+            rejected. Stored and returned in plaintext: put credentials in secret_headers.
         http_config (WebhookHTTPConfig | Unset):
         on_transform_error (RegisterWebhookBodyOnTransformError | Unset): What happens when transform_template fails to
             render for one of the created subscriptions. fail (default) or fallback; see the subscription's
             on_transform_error.
-        rate_limit_rps (float | Unset): Maximum sustained delivery rate to this webhook, in requests per second. Excess
-            deliveries queue and are sent once the leaky bucket has capacity.
+        rate_limit_rps (float | Unset): Deprecated: use http_config.rate_limit_rps. Shorthand for it, applied only when
+            http_config.rate_limit_rps is not set (http_config wins when both are sent). Requests per second, must be
+            positive.
         requires_transform (bool | Unset): Set when the receiver only accepts a transformed payload (Slack, SendGrid,
             ...). Every subscription must then have transform_enabled and a transform_template: transform_template is
             required here when events is non-empty, and later subscription writes without one are rejected. Recipes set
             this. Defaults to false.
-        secret_headers (RegisterWebhookBodySecretHeaders | Unset): HTTP headers whose values are envelope-encrypted at
-            rest and masked in every API response (e.g. an upstream auth token).
-        signature_type (RegisterWebhookBodySignatureType | Unset): Which signature algorithm to require verification
-            against. Deliveries are HMAC-SHA256 signed (v1,) by default; once signature_type is set to ed25519 (which
-            generates a signing keypair), later deliveries are dual-signed (v1, and v1a,, Standard Webhooks format).
-            Defaults to hmac.
+        secret_headers (RegisterWebhookBodySecretHeaders | Unset): HTTP headers sent with every delivery whose values
+            are envelope-encrypted at rest and masked in every API response (e.g. an upstream auth token). Same name and
+            value rules as headers.
+        signature_type (RegisterWebhookBodySignatureType | Unset): Signing scheme. Every delivery carries an HMAC-SHA256
+            signature (v1,) in the Standard Webhooks webhook-signature header; ed25519 also generates a signing keypair and
+            adds an Ed25519 signature (v1a,) next to it. Defaults to hmac.
         template_missing_key (RegisterWebhookBodyTemplateMissingKey | Unset): How transform_template reads a key the
             payload does not have, for the created subscriptions. error (default) or zero; see the subscription's
             template_missing_key.

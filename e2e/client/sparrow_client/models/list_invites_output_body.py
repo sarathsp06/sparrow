@@ -18,7 +18,7 @@ T = TypeVar("T", bound="ListInvitesOutputBody")
 class ListInvitesOutputBody:
     """
     Attributes:
-        items (list[InviteOut] | None):
+        items (list[InviteOut] | None): Invites, newest first. Not paginated.
         schema (str | Unset): A URL to the JSON Schema for this object.
     """
 

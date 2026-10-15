@@ -72,10 +72,13 @@ def sync_detailed(
 ) -> Response[ErrorModel | EventTypeItem]:
     """Get an event type by name
 
-     Fetches one event type's schema, sample payload, and metadata.
+     Returns one event type's current version: schema, sample payload, and metadata. 404 when the name is
+    not registered.
+
+    Portal tokens: allowed, as GET /portal/api/event-types/{name}.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -103,10 +106,13 @@ def sync(
 ) -> ErrorModel | EventTypeItem | None:
     """Get an event type by name
 
-     Fetches one event type's schema, sample payload, and metadata.
+     Returns one event type's current version: schema, sample payload, and metadata. 404 when the name is
+    not registered.
+
+    Portal tokens: allowed, as GET /portal/api/event-types/{name}.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -129,10 +135,13 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | EventTypeItem]:
     """Get an event type by name
 
-     Fetches one event type's schema, sample payload, and metadata.
+     Returns one event type's current version: schema, sample payload, and metadata. 404 when the name is
+    not registered.
+
+    Portal tokens: allowed, as GET /portal/api/event-types/{name}.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -158,10 +167,13 @@ async def asyncio(
 ) -> ErrorModel | EventTypeItem | None:
     """Get an event type by name
 
-     Fetches one event type's schema, sample payload, and metadata.
+     Returns one event type's current version: schema, sample payload, and metadata. 404 when the name is
+    not registered.
+
+    Portal tokens: allowed, as GET /portal/api/event-types/{name}.
 
     Args:
-        name (str):
+        name (str): Event type name, e.g. order.created.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

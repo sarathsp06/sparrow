@@ -34,7 +34,7 @@ curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-
 docker compose up -d
 ```
 
-Open <http://localhost:8080> for the dashboard and <http://localhost:8080/docs> for the interactive API reference. `docker compose down -v` cleans up.
+Open <http://localhost:8080> for the dashboard and <http://localhost:8080/docs> for the interactive API reference. If port 8080 is taken, start it with `SPARROW_PORT=8090 docker compose up -d` and use that port instead. `docker compose down -v` cleans up.
 
 **Send your first webhook** with the CLI. Install it in one line (macOS and Linux; it verifies the release checksum, and re-running it updates in place):
 
@@ -72,16 +72,6 @@ Prefer curl or a client generated from the OpenAPI spec? Follow the [Quickstart]
 - **One API, documented**: OpenAPI 3.1 generated from the Go handlers, served interactively at `/docs`, committed at [`api/openapi.yaml`](api/openapi.yaml).
 
 Curious how it fits together? Read [How it works](https://sarathsp06.github.io/sparrow/getting-started/how-it-works/), or explore the [interactive architecture diagram](https://sarathsp06.github.io/sparrow/diagrams/sparrow-layered-architecture.html).
-
-<p align="center">
-  <a href="https://sarathsp06.github.io/sparrow/diagrams/sparrow-layered-architecture.html">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./docs/src/assets/diagrams/system-overview-dark.svg">
-      <source media="(prefers-color-scheme: light)" srcset="./docs/src/assets/diagrams/system-overview-light.svg">
-      <img src="./docs/src/assets/diagrams/system-overview-light.svg" alt="Sparrow system overview diagram" />
-    </picture>
-  </a>
-</p>
 
 ## Satellites
 

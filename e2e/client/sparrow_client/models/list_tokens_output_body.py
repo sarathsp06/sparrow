@@ -18,7 +18,7 @@ T = TypeVar("T", bound="ListTokensOutputBody")
 class ListTokensOutputBody:
     """
     Attributes:
-        items (list[TokenOut] | None):
+        items (list[TokenOut] | None): Tokens, newest first. Not paginated.
         schema (str | Unset): A URL to the JSON Schema for this object.
     """
 

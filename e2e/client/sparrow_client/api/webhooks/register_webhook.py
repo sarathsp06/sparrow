@@ -87,11 +87,20 @@ def sync_detailed(
 ) -> Response[ErrorModel | WebhookOut]:
     """Register a webhook
 
-     Registers a new HTTP endpoint to receive deliveries and auto-creates a subscription for each listed
-    event type. Returns the plaintext webhook secret once — it is masked on every subsequent read.
+     Registers a new HTTP endpoint and creates one subscription per name in events (with
+    transform_template, when given). Generates the HMAC signing secret and returns it in plaintext in
+    http_config.webhook_secret; this response is the only time it is shown. Event names are not required
+    to be registered event types yet.
+
+    Not idempotent: a second call with the same URL in the same consumer fails with 409 while the first
+    webhook exists. 400 for an invalid URL (scheme, unresolvable or blocked host), invalid headers,
+    http_config out of range, a sparrow.* event outside the _sparrow consumer, or requires_transform
+    without transform_template.
+
+    Portal tokens: allowed, as POST /portal/api/webhooks.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer to register the webhook under. Created implicitly on first use.
         body (RegisterWebhookBody):
 
     Raises:
@@ -122,11 +131,20 @@ def sync(
 ) -> ErrorModel | WebhookOut | None:
     """Register a webhook
 
-     Registers a new HTTP endpoint to receive deliveries and auto-creates a subscription for each listed
-    event type. Returns the plaintext webhook secret once — it is masked on every subsequent read.
+     Registers a new HTTP endpoint and creates one subscription per name in events (with
+    transform_template, when given). Generates the HMAC signing secret and returns it in plaintext in
+    http_config.webhook_secret; this response is the only time it is shown. Event names are not required
+    to be registered event types yet.
+
+    Not idempotent: a second call with the same URL in the same consumer fails with 409 while the first
+    webhook exists. 400 for an invalid URL (scheme, unresolvable or blocked host), invalid headers,
+    http_config out of range, a sparrow.* event outside the _sparrow consumer, or requires_transform
+    without transform_template.
+
+    Portal tokens: allowed, as POST /portal/api/webhooks.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer to register the webhook under. Created implicitly on first use.
         body (RegisterWebhookBody):
 
     Raises:
@@ -152,11 +170,20 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | WebhookOut]:
     """Register a webhook
 
-     Registers a new HTTP endpoint to receive deliveries and auto-creates a subscription for each listed
-    event type. Returns the plaintext webhook secret once — it is masked on every subsequent read.
+     Registers a new HTTP endpoint and creates one subscription per name in events (with
+    transform_template, when given). Generates the HMAC signing secret and returns it in plaintext in
+    http_config.webhook_secret; this response is the only time it is shown. Event names are not required
+    to be registered event types yet.
+
+    Not idempotent: a second call with the same URL in the same consumer fails with 409 while the first
+    webhook exists. 400 for an invalid URL (scheme, unresolvable or blocked host), invalid headers,
+    http_config out of range, a sparrow.* event outside the _sparrow consumer, or requires_transform
+    without transform_template.
+
+    Portal tokens: allowed, as POST /portal/api/webhooks.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer to register the webhook under. Created implicitly on first use.
         body (RegisterWebhookBody):
 
     Raises:
@@ -185,11 +212,20 @@ async def asyncio(
 ) -> ErrorModel | WebhookOut | None:
     """Register a webhook
 
-     Registers a new HTTP endpoint to receive deliveries and auto-creates a subscription for each listed
-    event type. Returns the plaintext webhook secret once — it is masked on every subsequent read.
+     Registers a new HTTP endpoint and creates one subscription per name in events (with
+    transform_template, when given). Generates the HMAC signing secret and returns it in plaintext in
+    http_config.webhook_secret; this response is the only time it is shown. Event names are not required
+    to be registered event types yet.
+
+    Not idempotent: a second call with the same URL in the same consumer fails with 409 while the first
+    webhook exists. 400 for an invalid URL (scheme, unresolvable or blocked host), invalid headers,
+    http_config out of range, a sparrow.* event outside the _sparrow consumer, or requires_transform
+    without transform_template.
+
+    Portal tokens: allowed, as POST /portal/api/webhooks.
 
     Args:
-        consumer (str):
+        consumer (str): Consumer to register the webhook under. Created implicitly on first use.
         body (RegisterWebhookBody):
 
     Raises:

@@ -19,7 +19,7 @@ T = TypeVar("T", bound="ListSubscriptionsOutputBody")
 class ListSubscriptionsOutputBody:
     """
     Attributes:
-        items (list[SubscriptionItem] | None):
+        items (list[SubscriptionItem] | None): Subscriptions, newest first.
         pagination (PaginationOutput):
         schema (str | Unset): A URL to the JSON Schema for this object.
     """

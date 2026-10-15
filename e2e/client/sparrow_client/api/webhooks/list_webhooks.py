@@ -90,16 +90,20 @@ def sync_detailed(
 ) -> Response[ErrorModel | ListWebhooksOutputBody]:
     """List webhooks
 
-     Lists webhooks in a consumer, optionally filtered by id, subscribed event, active flag, or computed
-    health status.
+     Lists the webhooks of one consumer, newest first, optionally filtered by id, subscribed event,
+    active flag, or health status. Secrets are masked. Offset paginated with total_count. Deleted
+    webhooks are never listed.
+
+    Portal tokens: allowed, as GET /portal/api/webhooks.
 
     Args:
         consumer (str): Tenant consumer to list webhooks in.
         webhook_id (str | Unset): Filter to a single webhook by id.
         event (str | Unset): Filter to webhooks subscribed to this event type name.
-        active (bool | Unset): Only return active webhooks. Default: False.
+        active (bool | Unset): true returns only active (not paused) webhooks; false returns all.
+            Default: False.
         health (ListWebhooksHealth | Unset): Filter by computed health status.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:
@@ -140,16 +144,20 @@ def sync(
 ) -> ErrorModel | ListWebhooksOutputBody | None:
     """List webhooks
 
-     Lists webhooks in a consumer, optionally filtered by id, subscribed event, active flag, or computed
-    health status.
+     Lists the webhooks of one consumer, newest first, optionally filtered by id, subscribed event,
+    active flag, or health status. Secrets are masked. Offset paginated with total_count. Deleted
+    webhooks are never listed.
+
+    Portal tokens: allowed, as GET /portal/api/webhooks.
 
     Args:
         consumer (str): Tenant consumer to list webhooks in.
         webhook_id (str | Unset): Filter to a single webhook by id.
         event (str | Unset): Filter to webhooks subscribed to this event type name.
-        active (bool | Unset): Only return active webhooks. Default: False.
+        active (bool | Unset): true returns only active (not paused) webhooks; false returns all.
+            Default: False.
         health (ListWebhooksHealth | Unset): Filter by computed health status.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:
@@ -185,16 +193,20 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | ListWebhooksOutputBody]:
     """List webhooks
 
-     Lists webhooks in a consumer, optionally filtered by id, subscribed event, active flag, or computed
-    health status.
+     Lists the webhooks of one consumer, newest first, optionally filtered by id, subscribed event,
+    active flag, or health status. Secrets are masked. Offset paginated with total_count. Deleted
+    webhooks are never listed.
+
+    Portal tokens: allowed, as GET /portal/api/webhooks.
 
     Args:
         consumer (str): Tenant consumer to list webhooks in.
         webhook_id (str | Unset): Filter to a single webhook by id.
         event (str | Unset): Filter to webhooks subscribed to this event type name.
-        active (bool | Unset): Only return active webhooks. Default: False.
+        active (bool | Unset): true returns only active (not paused) webhooks; false returns all.
+            Default: False.
         health (ListWebhooksHealth | Unset): Filter by computed health status.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:
@@ -233,16 +245,20 @@ async def asyncio(
 ) -> ErrorModel | ListWebhooksOutputBody | None:
     """List webhooks
 
-     Lists webhooks in a consumer, optionally filtered by id, subscribed event, active flag, or computed
-    health status.
+     Lists the webhooks of one consumer, newest first, optionally filtered by id, subscribed event,
+    active flag, or health status. Secrets are masked. Offset paginated with total_count. Deleted
+    webhooks are never listed.
+
+    Portal tokens: allowed, as GET /portal/api/webhooks.
 
     Args:
         consumer (str): Tenant consumer to list webhooks in.
         webhook_id (str | Unset): Filter to a single webhook by id.
         event (str | Unset): Filter to webhooks subscribed to this event type name.
-        active (bool | Unset): Only return active webhooks. Default: False.
+        active (bool | Unset): true returns only active (not paused) webhooks; false returns all.
+            Default: False.
         health (ListWebhooksHealth | Unset): Filter by computed health status.
-        limit (int | Unset): Maximum items to return. Default: 50.
+        limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         offset (int | Unset): Number of items to skip, for pagination. Default: 0.
 
     Raises:

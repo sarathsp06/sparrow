@@ -15,9 +15,9 @@ T = TypeVar("T", bound="AttemptItem")
 class AttemptItem:
     """
     Attributes:
-        response_code (int): HTTP status code returned by the endpoint on this attempt.
+        response_code (int): HTTP status code returned by the endpoint on this attempt; 0 when no response was received.
         response_time (int): Round-trip time of this attempt, in milliseconds.
-        success (bool): Whether this attempt succeeded (matched an expected status code).
+        success (bool): Whether this attempt succeeded (got one of the webhook's expected_status_codes).
         timestamp (str): When this attempt was made, RFC3339.
         error_category (AttemptItemErrorCategory | Unset): Failure classification for this attempt.
         error_message (str | Unset): Human-readable failure reason for this attempt.

@@ -4,6 +4,9 @@
 #   docker compose up -d
 #   open http://localhost:8080          # UI + REST API, API docs at /docs
 #
+# Port 8080 taken? SPARROW_PORT=8090 docker compose up -d, then open
+# http://localhost:8090 (the container still listens on 8080).
+#
 # No clone, no secrets, no .env -- this file is for trying Sparrow on your own
 # machine. It is deliberately NOT a production setup:
 #
@@ -49,7 +52,7 @@ services:
     cap_drop:
       - ALL
     ports:
-      - "127.0.0.1:8080:8080" # loopback only -- the API below is unauthenticated
+      - "127.0.0.1:${SPARROW_PORT:-8080}:8080" # loopback only -- the API below is unauthenticated
     extra_hosts:
       - "host.docker.internal:host-gateway" # lets webhooks reach your machine on Linux too
     environment:

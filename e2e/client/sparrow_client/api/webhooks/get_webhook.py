@@ -75,7 +75,10 @@ def sync_detailed(
 ) -> Response[ErrorModel | WebhookOut]:
     """Get a webhook by id
 
-     Fetches a single webhook's configuration, masked secrets, and current health.
+     Returns one webhook's configuration, subscribed events, masked secrets, and current health label.
+    404 when it does not exist in this consumer or was deleted.
+
+    Portal tokens: allowed, as GET /portal/api/webhooks/{webhook_id}.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.
@@ -109,7 +112,10 @@ def sync(
 ) -> ErrorModel | WebhookOut | None:
     """Get a webhook by id
 
-     Fetches a single webhook's configuration, masked secrets, and current health.
+     Returns one webhook's configuration, subscribed events, masked secrets, and current health label.
+    404 when it does not exist in this consumer or was deleted.
+
+    Portal tokens: allowed, as GET /portal/api/webhooks/{webhook_id}.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.
@@ -138,7 +144,10 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | WebhookOut]:
     """Get a webhook by id
 
-     Fetches a single webhook's configuration, masked secrets, and current health.
+     Returns one webhook's configuration, subscribed events, masked secrets, and current health label.
+    404 when it does not exist in this consumer or was deleted.
+
+    Portal tokens: allowed, as GET /portal/api/webhooks/{webhook_id}.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.
@@ -170,7 +179,10 @@ async def asyncio(
 ) -> ErrorModel | WebhookOut | None:
     """Get a webhook by id
 
-     Fetches a single webhook's configuration, masked secrets, and current health.
+     Returns one webhook's configuration, subscribed events, masked secrets, and current health label.
+    404 when it does not exist in this consumer or was deleted.
+
+    Portal tokens: allowed, as GET /portal/api/webhooks/{webhook_id}.
 
     Args:
         consumer (str): Tenant consumer the webhook belongs to.

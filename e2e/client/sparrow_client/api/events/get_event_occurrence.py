@@ -77,11 +77,14 @@ def sync_detailed(
 ) -> Response[ErrorModel | EventOccurrenceItem]:
     """Get a pushed event occurrence by id
 
-     Fetches one event occurrence's payload, labels, and delivery outcome counts. Event ids are globally
-    unique, so no consumer is required.
+     Returns one event occurrence's payload, labels, and delivery outcome counts. Event ids are globally
+    unique, so no consumer is required. 400 when event_id is not a UUID, 404 when it does not exist (or
+    was removed by retention).
+
+    Portal tokens: not allowed.
 
     Args:
-        event_id (str):
+        event_id (str): Event occurrence id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -109,11 +112,14 @@ def sync(
 ) -> ErrorModel | EventOccurrenceItem | None:
     """Get a pushed event occurrence by id
 
-     Fetches one event occurrence's payload, labels, and delivery outcome counts. Event ids are globally
-    unique, so no consumer is required.
+     Returns one event occurrence's payload, labels, and delivery outcome counts. Event ids are globally
+    unique, so no consumer is required. 400 when event_id is not a UUID, 404 when it does not exist (or
+    was removed by retention).
+
+    Portal tokens: not allowed.
 
     Args:
-        event_id (str):
+        event_id (str): Event occurrence id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -136,11 +142,14 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | EventOccurrenceItem]:
     """Get a pushed event occurrence by id
 
-     Fetches one event occurrence's payload, labels, and delivery outcome counts. Event ids are globally
-    unique, so no consumer is required.
+     Returns one event occurrence's payload, labels, and delivery outcome counts. Event ids are globally
+    unique, so no consumer is required. 400 when event_id is not a UUID, 404 when it does not exist (or
+    was removed by retention).
+
+    Portal tokens: not allowed.
 
     Args:
-        event_id (str):
+        event_id (str): Event occurrence id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -166,11 +175,14 @@ async def asyncio(
 ) -> ErrorModel | EventOccurrenceItem | None:
     """Get a pushed event occurrence by id
 
-     Fetches one event occurrence's payload, labels, and delivery outcome counts. Event ids are globally
-    unique, so no consumer is required.
+     Returns one event occurrence's payload, labels, and delivery outcome counts. Event ids are globally
+    unique, so no consumer is required. 400 when event_id is not a UUID, 404 when it does not exist (or
+    was removed by retention).
+
+    Portal tokens: not allowed.
 
     Args:
-        event_id (str):
+        event_id (str): Event occurrence id (UUID).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

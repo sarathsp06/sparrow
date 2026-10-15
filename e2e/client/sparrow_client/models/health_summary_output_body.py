@@ -18,11 +18,11 @@ T = TypeVar("T", bound="HealthSummaryOutputBody")
 class HealthSummaryOutputBody:
     """
     Attributes:
-        degraded_count (int): Webhooks currently degraded.
-        healthy_count (int): Webhooks currently healthy.
+        degraded_count (int): Webhooks currently labelled degraded.
+        healthy_count (int): Webhooks currently labelled healthy.
         rules (HealthRules):
-        unhealthy_count (int): Webhooks currently unhealthy.
-        unknown_count (int): Webhooks with no recent delivery attempts.
+        unhealthy_count (int): Webhooks currently labelled unhealthy.
+        unknown_count (int): Webhooks labelled unknown: too few recent attempts to judge.
         schema (str | Unset): A URL to the JSON Schema for this object.
     """
 
