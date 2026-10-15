@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
+	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 )
 
 // WebhookRegistration represents a webhook registration with HTTP configuration
@@ -98,8 +99,8 @@ func (config WebhookHTTPConfig) ValidateConfig() error {
 		return svcerrors.Errorf(svcerrors.InvalidArgument, "retry_backoff_seconds must be between 1 and 3600, got %d", config.RetryBackoffSeconds)
 	}
 
-	if config.RequestTimeoutSeconds <= 0 || config.RequestTimeoutSeconds > 300 {
-		return svcerrors.Errorf(svcerrors.InvalidArgument, "request_timeout_seconds must be between 1 and 300, got %d", config.RequestTimeoutSeconds)
+	if config.RequestTimeoutSeconds <= 0 || config.RequestTimeoutSeconds > maxTimeoutSeconds {
+		return svcerrors.Errorf(svcerrors.InvalidArgument, "request_timeout_seconds must be between 1 and %d, got %d", maxTimeoutSeconds, config.RequestTimeoutSeconds)
 	}
 
 	if len(config.ExpectedStatusCodes) == 0 {
@@ -244,4 +245,17 @@ func (req WebhookRegistrationRequest) ToWebhookRegistration() (*WebhookRegistrat
 	}
 
 	return webhook, nil
+}
+
+// maxTimeoutSeconds bounds request_timeout_seconds and a subscription's
+// timeout override; the delivery job's River timeout is sized from it.
+const maxTimeoutSeconds = int(client.MaxRequestTimeout / time.Second)
+
+// validateSubscriptionTimeout checks a subscription's timeout override in
+// seconds; 0 means the webhook's request_timeout_seconds applies.
+func validateSubscriptionTimeout(timeout int) error {
+	if timeout < 0 || timeout > maxTimeoutSeconds {
+		return svcerrors.Errorf(svcerrors.InvalidArgument, "timeout must be between 0 and %d seconds, got %d", maxTimeoutSeconds, timeout)
+	}
+	return nil
 }

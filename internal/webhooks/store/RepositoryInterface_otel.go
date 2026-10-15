@@ -112,30 +112,6 @@ func (_d RepositoryInterfaceWithTracing) AutoDisableWebhook(ctx context.Context,
 	return _d.RepositoryInterface.AutoDisableWebhook(ctx, webhookID, minFailures, failingFor)
 }
 
-// BatchCreateDeliveries implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) BatchCreateDeliveries(ctx context.Context, tenantID uuid.UUID, deliveries []*WebhookDelivery) (err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.BatchCreateDeliveries")
-	defer func() {
-		if _d._spanDecorator != nil {
-			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":        ctx,
-				"tenantID":   tenantID,
-				"deliveries": deliveries}, map[string]interface{}{
-				"err": err})
-		} else if err != nil {
-			_span.RecordError(err)
-			_span.SetStatus(_codes.Error, err.Error())
-			_span.SetAttributes(
-				attribute.String("event", "error"),
-				attribute.String("message", err.Error()),
-			)
-		}
-
-		_span.End()
-	}()
-	return _d.RepositoryInterface.BatchCreateDeliveries(ctx, tenantID, deliveries)
-}
-
 // CleanupExpiredBatchJobs implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) CleanupExpiredBatchJobs(ctx context.Context) (i1 int, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.CleanupExpiredBatchJobs")
@@ -282,6 +258,32 @@ func (_d RepositoryInterfaceWithTracing) CreateDelivery(ctx context.Context, ten
 	return _d.RepositoryInterface.CreateDelivery(ctx, tenantID, delivery)
 }
 
+// CreateFanOutDeliveries implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) CreateFanOutDeliveries(ctx context.Context, tenantID uuid.UUID, deliveries []*WebhookDelivery, enqueue FanOutEnqueuer) (wpa1 []*WebhookDelivery, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.CreateFanOutDeliveries")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":        ctx,
+				"tenantID":   tenantID,
+				"deliveries": deliveries,
+				"enqueue":    enqueue}, map[string]interface{}{
+				"wpa1": wpa1,
+				"err":  err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.CreateFanOutDeliveries(ctx, tenantID, deliveries, enqueue)
+}
+
 // CreateSubscription implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) CreateSubscription(ctx context.Context, tenantID uuid.UUID, sub *EventSubscription) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.CreateSubscription")
@@ -328,29 +330,6 @@ func (_d RepositoryInterfaceWithTracing) DeleteAlertConfig(ctx context.Context, 
 		_span.End()
 	}()
 	return _d.RepositoryInterface.DeleteAlertConfig(ctx, tenantID, id)
-}
-
-// DeleteDeliveryByID implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) DeleteDeliveryByID(ctx context.Context, deliveryID uuid.UUID) (err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.DeleteDeliveryByID")
-	defer func() {
-		if _d._spanDecorator != nil {
-			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":        ctx,
-				"deliveryID": deliveryID}, map[string]interface{}{
-				"err": err})
-		} else if err != nil {
-			_span.RecordError(err)
-			_span.SetStatus(_codes.Error, err.Error())
-			_span.SetAttributes(
-				attribute.String("event", "error"),
-				attribute.String("message", err.Error()),
-			)
-		}
-
-		_span.End()
-	}()
-	return _d.RepositoryInterface.DeleteDeliveryByID(ctx, deliveryID)
 }
 
 // DeleteEventByID implements RepositoryInterface

@@ -35,9 +35,17 @@ type fileConfig struct {
 	OTLP             *otlp.Config  `yaml:"otlp"`
 }
 
+// version is set at build time via -ldflags "-X main.version=...".
+var version = "dev"
+
 func main() {
 	configPath := flag.String("config", "sinks.yaml", "path to sinks config YAML")
+	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
+	if *showVersion {
+		fmt.Println("sparrow-sinks", version)
+		return
+	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

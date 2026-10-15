@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Automates docs/adr/0002-cli-module-split.md's "Releasing the split modules"
-# recipe: tag pkg/signature, then pkg/template, then satellites/recipes,
+# recipe: tag pkg/access, pkg/signature and pkg/template, then satellites/recipes,
 # satellites/sparrow-sinks, satellites/sparrow-sources and satellites/sparrow, each
 # with their working-tree `replace` directives stripped and `require`s pinned
 # to the version just tagged — so `go install .../satellites/sparrow@vX.Y.Z`
@@ -14,6 +14,7 @@
 # Usage:
 #   scripts/release-submodules.sh vX.Y.Z          # dry run: print the plan only
 #   scripts/release-submodules.sh vX.Y.Z --push   # tag and push each module for real
+#   scripts/release-submodules.sh vX.Y.Z-rc.1 --push  # release candidate (semver pre-release: never @latest)
 #
 # Safe to re-run: any module already tagged at the requested version is skipped.
 set -euo pipefail
@@ -22,8 +23,8 @@ VERSION="${1:?usage: $0 vX.Y.Z [--push]}"
 PUSH=0
 [[ "${2:-}" == "--push" ]] && PUSH=1
 
-if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-	echo "error: version must look like vX.Y.Z, got: $VERSION" >&2
+if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; then
+	echo "error: version must look like vX.Y.Z or vX.Y.Z-rc.N, got: $VERSION" >&2
 	exit 1
 fi
 
@@ -92,8 +93,7 @@ release_module() {
 
 release_leaf pkg/access "pkg/access/$VERSION"
 release_leaf pkg/signature "pkg/signature/$VERSION"
-release_module pkg/template "pkg/template/$VERSION" \
-	"github.com/sarathsp06/sparrow/pkg/signature@$VERSION"
+release_leaf pkg/template "pkg/template/$VERSION"
 release_module satellites/recipes "satellites/recipes/$VERSION" \
 	"github.com/sarathsp06/sparrow/pkg/template@$VERSION"
 release_module satellites/sparrow-sinks "satellites/sparrow-sinks/$VERSION" \

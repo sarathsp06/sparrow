@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/riverdriver/riverdatabasesql"
 	"github.com/riverqueue/river/rivertype"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
@@ -101,15 +103,27 @@ func (BatchJobArgs) Kind() string {
 
 type jobInserter struct {
 	client *river.Client[pgx.Tx]
-	logger *slog.Logger
+	// txClient inserts inside a database/sql transaction (the one the
+	// repositories use), so rows and their jobs commit together. It never
+	// works jobs.
+	txClient *river.Client[*sql.Tx]
+	logger   *slog.Logger
 }
 
-// NewJobInserter creates a new JobInserter
-func NewJobInserter(client *river.Client[pgx.Tx]) *jobInserter {
+// NewJobInserter creates a new JobInserter. txClient may be nil when
+// BatchInsertTx is never called.
+func NewJobInserter(client *river.Client[pgx.Tx], txClient *river.Client[*sql.Tx]) *jobInserter {
 	return &jobInserter{
-		client: client,
-		logger: slog.Default().With("component", "job-inserter"),
+		client:   client,
+		txClient: txClient,
+		logger:   slog.Default().With("component", "job-inserter"),
 	}
+}
+
+// NewTxInsertClient returns an insert-only River client for database/sql
+// transactions.
+func NewTxInsertClient() (*river.Client[*sql.Tx], error) {
+	return river.NewClient(riverdatabasesql.New(nil), &river.Config{})
 }
 
 // Insert inserts a job into the queue.
@@ -153,12 +167,29 @@ func (j *jobInserter) BatchInsert(ctx context.Context, args []river.JobArgs) ([]
 	return insertResults, nil
 }
 
+// BatchInsertTx inserts jobs inside tx: they become visible, and are
+// worked, only if tx commits.
+func (j *jobInserter) BatchInsertTx(ctx context.Context, tx *sql.Tx, args []river.JobArgs) error {
+	if j.txClient == nil {
+		return fmt.Errorf("job inserter has no transactional client")
+	}
+	params := make([]river.InsertManyParams, 0, len(args))
+	for _, arg := range args {
+		params = append(params, river.InsertManyParams{Args: arg, InsertOpts: j.InsertOpts(ctx, arg)})
+	}
+	if _, err := j.txClient.InsertManyTx(ctx, tx, params); err != nil {
+		return fmt.Errorf("failed to batch insert jobs in transaction: %w", err)
+	}
+	return nil
+}
+
 // QueueManagerInterface defines the interface for queue management.
 //
 //go:generate go tool gowrap gen -g -i JobInserter -t ../../../templates/opentelemetry.tmpl -o JobInserter_otel.go
 type JobInserter interface {
 	Insert(ctx context.Context, args river.JobArgs) (*rivertype.JobInsertResult, error)
 	BatchInsert(ctx context.Context, args []river.JobArgs) ([]*rivertype.JobInsertResult, error)
+	BatchInsertTx(ctx context.Context, tx *sql.Tx, args []river.JobArgs) error
 }
 
 var _ JobInserter = (*jobInserter)(nil)

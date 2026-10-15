@@ -14,15 +14,16 @@ Provides `/health` and `/ready` HTTP endpoints for liveness and readiness probes
 
 ```go
 type Checker struct {
-    dbPool       storage.DB
-    queueManager *queue.Manager
-    startTime    time.Time
+    dbPool    *pgxpool.Pool
+    startTime time.Time
+    draining  atomic.Bool
 }
 ```
 
-- `Health()` — DB ping + queue status, returns JSON with status, version, uptime, checks
-- `Ready()` — DB ping only
+- `Health()` — liveness: process only, never pings the database; always 200 with status, version, uptime
+- `Ready()` — 503 `draining` once `SetDraining()` was called (on SIGTERM), otherwise a DB ping
+- `SetDraining()` — called by `cmd/server` at the start of a graceful shutdown
 
 ## Citations
 
-- `internal/health/health.go`
+- `internal/health/checker.go`

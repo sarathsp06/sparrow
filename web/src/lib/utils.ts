@@ -58,7 +58,7 @@ function toJSONObject(content: Content): any {
 // -- Error category utilities --
 
 /**
- * All known error categories from pkg/errors/category.go.
+ * All known error categories from internal/errors/category.go.
  * Used to populate filter dropdowns consistently.
  */
 const ERROR_CATEGORIES = [

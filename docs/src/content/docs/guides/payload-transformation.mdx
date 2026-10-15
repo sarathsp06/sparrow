@@ -297,7 +297,11 @@ present but empty.
   stores or how it fans out — only the body each subscription receives.
 - **A template that fails is visible.** See [When a template fails](#when-a-template-fails).
 - **There are limits.** Output is capped at **1 MB** and execution at **5
-  seconds** per transform, so a runaway template can't stall a worker.
+  seconds** per transform. A render may also run at most 1,000,000 loop
+  iterations and template calls, and build at most 16 MB of strings and lists
+  along the way, so a runaway template can't stall a worker. When too many
+  templates are rendering at once, a delivery waits and is retried later
+  instead of failing, and a preview answers `503`.
 - **Why Go templates and not JavaScript?** See
   [Why Sparrow](/sparrow/getting-started/why-sparrow/) for the trade-off.
 

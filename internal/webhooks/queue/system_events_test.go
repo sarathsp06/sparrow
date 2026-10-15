@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"testing"
@@ -73,6 +74,10 @@ func (noopJobInserter) Insert(ctx context.Context, args river.JobArgs) (*riverty
 
 func (noopJobInserter) BatchInsert(ctx context.Context, args []river.JobArgs) ([]*rivertype.JobInsertResult, error) {
 	return nil, nil
+}
+
+func (noopJobInserter) BatchInsertTx(ctx context.Context, tx *sql.Tx, args []river.JobArgs) error {
+	return nil
 }
 
 func TestEmitHealthChangedEvent_SkipsNoOpTransition(t *testing.T) {

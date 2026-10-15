@@ -19,15 +19,15 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 
+	"github.com/sarathsp06/sparrow/internal/crypto"
 	"github.com/sarathsp06/sparrow/internal/migration"
 	"github.com/sarathsp06/sparrow/internal/rest"
+	storePg "github.com/sarathsp06/sparrow/internal/storage/postgres"
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	webhookclient "github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
-	"github.com/sarathsp06/sparrow/pkg/crypto"
-	storePg "github.com/sarathsp06/sparrow/pkg/storage/postgres"
 )
 
 const (

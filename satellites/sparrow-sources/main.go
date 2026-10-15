@@ -29,6 +29,7 @@ const usage = `sparrow-sources: push external events into Sparrow.
 
 Usage:
   sparrow-sources [--config sources.yaml]
+  sparrow-sources --version
 
 Config file (YAML):
   sparrow:                        # SPARROW_URL / SPARROW_API_KEY /
@@ -99,14 +100,22 @@ func loadConfig(path string) (*fileConfig, error) {
 	return &cfg, nil
 }
 
+// version is set at build time via -ldflags "-X main.version=...".
+var version = "dev"
+
 func main() {
 	fs := flag.NewFlagSet("sparrow-sources", flag.ExitOnError)
 	configPath := fs.String("config", "sources.yaml", "path to YAML config file")
+	showVersion := fs.Bool("version", false, "print the version and exit")
 	fs.Usage = func() {
 		fmt.Fprint(os.Stderr, usage)
 		fs.PrintDefaults()
 	}
 	_ = fs.Parse(os.Args[1:])
+	if *showVersion {
+		fmt.Println("sparrow-sources", version)
+		return
+	}
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	fail := func(msg string, err error) {

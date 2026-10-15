@@ -2,16 +2,17 @@ package webhooks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
+	"github.com/sarathsp06/sparrow/internal/storage"
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
-	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
-	"github.com/sarathsp06/sparrow/pkg/storage"
 	"github.com/sarathsp06/sparrow/pkg/template"
 )
 
@@ -90,6 +91,9 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, even
 		return "", time.Time{}, err
 	}
 	if err := validateHeaders("headers", headers); err != nil {
+		return "", time.Time{}, err
+	}
+	if err := validateSubscriptionTimeout(timeout); err != nil {
 		return "", time.Time{}, err
 	}
 
@@ -232,6 +236,9 @@ func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID 
 	if err := validateHeaders("headers", headers); err != nil {
 		return err
 	}
+	if err := validateSubscriptionTimeout(timeout); err != nil {
+		return err
+	}
 
 	sub, err := s.getSubscriptionInConsumer(ctx, subscriptionID, consumer)
 	if err != nil {
@@ -291,8 +298,8 @@ func (s *WebhookService) ListSubscriptionTemplateVersions(ctx context.Context, s
 // error naming that key instead of rendering "<no value>". AI draft
 // verification uses it with strict=true.
 func RenderTemplatePreview(eventName, transformTemplate string, payload map[string]any, strict bool) (string, error) {
-	engine := template.NewTemplateEngine()
-	data := template.NewWebhookTemplateContext(
+	engine := template.New()
+	data := template.NewWebhookContext(
 		"dry-run-event-id",
 		eventName,
 		time.Now().UTC().Format(time.RFC3339),
@@ -301,7 +308,7 @@ func RenderTemplatePreview(eventName, transformTemplate string, payload map[stri
 	)
 	result, err := engine.ExecuteWith(transformTemplate, data, template.ExecOptions{StrictMissingKeys: strict})
 	if err != nil {
-		return "", svcerrors.Wrapf(err, svcerrors.InvalidArgument, "template transformation failed: %v", err)
+		return "", templateRenderError(err)
 	}
 	return string(result), nil
 }
@@ -396,10 +403,10 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 		return "", svcerrors.Error(svcerrors.NotFound, "event not found")
 	}
 
-	engine := template.NewTemplateEngine()
+	engine := template.New()
 
 	// Create context for template
-	data := template.NewWebhookTemplateContext(
+	data := template.NewWebhookContext(
 		"dry-run-event-id",
 		eventName,
 		time.Now().UTC().Format(time.RFC3339),
@@ -409,14 +416,14 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 
 	result, err := engine.ExecuteWith(transformTemplate, data, template.ExecOptions{StrictMissingKeys: strict})
 	if err != nil {
-		return "", svcerrors.Wrapf(err, svcerrors.InvalidArgument, "template transformation failed: %v", err)
+		return "", templateRenderError(err)
 	}
 
 	return string(result), nil
 }
 
 func (s *WebhookService) GetTemplateFunctions() []TemplateFunctionInfo {
-	functions := template.GetTemplateFunctions()
+	functions := template.Functions()
 	res := make([]TemplateFunctionInfo, len(functions))
 	for i, f := range functions {
 		res[i] = TemplateFunctionInfo{
@@ -425,4 +432,13 @@ func (s *WebhookService) GetTemplateFunctions() []TemplateFunctionInfo {
 		}
 	}
 	return res
+}
+
+// templateRenderError maps a dry-run render failure: a busy engine is a
+// temporary condition (503), anything else is the template's fault (400).
+func templateRenderError(err error) error {
+	if errors.Is(err, template.ErrBusy) {
+		return svcerrors.Wrap(err, svcerrors.Unavailable, err.Error())
+	}
+	return svcerrors.Wrapf(err, svcerrors.InvalidArgument, "template transformation failed: %v", err)
 }

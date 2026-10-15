@@ -9,12 +9,12 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/sarathsp06/sparrow/internal/crypto"
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
 	"github.com/sarathsp06/sparrow/internal/observability"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
-	"github.com/sarathsp06/sparrow/pkg/crypto"
-	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
 )
 
 type WebhookService struct {

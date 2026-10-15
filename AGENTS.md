@@ -23,7 +23,7 @@
 | Lint | `make lint` | golangci-lint, 15m timeout |
 | Format | `make fmt` | `goimports -local github.com/sarathsp06/sparrow/ -w .` |
 | Run migrations | `make migrate` | Also runs automatically on server startup |
-| Generate spec + clients | `make generate` | Exports OpenAPI from Go, regenerates the Python client, then `go generate ./...` |
+| Generate spec | `make generate` | Exports OpenAPI from Go, then `go generate ./...`. Also regenerates `e2e/client/` (`make client-python`, pinned openapi-python-client): the Python client the e2e suite imports, checked in for the tests only. Users generate their own clients from `api/openapi.yaml` |
 | OTel wrapper codegen | `go generate ./...` | Uses gowrap for OTel tracing wrappers |
 
 ## Architecture
@@ -32,7 +32,7 @@
 - **REST/OpenAPI**: single HTTP transport on `:8080`. [Huma](https://github.com/danielgtaylor/huma) generates the OpenAPI 3.1 spec from Go handler structs; served interactively at `/docs` (Scalar), spec at `/openapi.yaml`/`/openapi.json`.
 - **Queue**: River (Postgres-backed). Default 20 event fan-out workers + 20 webhook delivery workers + 5 default (`SPARROW_EVENT_WORKERS`, `SPARROW_WEBHOOK_WORKERS`); `SPARROW_QUEUE_FETCH_COOLDOWN` (default `20ms`) bounds each queue at `workers / cooldown` jobs/s — River's default `100ms` capped delivery at ~200/s, which is how `cmd/benchmark -mode e2e` found it.
 - **DB**: pgxpool (50 conns, 10 min) for River + sqlx (25 conns) for app queries.
-- **Config**: env vars via `kelseyhightower/envconfig` — see `internal/config/config.go`.
+- **Config**: env vars via `kelseyhightower/envconfig` — see `internal/config/config.go`. A value of `""` or `-` means unset (`config.Load` unsets it before parsing, so defaults apply and the OTel exporters agree); never give an empty value its own meaning in a new variable.
 - **Logging**: `slog` JSON on stdout, bridged to OTel logs. `SPARROW_LOG_LEVEL` (`debug`/`info`/`warn`/`error`, default `info`) sets the level in `cmd/server/main.go` via `Config.SlogLevel`. `info` logs every event and delivery; keep per-request detail at `Debug` so busy instances can run at `warn`.
 
 ## Design Principles
@@ -56,12 +56,12 @@
 | `internal/webhooks/store/` | DB repository (sqlx, WithConn transaction pattern) |
 | `internal/webhooks/queue/` | River job types + workers |
 | `internal/middleware/` | Auth (master key + access tokens), CORS, portal gateway, security headers |
-| `internal/ai/` | AI-assisted transform template drafting behind a `completer` seam: `provider_anthropic.go` (SDK) and `provider_openai.go` (plain HTTP, any OpenAI-compatible server incl. Ollama/vLLM). Off unless configured (`SPARROW_AI_PROVIDER`, `SPARROW_AI_API_KEY`, `SPARROW_AI_BASE_URL`); exposed as `POST /v1/subscriptions:draftTemplate`, `POST /v1/subscriptions:draftTemplatePrompt` (prompt only, works with no provider: the UI's "Copy prompt for AI") + `GET /v1/capabilities` in `internal/rest/ai.go`. Drafts are verified through `TestSubscriptionTemplate` before being returned. The prompt (`prompt.go`) has three parts: a static template reference (system prompt, prefix-cached), the destination recipe (URL, content type, `guidance` on what a good message looks like, params, reference template), then the request (payload field outline, schema, sample, instructions) |
+| `internal/ai/` | AI-assisted transform template drafting behind a `completer` seam: `provider_anthropic.go` (SDK) and `provider_openai.go` (plain HTTP, any OpenAI-compatible server incl. Ollama/vLLM). Off unless `SPARROW_AI_ENABLED=true` (the only switch); the provider vars (`SPARROW_AI_PROVIDER`, `SPARROW_AI_API_KEY`, `SPARROW_AI_BASE_URL`, `SPARROW_AI_MODEL`) are then required, but a missing one never stops startup: `Config.AIConfigError` goes into `rest.AIDeps.ConfigErr`, `GET /v1/capabilities` reports it as `ai_drafting.problem`, and the draft endpoint answers 503 with it. The UI always offers Copy prompt; exposed as `POST /v1/subscriptions:draftTemplate`, `POST /v1/subscriptions:draftTemplatePrompt` (prompt only, works with no provider: the UI's "Copy prompt for AI") + `GET /v1/capabilities` in `internal/rest/ai.go`. Drafts are verified through `TestSubscriptionTemplate` before being returned. The prompt (`prompt.go`) has three parts: a static template reference (system prompt, prefix-cached), the destination recipe (URL, content type, `guidance` on what a good message looks like, params, reference template), then the request (payload field outline, schema, sample, instructions) |
 | `internal/accessauth/` | Sparrow adapter for `pkg/access` (realm, scope, prefixes, lifetime rules) |
 | `pkg/access/` | Separate Go module — reusable token/invite library (memstore, pgstore, storetest, httpauth) |
-| `pkg/storage/` | DB abstractions, transaction helpers, error sentinels |
-| `pkg/crypto/` | Envelope encryption (AES-256-GCM) |
-| `pkg/errors/` | Error categories, service errors, retryability |
+| `internal/storage/` | DB abstractions, transaction helpers, error sentinels |
+| `internal/crypto/` | Envelope encryption (AES-256-GCM) |
+| `internal/errors/` | Error categories, service errors, retryability |
 
 ## Authentication
 
@@ -180,7 +180,7 @@ huma.Register(api, huma.Operation{
 ## Known Gaps
 
 - No scheduled/delayed webhooks (not in Svix OSS either)
-- Limited client SDKs (Python only; generate others from `api/openapi.yaml` on demand)
+- No published client SDKs, by design: clients are generated from `api/openapi.yaml` (also served at `/openapi.yaml` and attached to each release). Only `pkg/signature` and the `client/verify/` samples are hand-written; `e2e/client/` is generated and checked in only because the e2e suite imports it
 - **No inbound API rate limiting.** Sparrow does not throttle its own `/v1/*` API — put a reverse proxy in front of it if the API is reachable from untrusted networks. (Outbound *delivery* rate limiting per webhook — `rate_limit_rps` / `webhook_rate_limit_state` — is unrelated and unaffected; it protects receivers from being hammered, not Sparrow's inbound API.)
 
 ## graphify

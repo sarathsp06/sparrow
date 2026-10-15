@@ -55,7 +55,7 @@
   let showHistory = $state(false);
 
   // AI drawer
-  let aiCapability = $state<{ enabled: boolean; model?: string; provider?: string; prompt_only?: boolean }>({ enabled: false });
+  let aiCapability = $state<{ enabled: boolean; model?: string; provider?: string; prompt_only?: boolean; problem?: string }>({ enabled: false });
   let aiOpen = $state(false);
   let aiInstructions = $state("");
   let aiRecipe = $state("");
@@ -337,7 +337,7 @@
       <div class="px-4 py-3 border-b border-line shrink-0 space-y-2 max-h-[45vh] overflow-y-auto" data-testid="ai-draft-panel" style="background:color-mix(in srgb,var(--color-beacon) 6%,var(--color-panel))">
         <div class="flex items-center justify-between">
           <span class="eyebrow">{aiCapability.enabled ? "Draft with AI" : "Prompt for AI"}</span>
-          <span class="text-[10px] text-faint">{aiCapability.enabled ? aiCapability.model : "No AI provider configured"}</span>
+          <span class="text-[10px] text-faint">{aiCapability.enabled ? (aiCapability.problem ? "Not usable — see below" : aiCapability.model) : "Draft with AI is off"}</span>
         </div>
         <div class="max-w-4xl space-y-2">
             <textarea bind:value={aiInstructions} rows="3" placeholder="What should the receiver get? e.g. “a short Slack message with the order id and total, prefixed with ⚠️ when status is refunded”" class="input !text-xs w-full" style="resize:vertical" data-testid="ai-instructions"></textarea>
@@ -375,18 +375,23 @@
                 </div>
               </div>
             {/if}
+            {#if aiCapability.enabled && aiCapability.problem}
+              <p class="text-xs" style="color:var(--color-bad)" data-testid="ai-problem">Draft with AI is enabled but not usable: {aiCapability.problem}</p>
+            {/if}
             <div class="flex items-center justify-between gap-3">
-              {#if aiCapability.enabled}
-                <p class="text-[10px] text-faint">Only the schema, the sample and your text go to the model.</p>
-                <button type="button" onclick={() => draftWithAI()} disabled={aiLoading || !aiInstructions.trim()} class="btn btn-beacon !px-3 !py-1 shrink-0" data-testid="ai-draft">
-                  {aiLoading ? "Drafting…" : aiRefine && draft.trim() ? "Refine template" : "Draft template"}
-                </button>
-              {:else}
-                <p class="text-[10px] text-faint">Paste the prompt into any chat assistant, then paste its template into the editor.</p>
-                <button type="button" onclick={copyPrompt} disabled={promptLoading || !aiInstructions.trim()} class="btn btn-beacon !px-3 !py-1 shrink-0" data-testid="copy-prompt">
+              <p class="text-[10px] text-faint">
+                {aiCapability.enabled ? "Only the schema, the sample and your text go to the model. Or copy the prompt into any chat assistant." : "Paste the prompt into any chat assistant, then paste its template into the editor."}
+              </p>
+              <div class="flex gap-2 shrink-0">
+                <button type="button" onclick={copyPrompt} disabled={promptLoading || !aiInstructions.trim()} class="btn {aiCapability.enabled ? 'btn-ghost' : 'btn-beacon'} !px-3 !py-1" data-testid="copy-prompt">
                   {promptLoading ? "Building…" : promptCopied ? "Copied ✓" : "Copy prompt"}
                 </button>
-              {/if}
+                {#if aiCapability.enabled}
+                  <button type="button" onclick={() => draftWithAI()} disabled={aiLoading || !aiInstructions.trim()} class="btn btn-beacon !px-3 !py-1" data-testid="ai-draft">
+                    {aiLoading ? "Drafting…" : aiRefine && draft.trim() ? "Refine template" : "Draft template"}
+                  </button>
+                {/if}
+              </div>
             </div>
             {#if aiConfirmReplace}
               <div class="flex items-center justify-between gap-3 panel p-2 rounded" data-testid="ai-confirm-replace">
@@ -401,7 +406,7 @@
               <p class="text-xs text-muted" data-testid="ai-draft-notes">{aiNotes}{#if aiAttempts > 1}{" "}<span class="text-faint">(repaired after {aiAttempts - 1} failed render{aiAttempts > 2 ? "s" : ""})</span>{/if}{#if aiSampleSource === "provided"}{" "}<span class="text-faint">(rendered against your edited sample)</span>{/if}</p>
             {/if}
             {#if aiError}<p class="text-xs" style="color:var(--color-bad)">{aiError}</p>{/if}
-            {#if !aiCapability.enabled && promptText}
+            {#if promptText}
               <details open={!promptCopied}>
                 <summary class="text-[10px] text-muted cursor-pointer">{promptCopied ? "Prompt copied to the clipboard · show it" : "Clipboard unavailable — select and copy the prompt below"}</summary>
                 <textarea readonly rows="6" class="input mono !text-[10px] w-full mt-1" style="resize:vertical" onclick={(e) => (e.currentTarget as HTMLTextAreaElement).select()}>{promptText}</textarea>

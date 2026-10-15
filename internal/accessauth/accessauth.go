@@ -14,10 +14,10 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/sarathsp06/sparrow/internal/crypto"
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/pkg/access"
 	"github.com/sarathsp06/sparrow/pkg/access/pgstore"
-	"github.com/sarathsp06/sparrow/pkg/crypto"
 )
 
 // Secret prefixes. Distinctive so leaked secrets are easy to spot and scan for.

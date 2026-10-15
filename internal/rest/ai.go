@@ -24,11 +24,17 @@ type TemplateDrafter interface {
 	Provider() string
 }
 
-// AIDeps wires optional AI features into Mount. A nil Drafter disables them:
-// the capabilities endpoint reports enabled=false and the draft endpoint
-// answers 503.
+// AIDeps wires optional AI features into Mount. With neither Drafter nor
+// ConfigErr set, drafting is off: the capabilities endpoint reports
+// enabled=false and the draft endpoint answers 503. The prompt endpoint
+// works in every case.
 type AIDeps struct {
 	Drafter TemplateDrafter
+	// ConfigErr is set when drafting is turned on (SPARROW_AI_ENABLED=true)
+	// but the provider settings are missing or invalid. Capabilities report
+	// enabled=true with the problem, and the draft endpoint answers 503
+	// with it, so the operator sees what to fix where the feature is used.
+	ConfigErr error
 	// Fetch reads a docs_url for the prompt endpoint when no drafter is
 	// configured (the drafter carries its own). Nil refuses docs_url.
 	Fetch ai.DocFetcher
@@ -39,7 +45,7 @@ type AIDeps struct {
 
 const defaultDraftTimeout = 3 * time.Minute
 
-func (d AIDeps) enabled() bool { return d.Drafter != nil }
+func (d AIDeps) enabled() bool { return d.Drafter != nil || d.ConfigErr != nil }
 
 func (d AIDeps) draftTimeout() time.Duration {
 	if d.Timeout > 0 {
@@ -63,9 +69,10 @@ func extendWriteDeadline(d time.Duration) func(huma.Context, func(huma.Context))
 type capabilitiesOutput struct {
 	Body struct {
 		AIDrafting struct {
-			Enabled    bool   `json:"enabled" doc:"True when the server is started with SPARROW_AI_API_KEY and POST /v1/subscriptions:draftTemplate is usable."`
+			Enabled    bool   `json:"enabled" doc:"True when the server is started with SPARROW_AI_ENABLED=true. POST /v1/subscriptions:draftTemplate is usable unless problem is set."`
+			Problem    string `json:"problem,omitempty" doc:"Why drafting is enabled but not usable: a missing or invalid provider setting. POST /v1/subscriptions:draftTemplate answers 503 with this text."`
 			Model      string `json:"model,omitempty" doc:"Model id used for drafting, when enabled."`
-			PromptOnly bool   `json:"prompt_only" doc:"True when no provider is configured: POST /v1/subscriptions:draftTemplatePrompt still builds the prompt for pasting into any chat assistant, while :draftTemplate answers 503."`
+			PromptOnly bool   `json:"prompt_only" doc:"True when drafting is off. POST /v1/subscriptions:draftTemplatePrompt builds the prompt for pasting into any chat assistant whatever this says."`
 			Provider   string `json:"provider,omitempty" enum:"anthropic,openai" doc:"Chat API behind drafting: anthropic, or openai for any OpenAI-compatible server (Ollama, vLLM, OpenRouter, OpenAI)."`
 		} `json:"ai_drafting" doc:"AI-assisted transform template drafting."`
 		AlertDelivery struct {
@@ -119,7 +126,10 @@ func registerAIRoutes(api huma.API, svc webhooks.WebhookServiceInterface, deps A
 		out := &capabilitiesOutput{}
 		out.Body.AIDrafting.Enabled = deps.enabled()
 		out.Body.AIDrafting.PromptOnly = !deps.enabled()
-		if deps.enabled() {
+		if deps.ConfigErr != nil {
+			out.Body.AIDrafting.Problem = deps.ConfigErr.Error()
+		}
+		if deps.Drafter != nil {
 			out.Body.AIDrafting.Model = deps.Drafter.Model()
 			out.Body.AIDrafting.Provider = deps.Drafter.Provider()
 		}
@@ -136,14 +146,17 @@ func registerAIRoutes(api huma.API, svc webhooks.WebhookServiceInterface, deps A
 		Method:      http.MethodPost,
 		Path:        "/v1/subscriptions:draftTemplate",
 		Summary:     "Draft a transform template with AI",
-		Description: "Drafts a transform_template from a plain-language description, grounded in the event type's JSON Schema and sample payload, the template helper catalog, and optionally a shipped recipe's destination format or an example body the receiver expects. Every draft is rendered against the sample payload (as POST /v1/subscriptions:testTemplate does) and repaired until it renders, so the returned template is known to work. Nothing is saved: put the template into a subscription's transform_template. Requires AI drafting to be configured on the server (SPARROW_AI_API_KEY for Anthropic, or SPARROW_AI_PROVIDER=openai with SPARROW_AI_BASE_URL for any OpenAI-compatible server); otherwise 503. Only the sample payload (registered or provided in the request), the schema, and the request's own text are sent to the model, never stored events, headers, or secrets.",
+		Description: "Drafts a transform_template from a plain-language description, grounded in the event type's JSON Schema and sample payload, the template helper catalog, and optionally a shipped recipe's destination format or an example body the receiver expects. Every draft is rendered against the sample payload (as POST /v1/subscriptions:testTemplate does) and repaired until it renders, so the returned template is known to work. Nothing is saved: put the template into a subscription's transform_template. Requires SPARROW_AI_ENABLED=true and the provider settings (SPARROW_AI_API_KEY for Anthropic, or SPARROW_AI_PROVIDER=openai with SPARROW_AI_BASE_URL and SPARROW_AI_MODEL for any OpenAI-compatible server); otherwise 503, naming the missing setting. Only the sample payload (registered or provided in the request), the schema, and the request's own text are sent to the model, never stored events, headers, or secrets.",
 		Errors:      []int{400, 404, 429, 503, 504},
 		Tags:        []string{"Subscriptions"},
 		// Room to write the answer (or the 504) after the draft's own budget.
 		Middlewares: huma.Middlewares{extendWriteDeadline(deps.draftTimeout() + 30*time.Second)},
 	}, func(ctx context.Context, in *draftTemplateInput) (*draftTemplateOutput, error) {
-		if !deps.enabled() {
-			return nil, huma.Error503ServiceUnavailable("AI drafting is not configured on this server (set SPARROW_AI_API_KEY, or SPARROW_AI_PROVIDER=openai with SPARROW_AI_BASE_URL); POST /v1/subscriptions:draftTemplatePrompt still builds a prompt you can paste into any chat assistant")
+		if deps.ConfigErr != nil {
+			return nil, huma.Error503ServiceUnavailable("AI drafting is enabled but not usable: " + deps.ConfigErr.Error() + ". POST /v1/subscriptions:draftTemplatePrompt still builds a prompt you can paste into any chat assistant")
+		}
+		if deps.Drafter == nil {
+			return nil, huma.Error503ServiceUnavailable("AI drafting is off on this server (set SPARROW_AI_ENABLED=true and the provider settings); POST /v1/subscriptions:draftTemplatePrompt still builds a prompt you can paste into any chat assistant")
 		}
 		req, sampleSource, err := buildDraftRequest(ctx, svc, in.Body)
 		if err != nil {

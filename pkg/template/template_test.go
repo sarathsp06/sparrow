@@ -7,7 +7,7 @@ import (
 )
 
 func TestNewTemplateEngine(t *testing.T) {
-	engine := NewTemplateEngine()
+	engine := New()
 
 	if engine == nil {
 		t.Fatal("Expected non-nil template engine")
@@ -24,7 +24,7 @@ func TestNewTemplateEngine(t *testing.T) {
 }
 
 func TestExecuteSimpleTemplate(t *testing.T) {
-	engine := NewTemplateEngine()
+	engine := New()
 
 	tmpl := `Hello {{.Name}}`
 	data := map[string]any{"Name": "World"}
@@ -41,7 +41,7 @@ func TestExecuteSimpleTemplate(t *testing.T) {
 }
 
 func TestExecuteEmptyTemplate(t *testing.T) {
-	engine := NewTemplateEngine()
+	engine := New()
 
 	result, err := engine.ExecuteWith("", nil, ExecOptions{})
 	if err != nil {
@@ -54,7 +54,7 @@ func TestExecuteEmptyTemplate(t *testing.T) {
 }
 
 func TestExecuteWithTemplateFunctions(t *testing.T) {
-	engine := NewTemplateEngine()
+	engine := New()
 
 	tests := []struct {
 		name     string
@@ -97,7 +97,7 @@ func TestExecuteWithTemplateFunctions(t *testing.T) {
 }
 
 func TestExecuteReshapeFunctions(t *testing.T) {
-	engine := NewTemplateEngine()
+	engine := New()
 
 	tests := []struct {
 		name     string
@@ -169,7 +169,7 @@ func TestExecuteReshapeFunctions(t *testing.T) {
 }
 
 func TestReshapeFunctionErrors(t *testing.T) {
-	engine := NewTemplateEngine()
+	engine := New()
 
 	tests := []struct {
 		name     string
@@ -191,7 +191,7 @@ func TestReshapeFunctionErrors(t *testing.T) {
 }
 
 func TestExecuteInvalidTemplate(t *testing.T) {
-	engine := NewTemplateEngine()
+	engine := New()
 
 	tmpl := `{{.Name | invalid_function}}`
 	data := map[string]any{"Name": "World"}
@@ -203,7 +203,7 @@ func TestExecuteInvalidTemplate(t *testing.T) {
 }
 
 func TestTemplateCaching(t *testing.T) {
-	engine := NewTemplateEngine()
+	engine := New()
 
 	tmpl := `Hello {{.Name}}`
 	data := map[string]any{"Name": "World"}
@@ -226,7 +226,7 @@ func TestTemplateCaching(t *testing.T) {
 }
 
 func TestExecuteComplexTemplate(t *testing.T) {
-	engine := NewTemplateEngine()
+	engine := New()
 
 	tmpl := `
 {
@@ -236,7 +236,7 @@ func TestExecuteComplexTemplate(t *testing.T) {
   "user_email": "{{.payload.email | lower}}"
 }
 `
-	data := WebhookTemplateContext{
+	data := WebhookContext{
 		"event_id":   "event-123",
 		"event_name": "user.created",
 		"payload": map[string]any{
@@ -266,7 +266,7 @@ func TestExecuteComplexTemplate(t *testing.T) {
 }
 
 func BenchmarkExecuteSimple(b *testing.B) {
-	engine := NewTemplateEngine()
+	engine := New()
 	tmpl := `Hello {{.Name}}`
 	data := map[string]any{"Name": "World"}
 
@@ -277,9 +277,9 @@ func BenchmarkExecuteSimple(b *testing.B) {
 }
 
 func BenchmarkExecuteComplex(b *testing.B) {
-	engine := NewTemplateEngine()
+	engine := New()
 	tmpl := `{"id": "{{.event_id}}", "name": "{{.event_name | upper}}", "payload": {{.payload | json}}}`
-	data := WebhookTemplateContext{
+	data := WebhookContext{
 		"event_id":   "event-123",
 		"event_name": "user.created",
 		"payload": map[string]any{
@@ -295,10 +295,10 @@ func BenchmarkExecuteComplex(b *testing.B) {
 }
 
 func TestExecuteTimeout(t *testing.T) {
-	engine := NewTemplateEngine()
+	engine := New()
 
 	// This template creates a deeply nested loop that burns CPU.
-	// With the timeout, it should be interrupted within TemplateExecutionTimeout.
+	// With the timeout, it should be interrupted within ExecutionTimeout.
 	tmpl := `{{range $a := split "," "a,b,c,d,e,f,g,h,i,j"}}{{range $b := split "," "a,b,c,d,e,f,g,h,i,j"}}{{range $c := split "," "a,b,c,d,e,f,g,h,i,j"}}{{range $d := split "," "a,b,c,d,e,f,g,h,i,j"}}{{range $e := split "," "a,b,c,d,e,f,g,h,i,j"}}{{range $f := split "," "a,b,c,d,e,f,g,h,i,j"}}{{range $g := split "," "a,b,c,d,e,f,g,h,i,j"}}{{$a}}{{end}}{{end}}{{end}}{{end}}{{end}}{{end}}{{end}}`
 
 	start := time.Now()
@@ -311,14 +311,14 @@ func TestExecuteTimeout(t *testing.T) {
 	}
 
 	// Should complete within a reasonable margin above the timeout
-	maxExpected := TemplateExecutionTimeout + 2*time.Second
+	maxExpected := ExecutionTimeout + 2*time.Second
 	if elapsed > maxExpected {
 		t.Errorf("Template execution took %v, expected to be interrupted within %v", elapsed, maxExpected)
 	}
 }
 
 func TestRejectsUnboundedLoops(t *testing.T) {
-	engine := NewTemplateEngine()
+	engine := New()
 
 	rejected := map[string]string{
 		"integer literal":        `{{range 2000000000}}{{end}}`,

@@ -29,4 +29,4 @@ All webhook delivery outcomes are classified into categories for retry decisions
 
 ## Citations
 
-- `pkg/errors/` — implementation
+- `internal/errors/` — implementation

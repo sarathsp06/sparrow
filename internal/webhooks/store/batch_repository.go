@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/sarathsp06/sparrow/pkg/storage"
+	"github.com/sarathsp06/sparrow/internal/storage"
 )
 
 // BatchRepository defines operations for batch jobs.

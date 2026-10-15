@@ -14,7 +14,7 @@ oversight. Revisit when the stated condition changes.
 | SSRF / private-network target blocking | The e2e env sets `SPARROW_ALLOW_PRIVATE_NETWORKS=true` by necessity (targets are local containers), so the guard is unobservable here. Unit-test the validator instead. |
 | Payload size limit (`SPARROW_MAX_BODY_BYTES`) | Pushing >1 MiB bodies through Gauge/requests is slow and proves only that chi's body limiter works. Unit/integration territory. |
 | Load, concurrency, throughput | Not a correctness suite. Benchmarks/soak tests are a separate concern. |
-| Encryption-at-rest of webhook secrets | Not observable from the API surface (secrets never round-trip). Covered by `pkg/crypto` unit tests. |
+| Encryption-at-rest of webhook secrets | Not observable from the API surface (secrets never round-trip). Covered by `internal/crypto` unit tests. |
 | Migrations / advisory-lock concurrency | Every e2e run exercises startup migration implicitly; concurrent-instance locking needs a dedicated integration test, not Gauge. |
 
 ## API surface deliberately not e2e-tested (removal / design candidates)

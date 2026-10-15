@@ -1,7 +1,7 @@
 package store
 
 import (
-	"github.com/sarathsp06/sparrow/pkg/storage"
+	"github.com/sarathsp06/sparrow/internal/storage"
 )
 
 // Repository provides data access layer for webhook operations.

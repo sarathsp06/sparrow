@@ -3,6 +3,9 @@ package queue
 import (
 	"testing"
 
+	"github.com/riverqueue/river"
+
+	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
@@ -30,5 +33,14 @@ func TestStatusForFailure(t *testing.T) {
 				t.Errorf("statusForFailure(%d, %d) = %q, want %q", tc.attempt, tc.maxAttempts, got, tc.want)
 			}
 		})
+	}
+}
+
+// The job must outlive the slowest permitted receiver, or River cancels it
+// before the HTTP client times out and no attempt is recorded.
+func TestWebhookWorkerTimeoutCoversMaxRequestTimeout(t *testing.T) {
+	w := &WebhookWorker{}
+	if got := w.Timeout(&river.Job[WebhookArgs]{}); got <= client.MaxRequestTimeout {
+		t.Fatalf("Timeout() = %v, want more than the %v request timeout cap", got, client.MaxRequestTimeout)
 	}
 }

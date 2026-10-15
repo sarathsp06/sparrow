@@ -31,33 +31,47 @@ curl -X POST "http://localhost:8080/v1/consumers/payments/events?event=invoice.p
 
 ## Generating a client
 
-The OpenAPI spec is committed at `api/openapi.yaml` (also `api/openapi.json`) and regenerated from
-the Go REST definitions in `internal/rest` (via [Huma](https://github.com/danielgtaylor/huma)):
+Sparrow publishes **no SDK packages**. Generate the client in your own project, from the spec of the
+Sparrow version you run, with a standard generator. That keeps the client
+exactly in step with your server, in your language, with no SDK release to
+wait for.
+
+**Get the spec that matches your server.** Any of these is the same file:
+
+- From the running server: `GET /openapi.yaml` (or `/openapi.json`). It needs
+  no API key.
+- From the GitHub release you deploy: `openapi.yaml` and `openapi.json` are
+  attached to every release.
+- From the repository at that release's tag: `api/openapi.yaml`.
 
 ```bash
-make generate
+curl -fsS https://sparrow.internal/openapi.yaml -o sparrow-openapi.yaml
 ```
 
-Point any OpenAPI 3.1-compatible generator at that file:
+**Regenerate when you upgrade Sparrow.** Within `/v1`, changes are additive
+(see [Compatibility](/sparrow/reference/compatibility/)), so a client
+generated from an older spec keeps working against a newer server; it just
+does not know the new fields and endpoints yet. Commit the spec file you
+generated from, or the generated code, in **your** project, whichever your
+build prefers.
 
 <Aside type="tip" title="Any language works">
-Sparrow ships **no hand-written SDK** — the API is pure OpenAPI 3.1, so a client is
-*generated*, never maintained by us. The tabs below (Python, TypeScript, Go) are just
-examples; point any [OpenAPI generator](https://openapi-generator.tech/docs/generators/)
-at `api/openapi.yaml` to get a typed client for Java, C#, Rust, Ruby, PHP, Kotlin, Swift,
-and dozens more — or skip generation entirely and call the endpoints with plain HTTP.
+The tabs below (Python, TypeScript, Go) are examples. Point any
+[OpenAPI generator](https://openapi-generator.tech/docs/generators/) at the
+spec to get a typed client for Java, C#, Rust, Ruby, PHP, Kotlin, Swift and
+more, or skip generation and call the endpoints with plain HTTP.
 </Aside>
 
 <Tabs>
   <TabItem label="Python">
 
 Generated with [`openapi-python-client`](https://github.com/openapi-generators/openapi-python-client)
-(typed, `httpx`/`attrs`-based) into `client/python`:
+(typed, `httpx`/`attrs`-based):
 
 ```bash
 uvx openapi-python-client generate \
-  --path api/openapi.yaml \
-  --output-path client/python --overwrite
+  --path sparrow-openapi.yaml \
+  --output-path sparrow_client --overwrite
 ```
 
 ```python
@@ -82,7 +96,7 @@ resp = register_webhook.sync_detailed(
   <TabItem label="TypeScript">
 
 ```bash
-npx openapi-typescript api/openapi.yaml -o client/ts/schema.d.ts
+npx openapi-typescript sparrow-openapi.yaml -o src/sparrow/schema.d.ts
 ```
 
 Use with any typed fetch wrapper (for example [`openapi-fetch`](https://openapi-ts.dev/openapi-fetch/)).
@@ -93,11 +107,25 @@ Use with any typed fetch wrapper (for example [`openapi-fetch`](https://openapi-
 ```bash
 go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest \
   -generate types,client -package sparrow \
-  api/openapi.yaml > client/go/sparrow.gen.go
+  sparrow-openapi.yaml > sparrow/sparrow.gen.go
 ```
 
   </TabItem>
 </Tabs>
 
-All generated client code is derived from `api/openapi.yaml`; do not edit it by hand — regenerate
-instead.
+Treat generated code as build output: don't edit it by hand, regenerate it.
+
+Sparrow's own end-to-end suite works the same way. Its Python client is
+generated from `api/openapi.yaml` (`make client-python`) and **checked in at
+`e2e/client/`, only because the e2e tests import it**. It is test code, not a
+supported SDK: don't depend on it, generate your own.
+
+## Hand-written code
+
+Two things are hand-written, because they run on the receiving side and are
+small enough to vendor:
+
+- [`pkg/signature`](https://pkg.go.dev/github.com/sarathsp06/sparrow/pkg/signature),
+  the Go library that verifies delivery signatures.
+- `client/verify/`, sample verifiers in eight other languages. See
+  [Verifying signatures](/sparrow/guides/verify-signatures/).

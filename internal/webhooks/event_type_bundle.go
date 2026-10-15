@@ -16,10 +16,10 @@ import (
 	jsonschema "github.com/kaptinlin/jsonschema"
 
 	"github.com/sarathsp06/sparrow"
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
+	"github.com/sarathsp06/sparrow/internal/storage"
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
-	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
-	"github.com/sarathsp06/sparrow/pkg/storage"
 	"github.com/sarathsp06/sparrow/pkg/template"
 )
 
@@ -410,7 +410,7 @@ func checkTemplates(def EventTypeDefinition, subs []*store.EventSubscription) *T
 		{"sample", generatePayload(def.Schema, true)},
 		{"required_only", generatePayload(def.Schema, false)},
 	}
-	engine := template.NewTemplateEngine()
+	engine := template.New()
 	strict := template.ExecOptions{StrictMissingKeys: true}
 	for _, sub := range subs {
 		if sub.EventName == store.CatchAllEventName {
@@ -422,7 +422,7 @@ func checkTemplates(def EventTypeDefinition, subs []*store.EventSubscription) *T
 		}
 		failed := false
 		for _, p := range payloads {
-			ctx := template.NewWebhookTemplateContext("import-check", def.Name, time.Now().UTC().Format(time.RFC3339), 1, p.data)
+			ctx := template.NewWebhookContext("import-check", def.Name, time.Now().UTC().Format(time.RFC3339), 1, p.data)
 			if _, err := engine.ExecuteWith(sub.TransformTemplate, ctx, strict); err != nil {
 				check.Failures = append(check.Failures, TemplateCheckFailure{
 					SubscriptionID: sub.ID.String(),

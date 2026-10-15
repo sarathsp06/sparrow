@@ -3,6 +3,7 @@ package webhooks
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"strings"
 	"testing"
 	"time"
@@ -15,9 +16,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	cryptosvc "github.com/sarathsp06/sparrow/internal/crypto"
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
-	cryptosvc "github.com/sarathsp06/sparrow/pkg/crypto"
-	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
 )
 
 type mockJobInserter struct {
@@ -40,6 +41,10 @@ func (m *mockJobInserter) BatchInsert(ctx context.Context, args []river.JobArgs)
 		return nil, callArgs.Error(1)
 	}
 	return res.([]*rivertype.JobInsertResult), callArgs.Error(1)
+}
+
+func (m *mockJobInserter) BatchInsertTx(ctx context.Context, tx *sql.Tx, args []river.JobArgs) error {
+	return m.Called(ctx, tx, args).Error(0)
 }
 
 type mockRepo struct {

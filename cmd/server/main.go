@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"log/slog"
@@ -18,14 +19,17 @@ import (
 	slogotel "github.com/remychantenay/slog-otel"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
+	"github.com/sarathsp06/sparrow"
 	"github.com/sarathsp06/sparrow/internal/accessauth"
 	"github.com/sarathsp06/sparrow/internal/ai"
 	"github.com/sarathsp06/sparrow/internal/config"
+	"github.com/sarathsp06/sparrow/internal/crypto"
 	"github.com/sarathsp06/sparrow/internal/health"
 	"github.com/sarathsp06/sparrow/internal/middleware"
 	"github.com/sarathsp06/sparrow/internal/migration"
 	"github.com/sarathsp06/sparrow/internal/observability"
 	"github.com/sarathsp06/sparrow/internal/rest"
+	"github.com/sarathsp06/sparrow/internal/storage/postgres"
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/ui"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
@@ -33,11 +37,17 @@ import (
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"github.com/sarathsp06/sparrow/pkg/access/httpauth"
-	"github.com/sarathsp06/sparrow/pkg/crypto"
-	"github.com/sarathsp06/sparrow/pkg/storage/postgres"
 )
 
 func main() {
+	showVersion := flag.Bool("version", false, "print the version and exit")
+	migrateOnly := flag.Bool("migrate", false, "run database migrations and exit (for a pre-deploy job)")
+	flag.Parse()
+	if *showVersion {
+		fmt.Println("sparrow-server", sparrow.Version)
+		return
+	}
+
 	// Load .env file if present, but only outside production.
 	// In production containers a .env file should not exist, but if one
 	// is accidentally present it could silently override critical env vars
@@ -119,6 +129,9 @@ func main() {
 		log.Fatalf("Failed to run database migrations: %v", err)
 	}
 	fmt.Println("✅ Database migrations completed")
+	if *migrateOnly {
+		return
+	}
 
 	// Create database connection pool for River queue workers.
 	// River runs 45 concurrent workers (20 events + 20 webhooks + 5 default)
@@ -236,7 +249,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create queue manager: %v", err)
 	}
-	defer func() { _ = queueManager.Stop(ctx) }()
 	if cfg.AutoDisableAfter > 0 {
 		fmt.Printf("⏸️  Webhooks auto-disable after %s of failures (min %d in a row)\n", cfg.AutoDisableAfter, autoDisable.MinFailures)
 	}
@@ -257,7 +269,7 @@ func main() {
 	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(cfg.AllowPrivateNetworks), webhooks.WithAllowedNetworks(cfg.AllowedNetworkList()), webhooks.WithAutoRegisterEvents(cfg.AutoRegisterEvents))
 	tracedWebhookService := webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, "")
 
-	// AI-assisted template drafting is opt-in (SPARROW_AI_*). Drafts are
+	// AI-assisted template drafting is opt-in (SPARROW_AI_ENABLED). Drafts are
 	// verified through the same dry-run the editor's preview uses. The
 	// prompt endpoint and its docs_url fetch work without a provider, so an
 	// install with no AI still gets a copy-and-paste prompt.
@@ -265,6 +277,9 @@ func main() {
 	fetch := ai.NewDocFetcher(client.NetworkPolicy{AllowPrivate: cfg.AllowPrivateNetworks, AllowedNetworks: cfg.AllowedNetworkList()})
 	aiDeps := rest.AIDeps{Fetch: fetch, Timeout: cfg.AITimeout}
 	if cfg.AIEnabled() {
+		aiDeps.ConfigErr = cfg.AIConfigError()
+	}
+	if cfg.AIEnabled() && aiDeps.ConfigErr == nil {
 		helpers := make([]ai.HelperFunc, 0)
 		for _, f := range tracedWebhookService.GetTemplateFunctions() {
 			helpers = append(helpers, ai.HelperFunc{Name: f.Name, Description: f.Description})
@@ -276,9 +291,10 @@ func main() {
 		}
 		drafter, err := ai.New(ai.Config{Provider: ai.Provider(cfg.AIProviderName()), APIKey: cfg.AIAPIKey, Model: cfg.AIModelOrDefault(), BaseURL: cfg.AIBaseURL}, render, helpers, fetch)
 		if err != nil {
-			log.Fatalf("Failed to configure AI drafting: %v", err)
+			aiDeps.ConfigErr = err
+		} else {
+			aiDeps.Drafter = drafter
 		}
-		aiDeps.Drafter = drafter
 	}
 
 	// Create chi router for the REST API, health endpoints, and embedded UI.
@@ -391,10 +407,13 @@ func main() {
 	} else {
 		fmt.Println("   Auth: disabled (set SPARROW_API_KEY to enable)")
 	}
-	if cfg.AIEnabled() {
+	switch {
+	case aiDeps.Drafter != nil:
 		fmt.Printf("   AI drafting: enabled (%s via %s)\n", cfg.AIModelOrDefault(), cfg.AIProviderName())
-	} else {
-		fmt.Println("   AI drafting: prompt-only (the editor offers a copy-and-paste prompt; set SPARROW_AI_API_KEY, or SPARROW_AI_PROVIDER=openai with SPARROW_AI_BASE_URL, to draft in place)")
+	case aiDeps.ConfigErr != nil:
+		fmt.Printf("   AI drafting: enabled but not usable: %v\n", aiDeps.ConfigErr)
+	default:
+		fmt.Println("   AI drafting: off (set SPARROW_AI_ENABLED=true to draft in place; the copy-and-paste prompt works either way)")
 	}
 	if otelShutdown != nil {
 		fmt.Printf("   OTLP endpoint: %s\n", otelConfig.OTLPEndpoint)
@@ -402,10 +421,12 @@ func main() {
 	fmt.Println("   Press Ctrl+C to stop...")
 	<-sigChan
 
-	fmt.Println("\n🛑 Shutting down...")
+	fmt.Printf("\n🛑 Shutting down (up to %s)...\n", cfg.ShutdownTimeoutOrDefault())
 
-	// Graceful shutdown
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// Graceful shutdown: one budget for everything. Readiness goes first so
+	// load balancers stop sending traffic while in-flight work finishes.
+	healthChecker.SetDraining()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeoutOrDefault())
 	defer cancel()
 
 	// Shutdown HTTP server
@@ -413,7 +434,9 @@ func main() {
 		log.Printf("HTTP server shutdown error: %v", err)
 	}
 
-	_ = queueManager.Stop(shutdownCtx)
+	if err := queueManager.Stop(shutdownCtx); err != nil {
+		log.Printf("Queue shutdown error: %v", err)
+	}
 	fmt.Println("👋 Shutdown complete")
 }
 

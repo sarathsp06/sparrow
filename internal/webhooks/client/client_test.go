@@ -224,10 +224,8 @@ func TestSendFailure(t *testing.T) {
 		Payload:    []byte(`{"test": "data"}`),
 		EventID:    uuid.New(),
 		EventName:  "test.event",
+		Timeout:    100 * time.Millisecond, // speeds up the test
 	}
-
-	// Set a very short timeout to speed up the test
-	client.httpClient.Timeout = 100 * time.Millisecond
 
 	_, duration, err := client.Send(ctx, req)
 	if err == nil {
@@ -441,7 +439,7 @@ func TestDeliverySpansDoNotExportSecretURLs(t *testing.T) {
 	}
 	for _, s := range spans {
 		for _, kv := range s.Attributes() {
-			if v := kv.Value.Emit(); strings.Contains(v, "SUPERSECRET") || strings.Contains(v, "ALSOSECRET") {
+			if v := kv.Value.String(); strings.Contains(v, "SUPERSECRET") || strings.Contains(v, "ALSOSECRET") {
 				t.Fatalf("span %q attribute %s leaks the webhook URL: %s", s.Name(), kv.Key, v)
 			}
 			if kv.Key == "url.full" && !strings.HasSuffix(kv.Value.AsString(), "/…") {
@@ -499,5 +497,37 @@ func TestSendReusesConnections(t *testing.T) {
 
 	if got := newConns.Load(); got != 1 {
 		t.Fatalf("expected %d sequential sends to reuse one connection, server saw %d new connections", n, got)
+	}
+}
+
+// A webhook's request timeout may exceed the client default (up to 300s):
+// the default applies only to requests without one, never as a cap.
+func TestSendRequestTimeoutOverridesClientDefault(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(150 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	cfg := DefaultConfig()
+	cfg.Timeout = 50 * time.Millisecond
+	cfg.AllowPrivateNetworks = true
+	c := NewWebhookClient(cfg)
+
+	send := func(timeout time.Duration) error {
+		resp, _, err := c.Send(context.Background(), &DeliveryRequest{
+			WebhookID: uuid.New(), DeliveryID: "d", URL: srv.URL, Method: http.MethodPost,
+			Payload: []byte(`{}`), EventID: uuid.New(), Timeout: timeout,
+		})
+		if err == nil {
+			_ = resp.Body.Close()
+		}
+		return err
+	}
+	if err := send(time.Second); err != nil {
+		t.Fatalf("request with a 1s timeout against a 150ms receiver failed: %v", err)
+	}
+	if err := send(0); err == nil {
+		t.Fatal("request without a timeout should use the 50ms client default and time out")
 	}
 }

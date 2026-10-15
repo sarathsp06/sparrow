@@ -2,6 +2,8 @@ package config
 
 import (
 	"log/slog"
+	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -70,6 +72,16 @@ func TestValidate(t *testing.T) {
 		{"auto-disable off", func(c *Config) { c.AutoDisableAfter = 0 }, ""},
 		{"negative auto-disable failure minimum", func(c *Config) { c.AutoDisableMinFailures = -1 }, "SPARROW_AUTO_DISABLE_MIN_FAILURES"},
 		{"body limit below minimum", func(c *Config) { c.MaxBodyBytes = 1024 }, "SPARROW_MAX_BODY_BYTES"},
+		{"all-zeros key in production", func(c *Config) {
+			c.Environment = "production"
+			c.APIKey = strings.Repeat("k", 32)
+			c.EncryptionKeys = []string{"old=" + strings.Repeat("0", 64), "new=" + strings.Repeat("ab", 32)}
+		}, "all zeros"},
+		{"all-zeros key outside production", func(c *Config) {
+			c.EncryptionKeys = []string{"new=" + strings.Repeat("0", 64)}
+		}, ""},
+		{"negative shutdown timeout", func(c *Config) { c.ShutdownTimeout = -time.Second }, "SPARROW_SHUTDOWN_TIMEOUT"},
+		{"custom shutdown timeout", func(c *Config) { c.ShutdownTimeout = 25 * time.Second }, ""},
 	}
 
 	for _, tt := range tests {
@@ -117,42 +129,81 @@ func TestAIConfig(t *testing.T) {
 		return &Config{HTTPPort: "8080", DatabaseURL: "postgres://localhost/x", EncryptionKeys: []string{"main=" + strings.Repeat("00", 32)}, EncryptionPrimaryKeyID: "main", MaxCapturedResponseBytes: 1024, MaxBodyBytes: 1 << 20}
 	}
 	cases := []struct {
-		name    string
-		mut     func(c *Config)
-		wantErr string
-		enabled bool
-		model   string
+		name       string
+		mut        func(c *Config)
+		enabled    bool
+		problem    string // substring of AIConfigError, "" for none
+		model      string
+		warnAIVars bool
 	}{
-		{"unset is off", func(c *Config) {}, "", false, "claude-haiku-4-5"},
-		{"anthropic key enables with default model", func(c *Config) { c.AIAPIKey = "k" }, "", true, "claude-haiku-4-5"},
-		{"anthropic explicit model", func(c *Config) { c.AIAPIKey = "k"; c.AIModel = "claude-sonnet-5-5" }, "", true, "claude-sonnet-5-5"},
-		{"openai without base url is off", func(c *Config) { c.AIProvider = "openai" }, "", false, ""},
-		{"openai with base url needs model", func(c *Config) { c.AIProvider = "openai"; c.AIBaseURL = "http://localhost:11434/v1" }, "SPARROW_AI_MODEL is required", true, ""},
+		{"off by default", func(c *Config) {}, false, "", "claude-haiku-4-5", false},
+		{"a key alone does not turn it on", func(c *Config) { c.AIAPIKey = "k" }, false, "", "claude-haiku-4-5", true},
+		{"anthropic on with key", func(c *Config) { c.AIDrafting = true; c.AIAPIKey = "k" }, true, "", "claude-haiku-4-5", false},
+		{"anthropic explicit model", func(c *Config) { c.AIDrafting = true; c.AIAPIKey = "k"; c.AIModel = "claude-sonnet-5-5" }, true, "", "claude-sonnet-5-5", false},
+		{"anthropic on without key", func(c *Config) { c.AIDrafting = true }, true, "SPARROW_AI_API_KEY is not set", "claude-haiku-4-5", false},
+		{"openai on without base url", func(c *Config) { c.AIDrafting = true; c.AIProvider = "openai"; c.AIAPIKey = "k"; c.AIModel = "m" }, true, "SPARROW_AI_BASE_URL is not set", "m", false},
+		{"openai on without model", func(c *Config) {
+			c.AIDrafting = true
+			c.AIProvider = "openai"
+			c.AIBaseURL = "http://localhost:11434/v1"
+		}, true, "SPARROW_AI_MODEL is not set", "", false},
 		{"openai local server, no key", func(c *Config) {
+			c.AIDrafting = true
 			c.AIProvider = "openai"
 			c.AIBaseURL = "http://localhost:11434/v1"
 			c.AIModel = "llama3.2"
-		}, "", true, "llama3.2"},
-		{"openai key without base url", func(c *Config) { c.AIProvider = "openai"; c.AIAPIKey = "k"; c.AIModel = "m" }, "SPARROW_AI_BASE_URL is required", true, "m"},
-		{"unknown provider", func(c *Config) { c.AIProvider = "gemini" }, "not supported", false, ""},
-		{"bad base url", func(c *Config) { c.AIAPIKey = "k"; c.AIBaseURL = "localhost:11434" }, "not an absolute URL", true, "claude-haiku-4-5"},
+		}, true, "", "llama3.2", false},
+		{"unknown provider", func(c *Config) { c.AIDrafting = true; c.AIProvider = "gemini" }, true, "not supported", "", false},
+		{"bad base url", func(c *Config) { c.AIDrafting = true; c.AIAPIKey = "k"; c.AIBaseURL = "localhost:11434" }, true, "not an absolute URL", "claude-haiku-4-5", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			c := base()
 			tc.mut(c)
-			err := c.Validate()
-			switch {
-			case tc.wantErr == "" && err != nil:
-				t.Fatalf("Validate() = %v", err)
-			case tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)):
-				t.Fatalf("Validate() = %v, want containing %q", err, tc.wantErr)
+			if err := c.Validate(); err != nil {
+				t.Fatalf("Validate() = %v; AI settings must never stop startup", err)
 			}
 			if c.AIEnabled() != tc.enabled {
 				t.Fatalf("AIEnabled() = %v, want %v", c.AIEnabled(), tc.enabled)
 			}
+			err := c.AIConfigError()
+			switch {
+			case tc.problem == "" && err != nil:
+				t.Fatalf("AIConfigError() = %v", err)
+			case tc.problem != "" && (err == nil || !strings.Contains(err.Error(), tc.problem)):
+				t.Fatalf("AIConfigError() = %v, want containing %q", err, tc.problem)
+			}
 			if c.AIModelOrDefault() != tc.model {
 				t.Fatalf("AIModelOrDefault() = %q, want %q", c.AIModelOrDefault(), tc.model)
+			}
+			warned := strings.Contains(strings.Join(c.Warnings(), "\n"), "SPARROW_AI_ENABLED is not true")
+			if warned != tc.warnAIVars {
+				t.Fatalf("warning about AI vars without the switch = %v, want %v", warned, tc.warnAIVars)
+			}
+		})
+	}
+}
+
+func TestLoadTreatsBlankAsUnset(t *testing.T) {
+	for _, blank := range []string{"", "-", "  ", " - "} {
+		t.Run(strconv.Quote(blank), func(t *testing.T) {
+			t.Setenv("SPARROW_AI_API_KEY", blank)
+			t.Setenv("SPARROW_AI_ENABLED", blank)
+			t.Setenv("SPARROW_AI_TIMEOUT", blank)
+			t.Setenv("SPARROW_HTTP_PORT", blank)
+			t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", blank)
+			c, err := Load()
+			if err != nil {
+				t.Fatalf("Load() = %v", err)
+			}
+			if c.AIEnabled() || c.AIAPIKey != "" {
+				t.Fatalf("AI drafting on with SPARROW_AI_API_KEY=%q", blank)
+			}
+			if c.AITimeout != 3*time.Minute || c.HTTPPort != "8080" {
+				t.Fatalf("defaults not applied: AITimeout=%s HTTPPort=%q", c.AITimeout, c.HTTPPort)
+			}
+			if _, set := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT"); set {
+				t.Fatalf("OTEL_EXPORTER_OTLP_ENDPOINT=%q still set; the OTel exporters read it directly", blank)
 			}
 		})
 	}
@@ -170,5 +221,30 @@ func TestSlogLevel(t *testing.T) {
 	}
 	if _, err := (&Config{LogLevel: "trace"}).SlogLevel(); err == nil {
 		t.Error("SlogLevel(\"trace\") should fail")
+	}
+}
+
+func TestShutdownTimeoutOrDefault(t *testing.T) {
+	if got := (&Config{}).ShutdownTimeoutOrDefault(); got != DefaultShutdownTimeout {
+		t.Errorf("unset = %s, want %s", got, DefaultShutdownTimeout)
+	}
+	if got := (&Config{ShutdownTimeout: 25 * time.Second}).ShutdownTimeoutOrDefault(); got != 25*time.Second {
+		t.Errorf("25s = %s", got)
+	}
+}
+
+// Outside production an all-zeros key starts, but with a warning naming it.
+func TestWarningsZeroEncryptionKey(t *testing.T) {
+	cfg := validConfig()
+	cfg.EncryptionKeys = []string{"new=" + strings.Repeat("0", 64)}
+	var found bool
+	for _, w := range cfg.Warnings() {
+		found = found || (strings.Contains(w, "all zeros") && strings.Contains(w, "new"))
+	}
+	if !found {
+		t.Fatalf("Warnings() = %v, want one about the all-zeros key", cfg.Warnings())
+	}
+	if w := validConfig().Warnings(); len(w) != 0 {
+		t.Fatalf("a real key should not warn: %v", w)
 	}
 }

@@ -19,13 +19,13 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
-	sparrowerrors "github.com/sarathsp06/sparrow/pkg/errors"
+	sparrowerrors "github.com/sarathsp06/sparrow/internal/errors"
 
+	"github.com/sarathsp06/sparrow/internal/crypto"
 	"github.com/sarathsp06/sparrow/internal/observability"
+	"github.com/sarathsp06/sparrow/internal/storage"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
-	"github.com/sarathsp06/sparrow/pkg/crypto"
-	"github.com/sarathsp06/sparrow/pkg/storage"
 	"github.com/sarathsp06/sparrow/pkg/template"
 )
 
@@ -124,6 +124,19 @@ func (w *WebhookWorker) NextRetry(job *river.Job[WebhookArgs]) time.Time {
 	return time.Now().Add(delay)
 }
 
+// jobTimeoutMargin is the time a delivery job gets on top of the longest
+// request timeout, for loading the webhook and recording the attempt.
+const jobTimeoutMargin = time.Minute
+
+// Timeout lets a delivery outlive the longest request timeout a webhook may
+// set. With River's 60s default a receiver slower than that cancelled the job
+// before the HTTP client gave up, so no attempt was ever recorded and the
+// delivery stayed pending. The HTTP client enforces the webhook's own timeout;
+// this is only the backstop.
+func (w *WebhookWorker) Timeout(*river.Job[WebhookArgs]) time.Duration {
+	return client.MaxRequestTimeout + jobTimeoutMargin
+}
+
 // holdReason returns why a delivery must be held instead of sent, or "" to
 // send it. Fan-out and the delivery worker both record it on the held
 // delivery, so the UI can say why it was not sent.
@@ -194,8 +207,10 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		return river.JobCancel(fmt.Errorf("webhook %s was deleted", args.WebhookID))
 	}
 	if err != nil {
+		// Transient: River retries the job, so the delivery is only failed
+		// once this was its last attempt.
 		w.logger.ErrorContext(ctx, "Failed to get webhook configuration", "error", err, "webhook_id", args.WebhookID)
-		_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, store.StatusFailed, 0, "", fmt.Sprintf("Failed to get webhook configuration: %v", err), "unknown")
+		_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, statusForFailure(job.Attempt, args.MaxAttempts), 0, "", fmt.Sprintf("Failed to get webhook configuration: %v", err), "unknown")
 		return fmt.Errorf("failed to get webhook configuration: %w", err)
 	}
 
@@ -204,7 +219,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	eventRecord, err := w.eventRepo.GetEventByID(ctx, tenantID, eventID)
 	if err != nil {
 		w.logger.ErrorContext(ctx, "Failed to get event record", "error", err, "event_id", args.EventID)
-		_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, store.StatusFailed, 0, "", fmt.Sprintf("Failed to get event record: %v", err), "unknown")
+		_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, statusForFailure(job.Attempt, args.MaxAttempts), 0, "", fmt.Sprintf("Failed to get event record: %v", err), "unknown")
 		return fmt.Errorf("failed to get event record: %w", err)
 	}
 	if eventRecord == nil {
@@ -351,11 +366,13 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		if !terminal {
 			status = statusForFailure(job.Attempt, args.MaxAttempts)
 		}
-		w.finishAttempt(ctx, log, store.DeliveryAttempt{
+		if recordErr := w.finishAttempt(ctx, log, store.DeliveryAttempt{
 			DeliveryID: deliveryID, WebhookID: webhookID, UpdateStatus: true,
 			Status: status, ErrorMessage: fmt.Sprintf("Request failed: %v", err), ErrorCategory: string(errorCategory),
 			RequestBody: &requestBody, Success: false, ResponseTimeMs: int(duration.Milliseconds()), HealthErrorMessage: err.Error(),
-		})
+		}); recordErr != nil {
+			return recordErr
+		}
 		if status == store.StatusFailed {
 			w.emitDeliveryFailedEvent(ctx, log, tenantID, args.Consumer, webhookID, deliveryID, eventID, webhook.URL, job.Attempt, string(errorCategory), fmt.Sprintf("Request failed: %v", err))
 		}
@@ -404,13 +421,14 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	if isSuccess {
 		span.SetStatus(otelcodes.Ok, "webhook delivered successfully")
 
-		w.finishAttempt(ctx, log, store.DeliveryAttempt{
+		// An unrecorded success would leave the delivery pending (or
+		// retrying) forever: fail the job so River retries it. The receiver
+		// may see the delivery again, which at-least-once delivery allows.
+		return w.finishAttempt(ctx, log, store.DeliveryAttempt{
 			DeliveryID: deliveryID, WebhookID: webhookID, UpdateStatus: true,
 			Status: store.StatusSuccess, ResponseCode: resp.StatusCode, ResponseBody: string(body), ErrorCategory: string(sparrowerrors.CategorySuccess),
 			RequestBody: &requestBody, Success: true, ResponseTimeMs: int(duration.Milliseconds()),
 		})
-
-		return nil
 	}
 
 	// Handle 429 Too Many Requests: snooze the job based on Retry-After header.
@@ -430,8 +448,9 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		)
 
 		// Record the 429 as a health event (the endpoint is overloaded); the
-		// delivery row keeps its status since the send will be retried.
-		w.finishAttempt(ctx, log, store.DeliveryAttempt{
+		// delivery row keeps its status since the send will be retried, so a
+		// failed write only loses the health event and the snooze stands.
+		_ = w.finishAttempt(ctx, log, store.DeliveryAttempt{
 			DeliveryID: deliveryID, WebhookID: webhookID, UpdateStatus: false,
 			ResponseCode: resp.StatusCode, ErrorCategory: string(sparrowerrors.CategoryRateLimited),
 			Success: false, ResponseTimeMs: int(duration.Milliseconds()), HealthErrorMessage: "HTTP 429: Too Many Requests",
@@ -467,11 +486,13 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		status = statusForFailure(job.Attempt, args.MaxAttempts)
 	}
 
-	w.finishAttempt(ctx, log, store.DeliveryAttempt{
+	if err := w.finishAttempt(ctx, log, store.DeliveryAttempt{
 		DeliveryID: deliveryID, WebhookID: webhookID, UpdateStatus: true,
 		Status: status, ResponseCode: resp.StatusCode, ResponseBody: string(body), ErrorMessage: errorMessage, ErrorCategory: string(errorCategory),
 		RequestBody: &requestBody, Success: false, ResponseTimeMs: int(duration.Milliseconds()), HealthErrorMessage: errorMessage,
-	})
+	}); err != nil {
+		return err
+	}
 	if status == store.StatusFailed {
 		w.emitDeliveryFailedEvent(ctx, log, tenantID, args.Consumer, webhookID, deliveryID, eventID, webhook.URL, job.Attempt, string(errorCategory), errorMessage)
 	}
@@ -544,7 +565,7 @@ func (w *WebhookWorker) renderPayload(ctx context.Context, log *slog.Logger, job
 		return envelope()
 	}
 
-	body, renderErr := w.client.TransformPayloadWith(subscription.TransformTemplate, template.NewWebhookTemplateContext(
+	body, renderErr := w.client.TransformPayloadWith(subscription.TransformTemplate, template.NewWebhookContext(
 		args.EventID,
 		eventRecord.Event,
 		time.Now().UTC().Format(time.RFC3339),
@@ -553,6 +574,11 @@ func (w *WebhookWorker) renderPayload(ctx context.Context, log *slog.Logger, job
 	), template.ExecOptions{StrictMissingKeys: subscription.StrictTemplate()})
 	if renderErr == nil {
 		return body, false, nil
+	}
+	if errors.Is(renderErr, template.ErrBusy) {
+		// Load, not a fault in the template: leave the delivery for River
+		// to retry.
+		return nil, false, fmt.Errorf("render transform: %w", renderErr)
 	}
 
 	msg := renderErr.Error()
@@ -590,11 +616,17 @@ func (w *WebhookWorker) systemEvents() systemEventDeps {
 // auto-disable are derived from the health events by HealthEvaluatorWorker,
 // so nothing here writes a row shared by other deliveries to the same
 // webhook.
-func (w *WebhookWorker) finishAttempt(ctx context.Context, log *slog.Logger, a store.DeliveryAttempt) {
+//
+// A failed write is returned: the delivery row still shows the previous
+// status, so the caller fails the job and River retries the attempt rather
+// than leaving it unrecorded.
+func (w *WebhookWorker) finishAttempt(ctx context.Context, log *slog.Logger, a store.DeliveryAttempt) error {
 	w.metrics.recordAttempt(ctx, a.Success, a.ResponseTimeMs, a.ErrorCategory)
 	if err := w.deliveryRepo.RecordDeliveryAttempt(ctx, a); err != nil {
 		log.ErrorContext(ctx, "Failed to record delivery attempt", "error", err, "delivery_id", a.DeliveryID)
+		return fmt.Errorf("record delivery attempt: %w", err)
 	}
+	return nil
 }
 
 // Helper function for status code checking (re-implemented as standalone or private method)

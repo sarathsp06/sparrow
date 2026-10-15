@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 
 	sparrow "github.com/sarathsp06/sparrow"
+	"github.com/sarathsp06/sparrow/internal/crypto"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
-	"github.com/sarathsp06/sparrow/pkg/crypto"
 )
 
 func TestBuildRequest(t *testing.T) {
@@ -349,6 +349,22 @@ func TestPrepareDeliveryRequestDefaultTimeout(t *testing.T) {
 
 	if dr.Timeout != 30*time.Second {
 		t.Errorf("Expected default Timeout 30s, got %v", dr.Timeout)
+	}
+}
+
+// A subscription timeout stored before it was validated is clamped to
+// MaxRequestTimeout, so a delivery never outlives its River job.
+func TestPrepareDeliveryRequestClampsTimeout(t *testing.T) {
+	webhook := &store.WebhookRegistration{ID: uuid.New(), URL: "https://example.com/webhook", RequestTimeoutSeconds: 30}
+	sub := &store.EventSubscription{Timeout: 86400}
+	event := &store.EventRecord{ID: uuid.New(), Event: "user.created", Consumer: "default"}
+
+	dr, err := PrepareDeliveryRequest(webhook, sub, event, "delivery-123", []byte(`{}`), nil)
+	if err != nil {
+		t.Fatalf("PrepareDeliveryRequest returned error: %v", err)
+	}
+	if dr.Timeout != MaxRequestTimeout {
+		t.Errorf("Timeout = %v, want %v", dr.Timeout, MaxRequestTimeout)
 	}
 }
 

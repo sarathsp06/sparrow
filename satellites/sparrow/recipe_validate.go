@@ -157,8 +157,8 @@ func validateRecipe(r recipe, values map[string]string, eventName string, payloa
 		if payload == nil {
 			payload = sampleRecipePayload
 		}
-		ctx := template.NewWebhookTemplateContext("evt_sample", eventName, time.Now().UTC().Format(time.RFC3339), 1, payload)
-		out, err := template.NewTemplateEngine().ExecuteWith(rr.Template, ctx, template.ExecOptions{StrictMissingKeys: true})
+		ctx := template.NewWebhookContext("evt_sample", eventName, time.Now().UTC().Format(time.RFC3339), 1, payload)
+		out, err := template.New().ExecuteWith(rr.Template, ctx, template.ExecOptions{StrictMissingKeys: true})
 		switch {
 		case err != nil:
 			fail("transform_template does not render against the sample event (missing keys are errors, as on a subscription; read optional fields with index or dig): %v", err)

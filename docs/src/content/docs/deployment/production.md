@@ -22,7 +22,7 @@ Set these environment variables on the Sparrow container. Keep them in a secret 
 | `DATABASE_URL` | — | PostgreSQL connection string. Use `sslmode=require` or `sslmode=verify-full` when the database is not on localhost. |
 | `SPARROW_SERVE_UI` | `true` or `false` | Serve the embedded web dashboard. |
 
-Other variables (`SPARROW_LOG_LEVEL`, `SPARROW_ALLOWED_NETWORKS`, `CORS_ALLOWED_ORIGINS`, `SPARROW_EVENT_RETENTION_DAYS`, `SPARROW_AUTO_DISABLE_AFTER`, `SPARROW_METRICS_ENABLED`, `SPARROW_AI_API_KEY`, `OTEL_EXPORTER_OTLP_ENDPOINT`, etc.) are documented in [Configuration](/sparrow/getting-started/configuration/).
+Other variables (`SPARROW_LOG_LEVEL`, `SPARROW_ALLOWED_NETWORKS`, `CORS_ALLOWED_ORIGINS`, `SPARROW_EVENT_RETENTION_DAYS`, `SPARROW_AUTO_DISABLE_AFTER`, `SPARROW_METRICS_ENABLED`, `SPARROW_SHUTDOWN_TIMEOUT`, `SPARROW_AI_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, etc.) are documented in [Configuration](/sparrow/getting-started/configuration/).
 
 ## Kubernetes manifests
 
@@ -54,6 +54,7 @@ metadata:
   name: sparrow
 spec:
   replicas: 2          # safe: migrations use Postgres advisory locks; River queue is Postgres-backed
+                       # each replica uses up to 75 Postgres connections (see below)
   selector:
     matchLabels:
       app: sparrow
@@ -99,6 +100,8 @@ spec:
               cpu: "1"
               memory: 512Mi
 ```
+
+Each replica opens up to 75 Postgres connections, so two replicas already exceed Postgres' default `max_connections = 100`. Size it for `75 × (replicas + maxSurge)` plus headroom; see the [connection budget](/sparrow/deployment/upgrading-to-1-0/#postgres-connection-budget). Large instances should also run migrations in a [pre-deploy Job](/sparrow/deployment/upgrading-to-1-0/#run-migrations-before-the-rollout-on-large-instances).
 
 ### Service
 
@@ -231,11 +234,11 @@ Give each person and CI job their own access token instead of sharing `SPARROW_A
 ## Production checklist
 
 - [ ] `ENVIRONMENT=production` and `SPARROW_API_KEY` set (at least 32 characters; `openssl rand -hex 32`).
-- [ ] Encryption keyring (`SPARROW_ENCRYPTION_KEYS` + `SPARROW_ENCRYPTION_PRIMARY_KEY_ID`) generated with `openssl rand -hex 32` and stored in a secret manager. Back it up -- lose it and encrypted webhook secrets are unrecoverable.
+- [ ] Encryption keyring (`SPARROW_ENCRYPTION_KEYS` + `SPARROW_ENCRYPTION_PRIMARY_KEY_ID`) generated with `openssl rand -hex 32` and stored in a secret manager. With `ENVIRONMENT=production` Sparrow refuses to start with the all-zeros development key. Back it up -- lose it and encrypted webhook secrets are unrecoverable.
 - [ ] `DATABASE_URL` points to a managed Postgres with `sslmode=require` or stronger.
 - [ ] Image tag pinned to a release (not `latest`).
 - [ ] Container runs as non-root (UID 65532), read-only filesystem, no privilege escalation, all capabilities dropped.
-- [ ] Liveness (`/health`) and readiness (`/ready`) probes configured.
+- [ ] Liveness (`/health`) and readiness (`/ready`) probes configured. `/health` only says the process is up, so a database outage never restarts pods; `/ready` checks the database and answers `503` from the moment shutdown starts. Set `SPARROW_SHUTDOWN_TIMEOUT` below `terminationGracePeriodSeconds`.
 - [ ] Prometheus scraping `/metrics` (or OTLP export configured), with alerts on delivery success rate, `sparrow_queue_jobs` backlog, and `sparrow_webhooks_auto_disabled_total`. `/metrics` needs no API key: keep it off public networks, or set `SPARROW_METRICS_ENABLED=false`.
 - [ ] `SPARROW_AUTO_DISABLE_AFTER` reviewed (default 5 days of failures pauses a webhook; deliveries are held, not dropped) and an alert config opted into `sparrow.webhook.disabled`.
 - [ ] Exposed only through an internal ingress or VPN -- never a public LoadBalancer.

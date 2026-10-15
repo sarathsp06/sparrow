@@ -1,0 +1,3 @@
+# Generated from api/openapi.yaml (make client-python); checked in because the
+# e2e suite imports it.
+e2e/client/** linguist-generated=true

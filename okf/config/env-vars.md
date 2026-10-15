@@ -10,6 +10,8 @@ timestamp: 2026-09-14T00:00:00Z
 
 All configuration via environment variables using `kelseyhightower/envconfig`.
 
+A value of `""` or a lone `-` counts as unset: `config.Load` unsets it before parsing, so the default applies (and OTel exporters reading `OTEL_*` directly agree). Use `-` where a platform cannot store an empty value.
+
 ## Core
 
 | Variable | Purpose | Default |
@@ -17,6 +19,8 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 | `DATABASE_URL` | PostgreSQL connection string | `postgres://localhost/riverqueue?sslmode=disable` |
 | `SPARROW_ENCRYPTION_KEYS` | KEK keyring as `<key-id>=<64-char-hex-key>` entries (`key-id` chars: `A-Z`, `a-z`, `0-9`, `_`, `-`) | Required |
 | `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` | Primary key ID for new encryption and portal token signing | Required |
+
+An all-zeros key (the published development key) anywhere in the keyring stops startup with `ENVIRONMENT=production`; elsewhere it logs a warning.
 
 ## Server
 
@@ -26,6 +30,7 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 | `SPARROW_SERVE_UI` | Serve embedded SvelteKit UI | `false` |
 | `SPARROW_LOG_LEVEL` | Lowest log level: `debug`, `info`, `warn`, `error` (case-insensitive; `warning` = `warn`). Set in `cmd/server/main.go` on the slog JSON handler behind the OTel bridge; invalid values fail `Config.Validate` | `info` |
 | `SPARROW_MAX_BODY_BYTES` | Max request body size in bytes (min 1 MiB); oversized bodies return `413` | `5242880` (5 MiB) |
+| `SPARROW_SHUTDOWN_TIMEOUT` | Whole graceful-shutdown budget on SIGTERM/SIGINT: `/ready` turns 503, HTTP drains, then the queue soft-stops and finally cancels running jobs (left for a retry, not failed). Keep below the orchestrator's kill deadline | `10s` |
 
 ## Auth & Security
 
@@ -46,7 +51,7 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` or `grpc` | `http/protobuf` |
 | `SPARROW_OTLP_SIGNALS` | Subset of `traces,metrics,logs` sent to the OTLP endpoint; `traces` for Jaeger/Tempo. Unknown names fail startup of OTel export | `traces,metrics,logs` |
 | `SPARROW_METRICS_ENABLED` | Serve all OTel metrics in Prometheus format at unauthenticated `GET /metrics` (`observability.MetricsHandler`), independent of OTLP | `true` |
-| `ENVIRONMENT` | `development` or `production`; `production` enforces `SPARROW_API_KEY` | — |
+| `ENVIRONMENT` | `development` or `production`; `production` enforces `SPARROW_API_KEY` (32+ chars) and refuses an all-zeros encryption key | — |
 
 `Warnings()` also logs a non-fatal advisory if `DATABASE_URL` uses `sslmode=disable` against a non-local host.
 
@@ -75,14 +80,15 @@ No configuration. `subscription_template_versions` keeps the last 20 saved templ
 
 ## AI-assisted template drafting
 
-No variables set: prompt-only mode. `GET /v1/capabilities` reports `ai_drafting.prompt_only=true` and `POST /v1/subscriptions:draftTemplatePrompt` builds the grounded prompt for any chat assistant; `:draftTemplate` answers 503.
+`SPARROW_AI_ENABLED` unset or false: prompt-only mode (provider vars are ignored, with a startup warning if a key or base URL is set). `GET /v1/capabilities` reports `ai_drafting.prompt_only=true` and `POST /v1/subscriptions:draftTemplatePrompt` builds the grounded prompt for any chat assistant; `:draftTemplate` answers 503.
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
+| `SPARROW_AI_ENABLED` | The switch for Draft with AI (default off). `true` makes the provider vars required; a missing one is reported by `POST /v1/subscriptions:draftTemplate` (503) and `GET /v1/capabilities` (`ai_drafting.problem`), never at startup. Copy prompt works either way. `Config.AIEnabled`/`AIConfigError` | `false` |
 | `SPARROW_AI_PROVIDER` | `anthropic` (Anthropic SDK) or `openai` (plain HTTP to any OpenAI-compatible `/v1/chat/completions`: Ollama, vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI) | `anthropic` |
-| `SPARROW_AI_API_KEY` | Provider key. Enables drafting for `anthropic`; optional Bearer token for `openai`. `GET /v1/capabilities` reports `ai_drafting.{enabled,provider,model}` | -- |
+| `SPARROW_AI_API_KEY` | Provider key. Required for `anthropic` when `SPARROW_AI_ENABLED=true`; optional Bearer token for `openai`. `GET /v1/capabilities` reports `ai_drafting.{enabled,provider,model}` | -- |
 | `SPARROW_AI_MODEL` | Model id. Required for `openai` | `claude-haiku-4-5` (anthropic) |
-| `SPARROW_AI_BASE_URL` | API base URL. Required for `openai` (enables drafting); optional gateway override for `anthropic` | -- |
+| `SPARROW_AI_BASE_URL` | API base URL. Required for `openai` when `SPARROW_AI_ENABLED=true`; optional gateway override for `anthropic` | -- |
 | `SPARROW_AI_TIMEOUT` | Budget for one draft incl. repair rounds; lifts the 30s write timeout for that request only; 504 when exceeded | `3m` |
 
 ## Database Pools

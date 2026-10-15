@@ -8,19 +8,21 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/url"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
 
+	"github.com/sarathsp06/sparrow/internal/crypto"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
-	"github.com/sarathsp06/sparrow/pkg/crypto"
 )
 
 // Config holds all server configuration populated from environment variables.
@@ -171,6 +173,15 @@ type Config struct {
 	// Env: SPARROW_HEALTH_EVAL_INTERVAL (Go duration, default "1m")
 	HealthEvalInterval time.Duration `envconfig:"SPARROW_HEALTH_EVAL_INTERVAL" default:"1m"`
 
+	// ShutdownTimeout is the whole budget for a graceful shutdown on SIGTERM
+	// or SIGINT: /ready turns 503, in-flight HTTP requests finish, then the
+	// queue stops taking jobs and waits for running ones. Jobs still running
+	// near the end of the budget are cancelled and retried later. Keep it
+	// below the orchestrator's kill deadline (Kubernetes:
+	// terminationGracePeriodSeconds, 30s by default).
+	// Env: SPARROW_SHUTDOWN_TIMEOUT (Go duration, default "10s")
+	ShutdownTimeout time.Duration `envconfig:"SPARROW_SHUTDOWN_TIMEOUT" default:"10s"`
+
 	// MetricsEnabled serves the OpenTelemetry metrics in Prometheus text
 	// format at GET /metrics (unauthenticated, like /health), independent of
 	// OTLP export.
@@ -191,10 +202,17 @@ type Config struct {
 	// Env: SPARROW_AI_PROVIDER
 	AIProvider string `envconfig:"SPARROW_AI_PROVIDER" default:"anthropic"`
 
-	// AIAPIKey is the provider API key. For the anthropic provider setting
-	// it enables the feature (POST /v1/subscriptions:draftTemplate and the
-	// "Draft with AI" panel). For the openai provider it is sent as a Bearer
-	// token when set.
+	// AIDrafting turns AI-assisted template drafting ("Draft with AI" and
+	// POST /v1/subscriptions:draftTemplate) on. It is the only switch: the
+	// provider settings below are read only when it is true, and a missing
+	// or bad one is reported by the draft endpoint (AIConfigError), not at
+	// startup. The copy-and-paste prompt works either way.
+	// Env: SPARROW_AI_ENABLED (default false)
+	AIDrafting bool `envconfig:"SPARROW_AI_ENABLED" default:"false"`
+
+	// AIAPIKey is the provider API key: required for the anthropic provider
+	// when AIDrafting is on, and sent as a Bearer token for the openai
+	// provider when set.
 	// Env: SPARROW_AI_API_KEY
 	AIAPIKey string `envconfig:"SPARROW_AI_API_KEY" default:""`
 
@@ -222,12 +240,36 @@ type Config struct {
 // Load populates a Config struct from environment variables.
 // envconfig does not use a prefix since the env vars span multiple consumers
 // (SPARROW_*, DATABASE_URL, ENVIRONMENT, OTEL_*, CORS_*).
+//
+// A variable set to "" or "-" counts as unset, so its default applies: some
+// platforms cannot unset a variable once it exists, or cannot store an empty
+// value. Load unsets such variables in the process environment, so code that
+// reads them directly (the OTel exporters) agrees.
 func Load() (*Config, error) {
+	unsetBlankEnv()
 	var cfg Config
 	if err := envconfig.Process("", &cfg); err != nil {
 		return nil, fmt.Errorf("loading config from environment: %w", err)
 	}
 	return &cfg, nil
+}
+
+// isBlank reports whether an environment value means "unset": empty,
+// whitespace, or a lone "-".
+func isBlank(v string) bool {
+	v = strings.TrimSpace(v)
+	return v == "" || v == "-"
+}
+
+// unsetBlankEnv unsets every variable Config reads whose value is blank.
+func unsetBlankEnv() {
+	t := reflect.TypeOf(Config{})
+	for i := range t.NumField() {
+		key := t.Field(i).Tag.Get("envconfig")
+		if v, ok := os.LookupEnv(key); key != "" && ok && isBlank(v) {
+			_ = os.Unsetenv(key)
+		}
+	}
 }
 
 // SlogLevel parses LogLevel: debug, info, warn or error (any case).
@@ -248,6 +290,18 @@ func (c *Config) SlogLevel() (slog.Level, error) {
 	return level, nil
 }
 
+// DefaultShutdownTimeout is SPARROW_SHUTDOWN_TIMEOUT's default.
+const DefaultShutdownTimeout = 10 * time.Second
+
+// ShutdownTimeoutOrDefault returns ShutdownTimeout, or the default when it is
+// unset (a Config built in code without envconfig defaults).
+func (c *Config) ShutdownTimeoutOrDefault() time.Duration {
+	if c.ShutdownTimeout <= 0 {
+		return DefaultShutdownTimeout
+	}
+	return c.ShutdownTimeout
+}
+
 // IsProduction returns true when Environment is set to "production".
 func (c *Config) IsProduction() bool {
 	return c.Environment == "production"
@@ -261,6 +315,9 @@ func (c *Config) Validate() error {
 	}
 	if _, err := c.EncryptionKeyring(); err != nil {
 		return err
+	}
+	if ids := c.zeroEncryptionKeyIDs(); c.IsProduction() && len(ids) > 0 {
+		return fmt.Errorf("SPARROW_ENCRYPTION_KEYS: key %s is all zeros, the published development key; generate a real one with: openssl rand -hex 32", strings.Join(ids, ", "))
 	}
 	if c.DatabaseURL == "" {
 		return fmt.Errorf("DATABASE_URL is required")
@@ -292,17 +349,34 @@ func (c *Config) Validate() error {
 	if c.AutoDisableMinFailures < 0 {
 		return fmt.Errorf("SPARROW_AUTO_DISABLE_MIN_FAILURES: must be >= 0, got %d", c.AutoDisableMinFailures)
 	}
+	if c.ShutdownTimeout < 0 {
+		return fmt.Errorf("SPARROW_SHUTDOWN_TIMEOUT: must be > 0, got %s", c.ShutdownTimeout)
+	}
 	if c.EventRetentionDays < 0 {
 		return fmt.Errorf("SPARROW_EVENT_RETENTION_DAYS: must be >= 0, got %d", c.EventRetentionDays)
 	}
+	return nil
+}
+
+// AIConfigError reports what is missing or wrong in the provider settings
+// when drafting is on, or nil when a draft can be attempted. The server
+// still starts: the draft endpoint answers with this error, so a deploy
+// with drafting on and a forgotten key keeps the copy-and-paste prompt.
+func (c *Config) AIConfigError() error {
+	if !c.AIDrafting {
+		return nil
+	}
 	switch c.aiProvider() {
 	case "anthropic":
-	case "openai":
-		if c.AIBaseURL == "" && c.AIEnabled() {
-			return fmt.Errorf("SPARROW_AI_BASE_URL is required when SPARROW_AI_PROVIDER=openai (e.g. http://localhost:11434/v1)")
+		if c.AIAPIKey == "" {
+			return fmt.Errorf("SPARROW_AI_ENABLED=true but SPARROW_AI_API_KEY is not set (required for SPARROW_AI_PROVIDER=anthropic)")
 		}
-		if c.AIEnabled() && strings.TrimSpace(c.AIModel) == "" {
-			return fmt.Errorf("SPARROW_AI_MODEL is required when SPARROW_AI_PROVIDER=openai (e.g. llama3.2, qwen2.5-coder, gpt-4o-mini)")
+	case "openai":
+		if c.AIBaseURL == "" {
+			return fmt.Errorf("SPARROW_AI_ENABLED=true but SPARROW_AI_BASE_URL is not set (required for SPARROW_AI_PROVIDER=openai, e.g. http://localhost:11434/v1)")
+		}
+		if strings.TrimSpace(c.AIModel) == "" {
+			return fmt.Errorf("SPARROW_AI_ENABLED=true but SPARROW_AI_MODEL is not set (required for SPARROW_AI_PROVIDER=openai, e.g. llama3.2, qwen2.5-coder, gpt-4o-mini)")
 		}
 	default:
 		return fmt.Errorf("SPARROW_AI_PROVIDER: %q is not supported (want anthropic or openai)", c.AIProvider)
@@ -336,17 +410,8 @@ func (c *Config) aiProvider() string {
 // AIProviderName returns the effective provider: "anthropic" or "openai".
 func (c *Config) AIProviderName() string { return c.aiProvider() }
 
-// AIEnabled reports whether AI-assisted template drafting is configured:
-// an API key for the anthropic provider, or a base URL (key optional) for an
-// OpenAI-compatible server.
-func (c *Config) AIEnabled() bool {
-	switch c.aiProvider() {
-	case "openai":
-		return c.AIBaseURL != "" || c.AIAPIKey != ""
-	default:
-		return c.AIAPIKey != ""
-	}
-}
+// AIEnabled reports whether SPARROW_AI_ENABLED turned drafting on.
+func (c *Config) AIEnabled() bool { return c.AIDrafting }
 
 // AIModelOrDefault returns the configured model, or the provider default.
 func (c *Config) AIModelOrDefault() string {
@@ -391,10 +456,41 @@ func (c *Config) Warnings() []string {
 	if c.APIKey != "" && len(c.APIKey) < MinAPIKeyLength && !c.IsProduction() {
 		warnings = append(warnings, fmt.Sprintf("SPARROW_API_KEY is shorter than %d characters — fine for local testing, but production refuses it (generate one with: openssl rand -hex 32)", MinAPIKeyLength))
 	}
-	if _, set := os.LookupEnv("SPARROW_UI_INJECT_KEY"); set {
+	if ids := c.zeroEncryptionKeyIDs(); len(ids) > 0 && !c.IsProduction() {
+		warnings = append(warnings, fmt.Sprintf("SPARROW_ENCRYPTION_KEYS: key %s is all zeros, the published development key — anyone can decrypt webhook secrets stored with it, and production refuses it (generate one with: openssl rand -hex 32)", strings.Join(ids, ", ")))
+	}
+	if !c.AIDrafting && (c.AIAPIKey != "" || c.AIBaseURL != "") {
+		warnings = append(warnings, "SPARROW_AI_API_KEY or SPARROW_AI_BASE_URL is set but SPARROW_AI_ENABLED is not true, so Draft with AI is off (the copy-and-paste prompt still works); set SPARROW_AI_ENABLED=true to turn it on")
+	}
+	if err := c.AIConfigError(); err != nil {
+		warnings = append(warnings, err.Error()+"; POST /v1/subscriptions:draftTemplate answers 503 with this message until it is fixed")
+	}
+	if v, set := os.LookupEnv("SPARROW_UI_INJECT_KEY"); set && !isBlank(v) {
 		warnings = append(warnings, "SPARROW_UI_INJECT_KEY is no longer supported and is ignored — the UI never receives the API key; sign in with the key, an access token, or an invite link")
 	}
 	return warnings
+}
+
+// zeroEncryptionKeyIDs returns the IDs of keyring keys that are all zeros:
+// the development default in scripts/dev-env.sh and the compose files,
+// public and so no secret at all. Malformed entries are skipped; Validate
+// reports them.
+func (c *Config) zeroEncryptionKeyIDs() []string {
+	var ids []string
+	for _, entry := range c.EncryptionKeys {
+		id, raw, ok := strings.Cut(strings.TrimSpace(entry), "=")
+		if !ok {
+			continue
+		}
+		key, err := crypto.ParseKey(strings.TrimSpace(raw))
+		if err != nil || len(key) == 0 {
+			continue
+		}
+		if bytes.Count(key, []byte{0}) == len(key) {
+			ids = append(ids, strings.TrimSpace(id))
+		}
+	}
+	return ids
 }
 
 // validatePort checks that a port string is a valid TCP port number (1-65535).

@@ -9,9 +9,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	storePg "github.com/sarathsp06/sparrow/internal/storage/postgres"
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
-	storePg "github.com/sarathsp06/sparrow/pkg/storage/postgres"
 )
 
 // Regression test for the rate-limit livelock: AcquireDeliverySlot used to

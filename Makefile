@@ -4,8 +4,12 @@
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 OUTPUT ?= build/server-$(GOOS)-$(GOARCH)
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-SEMVER  ?= $(shell git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0-dev")
+# Pinned so regenerating the checked-in e2e client (make client-python) is reproducible.
+OPENAPI_PYTHON_CLIENT_VERSION ?= 0.29.1
+# No leading "v": goreleaser and the Docker build embed the bare version too, and
+# event type bundles compare it as an exact string.
+VERSION ?= $(shell git describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null | sed 's/^v//' || echo "dev")
+SEMVER  ?= $(shell git describe --tags --match 'v[0-9]*' --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0-dev")
 LDFLAGS := -s -w -X github.com/sarathsp06/sparrow.Version=$(VERSION)
 IMAGE_E2E ?= sparrow:e2e
 
@@ -21,11 +25,11 @@ build-cli: ## Build the sparrow CLI binary for current OS/arch
 
 build-sources: ## Build the sparrow-sources binary for current OS/arch
 	mkdir -p build
-	go build -trimpath -ldflags "-s -w" -o build/sparrow-sources-$(GOOS)-$(GOARCH) ./satellites/sparrow-sources
+	go build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o build/sparrow-sources-$(GOOS)-$(GOARCH) ./satellites/sparrow-sources
 
 build-sinks: ## Build the sparrow-sinks binary for current OS/arch
 	mkdir -p build
-	go build -trimpath -ldflags "-s -w" -o build/sparrow-sinks-$(GOOS)-$(GOARCH) ./satellites/sparrow-sinks
+	go build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o build/sparrow-sinks-$(GOOS)-$(GOARCH) ./satellites/sparrow-sinks
 
 build-all: build build-cli build-sources build-sinks ## Build server, CLI, sources, and sinks binaries
 
@@ -35,7 +39,7 @@ build-ui: ## Build the frontend for embedding in the Go binary
 build-with-ui: build-ui build ## Build frontend + server binary with embedded UI
 
 release-dry-run: build-ui ## Test GoReleaser locally (no publish)
-	goreleaser release --snapshot --clean
+	goreleaser release --snapshot --clean --skip=sign # keyless signing needs CI's OIDC token; SBOMs need syft
 
 docker-dev: ## Run the development environment with Docker Compose (builds from source)
 	docker compose -f docker-compose.dev.yml up -d --build
@@ -75,20 +79,19 @@ test: ## Run tests (all modules)
 test-integration: ## Run integration tests (requires Docker for testcontainers)
 	go test -v -tags integration -timeout 600s ./internal/integration/...
 
-client-python: ## Regenerate the Python client from the committed OpenAPI spec
-	rm -rf client/python
-	uvx openapi-python-client generate --path api/openapi.yaml --output-path client/python --overwrite
+client-python: ## Regenerate the Python client the e2e suite imports (checked in at e2e/client/ for the tests, not a published SDK)
+	uvx openapi-python-client@$(OPENAPI_PYTHON_CLIENT_VERSION) generate --path api/openapi.yaml --output-path e2e/client --overwrite --config e2e/client-config.yaml
 
 docker-build-e2e: ## Build the Docker image the e2e suite runs (tag: $(IMAGE_E2E))
 	docker build -t $(IMAGE_E2E) .
 
-test-e2e: client-python docker-build-e2e ## Run end-to-end tests (Gauge + Python, requires Docker)
+test-e2e: docker-build-e2e ## Run end-to-end tests (Gauge + Python, requires Docker)
 	cd e2e && uv run gauge run specs/
 
 test-ui: ## Run Playwright UI/portal browser tests (boots Postgres + embedded-UI server; requires Docker)
 	./scripts/test-ui.sh
 
-test-e2e-spec: client-python docker-build-e2e ## Run a single e2e spec (usage: make test-e2e-spec SPEC=00_hello_world)
+test-e2e-spec: docker-build-e2e ## Run a single e2e spec (usage: make test-e2e-spec SPEC=00_hello_world)
 	cd e2e && uv run gauge run specs/$(SPEC).spec
 
 test-e2e-tag: client-python docker-build-e2e ## Run e2e tests by tag (usage: make test-e2e-tag TAG=retry)
@@ -127,14 +130,10 @@ clean: ## Clean up all build artifacts (Go, web)
 	mkdir -p internal/ui/dist && touch internal/ui/dist/.gitkeep
 	@echo "Clean complete"
 
-generate: ## Export the OpenAPI spec from Go and regenerate client SDKs
+generate: ## Export the OpenAPI spec from Go, regenerate the e2e suite's client, then go generate
 	go run ./cmd/openapi-export api
-	rm -rf client/python
-	uvx openapi-python-client generate --path api/openapi.yaml --output-path client/python --overwrite
+	$(MAKE) client-python
 	go generate ./...
-
-book: ## Build the Svelte 5 tutorial PDF with Typst
-	typst compile --font-path book/fonts book/tutorial.typ book/svelte5-tutorial.pdf
 
 bench-sql: ## Seed a large synthetic DB and time the heavy queries (SCALE=0.1 for a quick run; needs Postgres from `make dev-db`)
 	scripts/sqlbench/run.sh --scale $(or $(SCALE),1)
@@ -148,4 +147,4 @@ fmt: ## Format the code
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-cli build-sources build-sinks build-all build-ui client-python docker-build-e2e build-with-ui release-dry-run run dev-db test test-integration test-ui test-e2e test-e2e-spec test-e2e-tag test-e2e-parallel test-e2e-report test-e2e-setup clean generate docker-dev docker-purge migrate lint fmt run-web book help
+.PHONY: build build-cli build-sources build-sinks build-all build-ui client-python docker-build-e2e build-with-ui release-dry-run run dev-db test test-integration test-ui test-e2e test-e2e-spec test-e2e-tag test-e2e-parallel test-e2e-report test-e2e-setup clean generate docker-dev docker-purge migrate lint fmt run-web help

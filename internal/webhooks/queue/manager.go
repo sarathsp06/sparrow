@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"time"
@@ -11,17 +12,18 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 
+	"github.com/sarathsp06/sparrow/internal/crypto"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
-	"github.com/sarathsp06/sparrow/pkg/crypto"
 )
 
 // Manager handles the River queue management
 type Manager struct {
-	client  *river.Client[pgx.Tx]
-	workers *river.Workers
-	dbPool  *pgxpool.Pool
-	logger  *slog.Logger
+	client   *river.Client[pgx.Tx]
+	txClient *river.Client[*sql.Tx]
+	workers  *river.Workers
+	dbPool   *pgxpool.Pool
+	logger   *slog.Logger
 }
 
 // WorkerPoolConfig sizes the River queues. Zero values take the defaults.
@@ -104,11 +106,18 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 		return nil, fmt.Errorf("failed to create River client: %w", err)
 	}
 
+	txClient, err := NewTxInsertClient()
+	if err != nil {
+		dbPool.Close()
+		return nil, fmt.Errorf("failed to create River insert client: %w", err)
+	}
+
 	manager := &Manager{
-		client:  riverClient,
-		workers: riverWorkers,
-		dbPool:  dbPool,
-		logger:  slog.Default().With("component", "queue-manager"),
+		client:   riverClient,
+		txClient: txClient,
+		workers:  riverWorkers,
+		dbPool:   dbPool,
+		logger:   slog.Default().With("component", "queue-manager"),
 	}
 
 	// Add workers with explicit generic types.
@@ -148,13 +157,30 @@ func (m *Manager) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop stops the queue processing
+// Stop shuts the queue down within ctx's deadline. It first stops fetching
+// and waits for running jobs (a soft stop) for most of the budget, then
+// cancels the jobs still running and waits for them to return (River retries
+// them later; a cancelled delivery records no attempt). The pool is closed
+// last, once no job can use it.
 func (m *Manager) Stop(ctx context.Context) error {
-	_ = m.client.Stop(ctx)
+	softCtx, cancelSoft := context.WithCancel(ctx)
+	if deadline, ok := ctx.Deadline(); ok {
+		// Leave a fifth of the budget for cancelled jobs to unwind.
+		softCtx, cancelSoft = context.WithDeadline(ctx, deadline.Add(-time.Until(deadline)/5))
+	}
+	err := m.client.Stop(softCtx)
+	cancelSoft()
+	if err != nil {
+		m.logger.WarnContext(ctx, "Jobs still running at the end of the soft stop, cancelling them", "error", err)
+		err = m.client.StopAndCancel(ctx)
+		if err != nil {
+			m.logger.ErrorContext(ctx, "Queue did not stop before the shutdown deadline", "error", err)
+		}
+	}
 	m.dbPool.Close()
-	return nil
+	return err
 }
 
 func (m *Manager) GetJobInserter() JobInserter {
-	return NewJobInserterWithTracing(NewJobInserter(m.client), "")
+	return NewJobInserterWithTracing(NewJobInserter(m.client, m.txClient), "")
 }

@@ -8,6 +8,14 @@ sidebar:
 Sparrow is configured entirely with environment variables. There's no config
 file.
 
+**Empty and `-` mean unset.** A variable set to an empty value, or to a lone
+`-`, is treated as if it were not set at all, so its default applies. Use `-`
+on platforms that cannot store an empty value or cannot delete a variable once
+it exists (some secret managers and PaaS dashboards). The rule covers every
+variable on this page, `OTEL_*` included: Sparrow unsets a blank one at
+startup, so the OpenTelemetry exporters see it as unset too. No Sparrow
+setting gives an empty value a meaning of its own.
+
 ## Minimum to start
 
 Three variables are required. The server refuses to start without the two
@@ -44,6 +52,7 @@ Grouped by what they control. Durations use Go syntax: `90s`, `20ms`, `1m`,
 | `SPARROW_LOG_LEVEL` | `info` | Lowest level the server logs: `debug`, `info`, `warn` or `error`. `info` writes a line for every event and delivery; `warn` keeps only problems and saves that work on a busy instance. Logs are JSON on stdout (and exported through OpenTelemetry when it is enabled). An unknown value stops startup. |
 | `ENVIRONMENT` | unset | Set `production` to reject cross-origin requests unless `CORS_ALLOWED_ORIGINS` allows them, to require a 32+ character `SPARROW_API_KEY`, and to tag logs and telemetry. Any other value behaves as development. |
 | `CORS_ALLOWED_ORIGINS` | unset | Comma-separated browser origins allowed to call the API, e.g. `https://ui.example.com`. Needed when the UI is [hosted separately](/sparrow/deployment/separate-ui/). Unset: every origin is allowed, except with `ENVIRONMENT=production`, where none is. |
+| `SPARROW_SHUTDOWN_TIMEOUT` | `10s` | Budget for a graceful shutdown on `SIGTERM`/`SIGINT`. `/ready` turns `503` at once, in-flight HTTP requests finish, then the queue stops taking jobs and waits for running ones; deliveries still running near the end are cancelled and retried later (a cancelled attempt is not recorded as a failure). Keep it below the orchestrator's kill deadline (Kubernetes: `terminationGracePeriodSeconds`, 30s by default). |
 | `SPARROW_MAX_BODY_BYTES` | `5242880` (5 MiB) | Largest accepted request body; larger ones get `413`. Minimum 1 MiB. |
 
 ### Access
@@ -100,8 +109,9 @@ addresses unless you allow them.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `SPARROW_AI_ENABLED` | `false` | The on/off switch for **Draft with AI**. `true` turns it on; the provider variables below are then required, and a missing one makes the draft request fail with a message naming it (the server still starts). Unset, empty, `-` or `false`: off. **Copy prompt** works either way. See [Turning drafting on and off](#turning-drafting-on-and-off). |
 | `SPARROW_AI_PROVIDER` | `anthropic` | `anthropic` or `openai` (any OpenAI-compatible server). |
-| `SPARROW_AI_API_KEY` | unset | Provider API key. Required for `anthropic`; optional for a local `openai` server. |
+| `SPARROW_AI_API_KEY` | unset | Provider API key. Required for `anthropic`; optional for a local `openai` server. Read only when `SPARROW_AI_ENABLED=true`. |
 | `SPARROW_AI_MODEL` | `claude-haiku-4-5` for `anthropic` | Model name. Required for `openai`. |
 | `SPARROW_AI_BASE_URL` | unset | API root. Required for `openai`; optional proxy override for `anthropic`. |
 | `SPARROW_AI_TIMEOUT` | `3m` | Longest one draft may take, repair rounds included; past it the request answers 504. A reverse proxy in front of Sparrow needs a read timeout at least this long. |
@@ -142,7 +152,7 @@ export SPARROW_ENCRYPTION_KEYS="old=$(openssl rand -hex 32),new=$(openssl rand -
 export SPARROW_ENCRYPTION_PRIMARY_KEY_ID=new
 ```
 
-New writes use the primary key ID while decryption accepts all configured keys in the ring. That lets you rotate by adding a new key, switching the primary, and retiring the old key after data has been rewritten.
+New writes use the primary key ID while decryption accepts all configured keys in the ring. That lets you rotate by adding a new key and switching the primary. Keep the old key in the ring: existing secrets stay encrypted under it, and nothing rewraps them yet. See [Upgrading to 1.0](/sparrow/deployment/upgrading-to-1-0/#encryption-keyring-never-remove-an-old-key).
 
 ### What Gets Encrypted
 
@@ -223,11 +233,11 @@ pool metrics (`db_sql_*`) come from the OpenTelemetry instrumentation.
 The subscription template editor can help write a `transform_template`. It
 works at two levels:
 
-- **With no AI variables set**, the editor offers **Copy prompt for AI**
+- **Always**, the editor offers **Copy prompt**
   (`POST /v1/subscriptions:draftTemplatePrompt`): a prompt grounded in the event
   type's schema and sample payload and in Sparrow's template helpers, to paste
   into any chat assistant.
-- **With a provider configured**, it adds **Draft with AI**
+- **With `SPARROW_AI_ENABLED=true`** and a provider configured, it adds **Draft with AI**
   (`POST /v1/subscriptions:draftTemplate`). You describe the body the receiver
   should get (optionally with an example body, a sample payload, a shipped
   recipe's format, or a documentation URL), and Sparrow drafts the template,
@@ -245,6 +255,7 @@ deliveries, so private and cloud metadata addresses are refused unless allowed.
 ### Anthropic
 
 ```bash
+SPARROW_AI_ENABLED=true
 SPARROW_AI_API_KEY=sk-ant-...
 # SPARROW_AI_MODEL=claude-haiku-4-5   # the default; raise it if drafts often need repairs
 # SPARROW_AI_BASE_URL=https://llm-gateway.internal   # only for a gateway or proxy
@@ -255,14 +266,48 @@ SPARROW_AI_API_KEY=sk-ant-...
 Ollama, vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI and others:
 
 ```bash
+SPARROW_AI_ENABLED=true
 SPARROW_AI_PROVIDER=openai
 SPARROW_AI_BASE_URL=http://localhost:11434/v1   # Ollama; e.g. http://vllm:8000/v1, https://openrouter.ai/api/v1
 SPARROW_AI_MODEL=qwen2.5-coder:7b               # the name the server serves
 # SPARROW_AI_API_KEY=...                        # sent as a Bearer token when set
 ```
 
-With `openai`, setting a key without `SPARROW_AI_BASE_URL` stops the server at
-startup.
+
+### Turning drafting on and off
+
+`SPARROW_AI_ENABLED` is the only switch. The provider variables configure
+drafting but never turn it on by themselves.
+
+| `SPARROW_AI_ENABLED` | Result |
+|----------------------|--------|
+| unset, empty, `-` or `false` | **Off.** The editor shows **Copy prompt** only. Provider variables are ignored, so you can leave a key in place. |
+| `true` | **On.** The editor shows **Draft with AI** next to **Copy prompt**. The provider variables below must be set. |
+
+With `SPARROW_AI_ENABLED=true`, these must be set, or drafting fails:
+
+| Provider | Must be set | Optional |
+|----------|-------------|----------|
+| `anthropic` (default) | `SPARROW_AI_API_KEY` | `SPARROW_AI_MODEL` (default `claude-haiku-4-5`), `SPARROW_AI_BASE_URL` (gateway or proxy) |
+| `openai` | `SPARROW_AI_PROVIDER=openai`, `SPARROW_AI_BASE_URL`, `SPARROW_AI_MODEL` | `SPARROW_AI_API_KEY` (sent as a Bearer token) |
+
+A missing or invalid provider setting does not stop the server. Instead:
+
+- `POST /v1/subscriptions:draftTemplate` answers `503` with a message naming
+  the setting, e.g. `AI drafting is enabled but not usable:
+  SPARROW_AI_ENABLED=true but SPARROW_AI_API_KEY is not set`.
+- `GET /v1/capabilities` reports `ai_drafting.enabled: true` with the same text
+  in `ai_drafting.problem`, and the editor shows it in the AI panel.
+- The startup banner and a startup warning say the same.
+- **Copy prompt** keeps working.
+
+The same happens for an unknown `SPARROW_AI_PROVIDER` or a
+`SPARROW_AI_BASE_URL` that is not an absolute URL. A value of
+`SPARROW_AI_ENABLED` that is not a boolean (`true`/`false`, `1`/`0`) stops
+startup, like any other malformed variable.
+
+If a key or base URL is set while `SPARROW_AI_ENABLED` is not `true`, startup
+logs a warning that **Draft with AI** is off.
 
 ## Default Tenant
 
