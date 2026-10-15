@@ -569,11 +569,11 @@ Write tools (`--allow-write`):
 
 | Tool | What it does |
 | --- | --- |
-| `push_event` | Pushes one event; an unknown event type is auto-created (a test push) |
+| `push_event` | Pushes one event; an unknown event type is auto-created (a test push). A new name must follow the [naming rules](/sparrow/guides/event-type-versioning/#naming-rules), like `order.created`, or the push gets a 400 |
 | `retry_delivery` | Re-attempts one delivery immediately |
 | `register_webhook` | Registers an endpoint, optionally subscribed to events in the same call |
-| `create_subscription` | Subscribes an existing webhook to an event, with optional filters and template |
-| `update_subscription` | Changes one subscription's transform template or label filters, e.g. to fix a failing template |
+| `create_subscription` | Subscribes an existing webhook to an event, with optional filters and template. A template that does not parse is refused with the parse error |
+| `update_subscription` | Changes one subscription's transform template or label filters, e.g. to fix a failing template. A template that does not parse is refused; the saved change is recorded in the template history |
 | `delete_subscription` | Deletes one subscription; the webhook stays |
 | `delete_webhook` | Deletes a webhook and its subscriptions |
 | `apply_recipe` | Applies a recipe by name or inline YAML, like `sparrow use`: validates first against the event's registered sample and creates nothing if that fails. `dry_run` previews; `update_existing` re-applies to the existing webhook for the destination (without it, a second apply fails and names that webhook). Missing params are all named in one error |
@@ -658,6 +658,60 @@ If `~/.sparrow/config.yaml` already holds a key, `sparrow mcp` picks it up
 with no `env` entry. Set `SPARROW_API_KEY` in `env` anyway when the agent should
 use a different credential from the one you use in the terminal; the
 environment wins over the config file.
+
+#### What to do in the UI, the CLI or the agent
+
+The MCP server covers the day-to-day loop: inspect, explain a failure, write
+and test a template, subscribe, push and watch. The web UI can do everything
+the API can, and a few things are only there. Use this table to pick the tool
+for the task; the last column is the recommendation.
+
+| Task | UI | CLI | MCP | Recommended |
+| --- | --- | --- | --- | --- |
+| Inspect webhooks, subscriptions, deliveries and attempts | Webhooks, Deliveries | `webhooks`, `tail deliveries` | `list_*`, `get_*` | Agent, to explain a failure in context |
+| Push a test event | Push Test Event | `push` | `push_event` | CLI or agent |
+| Infer a schema from real events | Events: **Infer schema** | - | - | UI, before writing templates (see below) |
+| Register or edit an event type's schema, read its versions | Events: Edit, Versions | `events`, `events versions` (read) | `list_event_types` (read) | UI |
+| Move event types between environments | Events: **Export all**, **Import** with preview | `events export`, `events import --dry-run` | - | CLI in scripts and CI, UI for a one-off |
+| Write and test a transform template | Template editor, live strict render | `template test` | `test_template`, `validate_recipe` | Agent or UI |
+| Draft a template with AI, or copy the prompt | Template editor: AI drawer, **Copy prompt** | - | - | UI; an agent writes the template itself |
+| Go back to an earlier template | Template editor: history | - | - | UI |
+| Connect a destination from a recipe | Register webhook: **Use recipe** | `use` | `apply_recipe` | Any; the agent validates first |
+| Register a webhook, subscribe it | Register webhook, subscription pages | `use` | `register_webhook`, `create_subscription` | Any |
+| Develop a receiver locally | - | `listen --forward` | `start_listen`, `list_received` | CLI for your app, agent for its own checks |
+| Retry one delivery | Delivery details | - | `retry_delivery` | Agent or UI |
+| Retry held or failed deliveries in bulk, re-push events | Deliveries, event reports, held-deliveries notice | - | - | UI: bulk jobs snapshot their targets and show progress |
+| Pause or resume a webhook or subscription | Webhook and subscription pages | - | - | UI |
+| Rotate a signing secret | Webhook page | - | - | UI: the new secret is shown once |
+| Health dashboard and alert configs | Health dashboard, webhook page | `stats` (counts only) | `get_stats` (counts only) | UI |
+| Tokens and invites | Access | `tokens`, `invite`, `invites` | - | UI or CLI; never through an agent |
+
+Anything marked `-` can still be done with the [REST API](/sparrow/reference/api/).
+
+Recommended workflows:
+
+- **Infer the schema before an agent writes templates.** An event type
+  created by a push has no schema and no sample payload, so `test_template`
+  has nothing to render against and fails on the first field it reads. Push a
+  few real events, then use **Infer schema** on the Events page
+  ([Inferring a schema from real events](/sparrow/guides/event-type-versioning/#inferring-a-schema-from-real-events)).
+  The saved sample is what `test_template`, `validate_recipe` and
+  `apply_recipe` render against afterwards. `validate_recipe` also takes a
+  `payload` when there is no sample yet.
+- **Export event types to promote them.** Once the schemas are right on a
+  development instance, export them and import them into staging and
+  production instead of re-pushing there
+  ([Exporting and importing event types](/sparrow/guides/event-type-export-import/)).
+  The import preview names every subscription whose template would fail
+  against the new sample.
+- **Let the agent build, then review in the UI.** An agent can draft a
+  template with `test_template`, subscribe with `create_subscription`, and
+  prove it with `start_listen` and `push_event`. Open the subscription in the
+  UI afterwards: the template history shows each saved version, and
+  loading an earlier one into the editor and saving it undoes a bad change.
+- **Keep account and bulk actions in the UI.** Bulk retries, re-pushes,
+  pauses, secret rotation and access tokens have no MCP tools. They affect many deliveries or other people's access, and the UI shows what
+  will change before it happens.
 
 ### `sparrow version`
 
