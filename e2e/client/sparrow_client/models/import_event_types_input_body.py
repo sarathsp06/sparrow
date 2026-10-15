@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
 
-from ..models.import_event_types_input_body_acknowledge_type_0_item import ImportEventTypesInputBodyAcknowledgeType0Item
+from ..models.import_event_types_input_body_acknowledge_item import ImportEventTypesInputBodyAcknowledgeItem
 from ..models.import_event_types_input_body_api_version import ImportEventTypesInputBodyApiVersion
 from ..models.import_event_types_input_body_kind import ImportEventTypesInputBodyKind
 from ..models.import_event_types_input_body_subscription_policy import ImportEventTypesInputBodySubscriptionPolicy
@@ -23,11 +23,11 @@ T = TypeVar("T", bound="ImportEventTypesInputBody")
 class ImportEventTypesInputBody:
     """
     Attributes:
-        items (list[BundleItem] | None): Definitions to import. Each replaces the named event type; types not listed are
-            never touched.
+        items (list[BundleItem]): Definitions to import. Each replaces the named event type; types not listed are never
+            touched.
         schema (str | Unset): A URL to the JSON Schema for this object.
-        acknowledge (list[ImportEventTypesInputBodyAcknowledgeType0Item] | None | Unset): Stamp warnings you accept.
-            Each unacknowledged warning blocks the write.
+        acknowledge (list[ImportEventTypesInputBodyAcknowledgeItem] | Unset): Stamp warnings you accept. Each
+            unacknowledged warning blocks the write.
         allow_breaking (bool | Unset): Apply breaking schema changes to event types that subscriptions receive.
         api_version (ImportEventTypesInputBodyApiVersion | Unset): Bundle schema version, if the body is an exported
             bundle.
@@ -39,9 +39,9 @@ class ImportEventTypesInputBody:
             same transaction, pause each subscription whose template fails the pre-check, with the import as the reason.
     """
 
-    items: list[BundleItem] | None
+    items: list[BundleItem]
     schema: str | Unset = UNSET
-    acknowledge: list[ImportEventTypesInputBodyAcknowledgeType0Item] | None | Unset = UNSET
+    acknowledge: list[ImportEventTypesInputBodyAcknowledgeItem] | Unset = UNSET
     allow_breaking: bool | Unset = UNSET
     api_version: ImportEventTypesInputBodyApiVersion | Unset = UNSET
     dry_run: bool | Unset = UNSET
@@ -50,29 +50,19 @@ class ImportEventTypesInputBody:
     subscription_policy: ImportEventTypesInputBodySubscriptionPolicy | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
-        items: list[dict[str, Any]] | None
-        if isinstance(self.items, list):
-            items = []
-            for items_type_0_item_data in self.items:
-                items_type_0_item = items_type_0_item_data.to_dict()
-                items.append(items_type_0_item)
-
-        else:
-            items = self.items
+        items = []
+        for items_item_data in self.items:
+            items_item = items_item_data.to_dict()
+            items.append(items_item)
 
         schema = self.schema
 
-        acknowledge: list[str] | None | Unset
-        if isinstance(self.acknowledge, Unset):
-            acknowledge = UNSET
-        elif isinstance(self.acknowledge, list):
+        acknowledge: list[str] | Unset = UNSET
+        if not isinstance(self.acknowledge, Unset):
             acknowledge = []
-            for acknowledge_type_0_item_data in self.acknowledge:
-                acknowledge_type_0_item = acknowledge_type_0_item_data.value
-                acknowledge.append(acknowledge_type_0_item)
-
-        else:
-            acknowledge = self.acknowledge
+            for acknowledge_item_data in self.acknowledge:
+                acknowledge_item = acknowledge_item_data.value
+                acknowledge.append(acknowledge_item)
 
         allow_breaking = self.allow_breaking
 
@@ -126,52 +116,23 @@ class ImportEventTypesInputBody:
         from ..models.bundle_stamp_body import BundleStampBody  # noqa: PLC0415
 
         d = dict(src_dict)
+        items = []
+        _items = d.pop("items")
+        for items_item_data in _items:
+            items_item = BundleItem.from_dict(items_item_data)
 
-        def _parse_items(data: object) -> list[BundleItem] | None:
-            if data is None:
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError()
-                items_type_0 = []
-                _items_type_0 = data
-                for items_type_0_item_data in _items_type_0:
-                    items_type_0_item = BundleItem.from_dict(items_type_0_item_data)
-
-                    items_type_0.append(items_type_0_item)
-
-                return items_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(list[BundleItem] | None, data)
-
-        items = _parse_items(d.pop("items"))
+            items.append(items_item)
 
         schema = d.pop("$schema", UNSET)
 
-        def _parse_acknowledge(data: object) -> list[ImportEventTypesInputBodyAcknowledgeType0Item] | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError()
-                acknowledge_type_0 = []
-                _acknowledge_type_0 = data
-                for acknowledge_type_0_item_data in _acknowledge_type_0:
-                    acknowledge_type_0_item = ImportEventTypesInputBodyAcknowledgeType0Item(
-                        acknowledge_type_0_item_data
-                    )
+        _acknowledge = d.pop("acknowledge", UNSET)
+        acknowledge: list[ImportEventTypesInputBodyAcknowledgeItem] | Unset = UNSET
+        if _acknowledge is not UNSET:
+            acknowledge = []
+            for acknowledge_item_data in _acknowledge:
+                acknowledge_item = ImportEventTypesInputBodyAcknowledgeItem(acknowledge_item_data)
 
-                    acknowledge_type_0.append(acknowledge_type_0_item)
-
-                return acknowledge_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(list[ImportEventTypesInputBodyAcknowledgeType0Item] | None | Unset, data)
-
-        acknowledge = _parse_acknowledge(d.pop("acknowledge", UNSET))
+                acknowledge.append(acknowledge_item)
 
         allow_breaking = d.pop("allow_breaking", UNSET)
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
 
@@ -29,9 +29,9 @@ class Recipe:
         consumer (ConsumerHint | Unset):
         guidance (str | Unset): What an ideal message for this destination looks like. Advice for template authors and
             AI drafting, not a rule.
-        params (list[Param] | None | Unset): Values the user supplies when applying the recipe. Each {{param "name"}}
-            token in webhook.url, webhook.headers, webhook.secret_headers and subscription.transform_template is replaced
-            with the value by plain string substitution before registration.
+        params (list[Param] | Unset): Values the user supplies when applying the recipe. Each {{param "name"}} token in
+            webhook.url, webhook.headers, webhook.secret_headers and subscription.transform_template is replaced with the
+            value by plain string substitution before registration.
     """
 
     description: str
@@ -41,7 +41,7 @@ class Recipe:
     webhook: Webhook
     consumer: ConsumerHint | Unset = UNSET
     guidance: str | Unset = UNSET
-    params: list[Param] | None | Unset = UNSET
+    params: list[Param] | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         description = self.description
@@ -60,17 +60,12 @@ class Recipe:
 
         guidance = self.guidance
 
-        params: list[dict[str, Any]] | None | Unset
-        if isinstance(self.params, Unset):
-            params = UNSET
-        elif isinstance(self.params, list):
+        params: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.params, Unset):
             params = []
-            for params_type_0_item_data in self.params:
-                params_type_0_item = params_type_0_item_data.to_dict()
-                params.append(params_type_0_item)
-
-        else:
-            params = self.params
+            for params_item_data in self.params:
+                params_item = params_item_data.to_dict()
+                params.append(params_item)
 
         field_dict: dict[str, Any] = {}
 
@@ -119,27 +114,14 @@ class Recipe:
 
         guidance = d.pop("guidance", UNSET)
 
-        def _parse_params(data: object) -> list[Param] | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError()
-                params_type_0 = []
-                _params_type_0 = data
-                for params_type_0_item_data in _params_type_0:
-                    params_type_0_item = Param.from_dict(params_type_0_item_data)
+        _params = d.pop("params", UNSET)
+        params: list[Param] | Unset = UNSET
+        if _params is not UNSET:
+            params = []
+            for params_item_data in _params:
+                params_item = Param.from_dict(params_item_data)
 
-                    params_type_0.append(params_type_0_item)
-
-                return params_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(list[Param] | None | Unset, data)
-
-        params = _parse_params(d.pop("params", UNSET))
+                params.append(params_item)
 
         recipe = cls(
             description=description,

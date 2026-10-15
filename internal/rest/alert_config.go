@@ -28,7 +28,7 @@ type alertConfigItem struct {
 	WebhookID  string   `json:"webhook_id,omitempty" doc:"Webhook this alert is scoped to; omitted for consumer-wide alerts."`
 	Email      string   `json:"email" doc:"Recipient email address."`
 	EventTypes []string `json:"event_types" doc:"Sparrow system event types this recipient is alerted on."`
-	CreatedAt  string   `json:"created_at" doc:"Creation timestamp, RFC3339."`
+	CreatedAt  string   `json:"created_at" format:"date-time" doc:"Creation timestamp, RFC3339."`
 }
 
 func toAlertConfigItem(c *store.AlertConfig) alertConfigItem {

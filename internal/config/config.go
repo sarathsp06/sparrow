@@ -2,9 +2,9 @@
 // variables using [kelseyhightower/envconfig].
 //
 // All server configuration is defined in the [Config] struct. Call [Load] to
-// populate it from the environment. Non-SPARROW-prefixed variables (DATABASE_URL,
-// ENVIRONMENT, OTEL_EXPORTER_OTLP_ENDPOINT, CORS_ALLOWED_ORIGINS) are loaded
-// separately because envconfig works with a single prefix.
+// populate it from the environment. The only variables without the SPARROW_
+// prefix are the standard DATABASE_URL and OTEL_EXPORTER_OTLP_*, which is why
+// Load uses no envconfig prefix.
 package config
 
 import (
@@ -29,9 +29,10 @@ import (
 // See Load() for the mapping between env vars and struct fields.
 type Config struct {
 	// Environment is the deployment environment (e.g. "production", "development").
-	// Controls .env loading, CORS defaults, and OTel environment tag.
-	// Env: ENVIRONMENT
-	Environment string `envconfig:"ENVIRONMENT" default:""`
+	// "production" (any case) turns on the production checks; it also controls
+	// .env loading, CORS defaults, and the OTel environment tag.
+	// Env: SPARROW_ENVIRONMENT
+	Environment string `envconfig:"SPARROW_ENVIRONMENT" default:""`
 
 	// DatabaseURL is the PostgreSQL connection string.
 	// Env: DATABASE_URL
@@ -118,8 +119,8 @@ type Config struct {
 	// CORSAllowedOrigins is a comma-separated list of allowed CORS origins.
 	// When empty in production, cross-origin requests are blocked.
 	// When empty in development, all origins are allowed.
-	// Env: CORS_ALLOWED_ORIGINS
-	CORSAllowedOrigins []string `envconfig:"CORS_ALLOWED_ORIGINS" default:""`
+	// Env: SPARROW_CORS_ALLOWED_ORIGINS
+	CORSAllowedOrigins []string `envconfig:"SPARROW_CORS_ALLOWED_ORIGINS" default:""`
 
 	// MaxBodyBytes caps the size of incoming HTTP request bodies in bytes.
 	// Defaults to 5 MiB. Must be at least 1 MiB (Huma's per-operation limit)
@@ -239,7 +240,7 @@ type Config struct {
 
 // Load populates a Config struct from environment variables.
 // envconfig does not use a prefix since the env vars span multiple consumers
-// (SPARROW_*, DATABASE_URL, ENVIRONMENT, OTEL_*, CORS_*).
+// (SPARROW_*, DATABASE_URL, OTEL_*).
 //
 // A variable set to "" or "-" counts as unset, so its default applies: some
 // platforms cannot unset a variable once it exists, or cannot store an empty
@@ -302,9 +303,16 @@ func (c *Config) ShutdownTimeoutOrDefault() time.Duration {
 	return c.ShutdownTimeout
 }
 
-// IsProduction returns true when Environment is set to "production".
+// IsProduction returns true when Environment is "production", ignoring case
+// and surrounding space.
 func (c *Config) IsProduction() bool {
-	return c.Environment == "production"
+	return IsProductionEnv(c.Environment)
+}
+
+// IsProductionEnv reports whether a SPARROW_ENVIRONMENT value means
+// production. cmd/server uses it before Load, to decide on .env loading.
+func IsProductionEnv(v string) bool {
+	return strings.EqualFold(strings.TrimSpace(v), "production")
 }
 
 // Validate checks configuration values for sanity.
@@ -464,6 +472,16 @@ func (c *Config) Warnings() []string {
 	}
 	if err := c.AIConfigError(); err != nil {
 		warnings = append(warnings, err.Error()+"; POST /v1/subscriptions:draftTemplate answers 503 with this message until it is fixed")
+	}
+	if env := strings.ToLower(strings.TrimSpace(c.Environment)); strings.HasPrefix(env, "prod") && !c.IsProduction() {
+		warnings = append(warnings, fmt.Sprintf("SPARROW_ENVIRONMENT=%q is not \"production\", so the production checks (required API key, refusing the development encryption key, blocked CORS) are OFF; set SPARROW_ENVIRONMENT=production", c.Environment))
+	}
+	for old, renamed := range map[string]string{"ENVIRONMENT": "SPARROW_ENVIRONMENT", "CORS_ALLOWED_ORIGINS": "SPARROW_CORS_ALLOWED_ORIGINS"} {
+		if v, set := os.LookupEnv(old); set && !isBlank(v) {
+			if _, also := os.LookupEnv(renamed); !also {
+				warnings = append(warnings, fmt.Sprintf("%s is set but no longer read; Sparrow reads %s", old, renamed))
+			}
+		}
 	}
 	if v, set := os.LookupEnv("SPARROW_UI_INJECT_KEY"); set && !isBlank(v) {
 		warnings = append(warnings, "SPARROW_UI_INJECT_KEY is no longer supported and is ignored — the UI never receives the API key; sign in with the key, an access token, or an invite link")

@@ -117,10 +117,10 @@ type WebhookOut struct {
 	SignatureType      string               `json:"signature_type" enum:"hmac,ed25519" doc:"Signing scheme. \"hmac\" (default) signs every delivery with HMAC-SHA256 (v1,); \"ed25519\" adds an Ed25519 signature (v1a,) alongside the HMAC one."`
 	HTTPConfig         WebhookHTTPConfigOut `json:"http_config" doc:"Per-webhook HTTP delivery configuration."`
 	RequiresTransform  bool                 `json:"requires_transform" doc:"Whether every subscription must carry an enabled transform_template because the receiver only accepts transformed payloads."`
-	AutoDisabledAt     string               `json:"auto_disabled_at,omitempty" doc:"Set when Sparrow paused this webhook itself because its receiver kept failing (see SPARROW_AUTO_DISABLE_AFTER), RFC3339. Cleared when the webhook is resumed."`
+	AutoDisabledAt     string               `json:"auto_disabled_at,omitempty" format:"date-time" doc:"Set when Sparrow paused this webhook itself because its receiver kept failing (see SPARROW_AUTO_DISABLE_AFTER), RFC3339. Cleared when the webhook is resumed."`
 	AutoDisabledReason string               `json:"auto_disabled_reason,omitempty" doc:"Why Sparrow auto-disabled this webhook. Cleared when the webhook is resumed."`
-	CreatedAt          string               `json:"created_at" doc:"Creation timestamp, RFC3339."`
-	UpdatedAt          string               `json:"updated_at" doc:"Last-modified timestamp, RFC3339."`
+	CreatedAt          string               `json:"created_at" format:"date-time" doc:"Creation timestamp, RFC3339."`
+	UpdatedAt          string               `json:"updated_at" format:"date-time" doc:"Last-modified timestamp, RFC3339."`
 }
 
 func toWebhookOut(reg *store.WebhookRegistration, events []string, svc webhooks.SecretRevealer) WebhookOut {

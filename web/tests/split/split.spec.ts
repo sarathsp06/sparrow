@@ -3,7 +3,7 @@ import { mintPortalToken, newConsumer, registerWebhook } from '../api';
 
 // Split deployment: the built UI is served by a plain static host (no Sparrow
 // involvement) on one origin, and talks cross-origin to a Sparrow server that
-// runs with ENVIRONMENT=production, SPARROW_API_KEY and CORS_ALLOWED_ORIGINS.
+// runs with SPARROW_ENVIRONMENT=production, SPARROW_API_KEY and SPARROW_CORS_ALLOWED_ORIGINS.
 // scripts/test-ui.sh boots both and sets these variables.
 const UI = process.env.SPARROW_SPLIT_UI_URL ?? '';
 const API = process.env.SPARROW_SPLIT_API_URL ?? '';

@@ -18,22 +18,17 @@ class SchemaCompatibilityItem:
         result (SchemaCompatibilityItemResult): breaking when the change could break a payload transformation: a
             required property removed or made optional, a type widened, the schema removed, or a change under
             oneOf/anyOf/allOf/$ref/patternProperties that cannot be checked.
-        reasons (list[str] | None | Unset): Each breaking change with the path it affects.
+        reasons (list[str] | Unset): Each breaking change with the path it affects.
     """
 
     result: SchemaCompatibilityItemResult
-    reasons: list[str] | None | Unset = UNSET
+    reasons: list[str] | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         result = self.result.value
 
-        reasons: list[str] | None | Unset
-        if isinstance(self.reasons, Unset):
-            reasons = UNSET
-        elif isinstance(self.reasons, list):
-            reasons = self.reasons
-
-        else:
+        reasons: list[str] | Unset = UNSET
+        if not isinstance(self.reasons, Unset):
             reasons = self.reasons
 
         field_dict: dict[str, Any] = {}
@@ -53,22 +48,7 @@ class SchemaCompatibilityItem:
         d = dict(src_dict)
         result = SchemaCompatibilityItemResult(d.pop("result"))
 
-        def _parse_reasons(data: object) -> list[str] | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError()
-                reasons_type_0 = cast(list[str], data)
-
-                return reasons_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(list[str] | None | Unset, data)
-
-        reasons = _parse_reasons(d.pop("reasons", UNSET))
+        reasons = cast(list[str], d.pop("reasons", UNSET))
 
         schema_compatibility_item = cls(
             result=result,

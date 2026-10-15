@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -21,7 +22,7 @@ class EventOccurrenceItem:
     """
     Attributes:
         consumer (str): Tenant consumer this occurrence was pushed into.
-        created_at (str): When this occurrence was pushed, RFC3339.
+        created_at (datetime.datetime): When this occurrence was pushed, RFC3339.
         event (str): Event type name.
         event_id (str): Event occurrence id (UUID).
         event_version (int): Event type version this occurrence was accepted under.
@@ -38,7 +39,7 @@ class EventOccurrenceItem:
     """
 
     consumer: str
-    created_at: str
+    created_at: datetime.datetime
     event: str
     event_id: str
     event_version: int
@@ -55,7 +56,7 @@ class EventOccurrenceItem:
     def to_dict(self) -> dict[str, Any]:
         consumer = self.consumer
 
-        created_at = self.created_at
+        created_at = self.created_at.isoformat()
 
         event = self.event
 
@@ -120,7 +121,7 @@ class EventOccurrenceItem:
         d = dict(src_dict)
         consumer = d.pop("consumer")
 
-        created_at = d.pop("created_at")
+        created_at = datetime.datetime.fromisoformat(d.pop("created_at"))
 
         event = d.pop("event")
 

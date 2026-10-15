@@ -20,7 +20,7 @@ class Param:
         activation_required (bool | Unset): A missing value blocks enabling an auto-provisioned recipe.
         default (str | Unset): Value used when none is supplied.
         docs_url (str | Unset): Destination documentation for this value.
-        enum (list[str] | None | Unset): The only accepted values, when set.
+        enum (list[str] | Unset): The only accepted values, when set.
         example (str | Unset): A sample value.
         help_ (str | Unset): What the value is and where to find it.
         must_override_default (bool | Unset): The default is a placeholder: it must be replaced with a real value before
@@ -34,7 +34,7 @@ class Param:
     activation_required: bool | Unset = UNSET
     default: str | Unset = UNSET
     docs_url: str | Unset = UNSET
-    enum: list[str] | None | Unset = UNSET
+    enum: list[str] | Unset = UNSET
     example: str | Unset = UNSET
     help_: str | Unset = UNSET
     must_override_default: bool | Unset = UNSET
@@ -53,13 +53,8 @@ class Param:
 
         docs_url = self.docs_url
 
-        enum: list[str] | None | Unset
-        if isinstance(self.enum, Unset):
-            enum = UNSET
-        elif isinstance(self.enum, list):
-            enum = self.enum
-
-        else:
+        enum: list[str] | Unset = UNSET
+        if not isinstance(self.enum, Unset):
             enum = self.enum
 
         example = self.example
@@ -113,22 +108,7 @@ class Param:
 
         docs_url = d.pop("docs_url", UNSET)
 
-        def _parse_enum(data: object) -> list[str] | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError()
-                enum_type_0 = cast(list[str], data)
-
-                return enum_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(list[str] | None | Unset, data)
-
-        enum = _parse_enum(d.pop("enum", UNSET))
+        enum = cast(list[str], d.pop("enum", UNSET))
 
         example = d.pop("example", UNSET)
 

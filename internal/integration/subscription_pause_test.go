@@ -109,7 +109,7 @@ func TestSubscriptionPause_HoldsDeliveriesAsPausedRows(t *testing.T) {
 	var job struct {
 		ID string `json:"id"`
 	}
-	resp, err = c.post(ctx, "/v1/consumers/"+consumer+"/deliveries:retryBatch", map[string]any{"repush_id": list.RetryID}, &job)
+	resp, err = c.post(ctx, "/v1/consumers/"+consumer+"/deliveries:retryBatch", map[string]any{"retry_id": list.RetryID}, &job)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 

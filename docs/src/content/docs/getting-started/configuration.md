@@ -34,19 +34,20 @@ SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main
 | `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` | Which key ID encrypts new data. Must be one of the IDs in the keyring. |
 
 For anything reachable by more than you, also set `SPARROW_API_KEY` and
-`ENVIRONMENT=production`. The [production guide](/sparrow/deployment/production/)
+`SPARROW_ENVIRONMENT=production`. The [production guide](/sparrow/deployment/production/)
 lists the rest. To serve the web UI from the same server, set
 `SPARROW_SERVE_UI=true`.
 
 :::caution[Without `SPARROW_API_KEY` the API is open]
 With `SPARROW_API_KEY` unset, every `/v1` endpoint answers anyone who can
-reach the port, and unless `ENVIRONMENT` is `production` CORS also allows
+reach the port, and unless `SPARROW_ENVIRONMENT` is `production` CORS also allows
 every origin, so any web page a user opens can call the API from their
 browser. Only run like this on your own machine or a fully trusted network.
 
-`ENVIRONMENT` must be exactly `production`, lowercase. `Production`, `prod`
-or `PRODUCTION` count as development: no key is required and CORS stays open,
-with no warning.
+`SPARROW_ENVIRONMENT=production` turns the production checks on (case and
+surrounding spaces don't matter). Any other value counts as development: no
+key is required and CORS stays open. A value that looks like production but
+isn't, such as `prod`, logs a warning at startup.
 :::
 
 ## All variables
@@ -61,8 +62,8 @@ Grouped by what they control. Durations use Go syntax: `90s`, `20ms`, `1m`,
 | `SPARROW_HTTP_PORT` | `8080` | Port for the REST API, health endpoints, `/metrics` and (if enabled) the UI. |
 | `SPARROW_SERVE_UI` | `false` | Serve the embedded web dashboard on the same port. |
 | `SPARROW_LOG_LEVEL` | `info` | Lowest level the server logs: `debug`, `info`, `warn` or `error`. `info` writes a line for every event and delivery; `warn` keeps only problems and saves that work on a busy instance. Logs are JSON on stdout (and exported through OpenTelemetry when it is enabled). An unknown value stops startup. |
-| `ENVIRONMENT` | unset | Set `production` to reject cross-origin requests unless `CORS_ALLOWED_ORIGINS` allows them, to require a 32+ character `SPARROW_API_KEY`, to refuse an all-zeros encryption key, and to tag logs and telemetry. The match is exact and case-sensitive: any other value, `Production` included, behaves as development. |
-| `CORS_ALLOWED_ORIGINS` | unset | Comma-separated browser origins allowed to call the API, e.g. `https://ui.example.com`. Needed when the UI is [hosted separately](/sparrow/deployment/separate-ui/). Unset: every origin is allowed, except with `ENVIRONMENT=production`, where none is. |
+| `SPARROW_ENVIRONMENT` | unset | Set `production` to reject cross-origin requests unless `SPARROW_CORS_ALLOWED_ORIGINS` allows them, to require a 32+ character `SPARROW_API_KEY`, to refuse an all-zeros encryption key, and to tag logs and telemetry. Case doesn't matter; any other value behaves as development, and one starting with `prod` logs a warning. |
+| `SPARROW_CORS_ALLOWED_ORIGINS` | unset | Comma-separated browser origins allowed to call the API, e.g. `https://ui.example.com`. Needed when the UI is [hosted separately](/sparrow/deployment/separate-ui/). Unset: every origin is allowed, except with `SPARROW_ENVIRONMENT=production`, where none is. |
 | `SPARROW_SHUTDOWN_TIMEOUT` | `10s` | Budget for a graceful shutdown on `SIGTERM`/`SIGINT`, HTTP drain and queue stop together. `/ready` turns `503` at once, but the listener closes right after (on Kubernetes add a `preStop` sleep; see [Graceful shutdown](/sparrow/deployment/production/#graceful-shutdown)); in-flight HTTP requests finish, then the queue stops taking jobs and waits for running ones; deliveries still running near the end are cancelled and retried later (a cancelled attempt is not recorded as a failure). Keep it below the orchestrator's kill deadline minus any `preStop` sleep (Kubernetes: `terminationGracePeriodSeconds`, 30s by default). |
 | `SPARROW_MAX_BODY_BYTES` | `5242880` (5 MiB) | Largest accepted request body; larger ones get `413`. Minimum 1 MiB. |
 
@@ -70,7 +71,7 @@ Grouped by what they control. Durations use Go syntax: `90s`, `20ms`, `1m`,
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SPARROW_API_KEY` | unset (API open) | The master key. When set, every `/v1` request needs it or an access token, in `X-API-Key` or `Authorization: Bearer`. Required, and at least 32 characters, with `ENVIRONMENT=production` (the server won't start otherwise). Generate with `openssl rand -hex 32`. See [Access tokens and invites](/sparrow/deployment/access/). |
+| `SPARROW_API_KEY` | unset (API open) | The master key. When set, every `/v1` request needs it or an access token, in `X-API-Key` or `Authorization: Bearer`. Required, and at least 32 characters, with `SPARROW_ENVIRONMENT=production` (the server won't start otherwise). Generate with `openssl rand -hex 32`. See [Access tokens and invites](/sparrow/deployment/access/). |
 | `SPARROW_TOKEN_DEFAULT_TTL` | `2160h` (90 days) | Lifetime of a tenant-wide access token created without `ttl_seconds` or `never_expires`, including browser sign-ins and invites. `0` means such tokens never expire. |
 
 ### Outbound network

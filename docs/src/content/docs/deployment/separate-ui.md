@@ -13,7 +13,7 @@ This page covers the other layout: the dashboard is a static site (nginx, a CDN,
 |---|---|---|
 | Where the UI sends API calls | Same origin | `apiUrl` in `/config.js`, or `PUBLIC_API_URL` at build time |
 | API key (`SPARROW_API_KEY`) | Sign-in prompt on first `401` (key never written into the page) | Sign-in prompt on first `401`, or set in `/config.js` |
-| CORS | Not needed | `CORS_ALLOWED_ORIGINS` must list the UI origin |
+| CORS | Not needed | `SPARROW_CORS_ALLOWED_ORIGINS` must list the UI origin |
 | Security headers (CSP, framing) | Set by Sparrow | Set by your static host |
 
 ## 1. Build the UI
@@ -79,14 +79,14 @@ server {
 
 ```bash
 # Exact origin of the UI: scheme + host + port, no path.
-CORS_ALLOWED_ORIGINS=https://sparrow.example.com
+SPARROW_CORS_ALLOWED_ORIGINS=https://sparrow.example.com
 SPARROW_API_KEY=<long random string>
-ENVIRONMENT=production
+SPARROW_ENVIRONMENT=production
 # Optional: turn off the server's own copy of the UI.
 SPARROW_SERVE_UI=false
 ```
 
-- `CORS_ALLOWED_ORIGINS` is required. With `ENVIRONMENT=production` and no allowlist, the server rejects every cross-origin request. Without `ENVIRONMENT=production` and no allowlist, it accepts any origin, which is only meant for local development. List more origins separated by commas. A trailing slash is ignored.
+- `SPARROW_CORS_ALLOWED_ORIGINS` is required. With `SPARROW_ENVIRONMENT=production` and no allowlist, the server rejects every cross-origin request. Without `SPARROW_ENVIRONMENT=production` and no allowlist, it accepts any origin, which is only meant for local development. List more origins separated by commas. A trailing slash is ignored.
 - The UI sends the key in the `X-API-Key` header, never as a cookie, so no credentialed CORS is involved.
 
 ## Authentication
@@ -104,13 +104,13 @@ The portal (`/portal`) works from a separately hosted UI. Its API calls go to `<
 
 ## Local development
 
-`make run` (server on `:8080`) plus `make run-web` (vite on `:5173`) is also a split deployment. It works without configuration because the server allows any origin when `ENVIRONMENT` isn't `production`, and the dev UI defaults to `http://localhost:8080`. If you run the server with `ENVIRONMENT=production`, also set `CORS_ALLOWED_ORIGINS=http://localhost:5173`.
+`make run` (server on `:8080`) plus `make run-web` (vite on `:5173`) is also a split deployment. It works without configuration because the server allows any origin when `SPARROW_ENVIRONMENT` isn't `production`, and the dev UI defaults to `http://localhost:8080`. If you run the server with `SPARROW_ENVIRONMENT=production`, also set `SPARROW_CORS_ALLOWED_ORIGINS=http://localhost:5173`.
 
 ## Troubleshooting
 
 | Symptom | Likely cause |
 |---|---|
-| Browser console shows `blocked by CORS policy` | UI origin missing from `CORS_ALLOWED_ORIGINS` (check scheme and port), or the server is in production mode with no allowlist |
+| Browser console shows `blocked by CORS policy` | UI origin missing from `SPARROW_CORS_ALLOWED_ORIGINS` (check scheme and port), or the server is in production mode with no allowlist |
 | API calls go to the UI host and return HTML or 404 | No `apiUrl` in `config.js` and the build had no `PUBLIC_API_URL` |
 | **API key required** dialog keeps coming back | The key you entered doesn't match the server's `SPARROW_API_KEY` |
 | Reloading a deep link like `/webhooks/abc` returns 404 | Static host has no SPA fallback to `index.html` |

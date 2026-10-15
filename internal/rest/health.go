@@ -74,7 +74,7 @@ type healthSummaryInput struct {
 // consumer = search all consumers).
 type listWebhooksGlobalInput struct {
 	Consumer  string `query:"consumer,omitempty" doc:"Filter to one consumer; omit to list webhooks across all consumers."`
-	Health    string `query:"health,omitempty" enum:"healthy,degraded,unhealthy,unknown," doc:"Filter to webhooks with this computed health status."`
+	Health    string `query:"health,omitempty" enum:"healthy,degraded,unhealthy,unknown" doc:"Filter to webhooks with this computed health status."`
 	WebhookID string `query:"webhook_id,omitempty" doc:"Look up a single webhook by id when its consumer is unknown."`
 	Limit     int32  `query:"limit" default:"50" doc:"Maximum items to return; values above 1000 are capped at 1000."`
 	Offset    int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`

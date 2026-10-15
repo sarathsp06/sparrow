@@ -19,7 +19,7 @@
 #
 # For a real deployment (Kubernetes or any container platform) follow
 # https://sarathsp06.github.io/sparrow/deployment/production/ -- it covers
-# the required secrets, ENVIRONMENT=production, and network exposure.
+# the required secrets, SPARROW_ENVIRONMENT=production, and network exposure.
 #
 # Want to try sign-in, access tokens and invites locally? Uncomment
 # SPARROW_API_KEY below, then `docker compose up -d` again.

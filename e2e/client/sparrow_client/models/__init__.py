@@ -64,7 +64,7 @@ from .export_event_types_input_body import ExportEventTypesInputBody
 from .health_rules import HealthRules
 from .health_summary_output_body import HealthSummaryOutputBody
 from .import_event_types_input_body import ImportEventTypesInputBody
-from .import_event_types_input_body_acknowledge_type_0_item import ImportEventTypesInputBodyAcknowledgeType0Item
+from .import_event_types_input_body_acknowledge_item import ImportEventTypesInputBodyAcknowledgeItem
 from .import_event_types_input_body_api_version import ImportEventTypesInputBodyApiVersion
 from .import_event_types_input_body_kind import ImportEventTypesInputBodyKind
 from .import_event_types_input_body_subscription_policy import ImportEventTypesInputBodySubscriptionPolicy
@@ -124,6 +124,7 @@ from .resume_subscription_output_body_method import ResumeSubscriptionOutputBody
 from .resume_subscription_output_body_on_transform_error import ResumeSubscriptionOutputBodyOnTransformError
 from .resume_subscription_output_body_template_missing_key import ResumeSubscriptionOutputBodyTemplateMissingKey
 from .resume_webhook_output_body import ResumeWebhookOutputBody
+from .retry_batch_input_body import RetryBatchInputBody
 from .retry_deliveries_by_webhook_input_body import RetryDeliveriesByWebhookInputBody
 from .retry_output_body import RetryOutputBody
 from .rotate_webhook_secret_output_body import RotateWebhookSecretOutputBody
@@ -236,7 +237,7 @@ __all__ = (
     "HealthRules",
     "HealthSummaryOutputBody",
     "ImportEventTypesInputBody",
-    "ImportEventTypesInputBodyAcknowledgeType0Item",
+    "ImportEventTypesInputBodyAcknowledgeItem",
     "ImportEventTypesInputBodyApiVersion",
     "ImportEventTypesInputBodyKind",
     "ImportEventTypesInputBodySubscriptionPolicy",
@@ -296,6 +297,7 @@ __all__ = (
     "ResumeSubscriptionOutputBodyOnTransformError",
     "ResumeSubscriptionOutputBodyTemplateMissingKey",
     "ResumeWebhookOutputBody",
+    "RetryBatchInputBody",
     "RetryDeliveriesByWebhookInputBody",
     "RetryOutputBody",
     "RotateWebhookSecretOutputBody",

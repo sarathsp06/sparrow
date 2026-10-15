@@ -227,7 +227,7 @@ export interface paths {
         put?: never;
         /**
          * Start a batch retry job from a prepared snapshot
-         * @description Starts an async job that retries every delivery in a snapshot taken by an earlier GET .../deliveries?prepare_retry=true call, like retryDelivery for each one. The body field is named repush_id, but it takes the retry_id returned by the deliveries list. Returns 202 with the job; poll it with getDeliveryRetryJob.
+         * @description Starts an async job that retries every delivery in a snapshot taken by an earlier GET .../deliveries?prepare_retry=true call, like retryDelivery for each one. Send the retry_id the deliveries list returned. Returns 202 with the job; poll it with getDeliveryRetryJob.
          *
          *     A snapshot can be started once: 409 when it is not pending (already started or cancelled), expired (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400 when it is not a UUID.
          *
@@ -1376,12 +1376,15 @@ export interface components {
             readonly $schema?: string;
             /** @description Consumer this alert config belongs to. */
             consumer: string;
-            /** @description Creation timestamp, RFC3339. */
+            /**
+             * Format: date-time
+             * @description Creation timestamp, RFC3339.
+             */
             created_at: string;
             /** @description Recipient email address. */
             email: string;
             /** @description Sparrow system event types this recipient is alerted on. */
-            event_types: string[] | null;
+            event_types: string[];
             /** @description Alert config id (UUID). */
             id: string;
             /** @description Webhook this alert is scoped to; omitted for consumer-wide alerts. */
@@ -1396,7 +1399,7 @@ export interface components {
              * @description Failure classification for this attempt.
              * @enum {string}
              */
-            error_category?: "success" | "client_error" | "server_error" | "timeout" | "dns_error" | "tls_error" | "connection_refused" | "network_error" | "rate_limited" | "unexpected_status" | "template_error" | "unknown" | "";
+            error_category?: "success" | "client_error" | "server_error" | "timeout" | "dns_error" | "tls_error" | "connection_refused" | "network_error" | "rate_limited" | "unexpected_status" | "template_error" | "unknown";
             /** @description Human-readable failure reason for this attempt. */
             error_message?: string;
             /**
@@ -1411,7 +1414,10 @@ export interface components {
             response_time: number;
             /** @description Whether this attempt succeeded (got one of the webhook's expected_status_codes). */
             success: boolean;
-            /** @description When this attempt was made, RFC3339. */
+            /**
+             * Format: date-time
+             * @description When this attempt was made, RFC3339.
+             */
             timestamp: string;
         };
         AttemptsOutputBody: {
@@ -1422,7 +1428,7 @@ export interface components {
              */
             readonly $schema?: string;
             /** @description Every recorded attempt, oldest first. */
-            items: components["schemas"]["AttemptItem"][] | null;
+            items: components["schemas"]["AttemptItem"][];
         };
         BatchJobOutputBody: {
             /**
@@ -1433,9 +1439,15 @@ export interface components {
             readonly $schema?: string;
             /** @description Consumer the snapshot was taken in; empty for a snapshot taken from a cross-consumer list. */
             consumer: string;
-            /** @description Creation timestamp, RFC3339. */
+            /**
+             * Format: date-time
+             * @description Creation timestamp, RFC3339.
+             */
             created_at: string;
-            /** @description When the snapshot expires, RFC3339: 15 minutes after it was taken. An expired snapshot can no longer be started. */
+            /**
+             * Format: date-time
+             * @description When the snapshot expires, RFC3339: 15 minutes after it was taken. An expired snapshot can no longer be started.
+             */
             expires_at: string;
             /**
              * Format: int64
@@ -1570,7 +1582,7 @@ export interface components {
              */
             email: string;
             /** @description Sparrow system event types to alert on, at least one of: sparrow.webhook.health_changed, sparrow.webhook.delivery_failed, sparrow.webhook.disabled. */
-            event_types: string[] | null;
+            event_types: string[];
             /** @description Scope the alert to one webhook. Omit for a consumer-wide alert covering every webhook. */
             webhook_id?: string;
         };
@@ -1715,7 +1727,10 @@ export interface components {
             attempt_count: number;
             /** @description Consumer of the webhook. Set in delivery listings. */
             consumer?: string;
-            /** @description When the delivery was created by fan-out, RFC3339. */
+            /**
+             * Format: date-time
+             * @description When the delivery was created by fan-out, RFC3339.
+             */
             created_at: string;
             /** @description Delivery id (UUID). */
             delivery_id: string;
@@ -1723,21 +1738,27 @@ export interface components {
              * @description Outcome classification of the most recent attempt, used to decide retryability. server_error (5xx), timeout, connection_refused, network_error and rate_limited (429) are retried; client_error (other 4xx), dns_error, tls_error and unexpected_status (a 2xx/3xx not in expected_status_codes) are not. template_error means the subscription's transform failed to render; it is not retried automatically and does not count against the webhook's health.
              * @enum {string}
              */
-            error_category?: "success" | "client_error" | "server_error" | "timeout" | "dns_error" | "tls_error" | "connection_refused" | "network_error" | "rate_limited" | "unexpected_status" | "template_error" | "unknown" | "";
+            error_category?: "success" | "client_error" | "server_error" | "timeout" | "dns_error" | "tls_error" | "connection_refused" | "network_error" | "rate_limited" | "unexpected_status" | "template_error" | "unknown";
             /** @description Human-readable failure reason from the most recent attempt. */
             error_message?: string;
             /** @description Pushed event occurrence this delivery originated from. */
             event_id: string;
             /** @description Event type of that occurrence, e.g. order.created. Set in delivery listings. */
             event_name?: string;
-            /** @description Timestamp of the most recent attempt, RFC3339. */
+            /**
+             * Format: date-time
+             * @description Timestamp of the most recent attempt, RFC3339.
+             */
             last_attempted_at?: string;
             /**
              * Format: int64
              * @description Attempts allowed per round before the delivery is marked failed: the webhook's max_retries + 1 when the delivery was created. A manual retry starts a new round.
              */
             max_attempts: number;
-            /** @description Timestamp of the next scheduled retry, RFC3339, if one is pending. */
+            /**
+             * Format: date-time
+             * @description Timestamp of the next scheduled retry, RFC3339, if one is pending.
+             */
             next_retry_at?: string;
             /** @description Endpoint response body from the most recent attempt: up to 1 KiB, or up to SPARROW_MAX_CAPTURED_RESPONSE_BYTES when the webhook has capture_response_body. */
             response_body?: string;
@@ -1849,7 +1870,7 @@ export interface components {
              */
             detail?: string;
             /** @description Optional list of individual error details */
-            errors?: components["schemas"]["ErrorDetail"][] | null;
+            errors?: components["schemas"]["ErrorDetail"][];
             /**
              * Format: uri
              * @description A URI reference that identifies the specific occurrence of the problem.
@@ -1884,7 +1905,10 @@ export interface components {
             readonly $schema?: string;
             /** @description Tenant consumer this occurrence was pushed into. */
             consumer: string;
-            /** @description When this occurrence was pushed, RFC3339. */
+            /**
+             * Format: date-time
+             * @description When this occurrence was pushed, RFC3339.
+             */
             created_at: string;
             /** @description Event type name. */
             event: string;
@@ -1965,7 +1989,7 @@ export interface components {
              */
             apiVersion: "sparrow/v1";
             /** @description Event type definitions, sorted by name. */
-            items: components["schemas"]["BundleItem"][] | null;
+            items: components["schemas"]["BundleItem"][];
             /**
              * @description Bundle kind.
              * @enum {string}
@@ -1984,14 +2008,14 @@ export interface components {
              * @description Set when the write flips the active flag.
              * @enum {string}
              */
-            active_change?: "deactivates" | "reactivates" | "";
+            active_change?: "deactivates" | "reactivates";
             /**
              * Format: int64
              * @description For new_version: subscriptions that receive this event type, by name or catch-all.
              */
             affected_subscriptions?: number;
             /** @description Fields that changed: schema, schema_defined (a first schema was added in place), description, metadata, active. */
-            changes?: string[] | null;
+            changes?: string[];
             /** @description For new_version: whether the schema change could break a subscription's payload transformation. */
             compatibility?: components["schemas"]["SchemaCompatibilityItem"];
             /**
@@ -2014,7 +2038,10 @@ export interface components {
             readonly $schema?: string;
             /** @description Whether events of this type can currently be pushed. */
             active: boolean;
-            /** @description Creation timestamp, RFC3339. */
+            /**
+             * Format: date-time
+             * @description Creation timestamp, RFC3339.
+             */
             created_at: string;
             /** @description Human-readable summary of what this event represents. */
             description?: string;
@@ -2032,7 +2059,10 @@ export interface components {
             sample_payload?: {
                 [key: string]: unknown;
             };
-            /** @description Last-modified timestamp, RFC3339. */
+            /**
+             * Format: date-time
+             * @description Last-modified timestamp, RFC3339.
+             */
             updated_at: string;
             /**
              * Format: int64
@@ -2047,7 +2077,10 @@ export interface components {
              * @example https://example.com/schemas/EventTypeVersionItem.json
              */
             readonly $schema?: string;
-            /** @description When this version was created, RFC3339. */
+            /**
+             * Format: date-time
+             * @description When this version was created, RFC3339.
+             */
             created_at: string;
             /** @description Description as it was when this version was created. */
             description?: string;
@@ -2061,7 +2094,10 @@ export interface components {
             sample_payload?: {
                 [key: string]: unknown;
             };
-            /** @description When a first schema was added to this version in place, RFC3339. Events pushed before this time were accepted while the version had no schema. */
+            /**
+             * Format: date-time
+             * @description When a first schema was added to this version in place, RFC3339. Events pushed before this time were accepted while the version had no schema.
+             */
             schema_defined_at?: string;
             /**
              * Format: int64
@@ -2079,7 +2115,7 @@ export interface components {
             /** @description Export every event type. */
             all?: boolean;
             /** @description Export these event types. Each must exist. */
-            names?: string[] | null;
+            names?: string[];
             /** @description Export every event type whose name starts with this prefix. */
             prefix?: string;
         };
@@ -2158,7 +2194,7 @@ export interface components {
              */
             readonly $schema?: string;
             /** @description Stamp warnings you accept. Each unacknowledged warning blocks the write. */
-            acknowledge?: ("version_differs" | "format_unsupported" | "items_changed")[] | null;
+            acknowledge?: ("version_differs" | "format_unsupported" | "items_changed")[];
             /** @description Apply breaking schema changes to event types that subscriptions receive. */
             allow_breaking?: boolean;
             /**
@@ -2169,7 +2205,7 @@ export interface components {
             /** @description Compute the full result without writing anything. */
             dry_run?: boolean;
             /** @description Definitions to import. Each replaces the named event type; types not listed are never touched. */
-            items: components["schemas"]["BundleItem"][] | null;
+            items: components["schemas"]["BundleItem"][];
             /**
              * @description Bundle kind, if the body is an exported bundle.
              * @enum {string}
@@ -2193,13 +2229,16 @@ export interface components {
             /** @description True when the import was written. False for a dry run or when blocked_by is non-empty. */
             applied: boolean;
             /** @description Why nothing was written: unacknowledged stamp warnings, and breaking when a breaking change needs allow_breaking. */
-            blocked_by?: string[] | null;
+            blocked_by?: string[];
             /** @description Whether this was a dry run. */
             dry_run: boolean;
-            /** @description When the import was written, RFC3339. Use it to find deliveries that failed after the change. */
+            /**
+             * Format: date-time
+             * @description When the import was written, RFC3339. Use it to find deliveries that failed after the change.
+             */
             imported_at?: string;
             /** @description One result per bundle item, sorted by name. */
-            items: components["schemas"]["ImportItemResult"][] | null;
+            items: components["schemas"]["ImportItemResult"][];
             /** @description The bundle's stamp compared with this server. */
             stamp: components["schemas"]["StampCheckItem"];
         };
@@ -2213,11 +2252,11 @@ export interface components {
              * @description Set when the import flips the active flag.
              * @enum {string}
              */
-            active_change?: "deactivates" | "reactivates" | "";
+            active_change?: "deactivates" | "reactivates";
             /** @description The change is breaking for subscriptions and allow_breaking was not set. */
             blocked?: boolean;
             /** @description Fields that change: schema, schema_defined, description, metadata, active. */
-            changes?: string[] | null;
+            changes?: string[];
             /** @description For new_version: whether the change could break a subscription's payload transformation. */
             compatibility?: components["schemas"]["SchemaCompatibilityItem"];
             /** @description Event type name. */
@@ -2285,7 +2324,7 @@ export interface components {
              */
             readonly $schema?: string;
             /** @description Alert configs, oldest first. Not paginated. */
-            items: components["schemas"]["AlertConfigItem"][] | null;
+            items: components["schemas"]["AlertConfigItem"][];
         };
         ListConsumersOutputBody: {
             /**
@@ -2295,7 +2334,7 @@ export interface components {
              */
             readonly $schema?: string;
             /** @description Matching consumer names, sorted by name. */
-            items: components["schemas"]["ConsumerItem"][] | null;
+            items: components["schemas"]["ConsumerItem"][];
         };
         ListDeliveriesOutputBody: {
             /**
@@ -2305,10 +2344,10 @@ export interface components {
              */
             readonly $schema?: string;
             /** @description Deliveries, newest first. Includes deliveries of deleted webhooks. */
-            items: components["schemas"]["DeliveryItem"][] | null;
+            items: components["schemas"]["DeliveryItem"][];
             /** @description Cursor pagination; there is no total count. */
             pagination: components["schemas"]["CursorPaginationOutput"];
-            /** @description Snapshot (batch job) id, present when prepare_retry was set and something matched. Send it as the repush_id field of POST .../deliveries:retryBatch. Expires after 15 minutes if not started. */
+            /** @description Snapshot (batch job) id, present when prepare_retry was set and something matched. Send it as the retry_id field of POST .../deliveries:retryBatch. Expires after 15 minutes if not started. */
             retry_id?: string;
             /**
              * Format: int64
@@ -2324,7 +2363,7 @@ export interface components {
              */
             readonly $schema?: string;
             /** @description Occurrences, newest first. */
-            items: components["schemas"]["EventOccurrenceItem"][] | null;
+            items: components["schemas"]["EventOccurrenceItem"][];
             /** @description Cursor pagination; there is no total count. */
             pagination: components["schemas"]["CursorPaginationOutput"];
             /** @description Snapshot (batch job) id for POST .../events:rePush, present when prepare_repush was set and something matched. Expires after 15 minutes if not started. */
@@ -2343,7 +2382,7 @@ export interface components {
              */
             readonly $schema?: string;
             /** @description Every version of the event type, newest first. */
-            items: components["schemas"]["EventTypeVersionItem"][] | null;
+            items: components["schemas"]["EventTypeVersionItem"][];
         };
         ListEventTypesOutputBody: {
             /**
@@ -2353,7 +2392,7 @@ export interface components {
              */
             readonly $schema?: string;
             /** @description Event types, sorted by name. */
-            items: components["schemas"]["EventTypeItem"][] | null;
+            items: components["schemas"]["EventTypeItem"][];
             /** @description Offset pagination with a total count. */
             pagination: components["schemas"]["PaginationOutput"];
         };
@@ -2365,7 +2404,7 @@ export interface components {
              */
             readonly $schema?: string;
             /** @description Invites, newest first. Not paginated. */
-            items: components["schemas"]["InviteOut"][] | null;
+            items: components["schemas"]["InviteOut"][];
         };
         ListRecipesOutputBody: {
             /**
@@ -2375,7 +2414,7 @@ export interface components {
              */
             readonly $schema?: string;
             /** @description Every shipped recipe. */
-            items: components["schemas"]["Recipe"][] | null;
+            items: components["schemas"]["Recipe"][];
         };
         ListSubscriptionsOutputBody: {
             /**
@@ -2385,7 +2424,7 @@ export interface components {
              */
             readonly $schema?: string;
             /** @description Subscriptions, newest first. */
-            items: components["schemas"]["SubscriptionItem"][] | null;
+            items: components["schemas"]["SubscriptionItem"][];
             /** @description Offset pagination with a total count. */
             pagination: components["schemas"]["PaginationOutput"];
         };
@@ -2397,7 +2436,7 @@ export interface components {
              */
             readonly $schema?: string;
             /** @description Saved versions, newest first. */
-            items: components["schemas"]["TemplateVersionItem"][] | null;
+            items: components["schemas"]["TemplateVersionItem"][];
         };
         ListTokensOutputBody: {
             /**
@@ -2407,7 +2446,7 @@ export interface components {
              */
             readonly $schema?: string;
             /** @description Tokens, newest first. Not paginated. */
-            items: components["schemas"]["TokenOut"][] | null;
+            items: components["schemas"]["TokenOut"][];
         };
         ListWebhooksOutputBody: {
             /**
@@ -2417,7 +2456,7 @@ export interface components {
              */
             readonly $schema?: string;
             /** @description Webhooks, newest first. */
-            items: components["schemas"]["WebhookOut"][] | null;
+            items: components["schemas"]["WebhookOut"][];
             /** @description Offset pagination with a total count. */
             pagination: components["schemas"]["PaginationOutput"];
         };
@@ -2448,7 +2487,7 @@ export interface components {
             /** @description Destination documentation for this value. */
             docs_url?: string;
             /** @description The only accepted values, when set. */
-            enum?: string[] | null;
+            enum?: string[];
             /** @description A sample value. */
             example?: string;
             /** @description What the value is and where to find it. */
@@ -2595,7 +2634,7 @@ export interface components {
             /** @description Whether the payload validated against the event type's JSON Schema (true when it has none). False does not mean the push was rejected; see warnings. For a duplicate, the original event's result. */
             schema_valid: boolean;
             /** @description Non-fatal schema validation warnings. The event is stored and delivered regardless. Absent for a duplicate. */
-            warnings?: string[] | null;
+            warnings?: string[];
         };
         Recipe: {
             /** @description The consumer the recipe is meant to be registered under, when it matters. */
@@ -2607,7 +2646,7 @@ export interface components {
             /** @description Recipe name, e.g. slack. Unique among shipped recipes. */
             name: string;
             /** @description Values the user supplies when applying the recipe. Each {{param "name"}} token in webhook.url, webhook.headers, webhook.secret_headers and subscription.transform_template is replaced with the value by plain string substitution before registration. */
-            params?: components["schemas"]["Param"][] | null;
+            params?: components["schemas"]["Param"][];
             /** @description The transform given to the subscriptions created for the webhook. */
             subscription: components["schemas"]["Subscription"];
             /**
@@ -2630,7 +2669,7 @@ export interface components {
             /** @description Free-text note for humans, e.g. which system or team owns this endpoint. */
             description?: string;
             /** @description Event type names this webhook should receive; auto-creates one subscription per entry. Use "*" as the sole entry to subscribe to every event in the consumer. Omit or leave empty to register the webhook with no subscriptions, then attach them individually via POST .../subscriptions (e.g. to set a per-subscription transform_template). */
-            events?: string[] | null;
+            events?: string[];
             /** @description Static HTTP headers sent with every delivery to this webhook. Only string values are sent. Names must be valid HTTP tokens, values at most 8 KiB with no CR/LF; framing headers (Host, Content-Length, Transfer-Encoding, Connection, Keep-Alive, Proxy-Connection, TE, Trailer, Upgrade) are rejected. Stored and returned in plaintext: put credentials in secret_headers. */
             headers?: {
                 [key: string]: unknown;
@@ -2641,7 +2680,7 @@ export interface components {
              * @description What happens when transform_template fails to render for one of the created subscriptions. fail (default) or fallback; see the subscription's on_transform_error.
              * @enum {string}
              */
-            on_transform_error?: "fail" | "fallback" | "";
+            on_transform_error?: "fail" | "fallback";
             /**
              * Format: double
              * @deprecated
@@ -2658,19 +2697,19 @@ export interface components {
              * @description Signing scheme. Every delivery carries an HMAC-SHA256 signature (v1,) in the Standard Webhooks webhook-signature header; ed25519 also generates a signing keypair and adds an Ed25519 signature (v1a,) next to it. Defaults to hmac.
              * @enum {string}
              */
-            signature_type?: "hmac" | "ed25519" | "";
+            signature_type?: "hmac" | "ed25519";
             /**
              * @description How transform_template reads a key the payload does not have, for the created subscriptions. error (default) or zero; see the subscription's template_missing_key.
              * @enum {string}
              */
-            template_missing_key?: "error" | "zero" | "";
+            template_missing_key?: "error" | "zero";
             /** @description Optional note stored with that first template version, e.g. the AI drafter's summary. */
             template_notes?: string;
             /**
              * @description How transform_template was produced, recorded as the first version in each created subscription's template history. Defaults to manual.
              * @enum {string}
              */
-            template_source?: "manual" | "ai_draft" | "";
+            template_source?: "manual" | "ai_draft";
             /** @description Transform template given to every subscription created from events, with transform_enabled set. Omit to create them untransformed (not allowed with requires_transform). */
             transform_template?: string;
             /**
@@ -2699,7 +2738,7 @@ export interface components {
             /** @description Id (UUID) of the new event occurrence created by the replay. The original occurrence is unchanged. */
             event_id: string;
             /** @description Non-fatal warnings from validating the stored payload against the event type's current schema. */
-            warnings?: string[] | null;
+            warnings?: string[];
         };
         ResumeSubscriptionOutputBody: {
             /**
@@ -2710,7 +2749,10 @@ export interface components {
             readonly $schema?: string;
             /** @description Consumer this subscription belongs to. */
             consumer: string;
-            /** @description Creation timestamp, RFC3339. */
+            /**
+             * Format: date-time
+             * @description Creation timestamp, RFC3339.
+             */
             created_at: string;
             /** @description Event type name this subscription matches, or "*" for catch-all. */
             event_name: string;
@@ -2734,7 +2776,10 @@ export interface components {
             on_transform_error: "fail" | "fallback";
             /** @description Whether the subscription is paused. While paused, events still fan out to it, but each delivery is recorded with status paused and not attempted until retried. A pause never affects the webhook's health. */
             paused: boolean;
-            /** @description When the current pause began, RFC3339. Absent when not paused. */
+            /**
+             * Format: date-time
+             * @description When the current pause began, RFC3339. Absent when not paused.
+             */
             paused_at?: string;
             /**
              * Format: int64
@@ -2743,7 +2788,10 @@ export interface components {
             paused_deliveries: number;
             /** @description Why the subscription was paused. */
             paused_reason?: string;
-            /** @description When the pause that just ended began, RFC3339; absent when the subscription was not paused. List or retry what was held with status=paused&subscription_id=...&created_after=<paused_since>. */
+            /**
+             * Format: date-time
+             * @description When the pause that just ended began, RFC3339; absent when the subscription was not paused. List or retry what was held with status=paused&subscription_id=...&created_after=<paused_since>.
+             */
             paused_since?: string;
             /** @description Subscription id (UUID). */
             subscription_id: string;
@@ -2761,7 +2809,10 @@ export interface components {
             transform_enabled: boolean;
             /** @description Go text/template rendered against the event to produce the delivered body when transform_enabled is true. */
             transform_template?: string;
-            /** @description Last-modified timestamp, RFC3339. */
+            /**
+             * Format: date-time
+             * @description Last-modified timestamp, RFC3339.
+             */
             updated_at: string;
             /** @description Webhook this subscription delivers to. */
             webhook_id: string;
@@ -2778,6 +2829,16 @@ export interface components {
              * @description Deliveries held as paused for this webhook. They are not sent automatically; retry them to deliver.
              */
             paused_deliveries: number;
+        };
+        RetryBatchInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/RetryBatchInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description retry_id returned by an earlier GET .../deliveries?prepare_retry=true call. */
+            retry_id: string;
         };
         RetryDeliveriesByWebhookInputBody: {
             /**
@@ -2804,7 +2865,7 @@ export interface components {
              */
             count: number;
             /** @description Ids of the deliveries queued. Absent when nothing matched. */
-            delivery_ids?: string[] | null;
+            delivery_ids?: string[];
         };
         RotateWebhookSecretOutputBody: {
             /**
@@ -2818,7 +2879,7 @@ export interface components {
         };
         SchemaCompatibilityItem: {
             /** @description Each breaking change with the path it affects. */
-            reasons?: string[] | null;
+            reasons?: string[];
             /**
              * @description breaking when the change could break a payload transformation: a required property removed or made optional, a type widened, the schema removed, or a change under oneOf/anyOf/allOf/$ref/patternProperties that cannot be checked.
              * @enum {string}
@@ -2836,7 +2897,7 @@ export interface components {
              */
             status: "valid" | "unsigned" | "warning";
             /** @description version_differs, format_unsupported, items_changed. Each must be acknowledged for the import to write. */
-            warnings?: string[] | null;
+            warnings?: string[];
         };
         Subscription: {
             /** @description Go template rendered per delivery to build the destination-native body; may contain {{param}} tokens. */
@@ -2851,7 +2912,10 @@ export interface components {
             readonly $schema?: string;
             /** @description Consumer this subscription belongs to. */
             consumer: string;
-            /** @description Creation timestamp, RFC3339. */
+            /**
+             * Format: date-time
+             * @description Creation timestamp, RFC3339.
+             */
             created_at: string;
             /** @description Event type name this subscription matches, or "*" for catch-all. */
             event_name: string;
@@ -2875,7 +2939,10 @@ export interface components {
             on_transform_error: "fail" | "fallback";
             /** @description Whether the subscription is paused. While paused, events still fan out to it, but each delivery is recorded with status paused and not attempted until retried. A pause never affects the webhook's health. */
             paused: boolean;
-            /** @description When the current pause began, RFC3339. Absent when not paused. */
+            /**
+             * Format: date-time
+             * @description When the current pause began, RFC3339. Absent when not paused.
+             */
             paused_at?: string;
             /** @description Why the subscription was paused. */
             paused_reason?: string;
@@ -2895,7 +2962,10 @@ export interface components {
             transform_enabled: boolean;
             /** @description Go text/template rendered against the event to produce the delivered body when transform_enabled is true. */
             transform_template?: string;
-            /** @description Last-modified timestamp, RFC3339. */
+            /**
+             * Format: date-time
+             * @description Last-modified timestamp, RFC3339.
+             */
             updated_at: string;
             /** @description Webhook this subscription delivers to. */
             webhook_id: string;
@@ -2907,14 +2977,14 @@ export interface components {
              */
             catch_all: number;
             /** @description Subscriptions whose transform no longer renders against the new version. */
-            failures?: components["schemas"]["TemplateFailureItem"][] | null;
+            failures?: components["schemas"]["TemplateFailureItem"][];
             /**
              * Format: int64
              * @description Subscriptions whose transform renders.
              */
             passed: number;
             /** @description Subscriptions this import paused (subscription_policy=pause). */
-            paused?: string[] | null;
+            paused?: string[];
             /**
              * Format: int64
              * @description Subscriptions with no transform. Sparrow passes the payload through and cannot tell whether the receiver copes.
@@ -2950,7 +3020,7 @@ export interface components {
              */
             readonly $schema?: string;
             /** @description Every helper function, in the engine's own order. */
-            items: components["schemas"]["TemplateFunctionItem"][] | null;
+            items: components["schemas"]["TemplateFunctionItem"][];
         };
         TemplateVersionItem: {
             /**
@@ -3047,7 +3117,10 @@ export interface components {
             active: boolean;
             /** @description What this update did. */
             change: components["schemas"]["EventTypeChange"];
-            /** @description Creation timestamp, RFC3339. */
+            /**
+             * Format: date-time
+             * @description Creation timestamp, RFC3339.
+             */
             created_at: string;
             /** @description Human-readable summary of what this event represents. */
             description?: string;
@@ -3065,7 +3138,10 @@ export interface components {
             sample_payload?: {
                 [key: string]: unknown;
             };
-            /** @description Last-modified timestamp, RFC3339. */
+            /**
+             * Format: date-time
+             * @description Last-modified timestamp, RFC3339.
+             */
             updated_at: string;
             /**
              * Format: int64
@@ -3095,7 +3171,7 @@ export interface components {
             /** @description Whether the payload matches the event type's JSON Schema. Always true when the event type has no schema registered. */
             valid: boolean;
             /** @description Per-field validation errors, present when valid is false. */
-            warnings?: string[] | null;
+            warnings?: string[];
         };
         Webhook: {
             /** @description Static headers sent with every delivery; values may contain {{param}} tokens. */
@@ -3117,7 +3193,7 @@ export interface components {
             /** @description Stored and returned, but deliveries do not use it yet: they send Content-Type: application/json. To send another Content-Type, set it in headers (or the subscription's headers). Must not be empty; defaults to application/json. */
             content_type?: string;
             /** @description HTTP status codes treated as a successful delivery, each between 100 and 599. Defaults to 200, 201, 202 and 204. */
-            expected_status_codes?: number[] | null;
+            expected_status_codes?: number[];
             /** @description Whether to follow HTTP redirects returned by the endpoint. Each redirect target passes the same SSRF checks. Defaults to true. */
             follow_redirects?: boolean;
             /**
@@ -3151,7 +3227,7 @@ export interface components {
             /** @description Stored value; deliveries currently send Content-Type: application/json unless headers override it. */
             content_type?: string;
             /** @description HTTP status codes treated as a successful delivery. */
-            expected_status_codes?: number[] | null;
+            expected_status_codes?: number[];
             /** @description Whether HTTP redirects returned by the endpoint are followed. */
             follow_redirects: boolean;
             /**
@@ -3262,18 +3338,24 @@ export interface components {
             readonly $schema?: string;
             /** @description Whether deliveries are sent. false: paused by an operator or auto-disabled; new deliveries are held as paused. */
             active: boolean;
-            /** @description Set when Sparrow paused this webhook itself because its receiver kept failing (see SPARROW_AUTO_DISABLE_AFTER), RFC3339. Cleared when the webhook is resumed. */
+            /**
+             * Format: date-time
+             * @description Set when Sparrow paused this webhook itself because its receiver kept failing (see SPARROW_AUTO_DISABLE_AFTER), RFC3339. Cleared when the webhook is resumed.
+             */
             auto_disabled_at?: string;
             /** @description Why Sparrow auto-disabled this webhook. Cleared when the webhook is resumed. */
             auto_disabled_reason?: string;
             /** @description Consumer this webhook belongs to. */
             consumer: string;
-            /** @description Creation timestamp, RFC3339. */
+            /**
+             * Format: date-time
+             * @description Creation timestamp, RFC3339.
+             */
             created_at: string;
             /** @description Human-readable note about this webhook. */
             description?: string;
             /** @description Event type names this webhook is currently subscribed to, derived from its subscriptions. */
-            events: string[] | null;
+            events: string[];
             /** @description Static HTTP headers sent with every delivery. */
             headers?: {
                 [key: string]: string;
@@ -3298,7 +3380,10 @@ export interface components {
             signature_type: "hmac" | "ed25519";
             /** @description Hex-encoded Ed25519 public key for verifying the v1a, delivery signature. Safe to expose; there is no private-key equivalent to mask. */
             signing_public_key?: string;
-            /** @description Last-modified timestamp, RFC3339. */
+            /**
+             * Format: date-time
+             * @description Last-modified timestamp, RFC3339.
+             */
             updated_at: string;
             /** @description HTTP endpoint deliveries are POSTed to. */
             url: string;
@@ -3560,7 +3645,7 @@ export interface operations {
                 created_after?: string;
                 /** @description Only deliveries created at or before this time: YYYY-MM-DD (through the end of that day, UTC) or an RFC3339 timestamp. */
                 created_before?: string;
-                /** @description Side effect: when true, also snapshots the ids of every delivery matching the filters (not just this page; at most 10,000, more is an error) into a batch job and returns its id as retry_id. Pass it as repush_id to POST .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot. */
+                /** @description Side effect: when true, also snapshots the ids of every delivery matching the filters (not just this page; at most 10,000, more is an error) into a batch job and returns its id as retry_id. Pass it to POST .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot. */
                 prepare_retry?: boolean;
                 /** @description Maximum items to return, 1 to 1000. */
                 limit?: number;
@@ -3847,7 +3932,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RepushBatchInputBody"];
+                "application/json": components["schemas"]["RetryBatchInputBody"];
             };
         };
         responses: {
@@ -4884,7 +4969,7 @@ export interface operations {
                 /** @description true returns only active (not paused) webhooks; false returns all. */
                 active?: boolean;
                 /** @description Filter by computed health status. */
-                health?: "healthy" | "degraded" | "unhealthy" | "unknown" | "";
+                health?: "healthy" | "degraded" | "unhealthy" | "unknown";
                 /** @description Maximum items to return, 1 to 1000. */
                 limit?: number;
                 /** @description Number of items to skip, for pagination. */
@@ -5403,7 +5488,7 @@ export interface operations {
                 created_after?: string;
                 /** @description Only deliveries created at or before this time: YYYY-MM-DD (through the end of that day, UTC) or an RFC3339 timestamp. */
                 created_before?: string;
-                /** @description Side effect: when true, also snapshots the ids of every delivery matching the filters (not just this page; at most 10,000, more is an error) into a batch job and returns its id as retry_id. Pass it as repush_id to POST .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot. */
+                /** @description Side effect: when true, also snapshots the ids of every delivery matching the filters (not just this page; at most 10,000, more is an error) into a batch job and returns its id as retry_id. Pass it to POST .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot. */
                 prepare_retry?: boolean;
                 /** @description Maximum items to return, 1 to 1000. */
                 limit?: number;
@@ -6999,7 +7084,7 @@ export interface operations {
                 /** @description Filter to one consumer; omit to list webhooks across all consumers. */
                 consumer?: string;
                 /** @description Filter to webhooks with this computed health status. */
-                health?: "healthy" | "degraded" | "unhealthy" | "unknown" | "";
+                health?: "healthy" | "degraded" | "unhealthy" | "unknown";
                 /** @description Look up a single webhook by id when its consumer is unknown. */
                 webhook_id?: string;
                 /** @description Maximum items to return; values above 1000 are capped at 1000. */

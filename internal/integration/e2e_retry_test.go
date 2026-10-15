@@ -542,7 +542,7 @@ func TestE2E_BatchRetryDeliveries(t *testing.T) {
 		ID string `json:"id"`
 	}
 	resp, err := c.post(ctx, "/v1/consumers/"+consumer+"/deliveries:retryBatch", map[string]any{
-		"repush_id": listOut.RetryID,
+		"retry_id": listOut.RetryID,
 	}, &jobOut)
 	require.NoError(t, err, "startDeliveryRetryJob failed")
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)

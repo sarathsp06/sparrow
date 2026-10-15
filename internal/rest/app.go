@@ -18,6 +18,7 @@ const APIVersion = "1.0.0"
 // value registers the AI routes in their disabled state.
 func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps AccessDeps, aiDeps AIDeps) huma.API {
 	config := huma.DefaultConfig("Sparrow", APIVersion)
+	config.Transformers = append(config.Transformers, emptySlices)
 	config.Info.Description = "Sparrow is a self-hosted webhook delivery platform: register the " +
 		"events your system produces, register the webhooks that should receive them, then push " +
 		"event occurrences and Sparrow fans them out with retries and health tracking.\n\n" +
@@ -45,7 +46,7 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps Access
 		"Optional. When the server is started with `SPARROW_API_KEY` set, every `/v1/*` request " +
 		"must carry that master key or a tenant-wide access token (`createToken` without a " +
 		"`consumer`), in the `X-API-Key` header or as `Authorization: Bearer <credential>`. When " +
-		"`SPARROW_API_KEY` is unset, every endpoint is open, and outside `ENVIRONMENT=production` " +
+		"`SPARROW_API_KEY` is unset, every endpoint is open, and outside `SPARROW_ENVIRONMENT=production` " +
 		"CORS also allows any origin: never expose such a server beyond a trusted network.\n\n" +
 		"## Portal tokens\n\n" +
 		"A consumer-scoped access token (`createToken` with a `consumer`) powers the embedded " +

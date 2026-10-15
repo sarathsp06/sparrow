@@ -64,17 +64,15 @@ tells you how many there are and when the pause began:
 { "subscription_id": "…", "paused": false, "paused_since": "2026-09-30T10:00:00Z", "paused_deliveries": 42 }
 ```
 
-To send them, snapshot them with the delivery list and start a batch retry.
-The list returns the snapshot as `retry_id`; the batch retry endpoint takes
-that same value in a field called `repush_id` (both endpoints share one
-snapshot format):
+To send them, snapshot them with the delivery list and start a batch retry
+with the `retry_id` the list returns:
 
 ```bash
 curl "http://localhost:8080/v1/consumers/acme/deliveries?status=paused&subscription_id={subscription_id}&created_after=2026-09-30T10:00:00Z&prepare_retry=true"
 # -> {"items": [...], "retry_id": "3f2a9c1e-…", ...}
 
 curl -X POST http://localhost:8080/v1/consumers/acme/deliveries:retryBatch \
-  -H 'Content-Type: application/json' -d '{"repush_id": "3f2a9c1e-…"}'
+  -H 'Content-Type: application/json' -d '{"retry_id": "3f2a9c1e-…"}'
 ```
 
 The retry runs in the background. The response is the job, whose `id` is that

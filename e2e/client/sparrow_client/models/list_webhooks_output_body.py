@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
 
@@ -19,25 +19,20 @@ T = TypeVar("T", bound="ListWebhooksOutputBody")
 class ListWebhooksOutputBody:
     """
     Attributes:
-        items (list[WebhookOut] | None): Webhooks, newest first.
+        items (list[WebhookOut]): Webhooks, newest first.
         pagination (PaginationOutput):
         schema (str | Unset): A URL to the JSON Schema for this object.
     """
 
-    items: list[WebhookOut] | None
+    items: list[WebhookOut]
     pagination: PaginationOutput
     schema: str | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
-        items: list[dict[str, Any]] | None
-        if isinstance(self.items, list):
-            items = []
-            for items_type_0_item_data in self.items:
-                items_type_0_item = items_type_0_item_data.to_dict()
-                items.append(items_type_0_item)
-
-        else:
-            items = self.items
+        items = []
+        for items_item_data in self.items:
+            items_item = items_item_data.to_dict()
+            items.append(items_item)
 
         pagination = self.pagination.to_dict()
 
@@ -62,26 +57,12 @@ class ListWebhooksOutputBody:
         from ..models.webhook_out import WebhookOut  # noqa: PLC0415
 
         d = dict(src_dict)
+        items = []
+        _items = d.pop("items")
+        for items_item_data in _items:
+            items_item = WebhookOut.from_dict(items_item_data)
 
-        def _parse_items(data: object) -> list[WebhookOut] | None:
-            if data is None:
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError()
-                items_type_0 = []
-                _items_type_0 = data
-                for items_type_0_item_data in _items_type_0:
-                    items_type_0_item = WebhookOut.from_dict(items_type_0_item_data)
-
-                    items_type_0.append(items_type_0_item)
-
-                return items_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(list[WebhookOut] | None, data)
-
-        items = _parse_items(d.pop("items"))
+            items.append(items_item)
 
         pagination = PaginationOutput.from_dict(d.pop("pagination"))
 

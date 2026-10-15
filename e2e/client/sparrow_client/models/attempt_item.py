@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
 from typing import Any, TypeVar
 
@@ -18,7 +19,7 @@ class AttemptItem:
         response_code (int): HTTP status code returned by the endpoint on this attempt; 0 when no response was received.
         response_time (int): Round-trip time of this attempt, in milliseconds.
         success (bool): Whether this attempt succeeded (got one of the webhook's expected_status_codes).
-        timestamp (str): When this attempt was made, RFC3339.
+        timestamp (datetime.datetime): When this attempt was made, RFC3339.
         error_category (AttemptItemErrorCategory | Unset): Failure classification for this attempt.
         error_message (str | Unset): Human-readable failure reason for this attempt.
     """
@@ -26,7 +27,7 @@ class AttemptItem:
     response_code: int
     response_time: int
     success: bool
-    timestamp: str
+    timestamp: datetime.datetime
     error_category: AttemptItemErrorCategory | Unset = UNSET
     error_message: str | Unset = UNSET
 
@@ -37,7 +38,7 @@ class AttemptItem:
 
         success = self.success
 
-        timestamp = self.timestamp
+        timestamp = self.timestamp.isoformat()
 
         error_category: str | Unset = UNSET
         if not isinstance(self.error_category, Unset):
@@ -71,7 +72,7 @@ class AttemptItem:
 
         success = d.pop("success")
 
-        timestamp = d.pop("timestamp")
+        timestamp = datetime.datetime.fromisoformat(d.pop("timestamp"))
 
         _error_category = d.pop("error_category", UNSET)
         error_category: AttemptItemErrorCategory | Unset

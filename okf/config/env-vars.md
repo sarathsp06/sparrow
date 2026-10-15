@@ -20,7 +20,7 @@ A value of `""` or a lone `-` counts as unset: `config.Load` unsets it before pa
 | `SPARROW_ENCRYPTION_KEYS` | KEK keyring as `<key-id>=<64-char-hex-key>` entries (`key-id` chars: `A-Z`, `a-z`, `0-9`, `_`, `-`) | Required |
 | `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` | Primary key ID for new encryption and portal token signing | Required |
 
-An all-zeros key (the published development key) anywhere in the keyring stops startup with `ENVIRONMENT=production`; elsewhere it logs a warning.
+An all-zeros key (the published development key) anywhere in the keyring stops startup with `SPARROW_ENVIRONMENT=production`; elsewhere it logs a warning.
 
 ## Server
 
@@ -36,7 +36,7 @@ An all-zeros key (the published development key) anywhere in the keyring stops s
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `SPARROW_API_KEY` | Master key for auth, accepted via `X-API-Key` or `Authorization: Bearer`. Also accepted: tenant-wide access tokens. **Required when `ENVIRONMENT=production`** (`Validate()` refuses to start without it); must be at least 32 characters in production. Otherwise optional and all endpoints are open | — (open access) |
+| `SPARROW_API_KEY` | Master key for auth, accepted via `X-API-Key` or `Authorization: Bearer`. Also accepted: tenant-wide access tokens. **Required when `SPARROW_ENVIRONMENT=production`** (`Validate()` refuses to start without it); must be at least 32 characters in production. Otherwise optional and all endpoints are open | — (open access) |
 | ~~`SPARROW_UI_INJECT_KEY`~~ | Removed. The server never writes the API key into the UI. If still set, a deprecation warning is logged and the value is ignored. | -- |
 | `SPARROW_TOKEN_DEFAULT_TTL` | Lifetime of tenant-wide tokens created without `ttl_seconds`/`never_expires` (Go duration). `0` = never expire. | `2160h` |
 | `SPARROW_MAX_CAPTURED_RESPONSE_BYTES` | Stored response body cap for `capture_response_body` webhooks (others 1 KiB). Min 1024. | `1048576` |
@@ -51,7 +51,7 @@ An all-zeros key (the published development key) anywhere in the keyring stops s
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` or `grpc` | `http/protobuf` |
 | `SPARROW_OTLP_SIGNALS` | Subset of `traces,metrics,logs` sent to the OTLP endpoint; `traces` for Jaeger/Tempo. Unknown names fail startup of OTel export | `traces,metrics,logs` |
 | `SPARROW_METRICS_ENABLED` | Serve all OTel metrics in Prometheus format at unauthenticated `GET /metrics` (`observability.MetricsHandler`), independent of OTLP | `true` |
-| `ENVIRONMENT` | `development` or `production`; `production` enforces `SPARROW_API_KEY` (32+ chars) and refuses an all-zeros encryption key | — |
+| `SPARROW_ENVIRONMENT` | `development` or `production` (any case); `production` enforces `SPARROW_API_KEY` (32+ chars), blocks CORS without an allowlist and refuses an all-zeros encryption key. A value starting with `prod` that isn't `production` warns. The old unprefixed `ENVIRONMENT` is not read (startup warns) | — |
 
 `Warnings()` also logs a non-fatal advisory if `DATABASE_URL` uses `sslmode=disable` against a non-local host.
 
@@ -59,7 +59,7 @@ An all-zeros key (the published development key) anywhere in the keyring stops s
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `CORS_ALLOWED_ORIGINS` | Comma-separated exact origins allowed cross-origin (trailing `/` ignored; headers `Authorization`, `Content-Type`, `X-API-Key`; no credentials). Needed for a separately hosted UI. Unset: block all when `ENVIRONMENT=production`, allow all otherwise. Implemented in `internal/middleware/cors.go` | — |
+| `SPARROW_CORS_ALLOWED_ORIGINS` | Comma-separated exact origins allowed cross-origin (trailing `/` ignored; headers `Authorization`, `Content-Type`, `X-API-Key`; no credentials). Needed for a separately hosted UI. Unset: block all when `SPARROW_ENVIRONMENT=production`, allow all otherwise. Implemented in `internal/middleware/cors.go` | — |
 
 ## Retention
 

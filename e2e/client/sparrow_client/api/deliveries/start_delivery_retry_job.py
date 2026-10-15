@@ -8,14 +8,14 @@ from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.batch_job_output_body import BatchJobOutputBody
 from ...models.error_model import ErrorModel
-from ...models.repush_batch_input_body import RepushBatchInputBody
+from ...models.retry_batch_input_body import RetryBatchInputBody
 from ...types import Response
 
 
 def _get_kwargs(
     consumer: str,
     *,
-    body: RepushBatchInputBody,
+    body: RetryBatchInputBody,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -88,14 +88,13 @@ def sync_detailed(
     consumer: str,
     *,
     client: AuthenticatedClient | Client,
-    body: RepushBatchInputBody,
+    body: RetryBatchInputBody,
 ) -> Response[BatchJobOutputBody | ErrorModel]:
     """Start a batch retry job from a prepared snapshot
 
      Starts an async job that retries every delivery in a snapshot taken by an earlier GET
-    .../deliveries?prepare_retry=true call, like retryDelivery for each one. The body field is named
-    repush_id, but it takes the retry_id returned by the deliveries list. Returns 202 with the job; poll
-    it with getDeliveryRetryJob.
+    .../deliveries?prepare_retry=true call, like retryDelivery for each one. Send the retry_id the
+    deliveries list returned. Returns 202 with the job; poll it with getDeliveryRetryJob.
 
     A snapshot can be started once: 409 when it is not pending (already started or cancelled), expired
     (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400
@@ -107,7 +106,7 @@ def sync_detailed(
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
             answers 404; a job snapshotted across all consumers is reachable under any consumer,
             except with a portal token.
-        body (RepushBatchInputBody):
+        body (RetryBatchInputBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -133,14 +132,13 @@ def sync(
     consumer: str,
     *,
     client: AuthenticatedClient | Client,
-    body: RepushBatchInputBody,
+    body: RetryBatchInputBody,
 ) -> BatchJobOutputBody | ErrorModel | None:
     """Start a batch retry job from a prepared snapshot
 
      Starts an async job that retries every delivery in a snapshot taken by an earlier GET
-    .../deliveries?prepare_retry=true call, like retryDelivery for each one. The body field is named
-    repush_id, but it takes the retry_id returned by the deliveries list. Returns 202 with the job; poll
-    it with getDeliveryRetryJob.
+    .../deliveries?prepare_retry=true call, like retryDelivery for each one. Send the retry_id the
+    deliveries list returned. Returns 202 with the job; poll it with getDeliveryRetryJob.
 
     A snapshot can be started once: 409 when it is not pending (already started or cancelled), expired
     (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400
@@ -152,7 +150,7 @@ def sync(
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
             answers 404; a job snapshotted across all consumers is reachable under any consumer,
             except with a portal token.
-        body (RepushBatchInputBody):
+        body (RetryBatchInputBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -173,14 +171,13 @@ async def asyncio_detailed(
     consumer: str,
     *,
     client: AuthenticatedClient | Client,
-    body: RepushBatchInputBody,
+    body: RetryBatchInputBody,
 ) -> Response[BatchJobOutputBody | ErrorModel]:
     """Start a batch retry job from a prepared snapshot
 
      Starts an async job that retries every delivery in a snapshot taken by an earlier GET
-    .../deliveries?prepare_retry=true call, like retryDelivery for each one. The body field is named
-    repush_id, but it takes the retry_id returned by the deliveries list. Returns 202 with the job; poll
-    it with getDeliveryRetryJob.
+    .../deliveries?prepare_retry=true call, like retryDelivery for each one. Send the retry_id the
+    deliveries list returned. Returns 202 with the job; poll it with getDeliveryRetryJob.
 
     A snapshot can be started once: 409 when it is not pending (already started or cancelled), expired
     (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400
@@ -192,7 +189,7 @@ async def asyncio_detailed(
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
             answers 404; a job snapshotted across all consumers is reachable under any consumer,
             except with a portal token.
-        body (RepushBatchInputBody):
+        body (RetryBatchInputBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -216,14 +213,13 @@ async def asyncio(
     consumer: str,
     *,
     client: AuthenticatedClient | Client,
-    body: RepushBatchInputBody,
+    body: RetryBatchInputBody,
 ) -> BatchJobOutputBody | ErrorModel | None:
     """Start a batch retry job from a prepared snapshot
 
      Starts an async job that retries every delivery in a snapshot taken by an earlier GET
-    .../deliveries?prepare_retry=true call, like retryDelivery for each one. The body field is named
-    repush_id, but it takes the retry_id returned by the deliveries list. Returns 202 with the job; poll
-    it with getDeliveryRetryJob.
+    .../deliveries?prepare_retry=true call, like retryDelivery for each one. Send the retry_id the
+    deliveries list returned. Returns 202 with the job; poll it with getDeliveryRetryJob.
 
     A snapshot can be started once: 409 when it is not pending (already started or cancelled), expired
     (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400
@@ -235,7 +231,7 @@ async def asyncio(
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
             answers 404; a job snapshotted across all consumers is reachable under any consumer,
             except with a portal token.
-        body (RepushBatchInputBody):
+        body (RetryBatchInputBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

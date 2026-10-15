@@ -80,10 +80,10 @@ def prepare_repush_snapshot():
     data_store.scenario["snapshot_id"] = snapshot_id
 
 
-def _start_job(action_path, jobs_segment):
+def _start_job(action_path, jobs_segment, id_field):
     resp = requests.post(
         f"{_base_url()}/v1/consumers/{_consumer()}/{action_path}",
-        json={"repush_id": data_store.scenario["snapshot_id"]},
+        json={id_field: data_store.scenario["snapshot_id"]},
     )
     assert resp.status_code == 202, f"Expected 202, got {resp.status_code}: {resp.text}"
     job = resp.json()
@@ -93,12 +93,12 @@ def _start_job(action_path, jobs_segment):
 
 @step("Start batch retry job from snapshot")
 def start_retry_job():
-    _start_job("deliveries:retryBatch", "retry-jobs")
+    _start_job("deliveries:retryBatch", "retry-jobs", "retry_id")
 
 
 @step("Start batch repush job from snapshot")
 def start_repush_job():
-    _start_job("events:rePush", "repush-jobs")
+    _start_job("events:rePush", "repush-jobs", "repush_id")
 
 
 @step("Wait for batch job to complete within <timeout> seconds")

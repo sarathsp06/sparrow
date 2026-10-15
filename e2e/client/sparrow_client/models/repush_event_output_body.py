@@ -17,26 +17,21 @@ class RepushEventOutputBody:
         event_id (str): Id (UUID) of the new event occurrence created by the replay. The original occurrence is
             unchanged.
         schema (str | Unset): A URL to the JSON Schema for this object.
-        warnings (list[str] | None | Unset): Non-fatal warnings from validating the stored payload against the event
-            type's current schema.
+        warnings (list[str] | Unset): Non-fatal warnings from validating the stored payload against the event type's
+            current schema.
     """
 
     event_id: str
     schema: str | Unset = UNSET
-    warnings: list[str] | None | Unset = UNSET
+    warnings: list[str] | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         event_id = self.event_id
 
         schema = self.schema
 
-        warnings: list[str] | None | Unset
-        if isinstance(self.warnings, Unset):
-            warnings = UNSET
-        elif isinstance(self.warnings, list):
-            warnings = self.warnings
-
-        else:
+        warnings: list[str] | Unset = UNSET
+        if not isinstance(self.warnings, Unset):
             warnings = self.warnings
 
         field_dict: dict[str, Any] = {}
@@ -60,22 +55,7 @@ class RepushEventOutputBody:
 
         schema = d.pop("$schema", UNSET)
 
-        def _parse_warnings(data: object) -> list[str] | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError()
-                warnings_type_0 = cast(list[str], data)
-
-                return warnings_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(list[str] | None | Unset, data)
-
-        warnings = _parse_warnings(d.pop("warnings", UNSET))
+        warnings = cast(list[str], d.pop("warnings", UNSET))
 
         repush_event_output_body = cls(
             event_id=event_id,

@@ -19,8 +19,8 @@ class WebhookHTTPConfig:
         content_type (str | Unset): Stored and returned, but deliveries do not use it yet: they send Content-Type:
             application/json. To send another Content-Type, set it in headers (or the subscription's headers). Must not be
             empty; defaults to application/json.
-        expected_status_codes (list[int] | None | Unset): HTTP status codes treated as a successful delivery, each
-            between 100 and 599. Defaults to 200, 201, 202 and 204.
+        expected_status_codes (list[int] | Unset): HTTP status codes treated as a successful delivery, each between 100
+            and 599. Defaults to 200, 201, 202 and 204.
         follow_redirects (bool | Unset): Whether to follow HTTP redirects returned by the endpoint. Each redirect target
             passes the same SSRF checks. Defaults to true.
         max_retries (int | Unset): Retries after the first attempt before a delivery is marked failed, so a delivery
@@ -40,7 +40,7 @@ class WebhookHTTPConfig:
 
     capture_response_body: bool | Unset = UNSET
     content_type: str | Unset = UNSET
-    expected_status_codes: list[int] | None | Unset = UNSET
+    expected_status_codes: list[int] | Unset = UNSET
     follow_redirects: bool | Unset = UNSET
     max_retries: int | Unset = UNSET
     rate_limit_rps: float | Unset = UNSET
@@ -54,13 +54,8 @@ class WebhookHTTPConfig:
 
         content_type = self.content_type
 
-        expected_status_codes: list[int] | None | Unset
-        if isinstance(self.expected_status_codes, Unset):
-            expected_status_codes = UNSET
-        elif isinstance(self.expected_status_codes, list):
-            expected_status_codes = self.expected_status_codes
-
-        else:
+        expected_status_codes: list[int] | Unset = UNSET
+        if not isinstance(self.expected_status_codes, Unset):
             expected_status_codes = self.expected_status_codes
 
         follow_redirects = self.follow_redirects
@@ -110,22 +105,7 @@ class WebhookHTTPConfig:
 
         content_type = d.pop("content_type", UNSET)
 
-        def _parse_expected_status_codes(data: object) -> list[int] | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError()
-                expected_status_codes_type_0 = cast(list[int], data)
-
-                return expected_status_codes_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(list[int] | None | Unset, data)
-
-        expected_status_codes = _parse_expected_status_codes(d.pop("expected_status_codes", UNSET))
+        expected_status_codes = cast(list[int], d.pop("expected_status_codes", UNSET))
 
         follow_redirects = d.pop("follow_redirects", UNSET)
 

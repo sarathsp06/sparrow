@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -23,9 +24,9 @@ class UpdateEventTypeOutputBody:
     Attributes:
         active (bool): Whether events of this type can currently be pushed.
         change (EventTypeChange):
-        created_at (str): Creation timestamp, RFC3339.
+        created_at (datetime.datetime): Creation timestamp, RFC3339.
         name (str): Event type name, e.g. order.created.
-        updated_at (str): Last-modified timestamp, RFC3339.
+        updated_at (datetime.datetime): Last-modified timestamp, RFC3339.
         version (int): Current schema version. Starts at 1 and increases only when the schema changes; every version is
             kept (see listEventTypeVersions).
         schema (str | Unset): A URL to the JSON Schema for this object.
@@ -39,9 +40,9 @@ class UpdateEventTypeOutputBody:
 
     active: bool
     change: EventTypeChange
-    created_at: str
+    created_at: datetime.datetime
     name: str
-    updated_at: str
+    updated_at: datetime.datetime
     version: int
     schema: str | Unset = UNSET
     description: str | Unset = UNSET
@@ -54,11 +55,11 @@ class UpdateEventTypeOutputBody:
 
         change = self.change.to_dict()
 
-        created_at = self.created_at
+        created_at = self.created_at.isoformat()
 
         name = self.name
 
-        updated_at = self.updated_at
+        updated_at = self.updated_at.isoformat()
 
         version = self.version
 
@@ -115,11 +116,11 @@ class UpdateEventTypeOutputBody:
 
         change = EventTypeChange.from_dict(d.pop("change"))
 
-        created_at = d.pop("created_at")
+        created_at = datetime.datetime.fromisoformat(d.pop("created_at"))
 
         name = d.pop("name")
 
-        updated_at = d.pop("updated_at")
+        updated_at = datetime.datetime.fromisoformat(d.pop("updated_at"))
 
         version = d.pop("version")
 

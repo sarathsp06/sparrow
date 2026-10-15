@@ -7,7 +7,7 @@
 //
 //   apiUrl  Absolute URL of the Sparrow server, e.g. "https://sparrow-api.example.com".
 //           Overrides PUBLIC_API_URL baked in at build time. Also add the UI's
-//           origin to CORS_ALLOWED_ORIGINS on the server.
+//           origin to SPARROW_CORS_ALLOWED_ORIGINS on the server.
 //   apiKey  SPARROW_API_KEY of the server. Optional: if omitted and the server
 //           requires a key, the UI asks for it and remembers it in this browser.
 //           Anything placed here is readable by everyone who can load the UI

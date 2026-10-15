@@ -61,12 +61,11 @@ export class BatchJob {
     this.confirming = false;
     if (!this.id) return;
     const path = { consumer: this.consumer() || "default" };
-    const body = { repush_id: this.id };
     try {
       const res =
         this.kind === "repush"
-          ? unwrap(await api.POST("/v1/consumers/{consumer}/events:rePush", { params: { path }, body }))
-          : unwrap(await api.POST("/v1/consumers/{consumer}/deliveries:retryBatch", { params: { path }, body }));
+          ? unwrap(await api.POST("/v1/consumers/{consumer}/events:rePush", { params: { path }, body: { repush_id: this.id } }))
+          : unwrap(await api.POST("/v1/consumers/{consumer}/deliveries:retryBatch", { params: { path }, body: { retry_id: this.id } }));
       this.progress = progressOf(res);
       this.#poll();
     } catch (e) {

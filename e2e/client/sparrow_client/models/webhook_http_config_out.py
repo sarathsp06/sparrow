@@ -25,7 +25,7 @@ class WebhookHTTPConfigOut:
         verify_ssl (bool): Whether the endpoint's TLS certificate is verified.
         content_type (str | Unset): Stored value; deliveries currently send Content-Type: application/json unless
             headers override it.
-        expected_status_codes (list[int] | None | Unset): HTTP status codes treated as a successful delivery.
+        expected_status_codes (list[int] | Unset): HTTP status codes treated as a successful delivery.
         rate_limit_rps (float | Unset): Delivery rate limit for this webhook, in requests per second; absent means no
             limit.
         user_agent (str | Unset): Stored value; deliveries currently always send User-Agent: Sparrow-Webhook/<server
@@ -41,7 +41,7 @@ class WebhookHTTPConfigOut:
     retry_backoff_seconds: int
     verify_ssl: bool
     content_type: str | Unset = UNSET
-    expected_status_codes: list[int] | None | Unset = UNSET
+    expected_status_codes: list[int] | Unset = UNSET
     rate_limit_rps: float | Unset = UNSET
     user_agent: str | Unset = UNSET
     webhook_secret: str | Unset = UNSET
@@ -61,13 +61,8 @@ class WebhookHTTPConfigOut:
 
         content_type = self.content_type
 
-        expected_status_codes: list[int] | None | Unset
-        if isinstance(self.expected_status_codes, Unset):
-            expected_status_codes = UNSET
-        elif isinstance(self.expected_status_codes, list):
-            expected_status_codes = self.expected_status_codes
-
-        else:
+        expected_status_codes: list[int] | Unset = UNSET
+        if not isinstance(self.expected_status_codes, Unset):
             expected_status_codes = self.expected_status_codes
 
         rate_limit_rps = self.rate_limit_rps
@@ -118,22 +113,7 @@ class WebhookHTTPConfigOut:
 
         content_type = d.pop("content_type", UNSET)
 
-        def _parse_expected_status_codes(data: object) -> list[int] | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError()
-                expected_status_codes_type_0 = cast(list[int], data)
-
-                return expected_status_codes_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(list[int] | None | Unset, data)
-
-        expected_status_codes = _parse_expected_status_codes(d.pop("expected_status_codes", UNSET))
+        expected_status_codes = cast(list[int], d.pop("expected_status_codes", UNSET))
 
         rate_limit_rps = d.pop("rate_limit_rps", UNSET)
 

@@ -82,20 +82,10 @@ Retiring a key will become safe once Sparrow ships a tool that rewraps existing 
 ## The all-zeros encryption key is refused in production
 
 The development defaults (`make run`, the local Compose file) use an all-zeros
-key, which is public. With `ENVIRONMENT=production`, 1.0 refuses to start if
+key, which is public. With `SPARROW_ENVIRONMENT=production`, 1.0 refuses to start if
 any key in `SPARROW_ENCRYPTION_KEYS` is all zeros; elsewhere it logs a warning.
-If production ever ran on it, add a real key (`openssl rand -hex 32`), make it
-primary, and keep the zero key in the ring permanently, like any key that has
-been primary: see [the keyring](#encryption-keyring-never-remove-an-old-key).
-Re-saving webhook secrets does not free it, because access-token secrets are
-sealed with the keyring too and cannot be re-saved.
-
-Such a ring fails the production check above, so the server will not start
-with `ENVIRONMENT=production` until a rewrap tool lets you retire the zero key.
-Until then, run it without `ENVIRONMENT=production` and set what production
-mode would otherwise enforce yourself: a `SPARROW_API_KEY` of at least 32
-characters and an explicit `CORS_ALLOWED_ORIGINS` (with it empty, CORS allows
-every origin outside production).
+If production ever ran on it, generate a real key (`openssl rand -hex 32`) and
+make it primary before turning production mode on.
 
 ## `/health` is liveness only
 
@@ -124,6 +114,37 @@ deliveries with `template_error`; check yours with
 - `SPARROW_UI_INJECT_KEY` is no longer supported. If it is still set, the
   server logs a warning at startup and ignores it; the UI asks for a
   credential on the first `401` instead (master key, access token or invite).
+
+## Renamed environment variables
+
+Every setting is now under the `SPARROW_` prefix, apart from the standard
+`DATABASE_URL` and `OTEL_*`:
+
+| 0.x | 1.0 |
+|-----|-----|
+| `ENVIRONMENT` | `SPARROW_ENVIRONMENT` |
+| `CORS_ALLOWED_ORIGINS` | `SPARROW_CORS_ALLOWED_ORIGINS` |
+
+The old names are no longer read; startup logs a warning when one is set
+without its new name. `SPARROW_ENVIRONMENT=production` now matches in any case
+(`Production` counts), and a value like `prod` logs a warning instead of
+silently running as development.
+
+## API changes
+
+- **Arrays are never `null`.** Responses send `[]` for an empty list, and the
+  spec types every array as a plain array. A request that sends `null` for an
+  optional array is treated as if it left the field out.
+- **Timestamps are typed** `format: date-time` in the spec (the values were
+  already RFC3339). Generated clients now get date-time types instead of
+  strings; regenerate yours.
+- **`:retryBatch` takes `retry_id`**, the field name the deliveries list
+  returns, instead of `repush_id`. Event re-push (`events:rePush`) still
+  takes `repush_id`.
+- **No empty-string enum values.** `signature_type`, `on_transform_error`,
+  `template_missing_key` and `template_source` on webhook registration, and
+  the `health` filters, no longer accept `""`; leave the field out for the
+  default.
 
 ## AI drafting needs `SPARROW_AI_ENABLED=true`
 

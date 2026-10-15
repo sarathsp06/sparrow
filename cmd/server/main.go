@@ -52,9 +52,9 @@ func main() {
 	// In production containers a .env file should not exist, but if one
 	// is accidentally present it could silently override critical env vars
 	// (DATABASE_URL, SPARROW_API_KEY, SPARROW_ENCRYPTION_KEYS).
-	// We check ENVIRONMENT from the real OS env first (before godotenv)
+	// We check SPARROW_ENVIRONMENT from the real OS env first (before godotenv)
 	// to avoid the chicken-and-egg problem.
-	if os.Getenv("ENVIRONMENT") != "production" {
+	if !config.IsProductionEnv(os.Getenv("SPARROW_ENVIRONMENT")) {
 		_ = godotenv.Load()
 	}
 
@@ -447,9 +447,9 @@ func logCORSMode(mode middleware.CORSMode, origins []string) {
 		fmt.Printf("🔒 CORS allowed origins: %v\n", middleware.NormalizeOrigins(origins))
 	case middleware.CORSBlockAll:
 		fmt.Println("🔒 CORS: production mode — cross-origin requests blocked")
-		fmt.Println("   If the UI is hosted separately, set CORS_ALLOWED_ORIGINS to the UI origin")
+		fmt.Println("   If the UI is hosted separately, set SPARROW_CORS_ALLOWED_ORIGINS to the UI origin")
 	case middleware.CORSAllowAll:
-		fmt.Println("⚠️  CORS_ALLOWED_ORIGINS not set — allowing all origins (development mode, not for production)")
+		fmt.Println("⚠️  SPARROW_CORS_ALLOWED_ORIGINS not set — allowing all origins (development mode, not for production)")
 	}
 }
 

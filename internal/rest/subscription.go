@@ -49,10 +49,10 @@ type SubscriptionItem struct {
 	OnTransformError   string            `json:"on_transform_error" enum:"fail,fallback" doc:"What happens when transform_template fails to render. fail (default): the delivery fails with error category template_error, is not retried automatically, and can be retried once the template is fixed; it does not affect the webhook's health. fallback: the default envelope payload is sent instead, and the error is still recorded on the delivery."`
 	TemplateMissingKey string            `json:"template_missing_key" enum:"error,zero" doc:"How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into \"<no value>\" in the body; read optional fields with index or dig (default only fills a key that is present but empty). zero: the key renders as \"<no value>\"."`
 	Paused             bool              `json:"paused" doc:"Whether the subscription is paused. While paused, events still fan out to it, but each delivery is recorded with status paused and not attempted until retried. A pause never affects the webhook's health."`
-	PausedAt           *string           `json:"paused_at,omitempty" doc:"When the current pause began, RFC3339. Absent when not paused."`
+	PausedAt           *string           `json:"paused_at,omitempty" format:"date-time" doc:"When the current pause began, RFC3339. Absent when not paused."`
 	PausedReason       string            `json:"paused_reason,omitempty" doc:"Why the subscription was paused."`
-	CreatedAt          string            `json:"created_at" doc:"Creation timestamp, RFC3339."`
-	UpdatedAt          string            `json:"updated_at" doc:"Last-modified timestamp, RFC3339."`
+	CreatedAt          string            `json:"created_at" format:"date-time" doc:"Creation timestamp, RFC3339."`
+	UpdatedAt          string            `json:"updated_at" format:"date-time" doc:"Last-modified timestamp, RFC3339."`
 }
 
 type subscriptionOutput struct {
@@ -96,7 +96,7 @@ type pauseSubscriptionInput struct {
 type resumeSubscriptionOutput struct {
 	Body struct {
 		SubscriptionItem
-		PausedSince      *string `json:"paused_since,omitempty" doc:"When the pause that just ended began, RFC3339; absent when the subscription was not paused. List or retry what was held with status=paused&subscription_id=...&created_after=<paused_since>."`
+		PausedSince      *string `json:"paused_since,omitempty" format:"date-time" doc:"When the pause that just ended began, RFC3339; absent when the subscription was not paused. List or retry what was held with status=paused&subscription_id=...&created_after=<paused_since>."`
 		PausedDeliveries int     `json:"paused_deliveries" doc:"Deliveries of this subscription currently in status paused. They are not sent automatically; retry them to deliver."`
 	}
 }

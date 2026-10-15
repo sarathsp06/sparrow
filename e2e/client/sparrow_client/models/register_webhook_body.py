@@ -31,10 +31,10 @@ class RegisterWebhookBody:
         active (bool | Unset): Whether the webhook is sent deliveries. Defaults to true. An inactive (paused) webhook
             still gets deliveries recorded for new events, held with status paused and sent only when retried.
         description (str | Unset): Free-text note for humans, e.g. which system or team owns this endpoint.
-        events (list[str] | None | Unset): Event type names this webhook should receive; auto-creates one subscription
-            per entry. Use "*" as the sole entry to subscribe to every event in the consumer. Omit or leave empty to
-            register the webhook with no subscriptions, then attach them individually via POST .../subscriptions (e.g. to
-            set a per-subscription transform_template).
+        events (list[str] | Unset): Event type names this webhook should receive; auto-creates one subscription per
+            entry. Use "*" as the sole entry to subscribe to every event in the consumer. Omit or leave empty to register
+            the webhook with no subscriptions, then attach them individually via POST .../subscriptions (e.g. to set a per-
+            subscription transform_template).
         headers (RegisterWebhookBodyHeaders | Unset): Static HTTP headers sent with every delivery to this webhook. Only
             string values are sent. Names must be valid HTTP tokens, values at most 8 KiB with no CR/LF; framing headers
             (Host, Content-Length, Transfer-Encoding, Connection, Keep-Alive, Proxy-Connection, TE, Trailer, Upgrade) are
@@ -71,7 +71,7 @@ class RegisterWebhookBody:
     schema: str | Unset = UNSET
     active: bool | Unset = UNSET
     description: str | Unset = UNSET
-    events: list[str] | None | Unset = UNSET
+    events: list[str] | Unset = UNSET
     headers: RegisterWebhookBodyHeaders | Unset = UNSET
     http_config: WebhookHTTPConfig | Unset = UNSET
     on_transform_error: RegisterWebhookBodyOnTransformError | Unset = UNSET
@@ -93,13 +93,8 @@ class RegisterWebhookBody:
 
         description = self.description
 
-        events: list[str] | None | Unset
-        if isinstance(self.events, Unset):
-            events = UNSET
-        elif isinstance(self.events, list):
-            events = self.events
-
-        else:
+        events: list[str] | Unset = UNSET
+        if not isinstance(self.events, Unset):
             events = self.events
 
         headers: dict[str, Any] | Unset = UNSET
@@ -193,22 +188,7 @@ class RegisterWebhookBody:
 
         description = d.pop("description", UNSET)
 
-        def _parse_events(data: object) -> list[str] | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError()
-                events_type_0 = cast(list[str], data)
-
-                return events_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(list[str] | None | Unset, data)
-
-        events = _parse_events(d.pop("events", UNSET))
+        events = cast(list[str], d.pop("events", UNSET))
 
         _headers = d.pop("headers", UNSET)
         headers: RegisterWebhookBodyHeaders | Unset

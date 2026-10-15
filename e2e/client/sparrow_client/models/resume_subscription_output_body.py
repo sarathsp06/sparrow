@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -23,7 +24,7 @@ class ResumeSubscriptionOutputBody:
     """
     Attributes:
         consumer (str): Consumer this subscription belongs to.
-        created_at (str): Creation timestamp, RFC3339.
+        created_at (datetime.datetime): Creation timestamp, RFC3339.
         event_name (str): Event type name this subscription matches, or "*" for catch-all.
         on_transform_error (ResumeSubscriptionOutputBodyOnTransformError): What happens when transform_template fails to
             render. fail (default): the delivery fails with error category template_error, is not retried automatically, and
@@ -39,7 +40,7 @@ class ResumeSubscriptionOutputBody:
             silently turn into "<no value>" in the body; read optional fields with index or dig (default only fills a key
             that is present but empty). zero: the key renders as "<no value>".
         transform_enabled (bool): Whether transform_template is rendered into the delivered payload.
-        updated_at (str): Last-modified timestamp, RFC3339.
+        updated_at (datetime.datetime): Last-modified timestamp, RFC3339.
         webhook_id (str): Webhook this subscription delivers to.
         schema (str | Unset): A URL to the JSON Schema for this object.
         headers (ResumeSubscriptionOutputBodyHeaders | Unset): Extra HTTP headers sent with deliveries from this
@@ -48,10 +49,11 @@ class ResumeSubscriptionOutputBody:
             event's labels for this subscription to receive it.
         method (ResumeSubscriptionOutputBodyMethod | Unset): HTTP method used for deliveries from this subscription;
             absent means POST.
-        paused_at (str | Unset): When the current pause began, RFC3339. Absent when not paused.
+        paused_at (datetime.datetime | Unset): When the current pause began, RFC3339. Absent when not paused.
         paused_reason (str | Unset): Why the subscription was paused.
-        paused_since (str | Unset): When the pause that just ended began, RFC3339; absent when the subscription was not
-            paused. List or retry what was held with status=paused&subscription_id=...&created_after=<paused_since>.
+        paused_since (datetime.datetime | Unset): When the pause that just ended began, RFC3339; absent when the
+            subscription was not paused. List or retry what was held with
+            status=paused&subscription_id=...&created_after=<paused_since>.
         timeout (int | Unset): Request timeout override for this subscription's deliveries, in seconds; absent means the
             webhook's request_timeout_seconds.
         transform_template (str | Unset): Go text/template rendered against the event to produce the delivered body when
@@ -59,7 +61,7 @@ class ResumeSubscriptionOutputBody:
     """
 
     consumer: str
-    created_at: str
+    created_at: datetime.datetime
     event_name: str
     on_transform_error: ResumeSubscriptionOutputBodyOnTransformError
     paused: bool
@@ -67,22 +69,22 @@ class ResumeSubscriptionOutputBody:
     subscription_id: str
     template_missing_key: ResumeSubscriptionOutputBodyTemplateMissingKey
     transform_enabled: bool
-    updated_at: str
+    updated_at: datetime.datetime
     webhook_id: str
     schema: str | Unset = UNSET
     headers: ResumeSubscriptionOutputBodyHeaders | Unset = UNSET
     label_filters: ResumeSubscriptionOutputBodyLabelFilters | Unset = UNSET
     method: ResumeSubscriptionOutputBodyMethod | Unset = UNSET
-    paused_at: str | Unset = UNSET
+    paused_at: datetime.datetime | Unset = UNSET
     paused_reason: str | Unset = UNSET
-    paused_since: str | Unset = UNSET
+    paused_since: datetime.datetime | Unset = UNSET
     timeout: int | Unset = UNSET
     transform_template: str | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         consumer = self.consumer
 
-        created_at = self.created_at
+        created_at = self.created_at.isoformat()
 
         event_name = self.event_name
 
@@ -98,7 +100,7 @@ class ResumeSubscriptionOutputBody:
 
         transform_enabled = self.transform_enabled
 
-        updated_at = self.updated_at
+        updated_at = self.updated_at.isoformat()
 
         webhook_id = self.webhook_id
 
@@ -116,11 +118,15 @@ class ResumeSubscriptionOutputBody:
         if not isinstance(self.method, Unset):
             method = self.method.value
 
-        paused_at = self.paused_at
+        paused_at: str | Unset = UNSET
+        if not isinstance(self.paused_at, Unset):
+            paused_at = self.paused_at.isoformat()
 
         paused_reason = self.paused_reason
 
-        paused_since = self.paused_since
+        paused_since: str | Unset = UNSET
+        if not isinstance(self.paused_since, Unset):
+            paused_since = self.paused_since.isoformat()
 
         timeout = self.timeout
 
@@ -172,7 +178,7 @@ class ResumeSubscriptionOutputBody:
         d = dict(src_dict)
         consumer = d.pop("consumer")
 
-        created_at = d.pop("created_at")
+        created_at = datetime.datetime.fromisoformat(d.pop("created_at"))
 
         event_name = d.pop("event_name")
 
@@ -188,7 +194,7 @@ class ResumeSubscriptionOutputBody:
 
         transform_enabled = d.pop("transform_enabled")
 
-        updated_at = d.pop("updated_at")
+        updated_at = datetime.datetime.fromisoformat(d.pop("updated_at"))
 
         webhook_id = d.pop("webhook_id")
 
@@ -215,11 +221,21 @@ class ResumeSubscriptionOutputBody:
         else:
             method = ResumeSubscriptionOutputBodyMethod(_method)
 
-        paused_at = d.pop("paused_at", UNSET)
+        _paused_at = d.pop("paused_at", UNSET)
+        paused_at: datetime.datetime | Unset
+        if isinstance(_paused_at, Unset):
+            paused_at = UNSET
+        else:
+            paused_at = datetime.datetime.fromisoformat(_paused_at)
 
         paused_reason = d.pop("paused_reason", UNSET)
 
-        paused_since = d.pop("paused_since", UNSET)
+        _paused_since = d.pop("paused_since", UNSET)
+        paused_since: datetime.datetime | Unset
+        if isinstance(_paused_since, Unset):
+            paused_since = UNSET
+        else:
+            paused_since = datetime.datetime.fromisoformat(_paused_since)
 
         timeout = d.pop("timeout", UNSET)
 

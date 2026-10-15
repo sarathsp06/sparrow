@@ -14,7 +14,7 @@ Leaf package that loads all server configuration from environment variables.
 
 ```go
 type Config struct {
-    Environment            string   // "development" or "production" (ENVIRONMENT)
+    Environment            string   // "development" or "production" (SPARROW_ENVIRONMENT)
     DatabaseURL            string   // DATABASE_URL
     HTTPPort               string   // default "8080" (SPARROW_HTTP_PORT)
     APIKey                 string   // optional (SPARROW_API_KEY)
@@ -26,7 +26,7 @@ type Config struct {
     OTLPEndpoint           string   // OTLP collector URL; empty disables export (OTEL_EXPORTER_OTLP_ENDPOINT)
     OTLPProtocol           string   // "http/protobuf" (default) or "grpc" (OTEL_EXPORTER_OTLP_PROTOCOL)
     OTLPSignals            []string // subset of traces,metrics,logs to export over OTLP (SPARROW_OTLP_SIGNALS)
-    CORSAllowedOrigins     []string // CORS_ALLOWED_ORIGINS
+    CORSAllowedOrigins     []string // SPARROW_CORS_ALLOWED_ORIGINS
     MaxBodyBytes           int64    // default 5 MiB, min 1 MiB (SPARROW_MAX_BODY_BYTES)
     EventRetentionDays     int      // 0 = keep forever (SPARROW_EVENT_RETENTION_DAYS)
     ShutdownTimeout        time.Duration // whole graceful-shutdown budget, default 10s (SPARROW_SHUTDOWN_TIMEOUT)
@@ -40,7 +40,7 @@ type Config struct {
 
 ## Functions
 
-- `Load() (*Config, error)` — reads env vars (no prefix; spans SPARROW_*, DATABASE_URL, ENVIRONMENT, OTEL_*, CORS_*)
+- `Load() (*Config, error)` — reads env vars (no prefix; spans SPARROW_*, DATABASE_URL, SPARROW_ENVIRONMENT, OTEL_*, CORS_*)
 - `(*Config).IsProduction() bool`
 - `(*Config).Validate() error` — checks port, keyring, all-zeros key in production, DATABASE_URL, log level, production API key, body-size floor, retention range
 - `(*Config).SlogLevel() (slog.Level, error)` — parses SPARROW_LOG_LEVEL (case-insensitive, `warning` = `warn`); `cmd/server/main.go` sets it on the JSON handler behind the OTel log bridge

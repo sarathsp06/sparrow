@@ -141,9 +141,8 @@ def sync_detailed(
             (through the end of that day, UTC) or an RFC3339 timestamp.
         prepare_retry (bool | Unset): Side effect: when true, also snapshots the ids of every
             delivery matching the filters (not just this page; at most 10,000, more is an error) into
-            a batch job and returns its id as retry_id. Pass it as repush_id to POST
-            .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot. Default:
-            False.
+            a batch job and returns its id as retry_id. Pass it to POST .../deliveries:retryBatch
+            within 15 minutes. Each call creates a new snapshot. Default: False.
         limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         cursor (str | Unset): Continue after the page this came from: pagination.next_cursor of
             the previous response. Stable while new deliveries arrive.
@@ -228,9 +227,8 @@ def sync(
             (through the end of that day, UTC) or an RFC3339 timestamp.
         prepare_retry (bool | Unset): Side effect: when true, also snapshots the ids of every
             delivery matching the filters (not just this page; at most 10,000, more is an error) into
-            a batch job and returns its id as retry_id. Pass it as repush_id to POST
-            .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot. Default:
-            False.
+            a batch job and returns its id as retry_id. Pass it to POST .../deliveries:retryBatch
+            within 15 minutes. Each call creates a new snapshot. Default: False.
         limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         cursor (str | Unset): Continue after the page this came from: pagination.next_cursor of
             the previous response. Stable while new deliveries arrive.
@@ -310,9 +308,8 @@ async def asyncio_detailed(
             (through the end of that day, UTC) or an RFC3339 timestamp.
         prepare_retry (bool | Unset): Side effect: when true, also snapshots the ids of every
             delivery matching the filters (not just this page; at most 10,000, more is an error) into
-            a batch job and returns its id as retry_id. Pass it as repush_id to POST
-            .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot. Default:
-            False.
+            a batch job and returns its id as retry_id. Pass it to POST .../deliveries:retryBatch
+            within 15 minutes. Each call creates a new snapshot. Default: False.
         limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         cursor (str | Unset): Continue after the page this came from: pagination.next_cursor of
             the previous response. Stable while new deliveries arrive.
@@ -395,9 +392,8 @@ async def asyncio(
             (through the end of that day, UTC) or an RFC3339 timestamp.
         prepare_retry (bool | Unset): Side effect: when true, also snapshots the ids of every
             delivery matching the filters (not just this page; at most 10,000, more is an error) into
-            a batch job and returns its id as retry_id. Pass it as repush_id to POST
-            .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot. Default:
-            False.
+            a batch job and returns its id as retry_id. Pass it to POST .../deliveries:retryBatch
+            within 15 minutes. Each call creates a new snapshot. Default: False.
         limit (int | Unset): Maximum items to return, 1 to 1000. Default: 50.
         cursor (str | Unset): Continue after the page this came from: pagination.next_cursor of
             the previous response. Stable while new deliveries arrive.

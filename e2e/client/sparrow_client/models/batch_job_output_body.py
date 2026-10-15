@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
 from typing import Any, TypeVar
 
@@ -17,9 +18,9 @@ class BatchJobOutputBody:
     """
     Attributes:
         consumer (str): Consumer the snapshot was taken in; empty for a snapshot taken from a cross-consumer list.
-        created_at (str): Creation timestamp, RFC3339.
-        expires_at (str): When the snapshot expires, RFC3339: 15 minutes after it was taken. An expired snapshot can no
-            longer be started.
+        created_at (datetime.datetime): Creation timestamp, RFC3339.
+        expires_at (datetime.datetime): When the snapshot expires, RFC3339: 15 minutes after it was taken. An expired
+            snapshot can no longer be started.
         failed (int): Items that could not be re-pushed or retried (e.g. the event or delivery no longer exists).
         id (str): Batch job id (UUID): the repush_id or retry_id from the list call.
         job_type (BatchJobOutputBodyJobType): Which batch operation this job performs.
@@ -32,8 +33,8 @@ class BatchJobOutputBody:
     """
 
     consumer: str
-    created_at: str
-    expires_at: str
+    created_at: datetime.datetime
+    expires_at: datetime.datetime
     failed: int
     id: str
     job_type: BatchJobOutputBodyJobType
@@ -45,9 +46,9 @@ class BatchJobOutputBody:
     def to_dict(self) -> dict[str, Any]:
         consumer = self.consumer
 
-        created_at = self.created_at
+        created_at = self.created_at.isoformat()
 
-        expires_at = self.expires_at
+        expires_at = self.expires_at.isoformat()
 
         failed = self.failed
 
@@ -88,9 +89,9 @@ class BatchJobOutputBody:
         d = dict(src_dict)
         consumer = d.pop("consumer")
 
-        created_at = d.pop("created_at")
+        created_at = datetime.datetime.fromisoformat(d.pop("created_at"))
 
-        expires_at = d.pop("expires_at")
+        expires_at = datetime.datetime.fromisoformat(d.pop("expires_at"))
 
         failed = d.pop("failed")
 

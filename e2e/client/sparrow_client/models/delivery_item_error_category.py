@@ -14,7 +14,6 @@ class DeliveryItemErrorCategory(StrEnum):
     TLS_ERROR = "tls_error"
     UNEXPECTED_STATUS = "unexpected_status"
     UNKNOWN = "unknown"
-    VALUE_12 = ""
 
     def __str__(self) -> str:
         return str(self.value)

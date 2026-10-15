@@ -19,14 +19,14 @@ class StampCheckItem:
         status (StampCheckItemStatus): valid: stamp present and matching. unsigned: no stamp (hand-written file).
             warning: see warnings.
         exported_by (str | Unset): Sparrow version that exported the file.
-        warnings (list[str] | None | Unset): version_differs, format_unsupported, items_changed. Each must be
-            acknowledged for the import to write.
+        warnings (list[str] | Unset): version_differs, format_unsupported, items_changed. Each must be acknowledged for
+            the import to write.
     """
 
     server: str
     status: StampCheckItemStatus
     exported_by: str | Unset = UNSET
-    warnings: list[str] | None | Unset = UNSET
+    warnings: list[str] | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         server = self.server
@@ -35,13 +35,8 @@ class StampCheckItem:
 
         exported_by = self.exported_by
 
-        warnings: list[str] | None | Unset
-        if isinstance(self.warnings, Unset):
-            warnings = UNSET
-        elif isinstance(self.warnings, list):
-            warnings = self.warnings
-
-        else:
+        warnings: list[str] | Unset = UNSET
+        if not isinstance(self.warnings, Unset):
             warnings = self.warnings
 
         field_dict: dict[str, Any] = {}
@@ -68,22 +63,7 @@ class StampCheckItem:
 
         exported_by = d.pop("exported_by", UNSET)
 
-        def _parse_warnings(data: object) -> list[str] | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError()
-                warnings_type_0 = cast(list[str], data)
-
-                return warnings_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(list[str] | None | Unset, data)
-
-        warnings = _parse_warnings(d.pop("warnings", UNSET))
+        warnings = cast(list[str], d.pop("warnings", UNSET))
 
         stamp_check_item = cls(
             server=server,

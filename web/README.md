@@ -17,7 +17,7 @@ npm install
 npm run dev
 ```
 
-The dev server connects to the Sparrow Go backend at `http://localhost:8080` (override with `PUBLIC_API_URL` in `web/.env`). Make sure the backend is running (`make run` from the project root). That's a cross-origin setup: it works because the server allows any origin unless `ENVIRONMENT=production`. In production mode, also set `CORS_ALLOWED_ORIGINS=http://localhost:5173`.
+The dev server connects to the Sparrow Go backend at `http://localhost:8080` (override with `PUBLIC_API_URL` in `web/.env`). Make sure the backend is running (`make run` from the project root). That's a cross-origin setup: it works because the server allows any origin unless `SPARROW_ENVIRONMENT=production`. In production mode, also set `SPARROW_CORS_ALLOWED_ORIGINS=http://localhost:5173`.
 
 ## Build
 
@@ -51,7 +51,7 @@ In short:
 3. On the Sparrow server, allow the dashboard's origin:
 
    ```bash
-   CORS_ALLOWED_ORIGINS=https://dashboard.example.com ./server
+   SPARROW_CORS_ALLOWED_ORIGINS=https://dashboard.example.com ./server
    ```
 
 If the server has `SPARROW_API_KEY` set, the dashboard shows a **Sign in to Sparrow** prompt on the first `401`. You can paste the master key or an access token. A pasted master key is exchanged for a named browser token behind the scenes, so the master key is never stored. You can also send someone a one-time invite link (`sparrow invite alice --ui-url https://dashboard.example.com`) -- opening it redeems the invite and signs them in automatically. Setting `apiKey` in `config.js` skips the prompt, but then anyone who can load the dashboard can read the key.

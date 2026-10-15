@@ -26,7 +26,7 @@ class ImportItemResult:
         version (int): Version after the import (or that it would have, for a dry run).
         active_change (ImportItemResultActiveChange | Unset): Set when the import flips the active flag.
         blocked (bool | Unset): The change is breaking for subscriptions and allow_breaking was not set.
-        changes (list[str] | None | Unset): Fields that change: schema, schema_defined, description, metadata, active.
+        changes (list[str] | Unset): Fields that change: schema, schema_defined, description, metadata, active.
         compatibility (SchemaCompatibilityItem | Unset):
         previous_version (int | Unset): Version before the import.
         subscriptions (TemplateCheckItem | Unset):
@@ -37,7 +37,7 @@ class ImportItemResult:
     version: int
     active_change: ImportItemResultActiveChange | Unset = UNSET
     blocked: bool | Unset = UNSET
-    changes: list[str] | None | Unset = UNSET
+    changes: list[str] | Unset = UNSET
     compatibility: SchemaCompatibilityItem | Unset = UNSET
     previous_version: int | Unset = UNSET
     subscriptions: TemplateCheckItem | Unset = UNSET
@@ -55,13 +55,8 @@ class ImportItemResult:
 
         blocked = self.blocked
 
-        changes: list[str] | None | Unset
-        if isinstance(self.changes, Unset):
-            changes = UNSET
-        elif isinstance(self.changes, list):
-            changes = self.changes
-
-        else:
+        changes: list[str] | Unset = UNSET
+        if not isinstance(self.changes, Unset):
             changes = self.changes
 
         compatibility: dict[str, Any] | Unset = UNSET
@@ -119,22 +114,7 @@ class ImportItemResult:
 
         blocked = d.pop("blocked", UNSET)
 
-        def _parse_changes(data: object) -> list[str] | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError()
-                changes_type_0 = cast(list[str], data)
-
-                return changes_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(list[str] | None | Unset, data)
-
-        changes = _parse_changes(d.pop("changes", UNSET))
+        changes = cast(list[str], d.pop("changes", UNSET))
 
         _compatibility = d.pop("compatibility", UNSET)
         compatibility: SchemaCompatibilityItem | Unset

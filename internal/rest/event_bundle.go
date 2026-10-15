@@ -108,7 +108,7 @@ type importItemResult struct {
 	Version         int                     `json:"version" doc:"Version after the import (or that it would have, for a dry run)."`
 	PreviousVersion int                     `json:"previous_version,omitempty" doc:"Version before the import."`
 	Changes         []string                `json:"changes,omitempty" doc:"Fields that change: schema, schema_defined, description, metadata, active."`
-	ActiveChange    string                  `json:"active_change,omitempty" enum:"deactivates,reactivates," doc:"Set when the import flips the active flag."`
+	ActiveChange    string                  `json:"active_change,omitempty" enum:"deactivates,reactivates" doc:"Set when the import flips the active flag."`
 	Compatibility   *schemaCompatibilityOut `json:"compatibility,omitempty" doc:"For new_version: whether the change could break a subscription's payload transformation."`
 	Blocked         bool                    `json:"blocked,omitempty" doc:"The change is breaking for subscriptions and allow_breaking was not set."`
 	Subscriptions   *templateCheckItem      `json:"subscriptions,omitempty" doc:"For new_version: every affected subscription's transform rendered strictly against the new version."`
@@ -125,7 +125,7 @@ type importEventTypesOutput struct {
 	Body struct {
 		Applied    bool               `json:"applied" doc:"True when the import was written. False for a dry run or when blocked_by is non-empty."`
 		DryRun     bool               `json:"dry_run" doc:"Whether this was a dry run."`
-		ImportedAt string             `json:"imported_at,omitempty" doc:"When the import was written, RFC3339. Use it to find deliveries that failed after the change."`
+		ImportedAt string             `json:"imported_at,omitempty" format:"date-time" doc:"When the import was written, RFC3339. Use it to find deliveries that failed after the change."`
 		Stamp      stampCheckItem     `json:"stamp" doc:"The bundle's stamp compared with this server."`
 		Items      []importItemResult `json:"items" doc:"One result per bundle item, sorted by name."`
 		BlockedBy  []string           `json:"blocked_by,omitempty" doc:"Why nothing was written: unacknowledged stamp warnings, and breaking when a breaking change needs allow_breaking."`

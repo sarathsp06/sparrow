@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
@@ -25,21 +26,20 @@ class WebhookOut:
         active (bool): Whether deliveries are sent. false: paused by an operator or auto-disabled; new deliveries are
             held as paused.
         consumer (str): Consumer this webhook belongs to.
-        created_at (str): Creation timestamp, RFC3339.
-        events (list[str] | None): Event type names this webhook is currently subscribed to, derived from its
-            subscriptions.
+        created_at (datetime.datetime): Creation timestamp, RFC3339.
+        events (list[str]): Event type names this webhook is currently subscribed to, derived from its subscriptions.
         health (WebhookOutHealth): Health label from the last health evaluation (see getWebhookHealth).
         http_config (WebhookHTTPConfigOut):
         requires_transform (bool): Whether every subscription must carry an enabled transform_template because the
             receiver only accepts transformed payloads.
         signature_type (WebhookOutSignatureType): Signing scheme. "hmac" (default) signs every delivery with HMAC-SHA256
             (v1,); "ed25519" adds an Ed25519 signature (v1a,) alongside the HMAC one.
-        updated_at (str): Last-modified timestamp, RFC3339.
+        updated_at (datetime.datetime): Last-modified timestamp, RFC3339.
         url (str): HTTP endpoint deliveries are POSTed to.
         webhook_id (str): Webhook id (UUID).
         schema (str | Unset): A URL to the JSON Schema for this object.
-        auto_disabled_at (str | Unset): Set when Sparrow paused this webhook itself because its receiver kept failing
-            (see SPARROW_AUTO_DISABLE_AFTER), RFC3339. Cleared when the webhook is resumed.
+        auto_disabled_at (datetime.datetime | Unset): Set when Sparrow paused this webhook itself because its receiver
+            kept failing (see SPARROW_AUTO_DISABLE_AFTER), RFC3339. Cleared when the webhook is resumed.
         auto_disabled_reason (str | Unset): Why Sparrow auto-disabled this webhook. Cleared when the webhook is resumed.
         description (str | Unset): Human-readable note about this webhook.
         headers (WebhookOutHeaders | Unset): Static HTTP headers sent with every delivery.
@@ -51,17 +51,17 @@ class WebhookOut:
 
     active: bool
     consumer: str
-    created_at: str
-    events: list[str] | None
+    created_at: datetime.datetime
+    events: list[str]
     health: WebhookOutHealth
     http_config: WebhookHTTPConfigOut
     requires_transform: bool
     signature_type: WebhookOutSignatureType
-    updated_at: str
+    updated_at: datetime.datetime
     url: str
     webhook_id: str
     schema: str | Unset = UNSET
-    auto_disabled_at: str | Unset = UNSET
+    auto_disabled_at: datetime.datetime | Unset = UNSET
     auto_disabled_reason: str | Unset = UNSET
     description: str | Unset = UNSET
     headers: WebhookOutHeaders | Unset = UNSET
@@ -73,14 +73,9 @@ class WebhookOut:
 
         consumer = self.consumer
 
-        created_at = self.created_at
+        created_at = self.created_at.isoformat()
 
-        events: list[str] | None
-        if isinstance(self.events, list):
-            events = self.events
-
-        else:
-            events = self.events
+        events = self.events
 
         health = self.health.value
 
@@ -90,7 +85,7 @@ class WebhookOut:
 
         signature_type = self.signature_type.value
 
-        updated_at = self.updated_at
+        updated_at = self.updated_at.isoformat()
 
         url = self.url
 
@@ -98,7 +93,9 @@ class WebhookOut:
 
         schema = self.schema
 
-        auto_disabled_at = self.auto_disabled_at
+        auto_disabled_at: str | Unset = UNSET
+        if not isinstance(self.auto_disabled_at, Unset):
+            auto_disabled_at = self.auto_disabled_at.isoformat()
 
         auto_disabled_reason = self.auto_disabled_reason
 
@@ -159,22 +156,9 @@ class WebhookOut:
 
         consumer = d.pop("consumer")
 
-        created_at = d.pop("created_at")
+        created_at = datetime.datetime.fromisoformat(d.pop("created_at"))
 
-        def _parse_events(data: object) -> list[str] | None:
-            if data is None:
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError()
-                events_type_0 = cast(list[str], data)
-
-                return events_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(list[str] | None, data)
-
-        events = _parse_events(d.pop("events"))
+        events = cast(list[str], d.pop("events"))
 
         health = WebhookOutHealth(d.pop("health"))
 
@@ -184,7 +168,7 @@ class WebhookOut:
 
         signature_type = WebhookOutSignatureType(d.pop("signature_type"))
 
-        updated_at = d.pop("updated_at")
+        updated_at = datetime.datetime.fromisoformat(d.pop("updated_at"))
 
         url = d.pop("url")
 
@@ -192,7 +176,12 @@ class WebhookOut:
 
         schema = d.pop("$schema", UNSET)
 
-        auto_disabled_at = d.pop("auto_disabled_at", UNSET)
+        _auto_disabled_at = d.pop("auto_disabled_at", UNSET)
+        auto_disabled_at: datetime.datetime | Unset
+        if isinstance(_auto_disabled_at, Unset):
+            auto_disabled_at = UNSET
+        else:
+            auto_disabled_at = datetime.datetime.fromisoformat(_auto_disabled_at)
 
         auto_disabled_reason = d.pop("auto_disabled_reason", UNSET)
 

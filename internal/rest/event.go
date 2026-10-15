@@ -49,8 +49,8 @@ type EventTypeItem struct {
 	Metadata      map[string]string `json:"metadata,omitempty" doc:"Arbitrary key/value metadata."`
 	Active        bool              `json:"active" doc:"Whether events of this type can currently be pushed."`
 	Version       int               `json:"version" doc:"Current schema version. Starts at 1 and increases only when the schema changes; every version is kept (see listEventTypeVersions)."`
-	CreatedAt     string            `json:"created_at" doc:"Creation timestamp, RFC3339."`
-	UpdatedAt     string            `json:"updated_at" doc:"Last-modified timestamp, RFC3339."`
+	CreatedAt     string            `json:"created_at" format:"date-time" doc:"Creation timestamp, RFC3339."`
+	UpdatedAt     string            `json:"updated_at" format:"date-time" doc:"Last-modified timestamp, RFC3339."`
 }
 
 type eventTypeOutput struct {
@@ -63,7 +63,7 @@ type eventTypeChange struct {
 	Version               int                      `json:"version" doc:"Version after the write."`
 	PreviousVersion       int                      `json:"previous_version,omitempty" doc:"Version before the write; absent when the event type was created."`
 	Changes               []string                 `json:"changes,omitempty" doc:"Fields that changed: schema, schema_defined (a first schema was added in place), description, metadata, active."`
-	ActiveChange          string                   `json:"active_change,omitempty" enum:"deactivates,reactivates," doc:"Set when the write flips the active flag."`
+	ActiveChange          string                   `json:"active_change,omitempty" enum:"deactivates,reactivates" doc:"Set when the write flips the active flag."`
 	Compatibility         *schemaCompatibilityItem `json:"compatibility,omitempty" doc:"For new_version: whether the schema change could break a subscription's payload transformation."`
 	AffectedSubscriptions int                      `json:"affected_subscriptions,omitempty" doc:"For new_version: subscriptions that receive this event type, by name or catch-all."`
 }
@@ -101,8 +101,8 @@ type eventTypeVersionItem struct {
 	Description     string         `json:"description,omitempty" doc:"Description as it was when this version was created."`
 	JSONSchema      map[string]any `json:"event_schema,omitempty" doc:"JSON Schema of this version. Absent for a schema-less version."`
 	SamplePayload   map[string]any `json:"sample_payload,omitempty" doc:"Example payload generated from this version's schema."`
-	SchemaDefinedAt *string        `json:"schema_defined_at,omitempty" doc:"When a first schema was added to this version in place, RFC3339. Events pushed before this time were accepted while the version had no schema."`
-	CreatedAt       string         `json:"created_at" doc:"When this version was created, RFC3339."`
+	SchemaDefinedAt *string        `json:"schema_defined_at,omitempty" format:"date-time" doc:"When a first schema was added to this version in place, RFC3339. Events pushed before this time were accepted while the version had no schema."`
+	CreatedAt       string         `json:"created_at" format:"date-time" doc:"When this version was created, RFC3339."`
 }
 
 func toEventTypeVersionItem(v *store.EventRegistrationVersion) eventTypeVersionItem {
@@ -226,7 +226,7 @@ type eventOccurrenceItem struct {
 	SuccessfulDeliveries int32             `json:"successful_deliveries" doc:"Successful delivery attempts for this occurrence."`
 	FailedDeliveries     int32             `json:"failed_deliveries" doc:"Failed delivery attempts for this occurrence. Counts attempts, not deliveries: a delivery that failed twice and then succeeded adds 2 here and 1 to successful_deliveries."`
 	PendingDeliveries    int32             `json:"pending_deliveries" doc:"Deliveries not finished yet: pending, sending or retrying."`
-	CreatedAt            string            `json:"created_at" doc:"When this occurrence was pushed, RFC3339."`
+	CreatedAt            string            `json:"created_at" format:"date-time" doc:"When this occurrence was pushed, RFC3339."`
 }
 
 type eventOccurrenceOutput struct {
@@ -302,8 +302,8 @@ type batchJobOutput struct {
 		Total     int    `json:"total" doc:"Total items in the batch snapshot."`
 		Processed int    `json:"processed" doc:"Items handled successfully so far."`
 		Failed    int    `json:"failed" doc:"Items that could not be re-pushed or retried (e.g. the event or delivery no longer exists)."`
-		CreatedAt string `json:"created_at" doc:"Creation timestamp, RFC3339."`
-		ExpiresAt string `json:"expires_at" doc:"When the snapshot expires, RFC3339: 15 minutes after it was taken. An expired snapshot can no longer be started."`
+		CreatedAt string `json:"created_at" format:"date-time" doc:"Creation timestamp, RFC3339."`
+		ExpiresAt string `json:"expires_at" format:"date-time" doc:"When the snapshot expires, RFC3339: 15 minutes after it was taken. An expired snapshot can no longer be started."`
 	}
 }
 

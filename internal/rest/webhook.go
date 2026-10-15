@@ -21,13 +21,13 @@ type registerWebhookBody struct {
 	Description        string             `json:"description,omitempty" doc:"Free-text note for humans, e.g. which system or team owns this endpoint."`
 	HTTPConfig         *webhookHTTPConfig `json:"http_config,omitempty" doc:"Per-webhook HTTP delivery tuning (retries, timeouts, rate limit). Falls back to server defaults for any field left unset."`
 	RateLimitRPS       *float64           `json:"rate_limit_rps,omitempty" deprecated:"true" doc:"Deprecated: use http_config.rate_limit_rps. Shorthand for it, applied only when http_config.rate_limit_rps is not set (http_config wins when both are sent). Requests per second, must be positive."`
-	SignatureType      string             `json:"signature_type,omitempty" enum:"hmac,ed25519," doc:"Signing scheme. Every delivery carries an HMAC-SHA256 signature (v1,) in the Standard Webhooks webhook-signature header; ed25519 also generates a signing keypair and adds an Ed25519 signature (v1a,) next to it. Defaults to hmac."`
+	SignatureType      string             `json:"signature_type,omitempty" enum:"hmac,ed25519" doc:"Signing scheme. Every delivery carries an HMAC-SHA256 signature (v1,) in the Standard Webhooks webhook-signature header; ed25519 also generates a signing keypair and adds an Ed25519 signature (v1a,) next to it. Defaults to hmac."`
 	RequiresTransform  bool               `json:"requires_transform,omitempty" doc:"Set when the receiver only accepts a transformed payload (Slack, SendGrid, ...). Every subscription must then have transform_enabled and a transform_template: transform_template is required here when events is non-empty, and later subscription writes without one are rejected. Recipes set this. Defaults to false."`
 	TransformTemplate  string             `json:"transform_template,omitempty" doc:"Transform template given to every subscription created from events, with transform_enabled set. Omit to create them untransformed (not allowed with requires_transform)."`
-	OnTransformError   string             `json:"on_transform_error,omitempty" enum:"fail,fallback," doc:"What happens when transform_template fails to render for one of the created subscriptions. fail (default) or fallback; see the subscription's on_transform_error."`
-	TemplateSource     string             `json:"template_source,omitempty" enum:"manual,ai_draft," doc:"How transform_template was produced, recorded as the first version in each created subscription's template history. Defaults to manual."`
+	OnTransformError   string             `json:"on_transform_error,omitempty" enum:"fail,fallback" doc:"What happens when transform_template fails to render for one of the created subscriptions. fail (default) or fallback; see the subscription's on_transform_error."`
+	TemplateSource     string             `json:"template_source,omitempty" enum:"manual,ai_draft" doc:"How transform_template was produced, recorded as the first version in each created subscription's template history. Defaults to manual."`
 	TemplateNotes      string             `json:"template_notes,omitempty" maxLength:"2000" doc:"Optional note stored with that first template version, e.g. the AI drafter's summary."`
-	TemplateMissingKey string             `json:"template_missing_key,omitempty" enum:"error,zero," doc:"How transform_template reads a key the payload does not have, for the created subscriptions. error (default) or zero; see the subscription's template_missing_key."`
+	TemplateMissingKey string             `json:"template_missing_key,omitempty" enum:"error,zero" doc:"How transform_template reads a key the payload does not have, for the created subscriptions. error (default) or zero; see the subscription's template_missing_key."`
 }
 
 // webhookHTTPConfig tunes how deliveries to a single webhook are made and
@@ -110,7 +110,7 @@ type listWebhooksInput struct {
 	WebhookID string `query:"webhook_id,omitempty" doc:"Filter to a single webhook by id."`
 	Event     string `query:"event,omitempty" doc:"Filter to webhooks subscribed to this event type name."`
 	Active    bool   `query:"active" default:"false" doc:"true returns only active (not paused) webhooks; false returns all."`
-	Health    string `query:"health,omitempty" enum:"healthy,degraded,unhealthy,unknown," doc:"Filter by computed health status."`
+	Health    string `query:"health,omitempty" enum:"healthy,degraded,unhealthy,unknown" doc:"Filter by computed health status."`
 	Limit     int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return, 1 to 1000."`
 	Offset    int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
 }

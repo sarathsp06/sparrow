@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
 from typing import Any, TypeVar
 
@@ -17,7 +18,7 @@ class DeliveryItem:
     """
     Attributes:
         attempt_count (int): Number of delivery attempts made so far, including earlier rounds before a manual retry.
-        created_at (str): When the delivery was created by fan-out, RFC3339.
+        created_at (datetime.datetime): When the delivery was created by fan-out, RFC3339.
         delivery_id (str): Delivery id (UUID).
         event_id (str): Pushed event occurrence this delivery originated from.
         max_attempts (int): Attempts allowed per round before the delivery is marked failed: the webhook's max_retries +
@@ -37,8 +38,8 @@ class DeliveryItem:
             retried automatically and does not count against the webhook's health.
         error_message (str | Unset): Human-readable failure reason from the most recent attempt.
         event_name (str | Unset): Event type of that occurrence, e.g. order.created. Set in delivery listings.
-        last_attempted_at (str | Unset): Timestamp of the most recent attempt, RFC3339.
-        next_retry_at (str | Unset): Timestamp of the next scheduled retry, RFC3339, if one is pending.
+        last_attempted_at (datetime.datetime | Unset): Timestamp of the most recent attempt, RFC3339.
+        next_retry_at (datetime.datetime | Unset): Timestamp of the next scheduled retry, RFC3339, if one is pending.
         response_body (str | Unset): Endpoint response body from the most recent attempt: up to 1 KiB, or up to
             SPARROW_MAX_CAPTURED_RESPONSE_BYTES when the webhook has capture_response_body.
         response_code (int | Unset): HTTP status code returned by the endpoint on the most recent attempt, if any.
@@ -50,7 +51,7 @@ class DeliveryItem:
     """
 
     attempt_count: int
-    created_at: str
+    created_at: datetime.datetime
     delivery_id: str
     event_id: str
     max_attempts: int
@@ -61,8 +62,8 @@ class DeliveryItem:
     error_category: DeliveryItemErrorCategory | Unset = UNSET
     error_message: str | Unset = UNSET
     event_name: str | Unset = UNSET
-    last_attempted_at: str | Unset = UNSET
-    next_retry_at: str | Unset = UNSET
+    last_attempted_at: datetime.datetime | Unset = UNSET
+    next_retry_at: datetime.datetime | Unset = UNSET
     response_body: str | Unset = UNSET
     response_code: int | Unset = UNSET
     template_error: str | Unset = UNSET
@@ -72,7 +73,7 @@ class DeliveryItem:
     def to_dict(self) -> dict[str, Any]:
         attempt_count = self.attempt_count
 
-        created_at = self.created_at
+        created_at = self.created_at.isoformat()
 
         delivery_id = self.delivery_id
 
@@ -96,9 +97,13 @@ class DeliveryItem:
 
         event_name = self.event_name
 
-        last_attempted_at = self.last_attempted_at
+        last_attempted_at: str | Unset = UNSET
+        if not isinstance(self.last_attempted_at, Unset):
+            last_attempted_at = self.last_attempted_at.isoformat()
 
-        next_retry_at = self.next_retry_at
+        next_retry_at: str | Unset = UNSET
+        if not isinstance(self.next_retry_at, Unset):
+            next_retry_at = self.next_retry_at.isoformat()
 
         response_body = self.response_body
 
@@ -155,7 +160,7 @@ class DeliveryItem:
         d = dict(src_dict)
         attempt_count = d.pop("attempt_count")
 
-        created_at = d.pop("created_at")
+        created_at = datetime.datetime.fromisoformat(d.pop("created_at"))
 
         delivery_id = d.pop("delivery_id")
 
@@ -182,9 +187,19 @@ class DeliveryItem:
 
         event_name = d.pop("event_name", UNSET)
 
-        last_attempted_at = d.pop("last_attempted_at", UNSET)
+        _last_attempted_at = d.pop("last_attempted_at", UNSET)
+        last_attempted_at: datetime.datetime | Unset
+        if isinstance(_last_attempted_at, Unset):
+            last_attempted_at = UNSET
+        else:
+            last_attempted_at = datetime.datetime.fromisoformat(_last_attempted_at)
 
-        next_retry_at = d.pop("next_retry_at", UNSET)
+        _next_retry_at = d.pop("next_retry_at", UNSET)
+        next_retry_at: datetime.datetime | Unset
+        if isinstance(_next_retry_at, Unset):
+            next_retry_at = UNSET
+        else:
+            next_retry_at = datetime.datetime.fromisoformat(_next_retry_at)
 
         response_body = d.pop("response_body", UNSET)
 

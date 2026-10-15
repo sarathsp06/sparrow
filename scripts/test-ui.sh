@@ -6,7 +6,7 @@
 #   1. embedded: one server serves UI + API on the same origin (open API).
 #   2. split:    the same UI build served by a plain static host on another
 #                origin, calling a second server that runs with
-#                ENVIRONMENT=production, SPARROW_API_KEY and CORS_ALLOWED_ORIGINS
+#                SPARROW_ENVIRONMENT=production, SPARROW_API_KEY and SPARROW_CORS_ALLOWED_ORIGINS
 #                (web/tests/split/).
 #
 #   scripts/test-ui.sh              # build UI, boot both stacks, run all UI tests
@@ -110,9 +110,9 @@ SPLIT_API_KEY="pw-split-$(date +%s)-$(openssl rand -hex 16)" # production needs 
 
 echo "==> Starting production-mode Sparrow server on :$SPLIT_API_PORT (API key + CORS for $SPLIT_UI_URL)"
 start_server "$SPLIT_API_PORT" /tmp/sparrow-ui-split-server.log \
-  ENVIRONMENT=production \
+  SPARROW_ENVIRONMENT=production \
   SPARROW_API_KEY="$SPLIT_API_KEY" \
-  CORS_ALLOWED_ORIGINS="$SPLIT_UI_URL"
+  SPARROW_CORS_ALLOWED_ORIGINS="$SPLIT_UI_URL"
 SPLIT_API_PID=$SERVER_STARTED_PID
 wait_healthy "$SPLIT_API_URL" "$SPLIT_API_PID" /tmp/sparrow-ui-split-server.log
 

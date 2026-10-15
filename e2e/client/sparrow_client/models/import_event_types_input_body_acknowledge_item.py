@@ -1,7 +1,7 @@
 from enum import StrEnum
 
 
-class ImportEventTypesInputBodyAcknowledgeType0Item(StrEnum):
+class ImportEventTypesInputBodyAcknowledgeItem(StrEnum):
     FORMAT_UNSUPPORTED = "format_unsupported"
     ITEMS_CHANGED = "items_changed"
     VERSION_DIFFERS = "version_differs"

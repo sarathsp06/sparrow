@@ -16,25 +16,20 @@ class RetryOutputBody:
     Attributes:
         count (int): Number of deliveries queued for another round of attempts.
         schema (str | Unset): A URL to the JSON Schema for this object.
-        delivery_ids (list[str] | None | Unset): Ids of the deliveries queued. Absent when nothing matched.
+        delivery_ids (list[str] | Unset): Ids of the deliveries queued. Absent when nothing matched.
     """
 
     count: int
     schema: str | Unset = UNSET
-    delivery_ids: list[str] | None | Unset = UNSET
+    delivery_ids: list[str] | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         count = self.count
 
         schema = self.schema
 
-        delivery_ids: list[str] | None | Unset
-        if isinstance(self.delivery_ids, Unset):
-            delivery_ids = UNSET
-        elif isinstance(self.delivery_ids, list):
-            delivery_ids = self.delivery_ids
-
-        else:
+        delivery_ids: list[str] | Unset = UNSET
+        if not isinstance(self.delivery_ids, Unset):
             delivery_ids = self.delivery_ids
 
         field_dict: dict[str, Any] = {}
@@ -58,22 +53,7 @@ class RetryOutputBody:
 
         schema = d.pop("$schema", UNSET)
 
-        def _parse_delivery_ids(data: object) -> list[str] | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError()
-                delivery_ids_type_0 = cast(list[str], data)
-
-                return delivery_ids_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(list[str] | None | Unset, data)
-
-        delivery_ids = _parse_delivery_ids(d.pop("delivery_ids", UNSET))
+        delivery_ids = cast(list[str], d.pop("delivery_ids", UNSET))
 
         retry_output_body = cls(
             count=count,

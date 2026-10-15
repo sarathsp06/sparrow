@@ -16,13 +16,13 @@ class ExportEventTypesInputBody:
     Attributes:
         schema (str | Unset): A URL to the JSON Schema for this object.
         all_ (bool | Unset): Export every event type.
-        names (list[str] | None | Unset): Export these event types. Each must exist.
+        names (list[str] | Unset): Export these event types. Each must exist.
         prefix (str | Unset): Export every event type whose name starts with this prefix.
     """
 
     schema: str | Unset = UNSET
     all_: bool | Unset = UNSET
-    names: list[str] | None | Unset = UNSET
+    names: list[str] | Unset = UNSET
     prefix: str | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
@@ -30,13 +30,8 @@ class ExportEventTypesInputBody:
 
         all_ = self.all_
 
-        names: list[str] | None | Unset
-        if isinstance(self.names, Unset):
-            names = UNSET
-        elif isinstance(self.names, list):
-            names = self.names
-
-        else:
+        names: list[str] | Unset = UNSET
+        if not isinstance(self.names, Unset):
             names = self.names
 
         prefix = self.prefix
@@ -62,22 +57,7 @@ class ExportEventTypesInputBody:
 
         all_ = d.pop("all", UNSET)
 
-        def _parse_names(data: object) -> list[str] | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError()
-                names_type_0 = cast(list[str], data)
-
-                return names_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(list[str] | None | Unset, data)
-
-        names = _parse_names(d.pop("names", UNSET))
+        names = cast(list[str], d.pop("names", UNSET))
 
         prefix = d.pop("prefix", UNSET)
 

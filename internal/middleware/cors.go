@@ -21,7 +21,7 @@ const (
 
 // NormalizeOrigins trims whitespace and trailing slashes and drops empty
 // entries. Browsers send Origin without a trailing slash, so
-// "https://ui.example.com/" in CORS_ALLOWED_ORIGINS would otherwise never match.
+// "https://ui.example.com/" in SPARROW_CORS_ALLOWED_ORIGINS would otherwise never match.
 func NormalizeOrigins(origins []string) []string {
 	var out []string
 	for _, o := range origins {

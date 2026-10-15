@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
 
@@ -20,7 +20,7 @@ class ErrorModel:
     Attributes:
         schema (str | Unset): A URL to the JSON Schema for this object.
         detail (str | Unset): A human-readable explanation specific to this occurrence of the problem.
-        errors (list[ErrorDetail] | None | Unset): Optional list of individual error details
+        errors (list[ErrorDetail] | Unset): Optional list of individual error details
         instance (str | Unset): A URI reference that identifies the specific occurrence of the problem.
         status (int | Unset): HTTP status code
         title (str | Unset): A short, human-readable summary of the problem type. This value should not change between
@@ -30,7 +30,7 @@ class ErrorModel:
 
     schema: str | Unset = UNSET
     detail: str | Unset = UNSET
-    errors: list[ErrorDetail] | None | Unset = UNSET
+    errors: list[ErrorDetail] | Unset = UNSET
     instance: str | Unset = UNSET
     status: int | Unset = UNSET
     title: str | Unset = UNSET
@@ -41,17 +41,12 @@ class ErrorModel:
 
         detail = self.detail
 
-        errors: list[dict[str, Any]] | None | Unset
-        if isinstance(self.errors, Unset):
-            errors = UNSET
-        elif isinstance(self.errors, list):
+        errors: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.errors, Unset):
             errors = []
-            for errors_type_0_item_data in self.errors:
-                errors_type_0_item = errors_type_0_item_data.to_dict()
-                errors.append(errors_type_0_item)
-
-        else:
-            errors = self.errors
+            for errors_item_data in self.errors:
+                errors_item = errors_item_data.to_dict()
+                errors.append(errors_item)
 
         instance = self.instance
 
@@ -90,27 +85,14 @@ class ErrorModel:
 
         detail = d.pop("detail", UNSET)
 
-        def _parse_errors(data: object) -> list[ErrorDetail] | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError()
-                errors_type_0 = []
-                _errors_type_0 = data
-                for errors_type_0_item_data in _errors_type_0:
-                    errors_type_0_item = ErrorDetail.from_dict(errors_type_0_item_data)
+        _errors = d.pop("errors", UNSET)
+        errors: list[ErrorDetail] | Unset = UNSET
+        if _errors is not UNSET:
+            errors = []
+            for errors_item_data in _errors:
+                errors_item = ErrorDetail.from_dict(errors_item_data)
 
-                    errors_type_0.append(errors_type_0_item)
-
-                return errors_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(list[ErrorDetail] | None | Unset, data)
-
-        errors = _parse_errors(d.pop("errors", UNSET))
+                errors.append(errors_item)
 
         instance = d.pop("instance", UNSET)
 

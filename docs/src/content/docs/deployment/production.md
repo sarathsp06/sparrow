@@ -15,14 +15,14 @@ Set these environment variables on the Sparrow container. Keep them in a secret 
 
 | Variable | How to generate | Notes |
 |----------|-----------------|-------|
-| `ENVIRONMENT` | `production` | The server refuses to start without `SPARROW_API_KEY` and blocks cross-origin browser requests by default. |
+| `SPARROW_ENVIRONMENT` | `production` | The server refuses to start without `SPARROW_API_KEY` and blocks cross-origin browser requests by default. |
 | `SPARROW_API_KEY` | `openssl rand -hex 32` | Master key for `/v1` and the UI sign-in prompt. Must be at least 32 characters in production (the server refuses to start otherwise). |
 | `SPARROW_ENCRYPTION_KEYS` | `main=$(openssl rand -hex 32)` | Keyring for envelope encryption; each key is 32 random bytes as 64 hex chars. See [key rotation](/sparrow/getting-started/configuration/#key-management). |
 | `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` | `main` | Which key ID in the keyring is used for new encryption. |
 | `DATABASE_URL` | — | PostgreSQL connection string. Use `sslmode=require` or `sslmode=verify-full` when the database is not on localhost. |
 | `SPARROW_SERVE_UI` | `true` or `false` | Serve the embedded web dashboard. |
 
-Other variables (`SPARROW_LOG_LEVEL`, `SPARROW_ALLOWED_NETWORKS`, `CORS_ALLOWED_ORIGINS`, `SPARROW_EVENT_RETENTION_DAYS`, `SPARROW_AUTO_DISABLE_AFTER`, `SPARROW_METRICS_ENABLED`, `SPARROW_SHUTDOWN_TIMEOUT`, `SPARROW_AI_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, etc.) are documented in [Configuration](/sparrow/getting-started/configuration/).
+Other variables (`SPARROW_LOG_LEVEL`, `SPARROW_ALLOWED_NETWORKS`, `SPARROW_CORS_ALLOWED_ORIGINS`, `SPARROW_EVENT_RETENTION_DAYS`, `SPARROW_AUTO_DISABLE_AFTER`, `SPARROW_METRICS_ENABLED`, `SPARROW_SHUTDOWN_TIMEOUT`, `SPARROW_AI_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, etc.) are documented in [Configuration](/sparrow/getting-started/configuration/).
 
 ## Kubernetes manifests
 
@@ -35,7 +35,7 @@ metadata:
   name: sparrow
 type: Opaque
 stringData:
-  ENVIRONMENT: production
+  SPARROW_ENVIRONMENT: production
   SPARROW_API_KEY: "<openssl rand -hex 32>"
   SPARROW_ENCRYPTION_KEYS: "main=<openssl rand -hex 32>"
   SPARROW_ENCRYPTION_PRIMARY_KEY_ID: main
@@ -260,8 +260,8 @@ Give each person and CI job their own access token instead of sharing `SPARROW_A
 
 ## Production checklist
 
-- [ ] `ENVIRONMENT=production` and `SPARROW_API_KEY` set (at least 32 characters; `openssl rand -hex 32`).
-- [ ] Encryption keyring (`SPARROW_ENCRYPTION_KEYS` + `SPARROW_ENCRYPTION_PRIMARY_KEY_ID`) generated with `openssl rand -hex 32` and stored in a secret manager. With `ENVIRONMENT=production` Sparrow refuses to start with the all-zeros development key. Back it up -- lose it and encrypted webhook secrets are unrecoverable.
+- [ ] `SPARROW_ENVIRONMENT=production` and `SPARROW_API_KEY` set (at least 32 characters; `openssl rand -hex 32`).
+- [ ] Encryption keyring (`SPARROW_ENCRYPTION_KEYS` + `SPARROW_ENCRYPTION_PRIMARY_KEY_ID`) generated with `openssl rand -hex 32` and stored in a secret manager. With `SPARROW_ENVIRONMENT=production` Sparrow refuses to start with the all-zeros development key. Back it up -- lose it and encrypted webhook secrets are unrecoverable.
 - [ ] `DATABASE_URL` points to a managed Postgres with `sslmode=require` or stronger.
 - [ ] Image tag pinned to a release (not `latest`).
 - [ ] Container runs as non-root (UID 65532), read-only filesystem, no privilege escalation, all capabilities dropped.
@@ -270,7 +270,7 @@ Give each person and CI job their own access token instead of sharing `SPARROW_A
 - [ ] `SPARROW_AUTO_DISABLE_AFTER` reviewed (default 5 days of failures pauses a webhook; deliveries are held, not dropped) and an alert config opted into `sparrow.webhook.disabled`.
 - [ ] Exposed only through an internal ingress or VPN -- never a public LoadBalancer.
 - [ ] TLS terminated at the ingress controller or reverse proxy.
-- [ ] `CORS_ALLOWED_ORIGINS` set if the UI is hosted on a different origin.
+- [ ] `SPARROW_CORS_ALLOWED_ORIGINS` set if the UI is hosted on a different origin.
 - [ ] Use `SPARROW_ALLOWED_NETWORKS` (not `SPARROW_ALLOW_PRIVATE_NETWORKS`) for internal webhook targets. Cloud metadata endpoints are always blocked.
 - [ ] `SPARROW_EVENT_RETENTION_DAYS` set if payloads carry regulated data.
 - [ ] `SPARROW_LOG_LEVEL` chosen: the default `info` writes a line for every event and delivery; `warn` keeps only problems and is lighter on a busy instance.
@@ -279,7 +279,7 @@ Give each person and CI job their own access token instead of sharing `SPARROW_A
 
 ## Upgrade notes
 
-- **`SPARROW_API_KEY` minimum length.** With `ENVIRONMENT=production`, the server now requires `SPARROW_API_KEY` to be at least 32 characters. If your existing key is shorter, generate a new one with `openssl rand -hex 32` before upgrading. Outside production mode, a short key logs a warning but still works.
+- **`SPARROW_API_KEY` minimum length.** With `SPARROW_ENVIRONMENT=production`, the server now requires `SPARROW_API_KEY` to be at least 32 characters. If your existing key is shorter, generate a new one with `openssl rand -hex 32` before upgrading. Outside production mode, a short key logs a warning but still works.
 - **Cloud metadata always blocked.** Cloud metadata endpoints (169.254.169.254, 169.254.170.2, etc.) are now blocked even when `SPARROW_ALLOW_PRIVATE_NETWORKS=true`. If you need to reach one deliberately, list it in `SPARROW_ALLOWED_NETWORKS`.
 - **Tenant-wide tokens expire by default.** New tenant-wide tokens, browser sign-ins and invite-created tokens now expire after `SPARROW_TOKEN_DEFAULT_TTL` (90 days) unless created with an explicit TTL or `never_expires` (`sparrow tokens create --ttl never`). Existing tokens keep their lifetime. Set `SPARROW_TOKEN_DEFAULT_TTL=0` to keep the old never-expiring default.
 - **Custom header validation.** Webhook headers are now validated on save. Invalid HTTP token names, CR/LF or control characters in values, values over 8 KiB, and reserved framing headers (`Host`, `Content-Length`, `Transfer-Encoding`, `Connection`, `Keep-Alive`, `Proxy-Connection`, `TE`, `Trailer`, `Upgrade`) are rejected with `400`. Existing webhooks keep delivering: a reserved framing header stored before this check is skipped at delivery (it never had an effect), and the webhook only needs fixing the next time its headers are updated.

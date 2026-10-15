@@ -78,7 +78,7 @@ func TestBatchJobsAndAttemptsCarryTheConsumerScope(t *testing.T) {
 	send(portal, http.MethodGet, "/portal/api/retry-jobs/"+id, "", "t")
 	send(portal, http.MethodGet, "/portal/api/repush-jobs/"+id, "", "t")
 	send(portal, http.MethodPost, "/portal/api/retry-jobs/"+id+":cancel", "", "t")
-	send(portal, http.MethodPost, "/portal/api/deliveries:retryBatch", `{"repush_id":"`+id+`"}`, "t")
+	send(portal, http.MethodPost, "/portal/api/deliveries:retryBatch", `{"retry_id":"`+id+`"}`, "t")
 	for i, got := range svc.scopes {
 		if want := (webhooks.BatchScope{Consumer: "acme", ConsumerOnly: true}); got != want {
 			t.Fatalf("portal call %d scope = %+v, want %+v", i, got, want)

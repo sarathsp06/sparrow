@@ -6,7 +6,6 @@ class ListWebhooksHealth(StrEnum):
     HEALTHY = "healthy"
     UNHEALTHY = "unhealthy"
     UNKNOWN = "unknown"
-    VALUE_4 = ""
 
     def __str__(self) -> str:
         return str(self.value)

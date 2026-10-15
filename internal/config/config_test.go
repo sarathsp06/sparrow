@@ -248,3 +248,38 @@ func TestWarningsZeroEncryptionKey(t *testing.T) {
 		t.Fatalf("a real key should not warn: %v", w)
 	}
 }
+
+func TestProductionMatchesAnyCase(t *testing.T) {
+	for v, want := range map[string]bool{
+		"production": true, "Production": true, " PRODUCTION ": true,
+		"prod": false, "": false, "development": false, "production-eu": false,
+	} {
+		if got := (&Config{Environment: v}).IsProduction(); got != want {
+			t.Errorf("IsProduction(%q) = %v, want %v", v, got, want)
+		}
+	}
+}
+
+func TestWarnsOnProductionLookalikesAndRenamedVars(t *testing.T) {
+	warned := func(c *Config, sub string) bool {
+		return strings.Contains(strings.Join(c.Warnings(), "\n"), sub)
+	}
+	if !warned(&Config{Environment: "prod"}, `SPARROW_ENVIRONMENT="prod" is not "production"`) {
+		t.Error("prod should warn that the production checks are off")
+	}
+	if warned(&Config{Environment: "development"}, "is not \"production\"") {
+		t.Error("development should not warn")
+	}
+
+	t.Setenv("ENVIRONMENT", "production")
+	t.Setenv("CORS_ALLOWED_ORIGINS", "https://ui.example.com")
+	c := &Config{}
+	if !warned(c, "ENVIRONMENT is set but no longer read; Sparrow reads SPARROW_ENVIRONMENT") ||
+		!warned(c, "CORS_ALLOWED_ORIGINS is set but no longer read; Sparrow reads SPARROW_CORS_ALLOWED_ORIGINS") {
+		t.Errorf("old names should warn, got %v", c.Warnings())
+	}
+	t.Setenv("SPARROW_ENVIRONMENT", "production")
+	if warned(c, "ENVIRONMENT is set but no longer read") {
+		t.Error("no warning once the new name is set too")
+	}
+}

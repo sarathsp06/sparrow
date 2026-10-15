@@ -12,6 +12,13 @@ import (
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
+type retryBatchInput struct {
+	Consumer string `path:"consumer" doc:"Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token."`
+	Body     struct {
+		RetryID string `json:"retry_id" required:"true" doc:"retry_id returned by an earlier GET .../deliveries?prepare_retry=true call."`
+	}
+}
+
 type deliveryIDInput struct {
 	Consumer   string `path:"consumer" doc:"Consumer the delivery belongs to."`
 	DeliveryID string `path:"delivery_id" doc:"Delivery id (UUID)."`
@@ -37,11 +44,11 @@ type deliveryItem struct {
 	ResponseCode       int     `json:"response_code,omitempty" doc:"HTTP status code returned by the endpoint on the most recent attempt, if any."`
 	ResponseBody       string  `json:"response_body,omitempty" doc:"Endpoint response body from the most recent attempt: up to 1 KiB, or up to SPARROW_MAX_CAPTURED_RESPONSE_BYTES when the webhook has capture_response_body."`
 	ErrorMessage       string  `json:"error_message,omitempty" doc:"Human-readable failure reason from the most recent attempt."`
-	ErrorCategory      string  `json:"error_category,omitempty" enum:"success,client_error,server_error,timeout,dns_error,tls_error,connection_refused,network_error,rate_limited,unexpected_status,template_error,unknown," doc:"Outcome classification of the most recent attempt, used to decide retryability. server_error (5xx), timeout, connection_refused, network_error and rate_limited (429) are retried; client_error (other 4xx), dns_error, tls_error and unexpected_status (a 2xx/3xx not in expected_status_codes) are not. template_error means the subscription's transform failed to render; it is not retried automatically and does not count against the webhook's health."`
+	ErrorCategory      string  `json:"error_category,omitempty" enum:"success,client_error,server_error,timeout,dns_error,tls_error,connection_refused,network_error,rate_limited,unexpected_status,template_error,unknown" doc:"Outcome classification of the most recent attempt, used to decide retryability. server_error (5xx), timeout, connection_refused, network_error and rate_limited (429) are retried; client_error (other 4xx), dns_error, tls_error and unexpected_status (a 2xx/3xx not in expected_status_codes) are not. template_error means the subscription's transform failed to render; it is not retried automatically and does not count against the webhook's health."`
 	TemplateError      string  `json:"template_error,omitempty" doc:"The payload transform error, when the subscription's template failed to render. Set for both on_transform_error modes: with fail the delivery was not sent; with fallback the default envelope was sent instead."`
-	CreatedAt          string  `json:"created_at" doc:"When the delivery was created by fan-out, RFC3339."`
-	LastAttemptedAt    *string `json:"last_attempted_at,omitempty" doc:"Timestamp of the most recent attempt, RFC3339."`
-	NextRetryAt        *string `json:"next_retry_at,omitempty" doc:"Timestamp of the next scheduled retry, RFC3339, if one is pending."`
+	CreatedAt          string  `json:"created_at" format:"date-time" doc:"When the delivery was created by fan-out, RFC3339."`
+	LastAttemptedAt    *string `json:"last_attempted_at,omitempty" format:"date-time" doc:"Timestamp of the most recent attempt, RFC3339."`
+	NextRetryAt        *string `json:"next_retry_at,omitempty" format:"date-time" doc:"Timestamp of the next scheduled retry, RFC3339, if one is pending."`
 }
 
 type deliveryOutput struct {
@@ -93,7 +100,7 @@ type DeliveryListParams struct {
 	EventName      string `query:"event_name,omitempty" doc:"Filter to deliveries of one event type, e.g. order.created. Also matches deliveries whose subscription has since been replaced or deleted."`
 	CreatedAfter   string `query:"created_after,omitempty" doc:"Only deliveries created at or after this time: YYYY-MM-DD (start of that day, UTC) or an RFC3339 timestamp (e.g. an import's imported_at)."`
 	CreatedBefore  string `query:"created_before,omitempty" doc:"Only deliveries created at or before this time: YYYY-MM-DD (through the end of that day, UTC) or an RFC3339 timestamp."`
-	PrepareRetry   bool   `query:"prepare_retry" default:"false" doc:"Side effect: when true, also snapshots the ids of every delivery matching the filters (not just this page; at most 10,000, more is an error) into a batch job and returns its id as retry_id. Pass it as repush_id to POST .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot."`
+	PrepareRetry   bool   `query:"prepare_retry" default:"false" doc:"Side effect: when true, also snapshots the ids of every delivery matching the filters (not just this page; at most 10,000, more is an error) into a batch job and returns its id as retry_id. Pass it to POST .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot."`
 	Limit          int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return, 1 to 1000."`
 	Cursor         string `query:"cursor,omitempty" doc:"Continue after the page this came from: pagination.next_cursor of the previous response. Stable while new deliveries arrive."`
 	Offset         int32  `query:"offset" default:"0" doc:"Removed: page with cursor. Any value other than 0 is rejected with 400, so a client still paging by offset fails loudly instead of re-reading the first page."`
@@ -113,7 +120,7 @@ type listDeliveriesOutput struct {
 	Body struct {
 		Items      []deliveryItem         `json:"items" doc:"Deliveries, newest first. Includes deliveries of deleted webhooks."`
 		Pagination CursorPaginationOutput `json:"pagination" doc:"Cursor pagination; there is no total count."`
-		RetryID    string                 `json:"retry_id,omitempty" doc:"Snapshot (batch job) id, present when prepare_retry was set and something matched. Send it as the repush_id field of POST .../deliveries:retryBatch. Expires after 15 minutes if not started."`
+		RetryID    string                 `json:"retry_id,omitempty" doc:"Snapshot (batch job) id, present when prepare_retry was set and something matched. Send it as the retry_id field of POST .../deliveries:retryBatch. Expires after 15 minutes if not started."`
 		RetryTotal int                    `json:"retry_total,omitempty" doc:"Number of deliveries in that snapshot (all matches, not just this page)."`
 	}
 }
@@ -143,8 +150,8 @@ type attemptItem struct {
 	ResponseTime  int    `json:"response_time" doc:"Round-trip time of this attempt, in milliseconds."`
 	ResponseCode  int    `json:"response_code" doc:"HTTP status code returned by the endpoint on this attempt; 0 when no response was received."`
 	ErrorMessage  string `json:"error_message,omitempty" doc:"Human-readable failure reason for this attempt."`
-	ErrorCategory string `json:"error_category,omitempty" enum:"success,client_error,server_error,timeout,dns_error,tls_error,connection_refused,network_error,rate_limited,unexpected_status,template_error,unknown," doc:"Failure classification for this attempt."`
-	Timestamp     string `json:"timestamp" doc:"When this attempt was made, RFC3339."`
+	ErrorCategory string `json:"error_category,omitempty" enum:"success,client_error,server_error,timeout,dns_error,tls_error,connection_refused,network_error,rate_limited,unexpected_status,template_error,unknown" doc:"Failure classification for this attempt."`
+	Timestamp     string `json:"timestamp" format:"date-time" doc:"When this attempt was made, RFC3339."`
 }
 
 type attemptsOutput struct {
@@ -273,16 +280,16 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 		Method:      http.MethodPost,
 		Path:        "/v1/consumers/{consumer}/deliveries:retryBatch",
 		Summary:     "Start a batch retry job from a prepared snapshot",
-		Description: "Starts an async job that retries every delivery in a snapshot taken by an earlier GET .../deliveries?prepare_retry=true call, like retryDelivery for each one. The body field is named repush_id, but it takes the retry_id returned by the deliveries list. Returns 202 with the job; poll it with getDeliveryRetryJob.\n\n" +
+		Description: "Starts an async job that retries every delivery in a snapshot taken by an earlier GET .../deliveries?prepare_retry=true call, like retryDelivery for each one. Send the retry_id the deliveries list returned. Returns 202 with the job; poll it with getDeliveryRetryJob.\n\n" +
 			"A snapshot can be started once: 409 when it is not pending (already started or cancelled), expired (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400 when it is not a UUID.\n\nPortal tokens: allowed, as POST /portal/api/deliveries:retryBatch.",
 		Errors:        []int{400, 404, 409},
 		Tags:          []string{"Deliveries"},
 		DefaultStatus: http.StatusAccepted,
-	}, func(ctx context.Context, in *repushBatchInput) (*batchJobOutput, error) {
-		if err := svc.RetryDeliveries(ctx, batchScope(ctx, in.Consumer), in.Body.RepushID); err != nil {
+	}, func(ctx context.Context, in *retryBatchInput) (*batchJobOutput, error) {
+		if err := svc.RetryDeliveries(ctx, batchScope(ctx, in.Consumer), in.Body.RetryID); err != nil {
 			return nil, mapError(ctx, err, "failed to start retry job")
 		}
-		job, err := svc.GetRetryStatus(ctx, batchScope(ctx, in.Consumer), in.Body.RepushID)
+		job, err := svc.GetRetryStatus(ctx, batchScope(ctx, in.Consumer), in.Body.RetryID)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to load retry job status")
 		}

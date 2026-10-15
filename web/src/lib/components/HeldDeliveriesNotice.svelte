@@ -34,7 +34,7 @@
       if (list.retry_id) {
         unwrap(await api.POST("/v1/consumers/{consumer}/deliveries:retryBatch", {
           params: { path: { consumer } },
-          body: { repush_id: list.retry_id },
+          body: { retry_id: list.retry_id },
         }));
       }
       onclose();

@@ -40,6 +40,7 @@ components:
           type: string
         created_at:
           description: Creation timestamp, RFC3339.
+          format: date-time
           type: string
         email:
           description: Recipient email address.
@@ -48,9 +49,7 @@ components:
           description: Sparrow system event types this recipient is alerted on.
           items:
             type: string
-          type:
-            - array
-            - "null"
+          type: array
         id:
           description: Alert config id (UUID).
           type: string
@@ -91,7 +90,6 @@ components:
             - unexpected_status
             - template_error
             - unknown
-            - ""
           type: string
         error_message:
           description: Human-readable failure reason for this attempt.
@@ -109,6 +107,7 @@ components:
           type: boolean
         timestamp:
           description: When this attempt was made, RFC3339.
+          format: date-time
           type: string
       required:
         - success
@@ -130,9 +129,7 @@ components:
           description: Every recorded attempt, oldest first.
           items:
             $ref: "#/components/schemas/AttemptItem"
-          type:
-            - array
-            - "null"
+          type: array
       required:
         - items
       type: object
@@ -151,9 +148,11 @@ components:
           type: string
         created_at:
           description: Creation timestamp, RFC3339.
+          format: date-time
           type: string
         expires_at:
           description: "When the snapshot expires, RFC3339: 15 minutes after it was taken. An expired snapshot can no longer be started."
+          format: date-time
           type: string
         failed:
           description: Items that could not be re-pushed or retried (e.g. the event or delivery no longer exists).
@@ -347,9 +346,7 @@ components:
           description: "Sparrow system event types to alert on, at least one of: sparrow.webhook.health_changed, sparrow.webhook.delivery_failed, sparrow.webhook.disabled."
           items:
             type: string
-          type:
-            - array
-            - "null"
+          type: array
         webhook_id:
           description: Scope the alert to one webhook. Omit for a consumer-wide alert covering every webhook.
           type: string
@@ -566,6 +563,7 @@ components:
           type: string
         created_at:
           description: When the delivery was created by fan-out, RFC3339.
+          format: date-time
           type: string
         delivery_id:
           description: Delivery id (UUID).
@@ -585,7 +583,6 @@ components:
             - unexpected_status
             - template_error
             - unknown
-            - ""
           type: string
         error_message:
           description: Human-readable failure reason from the most recent attempt.
@@ -598,6 +595,7 @@ components:
           type: string
         last_attempted_at:
           description: Timestamp of the most recent attempt, RFC3339.
+          format: date-time
           type: string
         max_attempts:
           description: "Attempts allowed per round before the delivery is marked failed: the webhook's max_retries + 1 when the delivery was created. A manual retry starts a new round."
@@ -605,6 +603,7 @@ components:
           type: integer
         next_retry_at:
           description: Timestamp of the next scheduled retry, RFC3339, if one is pending.
+          format: date-time
           type: string
         response_body:
           description: "Endpoint response body from the most recent attempt: up to 1 KiB, or up to SPARROW_MAX_CAPTURED_RESPONSE_BYTES when the webhook has capture_response_body."
@@ -780,9 +779,7 @@ components:
           description: Optional list of individual error details
           items:
             $ref: "#/components/schemas/ErrorDetail"
-          type:
-            - array
-            - "null"
+          type: array
         instance:
           description: A URI reference that identifies the specific occurrence of the problem.
           examples:
@@ -823,6 +820,7 @@ components:
           type: string
         created_at:
           description: When this occurrence was pushed, RFC3339.
+          format: date-time
           type: string
         event:
           description: Event type name.
@@ -928,9 +926,7 @@ components:
           description: Event type definitions, sorted by name.
           items:
             $ref: "#/components/schemas/BundleItem"
-          type:
-            - array
-            - "null"
+          type: array
         kind:
           description: Bundle kind.
           enum:
@@ -961,7 +957,6 @@ components:
           enum:
             - deactivates
             - reactivates
-            - ""
           type: string
         affected_subscriptions:
           description: "For new_version: subscriptions that receive this event type, by name or catch-all."
@@ -971,9 +966,7 @@ components:
           description: "Fields that changed: schema, schema_defined (a first schema was added in place), description, metadata, active."
           items:
             type: string
-          type:
-            - array
-            - "null"
+          type: array
         compatibility:
           $ref: "#/components/schemas/SchemaCompatibilityItem"
           description: "For new_version: whether the schema change could break a subscription's payload transformation."
@@ -1004,6 +997,7 @@ components:
           type: boolean
         created_at:
           description: Creation timestamp, RFC3339.
+          format: date-time
           type: string
         description:
           description: Human-readable summary of what this event represents.
@@ -1026,6 +1020,7 @@ components:
           type: object
         updated_at:
           description: Last-modified timestamp, RFC3339.
+          format: date-time
           type: string
         version:
           description: Current schema version. Starts at 1 and increases only when the schema changes; every version is kept (see listEventTypeVersions).
@@ -1050,6 +1045,7 @@ components:
           type: string
         created_at:
           description: When this version was created, RFC3339.
+          format: date-time
           type: string
         description:
           description: Description as it was when this version was created.
@@ -1067,6 +1063,7 @@ components:
           type: object
         schema_defined_at:
           description: When a first schema was added to this version in place, RFC3339. Events pushed before this time were accepted while the version had no schema.
+          format: date-time
           type: string
         version:
           description: Version number.
@@ -1094,9 +1091,7 @@ components:
           description: Export these event types. Each must exist.
           items:
             type: string
-          type:
-            - array
-            - "null"
+          type: array
         prefix:
           description: Export every event type whose name starts with this prefix.
           type: string
@@ -1195,9 +1190,7 @@ components:
               - format_unsupported
               - items_changed
             type: string
-          type:
-            - array
-            - "null"
+          type: array
         allow_breaking:
           description: Apply breaking schema changes to event types that subscriptions receive.
           type: boolean
@@ -1215,9 +1208,7 @@ components:
             $ref: "#/components/schemas/BundleItem"
           maxItems: 500
           minItems: 1
-          type:
-            - array
-            - "null"
+          type: array
         kind:
           description: Bundle kind, if the body is an exported bundle.
           enum:
@@ -1252,22 +1243,19 @@ components:
           description: "Why nothing was written: unacknowledged stamp warnings, and breaking when a breaking change needs allow_breaking."
           items:
             type: string
-          type:
-            - array
-            - "null"
+          type: array
         dry_run:
           description: Whether this was a dry run.
           type: boolean
         imported_at:
           description: When the import was written, RFC3339. Use it to find deliveries that failed after the change.
+          format: date-time
           type: string
         items:
           description: One result per bundle item, sorted by name.
           items:
             $ref: "#/components/schemas/ImportItemResult"
-          type:
-            - array
-            - "null"
+          type: array
         stamp:
           $ref: "#/components/schemas/StampCheckItem"
           description: The bundle's stamp compared with this server.
@@ -1293,7 +1281,6 @@ components:
           enum:
             - deactivates
             - reactivates
-            - ""
           type: string
         blocked:
           description: The change is breaking for subscriptions and allow_breaking was not set.
@@ -1302,9 +1289,7 @@ components:
           description: "Fields that change: schema, schema_defined, description, metadata, active."
           items:
             type: string
-          type:
-            - array
-            - "null"
+          type: array
         compatibility:
           $ref: "#/components/schemas/SchemaCompatibilityItem"
           description: "For new_version: whether the change could break a subscription's payload transformation."
@@ -1410,9 +1395,7 @@ components:
           description: Alert configs, oldest first. Not paginated.
           items:
             $ref: "#/components/schemas/AlertConfigItem"
-          type:
-            - array
-            - "null"
+          type: array
       required:
         - items
       type: object
@@ -1430,9 +1413,7 @@ components:
           description: Matching consumer names, sorted by name.
           items:
             $ref: "#/components/schemas/ConsumerItem"
-          type:
-            - array
-            - "null"
+          type: array
       required:
         - items
       type: object
@@ -1450,14 +1431,12 @@ components:
           description: Deliveries, newest first. Includes deliveries of deleted webhooks.
           items:
             $ref: "#/components/schemas/DeliveryItem"
-          type:
-            - array
-            - "null"
+          type: array
         pagination:
           $ref: "#/components/schemas/CursorPaginationOutput"
           description: Cursor pagination; there is no total count.
         retry_id:
-          description: Snapshot (batch job) id, present when prepare_retry was set and something matched. Send it as the repush_id field of POST .../deliveries:retryBatch. Expires after 15 minutes if not started.
+          description: Snapshot (batch job) id, present when prepare_retry was set and something matched. Send it as the retry_id field of POST .../deliveries:retryBatch. Expires after 15 minutes if not started.
           type: string
         retry_total:
           description: Number of deliveries in that snapshot (all matches, not just this page).
@@ -1481,9 +1460,7 @@ components:
           description: Occurrences, newest first.
           items:
             $ref: "#/components/schemas/EventOccurrenceItem"
-          type:
-            - array
-            - "null"
+          type: array
         pagination:
           $ref: "#/components/schemas/CursorPaginationOutput"
           description: Cursor pagination; there is no total count.
@@ -1512,9 +1489,7 @@ components:
           description: Every version of the event type, newest first.
           items:
             $ref: "#/components/schemas/EventTypeVersionItem"
-          type:
-            - array
-            - "null"
+          type: array
       required:
         - items
       type: object
@@ -1532,9 +1507,7 @@ components:
           description: Event types, sorted by name.
           items:
             $ref: "#/components/schemas/EventTypeItem"
-          type:
-            - array
-            - "null"
+          type: array
         pagination:
           $ref: "#/components/schemas/PaginationOutput"
           description: Offset pagination with a total count.
@@ -1556,9 +1529,7 @@ components:
           description: Invites, newest first. Not paginated.
           items:
             $ref: "#/components/schemas/InviteOut"
-          type:
-            - array
-            - "null"
+          type: array
       required:
         - items
       type: object
@@ -1576,9 +1547,7 @@ components:
           description: Every shipped recipe.
           items:
             $ref: "#/components/schemas/Recipe"
-          type:
-            - array
-            - "null"
+          type: array
       required:
         - items
       type: object
@@ -1596,9 +1565,7 @@ components:
           description: Subscriptions, newest first.
           items:
             $ref: "#/components/schemas/SubscriptionItem"
-          type:
-            - array
-            - "null"
+          type: array
         pagination:
           $ref: "#/components/schemas/PaginationOutput"
           description: Offset pagination with a total count.
@@ -1620,9 +1587,7 @@ components:
           description: Saved versions, newest first.
           items:
             $ref: "#/components/schemas/TemplateVersionItem"
-          type:
-            - array
-            - "null"
+          type: array
       required:
         - items
       type: object
@@ -1640,9 +1605,7 @@ components:
           description: Tokens, newest first. Not paginated.
           items:
             $ref: "#/components/schemas/TokenOut"
-          type:
-            - array
-            - "null"
+          type: array
       required:
         - items
       type: object
@@ -1660,9 +1623,7 @@ components:
           description: Webhooks, newest first.
           items:
             $ref: "#/components/schemas/WebhookOut"
-          type:
-            - array
-            - "null"
+          type: array
         pagination:
           $ref: "#/components/schemas/PaginationOutput"
           description: Offset pagination with a total count.
@@ -1710,9 +1671,7 @@ components:
           description: The only accepted values, when set.
           items:
             type: string
-          type:
-            - array
-            - "null"
+          type: array
         example:
           description: A sample value.
           type: string
@@ -1916,9 +1875,7 @@ components:
           description: Non-fatal schema validation warnings. The event is stored and delivered regardless. Absent for a duplicate.
           items:
             type: string
-          type:
-            - array
-            - "null"
+          type: array
       required:
         - event_id
         - duplicate
@@ -1943,9 +1900,7 @@ components:
           description: Values the user supplies when applying the recipe. Each {{param "name"}} token in webhook.url, webhook.headers, webhook.secret_headers and subscription.transform_template is replaced with the value by plain string substitution before registration.
           items:
             $ref: "#/components/schemas/Param"
-          type:
-            - array
-            - "null"
+          type: array
         subscription:
           $ref: "#/components/schemas/Subscription"
           description: The transform given to the subscriptions created for the webhook.
@@ -1983,9 +1938,7 @@ components:
           description: Event type names this webhook should receive; auto-creates one subscription per entry. Use "*" as the sole entry to subscribe to every event in the consumer. Omit or leave empty to register the webhook with no subscriptions, then attach them individually via POST .../subscriptions (e.g. to set a per-subscription transform_template).
           items:
             type: string
-          type:
-            - array
-            - "null"
+          type: array
         headers:
           additionalProperties: {}
           description: "Static HTTP headers sent with every delivery to this webhook. Only string values are sent. Names must be valid HTTP tokens, values at most 8 KiB with no CR/LF; framing headers (Host, Content-Length, Transfer-Encoding, Connection, Keep-Alive, Proxy-Connection, TE, Trailer, Upgrade) are rejected. Stored and returned in plaintext: put credentials in secret_headers."
@@ -1998,7 +1951,6 @@ components:
           enum:
             - fail
             - fallback
-            - ""
           type: string
         rate_limit_rps:
           deprecated: true
@@ -2018,14 +1970,12 @@ components:
           enum:
             - hmac
             - ed25519
-            - ""
           type: string
         template_missing_key:
           description: How transform_template reads a key the payload does not have, for the created subscriptions. error (default) or zero; see the subscription's template_missing_key.
           enum:
             - error
             - zero
-            - ""
           type: string
         template_notes:
           description: Optional note stored with that first template version, e.g. the AI drafter's summary.
@@ -2036,7 +1986,6 @@ components:
           enum:
             - manual
             - ai_draft
-            - ""
           type: string
         transform_template:
           description: Transform template given to every subscription created from events, with transform_enabled set. Omit to create them untransformed (not allowed with requires_transform).
@@ -2081,9 +2030,7 @@ components:
           description: Non-fatal warnings from validating the stored payload against the event type's current schema.
           items:
             type: string
-          type:
-            - array
-            - "null"
+          type: array
       required:
         - event_id
       type: object
@@ -2102,6 +2049,7 @@ components:
           type: string
         created_at:
           description: Creation timestamp, RFC3339.
+          format: date-time
           type: string
         event_name:
           description: Event type name this subscription matches, or "*" for catch-all.
@@ -2136,6 +2084,7 @@ components:
           type: boolean
         paused_at:
           description: When the current pause began, RFC3339. Absent when not paused.
+          format: date-time
           type: string
         paused_deliveries:
           description: Deliveries of this subscription currently in status paused. They are not sent automatically; retry them to deliver.
@@ -2146,6 +2095,7 @@ components:
           type: string
         paused_since:
           description: When the pause that just ended began, RFC3339; absent when the subscription was not paused. List or retry what was held with status=paused&subscription_id=...&created_after=<paused_since>.
+          format: date-time
           type: string
         subscription_id:
           description: Subscription id (UUID).
@@ -2168,6 +2118,7 @@ components:
           type: string
         updated_at:
           description: Last-modified timestamp, RFC3339.
+          format: date-time
           type: string
         webhook_id:
           description: Webhook this subscription delivers to.
@@ -2201,6 +2152,22 @@ components:
           type: integer
       required:
         - paused_deliveries
+      type: object
+    RetryBatchInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/RetryBatchInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        retry_id:
+          description: retry_id returned by an earlier GET .../deliveries?prepare_retry=true call.
+          type: string
+      required:
+        - retry_id
       type: object
     RetryDeliveriesByWebhookInputBody:
       additionalProperties: false
@@ -2239,9 +2206,7 @@ components:
           description: Ids of the deliveries queued. Absent when nothing matched.
           items:
             type: string
-          type:
-            - array
-            - "null"
+          type: array
       required:
         - count
       type: object
@@ -2268,9 +2233,7 @@ components:
           description: Each breaking change with the path it affects.
           items:
             type: string
-          type:
-            - array
-            - "null"
+          type: array
         result:
           description: "breaking when the change could break a payload transformation: a required property removed or made optional, a type widened, the schema removed, or a change under oneOf/anyOf/allOf/$ref/patternProperties that cannot be checked."
           enum:
@@ -2300,9 +2263,7 @@ components:
           description: version_differs, format_unsupported, items_changed. Each must be acknowledged for the import to write.
           items:
             type: string
-          type:
-            - array
-            - "null"
+          type: array
       required:
         - status
         - server
@@ -2331,6 +2292,7 @@ components:
           type: string
         created_at:
           description: Creation timestamp, RFC3339.
+          format: date-time
           type: string
         event_name:
           description: Event type name this subscription matches, or "*" for catch-all.
@@ -2365,6 +2327,7 @@ components:
           type: boolean
         paused_at:
           description: When the current pause began, RFC3339. Absent when not paused.
+          format: date-time
           type: string
         paused_reason:
           description: Why the subscription was paused.
@@ -2390,6 +2353,7 @@ components:
           type: string
         updated_at:
           description: Last-modified timestamp, RFC3339.
+          format: date-time
           type: string
         webhook_id:
           description: Webhook this subscription delivers to.
@@ -2417,9 +2381,7 @@ components:
           description: Subscriptions whose transform no longer renders against the new version.
           items:
             $ref: "#/components/schemas/TemplateFailureItem"
-          type:
-            - array
-            - "null"
+          type: array
         passed:
           description: Subscriptions whose transform renders.
           format: int64
@@ -2428,9 +2390,7 @@ components:
           description: Subscriptions this import paused (subscription_policy=pause).
           items:
             type: string
-          type:
-            - array
-            - "null"
+          type: array
         without_transform:
           description: Subscriptions with no transform. Sparrow passes the payload through and cannot tell whether the receiver copes.
           format: int64
@@ -2495,9 +2455,7 @@ components:
           description: Every helper function, in the engine's own order.
           items:
             $ref: "#/components/schemas/TemplateFunctionItem"
-          type:
-            - array
-            - "null"
+          type: array
       required:
         - items
       type: object
@@ -2653,6 +2611,7 @@ components:
           description: What this update did.
         created_at:
           description: Creation timestamp, RFC3339.
+          format: date-time
           type: string
         description:
           description: Human-readable summary of what this event represents.
@@ -2675,6 +2634,7 @@ components:
           type: object
         updated_at:
           description: Last-modified timestamp, RFC3339.
+          format: date-time
           type: string
         version:
           description: Current schema version. Starts at 1 and increases only when the schema changes; every version is kept (see listEventTypeVersions).
@@ -2722,9 +2682,7 @@ components:
           description: Per-field validation errors, present when valid is false.
           items:
             type: string
-          type:
-            - array
-            - "null"
+          type: array
       required:
         - valid
       type: object
@@ -2764,9 +2722,7 @@ components:
           items:
             format: int64
             type: integer
-          type:
-            - array
-            - "null"
+          type: array
         follow_redirects:
           description: Whether to follow HTTP redirects returned by the endpoint. Each redirect target passes the same SSRF checks. Defaults to true.
           type: boolean
@@ -2807,9 +2763,7 @@ components:
           items:
             format: int32
             type: integer
-          type:
-            - array
-            - "null"
+          type: array
         follow_redirects:
           description: Whether HTTP redirects returned by the endpoint are followed.
           type: boolean
@@ -2945,6 +2899,7 @@ components:
           type: boolean
         auto_disabled_at:
           description: Set when Sparrow paused this webhook itself because its receiver kept failing (see SPARROW_AUTO_DISABLE_AFTER), RFC3339. Cleared when the webhook is resumed.
+          format: date-time
           type: string
         auto_disabled_reason:
           description: Why Sparrow auto-disabled this webhook. Cleared when the webhook is resumed.
@@ -2954,6 +2909,7 @@ components:
           type: string
         created_at:
           description: Creation timestamp, RFC3339.
+          format: date-time
           type: string
         description:
           description: Human-readable note about this webhook.
@@ -2962,9 +2918,7 @@ components:
           description: Event type names this webhook is currently subscribed to, derived from its subscriptions.
           items:
             type: string
-          type:
-            - array
-            - "null"
+          type: array
         headers:
           additionalProperties:
             type: string
@@ -3000,6 +2954,7 @@ components:
           type: string
         updated_at:
           description: Last-modified timestamp, RFC3339.
+          format: date-time
           type: string
         url:
           description: HTTP endpoint deliveries are POSTed to.
@@ -3078,7 +3033,7 @@ info:
 
     ## Authentication
 
-    Optional. When the server is started with `SPARROW_API_KEY` set, every `/v1/*` request must carry that master key or a tenant-wide access token (`createToken` without a `consumer`), in the `X-API-Key` header or as `Authorization: Bearer <credential>`. When `SPARROW_API_KEY` is unset, every endpoint is open, and outside `ENVIRONMENT=production` CORS also allows any origin: never expose such a server beyond a trusted network.
+    Optional. When the server is started with `SPARROW_API_KEY` set, every `/v1/*` request must carry that master key or a tenant-wide access token (`createToken` without a `consumer`), in the `X-API-Key` header or as `Authorization: Bearer <credential>`. When `SPARROW_API_KEY` is unset, every endpoint is open, and outside `SPARROW_ENVIRONMENT=production` CORS also allows any origin: never expose such a server beyond a trusted network.
 
     ## Portal tokens
 
@@ -3388,13 +3343,13 @@ paths:
           schema:
             description: "Only deliveries created at or before this time: YYYY-MM-DD (through the end of that day, UTC) or an RFC3339 timestamp."
             type: string
-        - description: "Side effect: when true, also snapshots the ids of every delivery matching the filters (not just this page; at most 10,000, more is an error) into a batch job and returns its id as retry_id. Pass it as repush_id to POST .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot."
+        - description: "Side effect: when true, also snapshots the ids of every delivery matching the filters (not just this page; at most 10,000, more is an error) into a batch job and returns its id as retry_id. Pass it to POST .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot."
           explode: false
           in: query
           name: prepare_retry
           schema:
             default: false
-            description: "Side effect: when true, also snapshots the ids of every delivery matching the filters (not just this page; at most 10,000, more is an error) into a batch job and returns its id as retry_id. Pass it as repush_id to POST .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot."
+            description: "Side effect: when true, also snapshots the ids of every delivery matching the filters (not just this page; at most 10,000, more is an error) into a batch job and returns its id as retry_id. Pass it to POST .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot."
             type: boolean
         - description: Maximum items to return, 1 to 1000.
           explode: false
@@ -3661,7 +3616,7 @@ paths:
   /v1/consumers/{consumer}/deliveries:retryBatch:
     post:
       description: |-
-        Starts an async job that retries every delivery in a snapshot taken by an earlier GET .../deliveries?prepare_retry=true call, like retryDelivery for each one. The body field is named repush_id, but it takes the retry_id returned by the deliveries list. Returns 202 with the job; poll it with getDeliveryRetryJob.
+        Starts an async job that retries every delivery in a snapshot taken by an earlier GET .../deliveries?prepare_retry=true call, like retryDelivery for each one. Send the retry_id the deliveries list returned. Returns 202 with the job; poll it with getDeliveryRetryJob.
 
         A snapshot can be started once: 409 when it is not pending (already started or cancelled), expired (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400 when it is not a UUID.
 
@@ -3679,7 +3634,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RepushBatchInputBody"
+              $ref: "#/components/schemas/RetryBatchInputBody"
         required: true
       responses:
         "202":
@@ -4744,7 +4699,6 @@ paths:
               - degraded
               - unhealthy
               - unknown
-              - ""
             type: string
         - description: Maximum items to return, 1 to 1000.
           explode: false
@@ -5289,13 +5243,13 @@ paths:
           schema:
             description: "Only deliveries created at or before this time: YYYY-MM-DD (through the end of that day, UTC) or an RFC3339 timestamp."
             type: string
-        - description: "Side effect: when true, also snapshots the ids of every delivery matching the filters (not just this page; at most 10,000, more is an error) into a batch job and returns its id as retry_id. Pass it as repush_id to POST .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot."
+        - description: "Side effect: when true, also snapshots the ids of every delivery matching the filters (not just this page; at most 10,000, more is an error) into a batch job and returns its id as retry_id. Pass it to POST .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot."
           explode: false
           in: query
           name: prepare_retry
           schema:
             default: false
-            description: "Side effect: when true, also snapshots the ids of every delivery matching the filters (not just this page; at most 10,000, more is an error) into a batch job and returns its id as retry_id. Pass it as repush_id to POST .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot."
+            description: "Side effect: when true, also snapshots the ids of every delivery matching the filters (not just this page; at most 10,000, more is an error) into a batch job and returns its id as retry_id. Pass it to POST .../deliveries:retryBatch within 15 minutes. Each call creates a new snapshot."
             type: boolean
         - description: Maximum items to return, 1 to 1000.
           explode: false
@@ -6783,7 +6737,6 @@ paths:
               - degraded
               - unhealthy
               - unknown
-              - ""
             type: string
         - description: Look up a single webhook by id when its consumer is unknown.
           explode: false

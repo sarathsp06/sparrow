@@ -27,8 +27,8 @@ class EventTypeChange:
         active_change (EventTypeChangeActiveChange | Unset): Set when the write flips the active flag.
         affected_subscriptions (int | Unset): For new_version: subscriptions that receive this event type, by name or
             catch-all.
-        changes (list[str] | None | Unset): Fields that changed: schema, schema_defined (a first schema was added in
-            place), description, metadata, active.
+        changes (list[str] | Unset): Fields that changed: schema, schema_defined (a first schema was added in place),
+            description, metadata, active.
         compatibility (SchemaCompatibilityItem | Unset):
         previous_version (int | Unset): Version before the write; absent when the event type was created.
     """
@@ -37,7 +37,7 @@ class EventTypeChange:
     version: int
     active_change: EventTypeChangeActiveChange | Unset = UNSET
     affected_subscriptions: int | Unset = UNSET
-    changes: list[str] | None | Unset = UNSET
+    changes: list[str] | Unset = UNSET
     compatibility: SchemaCompatibilityItem | Unset = UNSET
     previous_version: int | Unset = UNSET
 
@@ -52,13 +52,8 @@ class EventTypeChange:
 
         affected_subscriptions = self.affected_subscriptions
 
-        changes: list[str] | None | Unset
-        if isinstance(self.changes, Unset):
-            changes = UNSET
-        elif isinstance(self.changes, list):
-            changes = self.changes
-
-        else:
+        changes: list[str] | Unset = UNSET
+        if not isinstance(self.changes, Unset):
             changes = self.changes
 
         compatibility: dict[str, Any] | Unset = UNSET
@@ -106,22 +101,7 @@ class EventTypeChange:
 
         affected_subscriptions = d.pop("affected_subscriptions", UNSET)
 
-        def _parse_changes(data: object) -> list[str] | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError()
-                changes_type_0 = cast(list[str], data)
-
-                return changes_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(list[str] | None | Unset, data)
-
-        changes = _parse_changes(d.pop("changes", UNSET))
+        changes = cast(list[str], d.pop("changes", UNSET))
 
         _compatibility = d.pop("compatibility", UNSET)
         compatibility: SchemaCompatibilityItem | Unset

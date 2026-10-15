@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -19,7 +20,7 @@ T = TypeVar("T", bound="EventTypeVersionItem")
 class EventTypeVersionItem:
     """
     Attributes:
-        created_at (str): When this version was created, RFC3339.
+        created_at (datetime.datetime): When this version was created, RFC3339.
         name (str): Event type name.
         version (int): Version number.
         schema (str | Unset): A URL to the JSON Schema for this object.
@@ -28,21 +29,21 @@ class EventTypeVersionItem:
             version.
         sample_payload (EventTypeVersionItemSamplePayload | Unset): Example payload generated from this version's
             schema.
-        schema_defined_at (str | Unset): When a first schema was added to this version in place, RFC3339. Events pushed
-            before this time were accepted while the version had no schema.
+        schema_defined_at (datetime.datetime | Unset): When a first schema was added to this version in place, RFC3339.
+            Events pushed before this time were accepted while the version had no schema.
     """
 
-    created_at: str
+    created_at: datetime.datetime
     name: str
     version: int
     schema: str | Unset = UNSET
     description: str | Unset = UNSET
     event_schema: EventTypeVersionItemEventSchema | Unset = UNSET
     sample_payload: EventTypeVersionItemSamplePayload | Unset = UNSET
-    schema_defined_at: str | Unset = UNSET
+    schema_defined_at: datetime.datetime | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
-        created_at = self.created_at
+        created_at = self.created_at.isoformat()
 
         name = self.name
 
@@ -60,7 +61,9 @@ class EventTypeVersionItem:
         if not isinstance(self.sample_payload, Unset):
             sample_payload = self.sample_payload.to_dict()
 
-        schema_defined_at = self.schema_defined_at
+        schema_defined_at: str | Unset = UNSET
+        if not isinstance(self.schema_defined_at, Unset):
+            schema_defined_at = self.schema_defined_at.isoformat()
 
         field_dict: dict[str, Any] = {}
 
@@ -90,7 +93,7 @@ class EventTypeVersionItem:
         from ..models.event_type_version_item_sample_payload import EventTypeVersionItemSamplePayload  # noqa: PLC0415
 
         d = dict(src_dict)
-        created_at = d.pop("created_at")
+        created_at = datetime.datetime.fromisoformat(d.pop("created_at"))
 
         name = d.pop("name")
 
@@ -114,7 +117,12 @@ class EventTypeVersionItem:
         else:
             sample_payload = EventTypeVersionItemSamplePayload.from_dict(_sample_payload)
 
-        schema_defined_at = d.pop("schema_defined_at", UNSET)
+        _schema_defined_at = d.pop("schema_defined_at", UNSET)
+        schema_defined_at: datetime.datetime | Unset
+        if isinstance(_schema_defined_at, Unset):
+            schema_defined_at = UNSET
+        else:
+            schema_defined_at = datetime.datetime.fromisoformat(_schema_defined_at)
 
         event_type_version_item = cls(
             created_at=created_at,

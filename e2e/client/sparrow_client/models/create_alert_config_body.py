@@ -15,26 +15,21 @@ class CreateAlertConfigBody:
     """
     Attributes:
         email (str): Recipient email address.
-        event_types (list[str] | None): Sparrow system event types to alert on, at least one of:
+        event_types (list[str]): Sparrow system event types to alert on, at least one of:
             sparrow.webhook.health_changed, sparrow.webhook.delivery_failed, sparrow.webhook.disabled.
         schema (str | Unset): A URL to the JSON Schema for this object.
         webhook_id (str | Unset): Scope the alert to one webhook. Omit for a consumer-wide alert covering every webhook.
     """
 
     email: str
-    event_types: list[str] | None
+    event_types: list[str]
     schema: str | Unset = UNSET
     webhook_id: str | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         email = self.email
 
-        event_types: list[str] | None
-        if isinstance(self.event_types, list):
-            event_types = self.event_types
-
-        else:
-            event_types = self.event_types
+        event_types = self.event_types
 
         schema = self.schema
 
@@ -60,20 +55,7 @@ class CreateAlertConfigBody:
         d = dict(src_dict)
         email = d.pop("email")
 
-        def _parse_event_types(data: object) -> list[str] | None:
-            if data is None:
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError()
-                event_types_type_0 = cast(list[str], data)
-
-                return event_types_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(list[str] | None, data)
-
-        event_types = _parse_event_types(d.pop("event_types"))
+        event_types = cast(list[str], d.pop("event_types"))
 
         schema = d.pop("$schema", UNSET)
 
