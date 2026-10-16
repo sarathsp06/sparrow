@@ -12,6 +12,7 @@
 [![Docker](https://img.shields.io/badge/Docker-ghcr.io%2Fsarathsp06%2Fsparrow-2496ED?style=flat-square&logo=docker&logoColor=white)](https://github.com/sarathsp06/sparrow/pkgs/container/sparrow)
 [![Docs](https://img.shields.io/badge/docs-sarathsp06.github.io%2Fsparrow-F97316?style=flat-square)](https://sarathsp06.github.io/sparrow/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15538/badge)](https://www.bestpractices.dev/projects/15538)
 
 <a href="https://www.producthunt.com/products/sparrow-10?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-sparrow-15" target="_blank" rel="noopener noreferrer"><img alt="Sparrow - Self-hosted webhook delivery. One binary, just Postgres. | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1281277&amp;theme=light&amp;t=1792059054881"></a>
 
