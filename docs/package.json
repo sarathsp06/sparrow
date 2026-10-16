@@ -14,7 +14,7 @@
     "@astrojs/starlight": "^0.37.7",
     "@astrojs/svelte": "^7.2.5",
     "@scalar/astro": "^0.4.17",
-    "astro": "^5.7.0",
+    "astro": "^7.3.8",
     "astro-mermaid": "^2.1.0",
     "astro-og-canvas": "^0.13.2",
     "marked": "^17.0.5",
