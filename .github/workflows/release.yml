@@ -50,6 +50,29 @@ jobs:
           git checkout -- internal/ui/dist/.gitkeep
 
 
+      # The release note is the tag's CHANGELOG.md section, written for users.
+      # A release without one fails here instead of shipping a commit list.
+      # Release candidates (vX.Y.Z-rc.N) use the Unreleased section.
+      - name: Extract release notes
+        run: |
+          section="$GITHUB_REF_NAME"
+          case "$section" in *-*) section="Unreleased" ;; esac
+          notes="$RUNNER_TEMP/release-notes.md"
+          awk -v s="$section" '
+            index($0, "## [" s "]") == 1 { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > "$notes"
+          if ! grep -q '[^[:space:]]' "$notes"; then
+            echo "::error::CHANGELOG.md has no '## [$section]' section for $GITHUB_REF_NAME"
+            exit 1
+          fi
+          prev=$(git describe --tags --abbrev=0 --match 'v*' "$GITHUB_REF_NAME^" 2>/dev/null || true)
+          if [ -n "$prev" ]; then
+            printf '\nFull commit list: https://github.com/%s/compare/%s...%s\n' \
+              "$GITHUB_REPOSITORY" "$prev" "$GITHUB_REF_NAME" >> "$notes"
+          fi
+
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
@@ -61,7 +84,7 @@ jobs:
         with:
           distribution: goreleaser
           version: "~> v2"
-          args: release --clean
+          args: release --clean --release-notes ${{ runner.temp }}/release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

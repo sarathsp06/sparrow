@@ -37,13 +37,16 @@ first four on every pull request (`.github/workflows/ci.yml`).
    generated files such as `*_otel.go`.
 5. **Documented.** User-visible changes update the docs in `docs/` and, for API
    fields, the handler descriptions (see [Documenting the API](#documenting-the-api)).
-6. **Conventional Commits.** Commit subjects follow the [Commit Style](#commit-style)
+6. **Changelog entry.** User-visible changes add a line to `CHANGELOG.md` under
+   `## [Unreleased]`, written for users; anything they must do when upgrading
+   goes under `### Upgrading`.
+7. **Conventional Commits.** Commit subjects follow the [Commit Style](#commit-style)
    below; breaking changes are marked with `!` and explained in the body.
-7. **Fits the design.** Changes respect the design principles in
+8. **Fits the design.** Changes respect the design principles in
    [AGENTS.md](AGENTS.md#design-principles), for example Postgres-only (no new
    external services such as Redis without discussion). Open an issue first for
    large or architectural changes.
-8. **Licensed.** By contributing you agree that your contribution is licensed
+9. **Licensed.** By contributing you agree that your contribution is licensed
    under the project's [MIT License](LICENSE).
 
 Security issues are reported privately as described in [SECURITY.md](SECURITY.md),
@@ -66,11 +69,11 @@ Use Conventional Commits when possible:
 - `perf:` for performance improvements
 - `chore:` for maintenance tasks
 
-This keeps release notes grouped and readable.
+This keeps the history easy to scan and marks breaking changes.
 
 ## Release Process
 
-A release is one tag push from an up-to-date `main`; `.github/workflows/release.yml` does the rest:
+A release is a `CHANGELOG.md` update and one tag push from an up-to-date `main`; `.github/workflows/release.yml` does the rest:
 
 ```bash
 git tag v1.2.3
@@ -83,7 +86,7 @@ The workflow runs the full CI suite first. Only when it passes does GoReleaser b
 - **Release candidates**: tag `v1.2.3-rc.1`. GoReleaser marks it as a pre-release, Docker gets `1.2.3-rc.1` but not `latest`, and the split modules are tagged `-rc.1` too (Go never resolves `@latest` to a pre-release).
 - **Never move or delete a pushed tag.** If a release is broken, fix forward with the next patch version.
 - Check `goreleaser check` and `make release-dry-run` (a `--snapshot` build, nothing published) before tagging when the release config changed.
-- Release notes come from Conventional Commit subjects, so write them for users. Mark breaking changes with `!` (`feat!:`) and say what to do in the body. See the [compatibility policy](https://sarathsp06.github.io/sparrow/reference/compatibility/) for what counts as breaking.
+- Before tagging, rename `## [Unreleased]` in `CHANGELOG.md` to `## [v1.2.3] - YYYY-MM-DD`, add a new empty `Unreleased` section and the compare link at the bottom. That section becomes the GitHub release note; the workflow fails if it is missing. Mark breaking changes in commits with `!` (`feat!:`) too. See the [compatibility policy](https://sarathsp06.github.io/sparrow/reference/compatibility/) for what counts as breaking.
 
 ## Notes
 

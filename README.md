@@ -107,7 +107,7 @@ make run             # server on :8080, migrations run on startup
 make test            # all modules
 ```
 
-`make help` lists every target, [CONTRIBUTING.md](CONTRIBUTING.md) has the workflow, and [AGENTS.md](AGENTS.md) the architecture notes and conventions.
+`make help` lists every target, [CONTRIBUTING.md](CONTRIBUTING.md) has the workflow, [AGENTS.md](AGENTS.md) the architecture notes and conventions, and [CHANGELOG.md](CHANGELOG.md) what changed in each release.
 
 ## License
 
