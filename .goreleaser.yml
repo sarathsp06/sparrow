@@ -21,6 +21,10 @@ builds:
     binary: sparrow-server
     env:
       - CGO_ENABLED=0
+    # Reproducible: no local paths in the binary, file times from the commit.
+    flags:
+      - -trimpath
+    mod_timestamp: "{{ .CommitTimestamp }}"
     ldflags:
       - -w -s -X github.com/sarathsp06/sparrow.Version={{ .Version }}
     goos:
@@ -39,6 +43,10 @@ builds:
     binary: sparrow
     env:
       - CGO_ENABLED=0
+    # Reproducible: no local paths in the binary, file times from the commit.
+    flags:
+      - -trimpath
+    mod_timestamp: "{{ .CommitTimestamp }}"
     ldflags:
       - -w -s -X main.version={{ .Version }}
     goos:
@@ -57,6 +65,10 @@ builds:
     binary: sparrow-sources
     env:
       - CGO_ENABLED=0
+    # Reproducible: no local paths in the binary, file times from the commit.
+    flags:
+      - -trimpath
+    mod_timestamp: "{{ .CommitTimestamp }}"
     ldflags:
       - -w -s -X main.version={{ .Version }}
     goos:
@@ -75,6 +87,10 @@ builds:
     binary: sparrow-sinks
     env:
       - CGO_ENABLED=0
+    # Reproducible: no local paths in the binary, file times from the commit.
+    flags:
+      - -trimpath
+    mod_timestamp: "{{ .CommitTimestamp }}"
     ldflags:
       - -w -s -X main.version={{ .Version }}
     goos:

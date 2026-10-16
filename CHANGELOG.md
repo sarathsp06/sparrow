@@ -60,6 +60,8 @@ criteria.
   GitHub Actions and Docker dependencies current.
 - The documentation site moved to Astro 7, clearing its critical and high npm
   advisories.
+- Release binaries are reproducible: built with `-trimpath` and file times set
+  from the commit, so rebuilding a tag gives byte-identical binaries.
 
 ## [v0.14.0] - 2026-10-15
 
