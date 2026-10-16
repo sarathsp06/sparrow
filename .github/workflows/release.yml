@@ -52,19 +52,26 @@ jobs:
 
       # The release note is the tag's CHANGELOG.md section, written for users.
       # A release without one fails here instead of shipping a commit list.
-      # Release candidates (vX.Y.Z-rc.N) use the Unreleased section.
+      # A release candidate (vX.Y.Z-rc.N) uses the vX.Y.Z section when it is
+      # already written, otherwise Unreleased.
       - name: Extract release notes
         run: |
-          section="$GITHUB_REF_NAME"
-          case "$section" in *-*) section="Unreleased" ;; esac
           notes="$RUNNER_TEMP/release-notes.md"
-          awk -v s="$section" '
-            index($0, "## [" s "]") == 1 { on = 1; next }
-            on && /^## \[/ { exit }
-            on { print }
-          ' CHANGELOG.md > "$notes"
+          section_of() {
+            awk -v s="$1" '
+              index($0, "## [" s "]") == 1 { on = 1; next }
+              on && /^## \[/ { exit }
+              on { print }
+            ' CHANGELOG.md
+          }
+          for section in "$GITHUB_REF_NAME" "${GITHUB_REF_NAME%%-*}" Unreleased; do
+            section_of "$section" > "$notes"
+            if grep -q '[^[:space:]]' "$notes"; then break; fi
+            # Only release candidates fall back past their own tag.
+            case "$GITHUB_REF_NAME" in *-*) ;; *) break ;; esac
+          done
           if ! grep -q '[^[:space:]]' "$notes"; then
-            echo "::error::CHANGELOG.md has no '## [$section]' section for $GITHUB_REF_NAME"
+            echo "::error::CHANGELOG.md has no '## [$GITHUB_REF_NAME]' section"
             exit 1
           fi
           prev=$(git describe --tags --abbrev=0 --match 'v*' "$GITHUB_REF_NAME^" 2>/dev/null || true)
