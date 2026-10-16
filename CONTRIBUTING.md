@@ -12,6 +12,43 @@ make test
 make lint
 ```
 
+## Requirements for Acceptable Contributions
+
+A pull request is merged when it meets all of the following. CI checks the
+first four on every pull request (`.github/workflows/ci.yml`).
+
+1. **Coding standard.** Go code follows [Effective Go](https://go.dev/doc/effective_go)
+   and the [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments),
+   plus the project conventions in [AGENTS.md](AGENTS.md#code-conventions)
+   (error handling before the happy path, no SQL in handlers, tenant-scoped
+   queries, `snake_case.go` files, verb-first `camelCase` OperationIDs).
+   Frontend code under `web/` follows the existing Svelte 5 and TypeScript style.
+2. **Formatted and lint-clean.** Run `make fmt` (`goimports` with local import
+   grouping) and `make lint` ([golangci-lint](https://golangci-lint.run/)); both
+   must pass with no new warnings. `govulncheck` must report no reachable
+   vulnerabilities.
+3. **Tested.** New behavior comes with tests and bug fixes come with a test
+   that fails without the fix. `make test` must pass; changes to storage or
+   queue code should also pass `make test-integration`, and UI changes
+   `make web-test`.
+4. **Generated files are current.** After changing a REST handler, run
+   `make generate` and commit the updated `api/openapi.{yaml,json}`
+   (`internal/rest/openapi_drift_test.go` fails otherwise). Never hand-edit
+   generated files such as `*_otel.go`.
+5. **Documented.** User-visible changes update the docs in `docs/` and, for API
+   fields, the handler descriptions (see [Documenting the API](#documenting-the-api)).
+6. **Conventional Commits.** Commit subjects follow the [Commit Style](#commit-style)
+   below; breaking changes are marked with `!` and explained in the body.
+7. **Fits the design.** Changes respect the design principles in
+   [AGENTS.md](AGENTS.md#design-principles), for example Postgres-only (no new
+   external services such as Redis without discussion). Open an issue first for
+   large or architectural changes.
+8. **Licensed.** By contributing you agree that your contribution is licensed
+   under the project's [MIT License](LICENSE).
+
+Security issues are reported privately as described in [SECURITY.md](SECURITY.md),
+not through public issues or pull requests.
+
 ## Documenting the API
 
 The REST API reference is generated from the handler structs in `internal/rest`.
