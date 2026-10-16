@@ -126,7 +126,7 @@ type WebhookOut struct {
 func toWebhookOut(reg *store.WebhookRegistration, events []string, svc webhooks.SecretRevealer) WebhookOut {
 	codes := make([]int32, len(reg.ExpectedStatusCodes))
 	for i, c := range reg.ExpectedStatusCodes {
-		codes[i] = int32(c)
+		codes[i] = int32(c) //nolint:gosec // HTTP status codes, validated to 100-599 on save
 	}
 	return WebhookOut{
 		WebhookID:         reg.ID.String(),

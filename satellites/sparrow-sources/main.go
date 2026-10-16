@@ -74,7 +74,7 @@ func (p providers) any() bool { return p.Stripe != nil || p.GitHub != nil }
 // loadConfig reads the YAML file and applies the SPARROW_URL,
 // SPARROW_API_KEY and SPARROW_CONSUMER env overrides.
 func loadConfig(path string) (*fileConfig, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) //nolint:gosec // the operator's own -config path
 	if err != nil {
 		return nil, err
 	}

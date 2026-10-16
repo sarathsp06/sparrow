@@ -279,7 +279,7 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, consumer string, del
 			return nil, 0, fmt.Errorf("failed to queue deliveries for retry: %w", err)
 		}
 	}
-	resubmittedCount := int32(len(resubmittedIDs))
+	resubmittedCount := clampInt32(len(resubmittedIDs))
 
 	if resubmittedCount == 0 {
 		return nil, 0, svcerrors.Error(svcerrors.FailedPrecondition, "failed to resubmit any deliveries")

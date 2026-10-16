@@ -73,7 +73,7 @@ func newHandler(logger *slog.Logger, staticFS fs.FS) http.Handler {
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-cache")
-		w.Write(indexBytes) //nolint:errcheck
+		_, _ = w.Write(indexBytes)
 	})
 }
 

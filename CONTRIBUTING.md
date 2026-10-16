@@ -24,8 +24,10 @@ first four on every pull request (`.github/workflows/ci.yml`).
    queries, `snake_case.go` files, verb-first `camelCase` OperationIDs).
    Frontend code under `web/` follows the existing Svelte 5 and TypeScript style.
 2. **Formatted and lint-clean.** Run `make fmt` (`goimports` with local import
-   grouping) and `make lint` ([golangci-lint](https://golangci-lint.run/)); both
-   must pass with no new warnings. `govulncheck` must report no reachable
+   grouping) and `make lint` ([golangci-lint](https://golangci-lint.run/) with the
+   standard linters plus [gosec](https://github.com/securego/gosec), configured
+   in `.golangci.yml`); both must pass with no new warnings. Silence a gosec
+   finding only with `//nolint:gosec // reason` explaining why it is safe. `govulncheck` must report no reachable
    vulnerabilities.
 3. **Tested.** New behavior comes with tests and bug fixes come with a test
    that fails without the fix. `make test` must pass; changes to storage or

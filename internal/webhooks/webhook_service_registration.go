@@ -334,7 +334,7 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, consumer string, webh
 	tenantID := tenant.DefaultTenantID
 
 	l, o := normalizePagination(int(limit), int(offset))
-	limit, offset = int32(l), int32(o)
+	limit, offset = clampInt32(l), clampInt32(o)
 
 	if webhookID != "" {
 		id, err := parseUUID(webhookID, "webhook ID")
@@ -372,7 +372,7 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, consumer string, webh
 		"count", len(registrations),
 		"total", totalCount,
 	)
-	return registrations, int32(totalCount), nil
+	return registrations, clampInt32(totalCount), nil
 }
 
 // PauseWebhook temporarily disables webhook deliveries

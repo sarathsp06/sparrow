@@ -3,6 +3,7 @@ package webhooks
 import (
 	"context"
 	"log/slog"
+	"math"
 	"net"
 	"regexp"
 	"time"
@@ -241,6 +242,12 @@ func normalizePagination(limit, offset int) (int, int) {
 		offset = 0
 	}
 	return limit, offset
+}
+
+// clampInt32 converts n for the int32 API fields, saturating instead of
+// wrapping when n is out of range.
+func clampInt32(n int) int32 {
+	return int32(max(math.MinInt32, min(n, math.MaxInt32))) //nolint:gosec // clamped to the int32 range above
 }
 
 // Label validation constraints

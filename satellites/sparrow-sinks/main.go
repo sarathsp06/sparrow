@@ -58,7 +58,7 @@ func main() {
 }
 
 func loadConfig(path string) (*fileConfig, error) {
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(path) //nolint:gosec // the operator's own -config path
 	if err != nil {
 		return nil, err
 	}
