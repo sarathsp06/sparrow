@@ -113,7 +113,10 @@ jobs:
         env:
           DATABASE_URL: postgres://testuser:testpass@localhost:5432/testdb?sslmode=disable
         run: |
-          go test -v -race ./... \
+          go test -v -race \
+            -coverpkg=./internal/...,github.com/sarathsp06/sparrow/pkg/... \
+            -coverprofile=cover-unit.out \
+            ./... \
             github.com/sarathsp06/sparrow/satellites/sparrow/... \
             github.com/sarathsp06/sparrow/satellites/recipes/... \
             github.com/sarathsp06/sparrow/satellites/sparrow-sinks/... \
@@ -121,6 +124,13 @@ jobs:
             github.com/sarathsp06/sparrow/pkg/access/... \
             github.com/sarathsp06/sparrow/pkg/signature/... \
             github.com/sarathsp06/sparrow/pkg/template/...
+
+      - name: Upload coverage profile
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: cover-unit
+          path: cover-unit.out
+          retention-days: 7
 
   ui-e2e:
     name: UI E2E
@@ -186,4 +196,33 @@ jobs:
           exit 1
 
       - name: Run integration tests
-        run: go test -v -tags integration -timeout 600s -race ./internal/integration/...
+        run: |
+          go test -v -tags integration -timeout 600s -race \
+            -coverpkg=./internal/...,github.com/sarathsp06/sparrow/pkg/... \
+            -coverprofile=cover-integration.out \
+            ./internal/integration/...
+
+      - name: Upload coverage profile
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: cover-integration
+          path: cover-integration.out
+          retention-days: 7
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    needs: [test, integration-test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download coverage profiles
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: cover-*
+          merge-multiple: true
+
+      # Core = internal/... and pkg/... without generated *_otel.go wrappers.
+      - name: Check core coverage
+        run: scripts/coverage.sh -v -min 80 cover-unit.out cover-integration.out

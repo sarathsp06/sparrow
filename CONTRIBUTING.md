@@ -36,7 +36,9 @@ first four on every pull request (`.github/workflows/ci.yml`).
 3. **Tested.** New behavior comes with tests and bug fixes come with a test
    that fails without the fix. `make test` must pass; changes to storage or
    queue code should also pass `make test-integration`, and UI changes
-   `make web-test`.
+   `make web-test`. Unit and integration tests together must cover at least
+   80% of the core Go code (`internal/...` and `pkg/...`, generated
+   `*_otel.go` excluded); CI checks it, and `make cover` measures it locally.
 4. **Generated files are current.** After changing a REST handler, run
    `make generate` and commit the updated `api/openapi.{yaml,json}`
    (`internal/rest/openapi_drift_test.go` fails otherwise). Never hand-edit

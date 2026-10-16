@@ -79,6 +79,20 @@ test: ## Run tests (all modules)
 test-integration: ## Run integration tests (requires Docker for testcontainers)
 	go test -v -tags integration -timeout 600s ./internal/integration/...
 
+# Core = the server and its libraries; see scripts/coverage.sh.
+CORE_COVERPKG := ./internal/...,github.com/sarathsp06/sparrow/pkg/...
+CORE_TEST_PATHS := ./internal/... \
+	github.com/sarathsp06/sparrow/pkg/access/... \
+	github.com/sarathsp06/sparrow/pkg/signature/... \
+	github.com/sarathsp06/sparrow/pkg/template/...
+COVER_MIN ?= 80
+
+cover: ## Core Go coverage from unit + integration tests (needs DATABASE_URL and Docker)
+	mkdir -p build
+	go test -coverpkg=$(CORE_COVERPKG) -coverprofile=build/cover-unit.out $(CORE_TEST_PATHS)
+	go test -tags integration -timeout 900s -coverpkg=$(CORE_COVERPKG) -coverprofile=build/cover-integration.out ./internal/integration/...
+	scripts/coverage.sh -v -min $(COVER_MIN) build/cover-unit.out build/cover-integration.out
+
 client-python: ## Regenerate the Python client the e2e suite imports (checked in at e2e/client/ for the tests, not a published SDK)
 	uvx openapi-python-client@$(OPENAPI_PYTHON_CLIENT_VERSION) generate --path api/openapi.yaml --output-path e2e/client --overwrite --config e2e/client-config.yaml
 
@@ -147,4 +161,4 @@ fmt: ## Format the code
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-cli build-sources build-sinks build-all build-ui client-python docker-build-e2e build-with-ui release-dry-run run dev-db test test-integration test-ui test-e2e test-e2e-spec test-e2e-tag test-e2e-parallel test-e2e-report test-e2e-setup clean generate docker-dev docker-purge migrate lint fmt run-web help
+.PHONY: cover build build-cli build-sources build-sinks build-all build-ui client-python docker-build-e2e build-with-ui release-dry-run run dev-db test test-integration test-ui test-e2e test-e2e-spec test-e2e-tag test-e2e-parallel test-e2e-report test-e2e-setup clean generate docker-dev docker-purge migrate lint fmt run-web help
