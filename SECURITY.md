@@ -20,6 +20,19 @@ Include:
 You will get an acknowledgement within 14 days, usually within a few days. Fixes ship in a patch
 release, and the release notes credit the reporter unless you ask otherwise.
 
+## How a report is handled
+
+1. **Acknowledge** within 14 days and confirm whether the issue reproduces.
+2. **Assess** severity using the ratings in the
+   [threat model](.oss-scanner/threat_model.md#severity), and agree a
+   disclosure date with the reporter (normally within 90 days of the report).
+3. **Fix** in private, through a GitHub security advisory and its temporary
+   private fork, with a regression test.
+4. **Release** a patch version. Its CHANGELOG.md section lists the fix under
+   `### Security`, and the advisory is published with a CVE when one applies.
+5. **Credit** the reporter in the advisory and the release notes, unless they
+   ask not to be named.
+
 ## Supported versions
 
 Only the latest release receives security fixes. Upgrade to it before

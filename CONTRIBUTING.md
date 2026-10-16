@@ -2,6 +2,10 @@
 
 Thanks for contributing to Sparrow.
 
+Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+[GOVERNANCE.md](GOVERNANCE.md) describes the maintainer role and how
+decisions are made.
+
 ## Development Setup
 
 ```bash
