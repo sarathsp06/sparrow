@@ -4,6 +4,7 @@ kicker: On finding four walls in a webhook pipeline
 author: sarathsp06
 description: We ran a load-test tool nobody had touched in months. It printed zeros and a capacity plan. Four ceilings, several embarrassing mistakes and one redesign later, a single busy webhook delivers four and a half times faster. The story, the numbers, and what we'd tell ourselves at the start.
 pubDate: 2026-10-07
+updated: 2026-10-16
 tags: [performance, benchmark, architecture, river, postgres]
 ---
 
@@ -231,6 +232,48 @@ go run ./cmd/benchmark -mode e2e -sparrow-url http://localhost:8080 \
 | `-json FILE` | Write the full report, including the per-second backlog timeline, for plotting |
 
 A benchmark earns its keep by failing in interesting ways. Ours had been failing in the least interesting way possible, silently, for months. Four walls later, we are glad we ran it.
+
+## Update, 16 October: the rerun
+
+Nine days and a fair amount of code later (cursor paging, soft deletes, counter tables in place of history scans, atomic event fan-out), we ran the five workloads again to check that none of it had cost us throughput. We also wanted to do what the caveat above said we should have done: run each case more than once.
+
+Two builds, run back to back on fresh databases:
+
+- **Blog build**: commit `a6645be`, the code this post describes (the "final" column above).
+- **Main**: commit `658b89b`, main on 15 October.
+
+Each workload ran once per build per round, for two rounds. Round 1 ran the blog build first and round 2 ran main first, so neither build always got the warmer machine. All 20 runs drained, every accepted event reached every subscriber, and none produced a duplicate.
+
+| Workload | Original post (final) | Blog build, rounds 1 / 2 | Main, rounds 1 / 2 |
+|---|---|---|---|
+| One busy webhook, 1,000 events/s | 881/s · 1.4 s · 4 s | 917 / 705 · 1.8 / 3.4 s · 3 / 13 s | 906 / 770 · 1.9 / 1.6 s · 3 / 9 s |
+| 300 webhooks, 1,000 events/s | 530/s · 13 s · 29 s | 649 / 891 · 6.1 / 0.9 s · 16 / 3 s | 943 / 889 · 1.3 / 0.7 s · 2 / 4 s |
+| 300 webhooks × 2 subscribers, 500 events/s | 899/s · 2.5 s · 3.3 s | 960 / 807 · 0.7 / 1.3 s · 1 / 6 s | 968 / 829 · 0.8 / 0.8 s · 1 / 6 s |
+| 10 slow receivers (50 ms), 500 events/s | 295/s · 10 s · 28 s | 284 / 302 · 10.7 / 8.9 s · 27 / 28 s | 295 / 319 · 9.8 / 8.5 s · 26 / 23 s |
+| Burst of 20,000 events to 600 webhooks | 817/s · 25 s · 42 s | 891 / 909 · 20 / 20 s · 39 / 38 s | 896 / 909 · 20 / 20 s · 38 / 38 s |
+
+The cells use the same units as the table above: deliveries per second while publishing (over the whole run for the burst), median time from publish to receiver, and time to drain after publishing stopped. The benchmark reports events per second; the fan-out and burst rows are multiplied by their two subscribers to give deliveries per second, the unit used above.
+
+What we read from it:
+
+- **No regression.** In every row main lands within the blog build's own range or above it. The changes since the post did not cost throughput.
+- **The 530 is gone, and part of it was never real.** On main, 300 webhooks at 1,000 events a second delivered 943 and 889 a second, near the 1,000-per-queue ceiling. The blog build on the same shape gave 649 in one round and 891 in the next. So the original 530 was partly a slow run: exactly the kind of single-run number the caveat above warned about. Main's fleet result did not dip below 889 in either round, which suggests some of the changes since then helped this shape. Two runs are not enough to say by how much.
+- **Run-to-run noise is still about 25%.** The busy webhook on the blog build went from 917 to 705 between rounds, with nothing changed. Treat any single cell as a sample, not a measurement.
+- **Ingest held steady.** `POST /events` had a median of 3 to 10 ms under paced load and about 14 ms during the burst, on both builds, with nothing rejected.
+
+### System conditions
+
+| Condition | Value |
+|---|---|
+| Machine | Apple M3 Pro (6 performance + 6 efficiency cores), 36 GB RAM, macOS 26.5.2 |
+| Go | 1.27.2, darwin/arm64 |
+| Postgres | 15.19 (`postgres:15-alpine`, the `make dev-db` container) in OrbStack's Docker engine 29.4.0, 12 CPUs and 16 GB given to the VM. Stock settings: `shared_buffers` 128 MB, `synchronous_commit` on, `fsync` on |
+| Sparrow config | Defaults: 20 fan-out and 20 delivery workers, 20 ms fetch cooldown, info-level logging (the blog build has no log-level switch, so main ran at info too) |
+| Benchmark | `cmd/benchmark -mode e2e`, 50 publishers, 10 KB payloads, 30 s publish window, 90 s drain limit, receiver on loopback in the same process |
+| Database | A new database for every run, migrated by the server at startup |
+| Window | 15 October 2026, 23:53 to 00:08 local time, one run at a time |
+
+The original numbers came from the same laptop, but against a locally installed Postgres 14 rather than the Docker container. The original column is therefore a reference point, not a strict baseline. The like-for-like comparison is between the last two columns.
 
 ## Further reading
 
