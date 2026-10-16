@@ -2742,9 +2742,9 @@
     "semantic_hash": ""
   },
   ".goreleaser.yml": {
-    "mtime": 1792069529.1941886,
-    "seen": 1792139962.281914,
-    "ast_hash": "09258ceacd20404914a4f970a7169227",
+    "mtime": 1792146123.4313686,
+    "seen": 1792147418.2708092,
+    "ast_hash": "73995b589d42b6ccc77daf365fbab20a",
     "semantic_hash": ""
   },
   "AGENTS.md": {
@@ -3027,12 +3027,6 @@
     "mtime": 1792069529.2125845,
     "seen": 1792139962.281939,
     "ast_hash": "d4b1f5435512f20316344149789521db",
-    "semantic_hash": ""
-  },
-  "openspec/config.yaml": {
-    "mtime": 1791463164.303424,
-    "seen": 1792139962.281943,
-    "ast_hash": "a88f7d80935e1a432dc9b5affe49eb27",
     "semantic_hash": ""
   },
   "satellites/recipes/README.md": {
@@ -3417,42 +3411,6 @@
     "mtime": 1792069529.2090192,
     "seen": 1792139962.281934,
     "ast_hash": "9230b6ae48026c6b95f7e6511b95083e",
-    "semantic_hash": ""
-  },
-  "openspec/changes/archive/2026-09-15-webhook-health-alerts/.openspec.yaml": {
-    "mtime": 1792069529.3545895,
-    "seen": 1792139962.28194,
-    "ast_hash": "82c2a3fac04d2e62e8fa8291088cf725",
-    "semantic_hash": ""
-  },
-  "openspec/changes/archive/2026-09-15-webhook-health-alerts/design.md": {
-    "mtime": 1792069529.3546963,
-    "seen": 1792139962.281941,
-    "ast_hash": "285dc3aa4686ed75b51c15a1e59ee5ac",
-    "semantic_hash": ""
-  },
-  "openspec/changes/archive/2026-09-15-webhook-health-alerts/proposal.md": {
-    "mtime": 1792069529.354881,
-    "seen": 1792139962.281941,
-    "ast_hash": "8abb6353aa7228949920ca7b882f70bb",
-    "semantic_hash": ""
-  },
-  "openspec/changes/archive/2026-09-15-webhook-health-alerts/specs/system-events/spec.md": {
-    "mtime": 1792069529.35528,
-    "seen": 1792139962.2819421,
-    "ast_hash": "3126ce31164f71106a1b550711d5cb8e",
-    "semantic_hash": ""
-  },
-  "openspec/changes/archive/2026-09-15-webhook-health-alerts/specs/webhook-alert-emails/spec.md": {
-    "mtime": 1792069529.3556638,
-    "seen": 1792139962.2819421,
-    "ast_hash": "f6fdcc9157b49996d58d1a7d06fe4193",
-    "semantic_hash": ""
-  },
-  "openspec/changes/archive/2026-09-15-webhook-health-alerts/tasks.md": {
-    "mtime": 1792069529.355778,
-    "seen": 1792139962.281943,
-    "ast_hash": "94e80221a88bc25b2476e355129c11a4",
     "semantic_hash": ""
   },
   "internal/health/checker_test.go": {
@@ -5154,9 +5112,9 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1792141157.3363192,
-    "seen": 1792143707.649525,
-    "ast_hash": "5380b20d36c2be5d1d59749775a391cb",
+    "mtime": 1792146151.558303,
+    "seen": 1792147418.2708108,
+    "ast_hash": "e99e86be2d6c93f9226e11062a6dbcbd",
     "semantic_hash": ""
   },
   "internal/integration/api_surface_test.go": {
