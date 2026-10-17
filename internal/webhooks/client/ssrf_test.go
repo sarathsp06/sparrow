@@ -28,10 +28,20 @@ func TestValidateIP(t *testing.T) {
 		{"2002:0808:0808::1", false},
 		{"64:ff9b::7f00:1", true}, // NAT64 embedding 127.0.0.1
 		{"64:ff9b::a9fe:a9fe", true},
-		{"64:ff9b::808:808", false}, // NAT64 embedding 8.8.8.8
-		{"64:ff9b:1::1", true},      // local-use NAT64
-		{"fc00::1", true},           // ULA
-		{"fe80::1", true},           // link-local
+		{"64:ff9b::808:808", false},                     // NAT64 embedding 8.8.8.8
+		{"64:ff9b:1::1", true},                          // local-use NAT64
+		{"::127.0.0.1", true},                           // IPv4-compatible loopback
+		{"::169.254.169.254", true},                     // IPv4-compatible metadata
+		{"::ffff:0:127.0.0.1", true},                    // IPv4-translated loopback
+		{"::ffff:0:a00:1", true},                        // IPv4-translated 10.0.0.1
+		{"2001:0:4136:e378:8000:63bf:80ff:fffe", true},  // Teredo, client 127.0.0.1
+		{"2001:0:4136:e378:8000:63bf:f7f7:f7f7", false}, // Teredo, client 8.8.8.8
+		{"100::1", true},                                // discard-only
+		{"2001:2::1", true},                             // benchmarking
+		{"2001:db8::1", true},                           // documentation
+		{"fec0::1", true},                               // site-local
+		{"fc00::1", true},                               // ULA
+		{"fe80::1", true},                               // link-local
 	}
 
 	for _, tt := range tests {
@@ -75,6 +85,8 @@ func TestNetworkPolicy(t *testing.T) {
 		{"allow-private blocks metadata", NetworkPolicy{AllowPrivate: true}, "169.254.169.254", false},
 		{"allow-private blocks mapped metadata", NetworkPolicy{AllowPrivate: true}, "::ffff:169.254.169.254", false},
 		{"allow-private blocks NAT64 metadata", NetworkPolicy{AllowPrivate: true}, "64:ff9b::a9fe:a9fe", false},
+		{"allow-private blocks IPv4-compatible metadata", NetworkPolicy{AllowPrivate: true}, "::169.254.169.254", false},
+		{"allow-private blocks Teredo metadata", NetworkPolicy{AllowPrivate: true}, "2001:0:4136:e378:8000:63bf:5601:5601", false},
 		{"allow-private blocks ECS creds", NetworkPolicy{AllowPrivate: true}, "169.254.170.2", false},
 		{"allow-private blocks IMDS v6", NetworkPolicy{AllowPrivate: true}, "fd00:ec2::254", false},
 		{"allow-private other link-local", NetworkPolicy{AllowPrivate: true}, "169.254.10.10", true},

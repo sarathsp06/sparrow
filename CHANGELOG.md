@@ -16,6 +16,14 @@ migrations run on startup.
 
 ## [Unreleased]
 
+### Fixed
+
+- A `Retry-After` header with a huge number of seconds (e.g. `18446744074`) no longer overflows into a sub-second retry; it is capped at 15 minutes like any value over the limit.
+
+### Security
+
+- Webhook destinations are now also refused when they are IPv6 addresses carrying a restricted IPv4 address in IPv4-compatible (`::/96`), IPv4-translated (`::ffff:0:0:0/96`) or Teredo (`2001::/32`) form, and in the reserved ranges `100::/64`, `2001:2::/48`, `2001:db8::/32` and `fec0::/10`. A stock Linux host cannot route these forms to the embedded address, so this is hardening rather than a fix for a reachable bypass.
+
 ## [v1.0.1] - 2026-10-17
 
 ### Added

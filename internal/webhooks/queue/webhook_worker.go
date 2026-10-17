@@ -662,15 +662,16 @@ func parseRetryAfter(header string) time.Duration {
 	}
 
 	// Try parsing as seconds (most common for rate limiting)
+	// Compare before converting: seconds * time.Second overflows int64 past
+	// ~292 years and can wrap to a short delay.
 	if seconds, err := strconv.Atoi(header); err == nil {
-		d := time.Duration(seconds) * time.Second
-		if d <= 0 {
+		if seconds <= 0 {
 			return defaultRetryAfter
 		}
-		if d > maxRetryAfter {
+		if seconds > int(maxRetryAfter/time.Second) {
 			return maxRetryAfter
 		}
-		return d
+		return time.Duration(seconds) * time.Second
 	}
 
 	// Try parsing as HTTP-date (RFC 7231 §7.1.1.1)

@@ -52,6 +52,17 @@ func TestParseRetryAfter(t *testing.T) {
 			expected: 899 * time.Second,
 		},
 		{
+			// 18446744074s * 1e9 wraps int64 to ~290ms.
+			name:     "huge seconds clamp to max instead of overflowing",
+			header:   "18446744074",
+			expected: maxRetryAfter,
+		},
+		{
+			name:     "first overflowing seconds clamp to max",
+			header:   "9223372037",
+			expected: maxRetryAfter,
+		},
+		{
 			name:     "unparseable string returns default",
 			header:   "not-a-number-or-date",
 			expected: defaultRetryAfter,
