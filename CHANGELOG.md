@@ -23,6 +23,8 @@ migrations run on startup.
 ### Security
 
 - Webhook destinations are now also refused when they are IPv6 addresses carrying a restricted IPv4 address in IPv4-compatible (`::/96`), IPv4-translated (`::ffff:0:0:0/96`) or Teredo (`2001::/32`) form, and in the reserved ranges `100::/64`, `2001:2::/48`, `2001:db8::/32` and `fec0::/10`. A stock Linux host cannot route these forms to the embedded address, so this is hardening rather than a fix for a reachable bypass.
+- The server is built with `google.golang.org/grpc` v1.84.0 (fixes a server panic on requests without an authority or `Host` header, GO-2026-6443). The OTLP gRPC exporters use it.
+- The Docker image's base images are pinned by digest, so a rebuilt release tag uses the same bases.
 
 ## [v1.0.1] - 2026-10-17
 
