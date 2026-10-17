@@ -1,0 +1,9 @@
+name: Sparrow CodeQL config
+
+# Generated output that ships as-is: scanning it reports on the generator,
+# not on Sparrow.
+paths-ignore:
+  # Archify-generated architecture diagram (static, client-side only).
+  - docs/public/diagrams
+  # Python client generated from api/openapi.yaml for the e2e suite.
+  - e2e/client
