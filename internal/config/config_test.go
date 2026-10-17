@@ -17,6 +17,8 @@ func validConfig() *Config {
 		EncryptionPrimaryKeyID:   "new",
 		MaxBodyBytes:             5242880,
 		MaxCapturedResponseBytes: 1 << 20,
+		QueueDBMaxConns:          50,
+		DBMaxConns:               25,
 	}
 }
 
@@ -36,6 +38,8 @@ func TestValidate(t *testing.T) {
 		{"invalid log level", func(c *Config) { c.LogLevel = "verbose" }, "SPARROW_LOG_LEVEL"},
 		{"warn log level", func(c *Config) { c.LogLevel = "WARN" }, ""},
 		{"valid allowed networks", func(c *Config) { c.AllowedNetworks = []string{"10.0.0.0/8", "fd00::1"} }, ""},
+		{"zero queue pool", func(c *Config) { c.QueueDBMaxConns = 0 }, "SPARROW_QUEUE_DB_MAX_CONNS"},
+		{"zero app pool", func(c *Config) { c.DBMaxConns = 0 }, "SPARROW_DB_MAX_CONNS"},
 		{"missing encryption keyring", func(c *Config) { c.EncryptionKeys = nil }, "SPARROW_ENCRYPTION_KEYS"},
 		{"legacy single encryption key no longer satisfies config", func(c *Config) {
 			c.EncryptionKeys = nil
@@ -126,7 +130,7 @@ func TestUIInjectKeyIsRetired(t *testing.T) {
 
 func TestAIConfig(t *testing.T) {
 	base := func() *Config {
-		return &Config{HTTPPort: "8080", DatabaseURL: "postgres://localhost/x", EncryptionKeys: []string{"main=" + strings.Repeat("00", 32)}, EncryptionPrimaryKeyID: "main", MaxCapturedResponseBytes: 1024, MaxBodyBytes: 1 << 20}
+		return &Config{HTTPPort: "8080", DatabaseURL: "postgres://localhost/x", EncryptionKeys: []string{"main=" + strings.Repeat("00", 32)}, EncryptionPrimaryKeyID: "main", MaxCapturedResponseBytes: 1024, MaxBodyBytes: 1 << 20, QueueDBMaxConns: 50, DBMaxConns: 25}
 	}
 	cases := []struct {
 		name       string
@@ -191,6 +195,7 @@ func TestLoadTreatsBlankAsUnset(t *testing.T) {
 			t.Setenv("SPARROW_AI_ENABLED", blank)
 			t.Setenv("SPARROW_AI_TIMEOUT", blank)
 			t.Setenv("SPARROW_HTTP_PORT", blank)
+			t.Setenv("PORT", blank)
 			t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", blank)
 			c, err := Load()
 			if err != nil {
@@ -204,6 +209,30 @@ func TestLoadTreatsBlankAsUnset(t *testing.T) {
 			}
 			if _, set := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT"); set {
 				t.Fatalf("OTEL_EXPORTER_OTLP_ENDPOINT=%q still set; the OTel exporters read it directly", blank)
+			}
+		})
+	}
+}
+
+func TestLoadHTTPPortFallsBackToPORT(t *testing.T) {
+	tests := []struct {
+		name, sparrowPort, port, want string
+	}{
+		{"neither set", "", "", "8080"},
+		{"PORT only", "", "9000", "9000"},
+		{"SPARROW_HTTP_PORT wins", "8089", "9000", "8089"},
+		{"blank SPARROW_HTTP_PORT is unset", "-", "9000", "9000"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("SPARROW_HTTP_PORT", tc.sparrowPort)
+			t.Setenv("PORT", tc.port)
+			c, err := Load()
+			if err != nil {
+				t.Fatalf("Load() = %v", err)
+			}
+			if c.HTTPPort != tc.want {
+				t.Fatalf("HTTPPort = %q, want %q", c.HTTPPort, tc.want)
 			}
 		})
 	}

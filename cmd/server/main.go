@@ -141,11 +141,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to parse database URL for pgxpool: %v", err)
 	}
-	pgxConfig.MaxConns = 50                        // 45 workers + headroom
-	pgxConfig.MinConns = 10                        // keep warm connections ready
-	pgxConfig.MaxConnLifetime = 30 * time.Minute   // recycle connections periodically
-	pgxConfig.MaxConnIdleTime = 5 * time.Minute    // release idle connections
-	pgxConfig.HealthCheckPeriod = 30 * time.Second // detect stale connections
+	pgxConfig.MaxConns = cfg.QueueDBMaxConns         // SPARROW_QUEUE_DB_MAX_CONNS, default 50
+	pgxConfig.MinConns = min(10, pgxConfig.MaxConns) // keep warm connections ready
+	pgxConfig.MaxConnLifetime = 30 * time.Minute     // recycle connections periodically
+	pgxConfig.MaxConnIdleTime = 5 * time.Minute      // release idle connections
+	pgxConfig.HealthCheckPeriod = 30 * time.Second   // detect stale connections
 
 	dbPool, err := pgxpool.NewWithConfig(ctx, pgxConfig)
 	if err != nil {
@@ -163,8 +163,8 @@ func main() {
 		log.Fatalf("Failed to open sqlx database: %v", err)
 	}
 	defer sqlxDB.Close() //nolint:errcheck
-	sqlxDB.SetMaxOpenConns(25)
-	sqlxDB.SetMaxIdleConns(25)
+	sqlxDB.SetMaxOpenConns(cfg.DBMaxConns)
+	sqlxDB.SetMaxIdleConns(cfg.DBMaxConns)
 	sqlxDB.SetConnMaxLifetime(5 * time.Minute)
 	sqlxDB.SetConnMaxIdleTime(5 * time.Minute)
 

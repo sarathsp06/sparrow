@@ -16,6 +16,11 @@ migrations run on startup.
 
 ## [Unreleased]
 
+### Added
+
+- The server listens on `PORT` when `SPARROW_HTTP_PORT` is not set.
+- `SPARROW_QUEUE_DB_MAX_CONNS` (default `50`) and `SPARROW_DB_MAX_CONNS` (default `25`) size the Postgres connection pools, which were fixed.
+
 ## [v1.0.0] - 2026-10-16
 
 Sparrow 1.0 is the first release covered by the

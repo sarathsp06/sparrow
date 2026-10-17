@@ -39,7 +39,7 @@ type Config struct {
 	DatabaseURL string `envconfig:"DATABASE_URL" default:"postgres://localhost/riverqueue?sslmode=disable"`
 
 	// HTTPPort is the port the HTTP/REST server listens on.
-	// Env: SPARROW_HTTP_PORT
+	// Env: SPARROW_HTTP_PORT (falls back to PORT)
 	HTTPPort string `envconfig:"SPARROW_HTTP_PORT" default:"8080"`
 
 	// APIKey is the shared-secret API key for authentication.
@@ -166,6 +166,15 @@ type Config struct {
 	// Env: SPARROW_QUEUE_FETCH_COOLDOWN (Go duration, default "20ms")
 	QueueFetchCooldown time.Duration `envconfig:"SPARROW_QUEUE_FETCH_COOLDOWN" default:"20ms"`
 
+	// QueueDBMaxConns caps the queue's Postgres pool (pgxpool). Each running
+	// queue worker holds one connection.
+	// Env: SPARROW_QUEUE_DB_MAX_CONNS (default 50)
+	QueueDBMaxConns int32 `envconfig:"SPARROW_QUEUE_DB_MAX_CONNS" default:"50"`
+
+	// DBMaxConns caps the application's Postgres pool (sqlx).
+	// Env: SPARROW_DB_MAX_CONNS (default 25)
+	DBMaxConns int `envconfig:"SPARROW_DB_MAX_CONNS" default:"25"`
+
 	// HealthEvalInterval is how often delivery outcomes are folded into
 	// webhook health: the health label, health_changed alerts and
 	// auto-disable lag outcomes by at most this much. The evaluation is
@@ -251,6 +260,11 @@ func Load() (*Config, error) {
 	var cfg Config
 	if err := envconfig.Process("", &cfg); err != nil {
 		return nil, fmt.Errorf("loading config from environment: %w", err)
+	}
+	if _, set := os.LookupEnv("SPARROW_HTTP_PORT"); !set {
+		if port := os.Getenv("PORT"); !isBlank(port) {
+			cfg.HTTPPort = strings.TrimSpace(port)
+		}
 	}
 	return &cfg, nil
 }
@@ -362,6 +376,12 @@ func (c *Config) Validate() error {
 	}
 	if c.EventRetentionDays < 0 {
 		return fmt.Errorf("SPARROW_EVENT_RETENTION_DAYS: must be >= 0, got %d", c.EventRetentionDays)
+	}
+	if c.QueueDBMaxConns < 1 {
+		return fmt.Errorf("SPARROW_QUEUE_DB_MAX_CONNS: must be >= 1, got %d", c.QueueDBMaxConns)
+	}
+	if c.DBMaxConns < 1 {
+		return fmt.Errorf("SPARROW_DB_MAX_CONNS: must be >= 1, got %d", c.DBMaxConns)
 	}
 	return nil
 }
