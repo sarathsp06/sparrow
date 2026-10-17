@@ -1,0 +1,79 @@
+name: Fuzz
+
+# Runs each native Go fuzz target for a few minutes. `go test` in CI only
+# replays their seed corpora; this is where they search for new inputs.
+# The generated corpus is cached between runs so each night continues from
+# the last. A failure uploads the crashing input: commit it under the
+# package's testdata/fuzz/<Name>/ so it stays a regression test.
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      fuzztime:
+        description: 'Time per target (Go duration, e.g. 5m)'
+        default: '5m'
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { dir: internal/webhooks/client, name: FuzzCheckIPEmbeddings }
+          - { dir: internal/webhooks/client, name: FuzzCheckIPParse }
+          - { dir: internal/webhooks/queue, name: FuzzParseRetryAfter }
+          - { dir: internal/rest, name: FuzzDecodeCursor }
+          - { dir: internal/rest, name: FuzzCursorRoundTrip }
+          - { dir: pkg/template, name: FuzzExecute }
+          - { dir: pkg/signature, name: FuzzVerifyHMAC }
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.2'
+          cache: true
+
+      - name: Ensure embedded UI placeholder exists
+        run: |
+          mkdir -p internal/ui/dist
+          touch internal/ui/dist/.gitkeep
+
+      - name: Locate fuzz corpus cache
+        id: corpus
+        run: echo "path=$(go env GOCACHE)/fuzz" >> "$GITHUB_OUTPUT"
+
+      # A fresh key every run so the grown corpus is saved; restore-keys
+      # picks up the newest earlier one.
+      - name: Restore fuzz corpus
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: ${{ steps.corpus.outputs.path }}
+          key: fuzz-${{ matrix.name }}-${{ github.run_id }}
+          restore-keys: fuzz-${{ matrix.name }}-
+
+      - name: Fuzz
+        working-directory: ${{ matrix.dir }}
+        env:
+          FUZZTIME: ${{ inputs.fuzztime || '5m' }}
+          TARGET: ${{ matrix.name }}
+        run: go test -run '^$' -fuzz "^${TARGET}\$" -fuzztime "$FUZZTIME" .
+
+      - name: Upload crashing input
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: crasher-${{ matrix.name }}
+          path: ${{ matrix.dir }}/testdata/fuzz/${{ matrix.name }}/
+          if-no-files-found: ignore
