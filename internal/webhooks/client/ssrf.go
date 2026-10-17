@@ -34,6 +34,10 @@ var blockedPrefixes = mustCIDRs(
 	"198.18.0.0/15",  // RFC 2544 benchmarking
 	"240.0.0.0/4",    // RFC 1112 reserved (includes 255.255.255.255 broadcast)
 	"64:ff9b:1::/48", // RFC 8215 local-use NAT64 (translates to internal IPv4)
+	"100::/64",       // RFC 6666 discard-only
+	"2001:2::/48",    // RFC 5180 benchmarking
+	"2001:db8::/32",  // RFC 3849 documentation
+	"fec0::/10",      // RFC 3879 deprecated site-local
 )
 
 // metadataPrefixes are cloud instance-metadata endpoints. They hand out
@@ -51,15 +55,18 @@ var metadataPrefixes = mustCIDRs(
 // Transition prefixes that embed an IPv4 address: the embedded address is
 // validated like any other, so public 6to4/NAT64 targets still work.
 var (
-	sixToFour = mustCIDRs("2002::/16")[0]    // RFC 3056: 2002:AABB:CCDD::/48 embeds A.B.C.D
-	nat64     = mustCIDRs("64:ff9b::/96")[0] // RFC 6052: well-known prefix, IPv4 in the last 32 bits
+	sixToFour      = mustCIDRs("2002::/16")[0]       // RFC 3056: 2002:AABB:CCDD::/48 embeds A.B.C.D
+	nat64          = mustCIDRs("64:ff9b::/96")[0]    // RFC 6052: well-known prefix, IPv4 in the last 32 bits
+	ipv4Compatible = mustCIDRs("::/96")[0]           // RFC 4291 (deprecated): ::A.B.C.D
+	ipv4Translated = mustCIDRs("::ffff:0:0:0/96")[0] // RFC 2765 SIIT: ::ffff:0:A.B.C.D
+	teredo         = mustCIDRs("2001::/32")[0]       // RFC 4380: client IPv4, inverted, in the last 32 bits
 )
 
 // ValidateIP checks whether an IP address is safe for outbound webhook delivery.
 // It blocks loopback, private, link-local (which covers the 169.254.169.254
 // cloud metadata endpoint), multicast, unspecified addresses, reserved
 // special-use ranges, and IPv6 forms that embed a restricted IPv4 address
-// (IPv4-mapped, 6to4, NAT64).
+// (IPv4-mapped, 6to4, NAT64, IPv4-compatible, IPv4-translated, Teredo).
 func ValidateIP(ip net.IP) error {
 	// Canonicalize IPv4-mapped IPv6 (::ffff:a.b.c.d) so every IPv4 rule applies.
 	if ip4 := ip.To4(); ip4 != nil {
@@ -98,8 +105,9 @@ func ValidateIP(ip net.IP) error {
 	return nil
 }
 
-// embeddedIPv4 returns the IPv4 address carried by a 6to4 or NAT64 address,
-// or nil for any other address.
+// embeddedIPv4 returns the IPv4 address carried by a 6to4, NAT64,
+// IPv4-compatible, IPv4-translated or Teredo address, or nil for any other
+// address.
 func embeddedIPv4(ip net.IP) net.IP {
 	ip16 := ip.To16()
 	if ip16 == nil || ip.To4() != nil {
@@ -108,14 +116,16 @@ func embeddedIPv4(ip net.IP) net.IP {
 	switch {
 	case sixToFour.Contains(ip16):
 		return net.IPv4(ip16[2], ip16[3], ip16[4], ip16[5]).To4()
-	case nat64.Contains(ip16):
+	case nat64.Contains(ip16), ipv4Compatible.Contains(ip16), ipv4Translated.Contains(ip16):
 		return net.IPv4(ip16[12], ip16[13], ip16[14], ip16[15]).To4()
+	case teredo.Contains(ip16):
+		return net.IPv4(^ip16[12], ^ip16[13], ^ip16[14], ^ip16[15]).To4()
 	}
 	return nil
 }
 
 // isMetadataIP reports whether ip is a cloud instance-metadata endpoint,
-// including its IPv4-mapped, 6to4 and NAT64 forms.
+// including its IPv4-mapped and embedded-IPv4 (6to4, NAT64, ...) forms.
 func isMetadataIP(ip net.IP) bool {
 	if ip4 := ip.To4(); ip4 != nil {
 		ip = ip4

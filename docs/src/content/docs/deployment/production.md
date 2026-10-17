@@ -233,9 +233,9 @@ Adjust the namespace label and database CIDR to match your cluster. Which intern
 
 Sparrow's SSRF check runs at connect time in every mode -- it is never skipped. By default, private, loopback, and link-local addresses are blocked as webhook targets.
 
-**Cloud metadata endpoints are always blocked**, even with `SPARROW_ALLOW_PRIVATE_NETWORKS=true`: `169.254.169.254`, `169.254.170.2`, `169.254.170.23`, `100.100.100.200`, `fd00:ec2::254` and `fd00:ec2::23`, including their IPv4-mapped, 6to4 and NAT64 forms. They hand out cloud credentials; list one in `SPARROW_ALLOWED_NETWORKS` only if you truly mean to deliver there.
+**Cloud metadata endpoints are always blocked**, even with `SPARROW_ALLOW_PRIVATE_NETWORKS=true`: `169.254.169.254`, `169.254.170.2`, `169.254.170.23`, `100.100.100.200`, `fd00:ec2::254` and `fd00:ec2::23`, including their IPv4-mapped, 6to4, NAT64, IPv4-compatible, IPv4-translated and Teredo forms. They hand out cloud credentials; list one in `SPARROW_ALLOWED_NETWORKS` only if you truly mean to deliver there.
 
-The default blocklist also covers `0.0.0.0/8`, local-use NAT64 (`64:ff9b:1::/48`), and 6to4 (`2002::/16`) or NAT64 (`64:ff9b::/96`) addresses that embed a restricted IPv4 address -- public 6to4/NAT64 destinations still work.
+The default blocklist also covers `0.0.0.0/8`, local-use NAT64 (`64:ff9b:1::/48`), the reserved IPv6 ranges `100::/64`, `2001:2::/48`, `2001:db8::/32` and `fec0::/10`, and IPv6 addresses that embed a restricted IPv4 address: 6to4 (`2002::/16`), NAT64 (`64:ff9b::/96`), IPv4-compatible (`::/96`), IPv4-translated (`::ffff:0:0:0/96`) and Teredo (`2001::/32`). Public destinations in those forms still work.
 
 To deliver webhooks to internal services (the common case on a VPN), use `SPARROW_ALLOWED_NETWORKS`:
 

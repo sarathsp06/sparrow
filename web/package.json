@@ -33,5 +33,8 @@
 	"dependencies": {
 		"openapi-fetch": "^0.17.0",
 		"svelte-jsoneditor": "^3.13.0"
+	},
+	"overrides": {
+		"cookie": "^0.7.2"
 	}
 }

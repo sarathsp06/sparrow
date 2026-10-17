@@ -1,17 +1,17 @@
 
 # Frontend build stage. Pinned to the build host: the output is static files,
 # so there is no reason to run Node under QEMU for the arm64 image.
-FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend
+FROM --platform=$BUILDPLATFORM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS frontend
 
 ARG SEMVER=dev
 
 WORKDIR /build/web
 
 # Copy package files first for better layer caching
-COPY web/package.json web/package-lock.json* ./
+COPY web/package.json web/package-lock.json ./
 
 # Install dependencies
-RUN npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts
+RUN npm ci --ignore-scripts
 
 # Copy frontend source
 COPY web/ .
@@ -22,7 +22,7 @@ RUN VITE_APP_VERSION=${SEMVER} PUBLIC_API_URL=/ npm run build
 
 # Go build stage. Also pinned to the build host; the go build below
 # cross-compiles with GOOS/GOARCH from TARGETOS/TARGETARCH.
-FROM --platform=$BUILDPLATFORM golang:1.27.2-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.2-alpine@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS builder
 
 RUN apk add --no-cache git
 
@@ -59,7 +59,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -o server ./cmd/server
 
 # Final stage - distroless for minimal attack surface
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
 
 WORKDIR /app
 # distroless/static already ships ca-certificates and tzdata — do not re-copy.
