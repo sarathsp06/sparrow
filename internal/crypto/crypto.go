@@ -226,9 +226,9 @@ func (s *Service) EnvelopeEncrypt(plaintext []byte) ([]byte, error) {
 
 	kid := []byte(s.primary.id)
 	out := make([]byte, 0, 1+1+len(kid)+2+len(wrappedDEK)+len(dataNonce)+len(encryptedData))
-	out = append(out, envelopeVersionWithKeyID, byte(len(kid)))
+	out = append(out, envelopeVersionWithKeyID, byte(len(kid))) //nolint:gosec // key IDs are at most 255 bytes, checked when the keyring is loaded
 	out = append(out, kid...)
-	out = binary.LittleEndian.AppendUint16(out, uint16(len(wrappedDEK)))
+	out = binary.LittleEndian.AppendUint16(out, uint16(len(wrappedDEK))) //nolint:gosec // a sealed 32-byte DEK plus nonce and tag, far below 64 KiB
 	out = append(out, wrappedDEK...)
 	out = append(out, dataNonce...)
 	out = append(out, encryptedData...)

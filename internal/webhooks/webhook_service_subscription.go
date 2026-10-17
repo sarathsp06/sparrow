@@ -187,7 +187,7 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, consumer string,
 	tenantID := tenant.DefaultTenantID
 
 	l, o := normalizePagination(int(limit), int(offset))
-	limit, offset = int32(l), int32(o)
+	limit, offset = clampInt32(l), clampInt32(o)
 
 	var subs []*store.EventSubscription
 	var totalCount int
@@ -225,7 +225,7 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, consumer string,
 		}
 	}
 
-	return subs, int32(totalCount), err
+	return subs, clampInt32(totalCount), err
 }
 
 // paginateSubscriptions applies offset/limit to an in-memory slice, clamping to bounds.

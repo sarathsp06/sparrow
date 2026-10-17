@@ -6,7 +6,7 @@ and versions follow [Semantic Versioning](https://semver.org/). What counts as a
 breaking change is defined in the
 [compatibility policy](https://sarathsp06.github.io/sparrow/reference/compatibility/).
 
-From the next release on, each release's section is also its release note on
+From v1.0.0 on, each release's section is also its release note on
 [GitHub Releases](https://github.com/sarathsp06/sparrow/releases). The full
 commit list for a release is linked from its heading.
 
@@ -16,6 +16,36 @@ migrations run on startup.
 
 ## [Unreleased]
 
+## [v1.0.1] - 2026-10-17
+
+### Added
+
+- The server listens on `PORT` when `SPARROW_HTTP_PORT` is not set.
+- `SPARROW_QUEUE_DB_MAX_CONNS` (default `50`) and `SPARROW_DB_MAX_CONNS` (default `25`) size the Postgres connection pools, which were fixed.
+
+## [v1.0.0] - 2026-10-16
+
+Sparrow 1.0 is the first release covered by the
+[compatibility policy](https://sarathsp06.github.io/sparrow/reference/compatibility/):
+the `/v1` REST API, environment variables, CLI flags, webhook envelope and
+signatures, template functions, migrations and Go libraries stay compatible
+across 1.x releases. The project also meets the
+[OpenSSF Best Practices](https://www.bestpractices.dev/projects/15538) passing
+criteria.
+
+### Upgrading
+
+- From v0.14.0 this is an ordinary deploy: replace the binary or image and
+  restart. From an older 0.x release, read the
+  [upgrading to 1.0 guide](https://sarathsp06.github.io/sparrow/deployment/upgrading-to-1-0/)
+  and the Upgrading notes of every release you skip below.
+- Pin the image to `ghcr.io/sarathsp06/sparrow:1.0.0` rather than `latest`.
+- Saving a subscription or webhook with a `transform_template` that does not
+  parse now fails with a 400. Stored templates are not re-checked until you
+  next save them.
+- New event type names must be lowercase dotted parts (`a-z`, `0-9`, `_`,
+  `-`). Existing names keep working.
+
 ### Added
 
 - `testTemplate` can render a template against a payload you pass in, not only
@@ -23,13 +53,22 @@ migrations run on startup.
 - The subscription form shows what each event delivers before you subscribe.
 - `sparrow mcp` gains event type tools.
 - Docs map common tasks across the UI, CLI and MCP server.
+- GitHub private vulnerability reporting, alongside email (see
+  [SECURITY.md](https://github.com/sarathsp06/sparrow/blob/main/SECURITY.md)).
 
 ### Fixed
 
-- Saving a subscription or webhook with a `transform_template` that does not
-  parse is now rejected with a 400 instead of failing every delivery later.
-- New event type names must match the naming pattern (lowercase dotted parts).
-  Existing names keep working.
+- A `transform_template` that does not parse is rejected when saved instead of
+  failing every delivery later.
+
+### Security
+
+- CI runs gosec and fails on govulncheck findings; Dependabot keeps Go, npm,
+  GitHub Actions and Docker dependencies current.
+- The documentation site moved to Astro 7, clearing its critical and high npm
+  advisories.
+- Release binaries are reproducible: built with `-trimpath` and file times set
+  from the commit, so rebuilding a tag gives byte-identical binaries.
 
 ## [v0.14.0] - 2026-10-15
 
@@ -549,7 +588,9 @@ First release: webhook registration and subscriptions, signed delivery with
 retries, payload transforms, soft schema validation, bulk re-push and retry,
 and the embedded web UI.
 
-[Unreleased]: https://github.com/sarathsp06/sparrow/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/sarathsp06/sparrow/compare/v1.0.1...HEAD
+[v1.0.1]: https://github.com/sarathsp06/sparrow/compare/v1.0.0...v1.0.1
+[v1.0.0]: https://github.com/sarathsp06/sparrow/compare/v0.14.0...v1.0.0
 [v0.14.0]: https://github.com/sarathsp06/sparrow/compare/v0.13.0...v0.14.0
 [v0.13.0]: https://github.com/sarathsp06/sparrow/compare/v0.12.1...v0.13.0
 [v0.12.1]: https://github.com/sarathsp06/sparrow/compare/v0.12.0...v0.12.1

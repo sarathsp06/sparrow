@@ -25,7 +25,7 @@ func Open(dsn string, maxRetries int) (*sqlx.DB, error) {
 		time.Sleep(time.Second)
 	}
 	if err != nil {
-		db.Close() //nolint:errcheck
+		_ = db.Close()
 		return nil, err
 	}
 

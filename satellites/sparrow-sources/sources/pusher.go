@@ -71,7 +71,8 @@ func (c *Client) post(ctx context.Context, path string, body any) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.URL+path, bytes.NewReader(b))
+	// The URL is the operator's configured Sparrow server, not request input.
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.URL+path, bytes.NewReader(b)) //nolint:gosec // see above
 	if err != nil {
 		return 0, err
 	}
@@ -79,7 +80,7 @@ func (c *Client) post(ctx context.Context, path string, body any) (int, error) {
 	if c.cfg.APIKey != "" {
 		req.Header.Set("X-API-Key", c.cfg.APIKey)
 	}
-	resp, err := c.http.Do(req)
+	resp, err := c.http.Do(req) //nolint:gosec // configured Sparrow URL
 	if err != nil {
 		return 0, err
 	}

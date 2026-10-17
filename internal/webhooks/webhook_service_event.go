@@ -430,7 +430,7 @@ func (s *WebhookService) ListEvents(ctx context.Context, activeOnly bool, consum
 	// Event types are tenant-scoped
 
 	l, o := normalizePagination(int(limit), int(offset))
-	limit, offset = int32(l), int32(o)
+	limit, offset = clampInt32(l), clampInt32(o)
 
 	filter := store.EventTypeFilter{ActiveOnly: activeOnly, System: eventTypesForConsumer(consumer)}
 	events, totalCount, err := s.webhookRepo.ListEventsPaginated(ctx, tenantID, filter, int(limit), int(offset))
@@ -442,7 +442,7 @@ func (s *WebhookService) ListEvents(ctx context.Context, activeOnly bool, consum
 		"count", len(events),
 		"total", totalCount,
 	)
-	return events, int32(totalCount), nil
+	return events, clampInt32(totalCount), nil
 }
 
 // UpdateEvent replaces an existing event type's definition. A schema change

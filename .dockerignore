@@ -48,7 +48,6 @@ docker-compose*.yml
 .claude/
 graphify-out/
 okf/
-openspec/
 
 # Not part of the server build: e2e suite, generated clients, other satellites
 e2e/

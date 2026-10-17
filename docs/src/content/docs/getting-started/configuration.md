@@ -59,7 +59,7 @@ Grouped by what they control. Durations use Go syntax: `90s`, `20ms`, `1m`,
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SPARROW_HTTP_PORT` | `8080` | Port for the REST API, health endpoints, `/metrics` and (if enabled) the UI. |
+| `SPARROW_HTTP_PORT` | `8080` | Port for the REST API, health endpoints, `/metrics` and (if enabled) the UI. Falls back to `PORT`. |
 | `SPARROW_SERVE_UI` | `false` | Serve the embedded web dashboard on the same port. |
 | `SPARROW_LOG_LEVEL` | `info` | Lowest level the server logs: `debug`, `info`, `warn` or `error`. `info` writes a line for every event and delivery; `warn` keeps only problems and saves that work on a busy instance. Logs are JSON on stdout (and exported through OpenTelemetry when it is enabled). An unknown value stops startup. |
 | `SPARROW_ENVIRONMENT` | unset | Set `production` to reject cross-origin requests unless `SPARROW_CORS_ALLOWED_ORIGINS` allows them, to require a 32+ character `SPARROW_API_KEY`, to refuse an all-zeros encryption key, and to tag logs and telemetry. Case doesn't matter; any other value behaves as development, and one starting with `prod` logs a warning. |
@@ -106,6 +106,8 @@ addresses unless you allow them.
 |----------|---------|-------------|
 | `SPARROW_EVENT_WORKERS` | `20` | Concurrent fan-out jobs. Each pushed event is one job that finds its subscriptions and creates the deliveries. |
 | `SPARROW_WEBHOOK_WORKERS` | `20` | Concurrent deliveries; also sizes the connection pool per receiver host. Raise it when receivers are slow: 20 workers against receivers taking 100 ms top out around 200 deliveries/s. |
+| `SPARROW_QUEUE_DB_MAX_CONNS` | `50` | Postgres connections for the queue workers. Keep it at or above the total worker count. |
+| `SPARROW_DB_MAX_CONNS` | `25` | Postgres connections for API requests and other application queries. |
 | `SPARROW_QUEUE_FETCH_COOLDOWN` | `20ms` | Minimum gap between two job fetches on a queue. `workers / cooldown` caps each queue: 20 workers at `20ms` is about 1,000 jobs/s. Lower values query Postgres more often, under load only. |
 
 ### Observability

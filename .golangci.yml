@@ -1,0 +1,19 @@
+# golangci-lint v2. The standard linters (errcheck, govet, ineffassign,
+# staticcheck, unused) plus gosec for common security mistakes.
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - gosec
+  exclusions:
+    rules:
+      # Tests use fake secrets, read and write fixtures at paths they build,
+      # serve canned responses and skip errors from cleanup calls.
+      - path: _test\.go
+        linters: [gosec]
+        text: "G101|G104|G301|G304|G306|G705"
+      # Developer tools run by hand against their own arguments; never shipped
+      # (see .goreleaser.yml for the released binaries).
+      - path: cmd/(benchmark|openapi-export)/
+        linters: [gosec]

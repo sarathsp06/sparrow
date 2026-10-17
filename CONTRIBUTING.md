@@ -2,6 +2,10 @@
 
 Thanks for contributing to Sparrow.
 
+Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+[GOVERNANCE.md](GOVERNANCE.md) describes the maintainer role and how
+decisions are made.
+
 ## Development Setup
 
 ```bash
@@ -24,13 +28,17 @@ first four on every pull request (`.github/workflows/ci.yml`).
    queries, `snake_case.go` files, verb-first `camelCase` OperationIDs).
    Frontend code under `web/` follows the existing Svelte 5 and TypeScript style.
 2. **Formatted and lint-clean.** Run `make fmt` (`goimports` with local import
-   grouping) and `make lint` ([golangci-lint](https://golangci-lint.run/)); both
-   must pass with no new warnings. `govulncheck` must report no reachable
+   grouping) and `make lint` ([golangci-lint](https://golangci-lint.run/) with the
+   standard linters plus [gosec](https://github.com/securego/gosec), configured
+   in `.golangci.yml`); both must pass with no new warnings. Silence a gosec
+   finding only with `//nolint:gosec // reason` explaining why it is safe. `govulncheck` must report no reachable
    vulnerabilities.
 3. **Tested.** New behavior comes with tests and bug fixes come with a test
    that fails without the fix. `make test` must pass; changes to storage or
    queue code should also pass `make test-integration`, and UI changes
-   `make web-test`.
+   `make web-test`. Unit and integration tests together must cover at least
+   80% of the core Go code (`internal/...` and `pkg/...`, generated
+   `*_otel.go` excluded); CI checks it, and `make cover` measures it locally.
 4. **Generated files are current.** After changing a REST handler, run
    `make generate` and commit the updated `api/openapi.{yaml,json}`
    (`internal/rest/openapi_drift_test.go` fails otherwise). Never hand-edit

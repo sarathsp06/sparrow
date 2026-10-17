@@ -142,7 +142,7 @@ func (s *emailSink) send(msg []byte) error {
 	}
 	c, err := smtp.NewClient(conn, host)
 	if err != nil {
-		conn.Close() //nolint:errcheck
+		_ = conn.Close()
 		return fmt.Errorf("smtp greeting: %w", err)
 	}
 	defer c.Close() //nolint:errcheck

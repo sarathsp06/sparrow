@@ -18,6 +18,7 @@
 | Run all tests | `make test` | `go test -v ./...` |
 | Single package test | `go test -v ./internal/webhooks/...` | |
 | Integration tests | `make test-integration` | Needs Docker (testcontainers) |
+| Core coverage | `make cover` | Unit + integration tests, merged by `scripts/coverage.sh`; CI fails below 80% of `internal/...` + `pkg/...` (generated `*_otel.go` excluded). Needs `DATABASE_URL` and Docker |
 | E2E tests | `make test-e2e` | Gauge + Python, needs Docker |
 | SQL benchmark | `make bench-sql SCALE=0.1` | `scripts/sqlbench/run.sh`: fresh DB + `seed.sql` (scale 1 = 6M deliveries, ~9 GB, ~20 min), then `sqlbench_test.go` times the heavy repository methods; `--e2e` adds the pipeline benchmark, `--skip-seed` reuses the DB |
 | Lint | `make lint` | golangci-lint, 15m timeout |
