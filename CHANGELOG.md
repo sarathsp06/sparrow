@@ -16,6 +16,8 @@ migrations run on startup.
 
 ## [Unreleased]
 
+## [v1.0.1] - 2026-10-17
+
 ### Added
 
 - The server listens on `PORT` when `SPARROW_HTTP_PORT` is not set.
@@ -586,7 +588,8 @@ First release: webhook registration and subscriptions, signed delivery with
 retries, payload transforms, soft schema validation, bulk re-push and retry,
 and the embedded web UI.
 
-[Unreleased]: https://github.com/sarathsp06/sparrow/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/sarathsp06/sparrow/compare/v1.0.1...HEAD
+[v1.0.1]: https://github.com/sarathsp06/sparrow/compare/v1.0.0...v1.0.1
 [v1.0.0]: https://github.com/sarathsp06/sparrow/compare/v0.14.0...v1.0.0
 [v0.14.0]: https://github.com/sarathsp06/sparrow/compare/v0.13.0...v0.14.0
 [v0.13.0]: https://github.com/sarathsp06/sparrow/compare/v0.12.1...v0.13.0
