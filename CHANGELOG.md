@@ -16,6 +16,11 @@ migrations run on startup.
 
 ## [Unreleased]
 
+### Security
+
+- The server is built with `google.golang.org/grpc` v1.84.0 (fixes a server panic on requests without an authority or `Host` header, GO-2026-6443). The OTLP gRPC exporters use it.
+- The Docker image's base images are pinned by digest, so a rebuilt release tag uses the same bases.
+
 ## [v1.0.1] - 2026-10-17
 
 ### Added
