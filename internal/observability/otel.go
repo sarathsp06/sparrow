@@ -20,7 +20,6 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	otelprom "go.opentelemetry.io/otel/exporters/prometheus"
-	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/log"
@@ -175,7 +174,7 @@ func Setup(ctx context.Context, config *Config) (func(context.Context) error, er
 	}
 	otel.SetMeterProvider(meterProvider)
 	if loggerProvider != nil {
-		global.SetLoggerProvider(loggerProvider)
+		otel.SetLoggerProvider(loggerProvider)
 	}
 	metricsHandler = promHandler
 
