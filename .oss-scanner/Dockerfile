@@ -2,7 +2,7 @@
 # The scanner builds this with the repository root as the context, then audits the
 # image with no network access: everything the build, tests and reproducers need
 # is fetched here. See threat_model.md next to this file.
-FROM node:22-bookworm@sha256:0e5f906573693feaa1e21057ebdcfdb5bd5021f050b2dc7c9deceb629c7da2a8 AS node
+FROM node:25-bookworm@sha256:78839ac448c23517f8eab2e8f7943d9b4f73979eb7f8bed2c73dbf72ff869e7b AS node
 FROM golang:1.27.2-bookworm@sha256:5cf287a799e6b94384bad13d16b14904c531f51ba65792237e122ce42b392f61
 
 ENV DEBIAN_FRONTEND=noninteractive \
