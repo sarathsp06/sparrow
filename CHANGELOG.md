@@ -16,6 +16,10 @@ migrations run on startup.
 
 ## [Unreleased]
 
+### Changed
+
+- The quickstart and the Register webhook page now point to [Testhooks](https://testhooks.vercel.app/), an open-source webhook inspector, for watching test deliveries.
+
 ### Fixed
 
 - A `Retry-After` header with a huge number of seconds (e.g. `18446744074`) no longer overflows into a sub-second retry; it is capped at 15 minutes like any value over the limit.

@@ -438,7 +438,8 @@
           <div>
             <label for="url" class="field-label">Target URL</label>
             <input id="url" type="text" bind:value={url} placeholder="https://example.com/webhook" class="input w-full" style={urlError ? 'border-color:color-mix(in srgb,var(--color-bad) 55%,transparent)' : ''} />
-            {#if urlError}<p class="text-xs mt-1" style="color:var(--color-bad)">{urlError}</p>{/if}
+            {#if urlError}<p class="text-xs mt-1" style="color:var(--color-bad)">{urlError}</p>
+            {:else}<p class="text-xs text-faint mt-1">Just testing? Create an endpoint on <a href="https://testhooks.vercel.app/" target="_blank" rel="noopener noreferrer" class="underline">Testhooks</a> (open source) and paste its URL here to watch deliveries arrive.</p>{/if}
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>

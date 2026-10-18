@@ -62,6 +62,8 @@ The delivery shows up in the first terminal, signature verified. Routing that ev
 sparrow use slack --param webhook_url=https://hooks.slack.com/services/T00/B00/xxx --event order.created
 ```
 
+**Watch deliveries in a browser** with [Testhooks](https://testhooks.vercel.app/), which is what we use to test Sparrow's deliveries: create an endpoint, register its URL as a webhook, and every request shows up with headers and body, signature checked. It is open source ([sarathsp06/testhooks](https://github.com/sarathsp06/testhooks)), by the same author, and self-hostable.
+
 Prefer curl or a client generated from the OpenAPI spec? Follow the [Quickstart](https://sarathsp06.github.io/sparrow/getting-started/quickstart/). Deploying for real? Start at [Production Deployment](https://sarathsp06.github.io/sparrow/deployment/production/): the Compose file above is an open, local-only setup on purpose.
 
 ## What you get

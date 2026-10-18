@@ -55,9 +55,15 @@ events, usually one per customer; any name works.
 
 2. **Get a URL you can watch**
 
-    Open [webhook.site](https://webhook.site) in a browser and copy **Your
-    unique URL**. Every request sent there shows up on that page, headers and
-    body included.
+    Open [Testhooks](https://testhooks.vercel.app/) in a browser, click
+    **Create endpoint** and copy its URL (it looks like
+    `https://testhooks.vercel.app/h/a1b2c3d4`). Every request sent there shows
+    up on that page, headers and body included, and Testhooks can check
+    Sparrow's signatures for you.
+
+    Testhooks is what we use to test and watch Sparrow's deliveries. It is
+    open source ([GitHub](https://github.com/sarathsp06/testhooks)), built by
+    Sparrow's author, and you can self-host it.
 
     <Aside type="tip" title="Rather keep it local?">
     Install the [`sparrow` CLI](/sparrow/satellites/cli/) and run
@@ -76,7 +82,7 @@ events, usually one per customer; any name works.
     curl -X POST http://localhost:8080/v1/consumers/default/webhooks \
       -H "Content-Type: application/json" \
       -d '{
-        "url": "https://webhook.site/your-unique-id",
+        "url": "https://testhooks.vercel.app/h/your-endpoint-id",
         "events": ["order.created"]
       }'
     ```
@@ -88,7 +94,7 @@ events, usually one per customer; any name works.
       "webhook_id": "431b2e95-ac8a-4127-b3f5-601a0110afae",
       "consumer": "default",
       "events": ["order.created"],
-      "url": "https://webhook.site/your-unique-id",
+      "url": "https://testhooks.vercel.app/h/your-endpoint-id",
       "active": true,
       "health": "unknown",
       "signature_type": "hmac",
@@ -135,7 +141,7 @@ events, usually one per customer; any name works.
 
 5. **See it arrive**
 
-    Within a second or two, a `POST` appears on your webhook.site page. The body
+    Within a second or two, a `POST` appears on your Testhooks page. The body
     is the event envelope, with your payload inside:
 
     ```json
