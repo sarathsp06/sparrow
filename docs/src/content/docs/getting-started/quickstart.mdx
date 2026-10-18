@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: Register an event type and a webhook, push an event, and watch it arrive, in about five minutes with curl.
+description: Register an event type and a webhook, push an event, and watch it arrive, in about five minutes in the web UI or with curl.
 sidebar:
   order: 3
 ---
@@ -10,6 +10,16 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 You'll register an event type, point a webhook at a URL you can watch, push one
 event, and confirm it was delivered. Every step is a `curl` command and shows
 the response you should get back.
+
+<Aside type="tip" title="We recommend trying it in the web UI first">
+Everything on this page can also be done in the web UI at
+`http://localhost:8080`, and that is the best way to get a feel for Sparrow:
+you see the event type, the webhook, its subscriptions and every delivery
+attempt on one screen. Open **Webhooks**; with nothing registered yet it shows
+the same three steps (create an event, register a webhook, push an event) as
+buttons. Each step below also says where to find it in the UI. Come back to the
+`curl` commands when you wire Sparrow into your own code.
+</Aside>
 
 ## Before you start
 
@@ -33,6 +43,9 @@ events, usually one per customer; any name works.
 
     Sparrow only accepts events whose type is registered, so define
     `order.created` first:
+
+    *In the UI:* **Events**, then **Register Event**. Enter the name and
+    description and click **Register Event**.
 
     ```bash
     curl -X POST http://localhost:8080/v1/event-types \
@@ -78,6 +91,10 @@ events, usually one per customer; any name works.
     Replace the URL with yours. Listing `events` also creates a subscription to
     each one, so this single call is all the setup the webhook needs:
 
+    *In the UI:* **Webhooks**, then **Register Webhook**. Paste the URL, pick
+    `order.created` under events and click **Register webhook**. The next
+    screen shows the signing secret once; copy it there.
+
     ```bash
     curl -X POST http://localhost:8080/v1/consumers/default/webhooks \
       -H "Content-Type: application/json" \
@@ -115,6 +132,9 @@ events, usually one per customer; any name works.
       (`whsec_••••`); if you lose it, rotate it from the webhook page.
 
 4. **Push an event**
+
+    *In the UI:* **Events**, then **Push Test Event**. Pick `order.created`, paste
+    the payload below and click **Push Event**.
 
     ```bash
     curl -X POST "http://localhost:8080/v1/consumers/default/events?event=order.created" \
@@ -166,6 +186,10 @@ events, usually one per customer; any name works.
 
 6. **Check the delivery**
 
+    *In the UI:* open the webhook from **Webhooks**, or go to **Deliveries**.
+    Click a delivery to see each attempt with its request, response code and
+    timing.
+
     ```bash
     curl "http://localhost:8080/v1/consumers/default/deliveries?webhook_id=YOUR_WEBHOOK_ID&limit=10"
     ```
@@ -195,8 +219,7 @@ events, usually one per customer; any name works.
     `has_more` is true, pass `pagination.next_cursor` back as `cursor` to get
     the next, older page.
 
-    `max_attempts` is 4: the first try plus the webhook's 3 retries. The web UI
-    at `http://localhost:8080` shows the same delivery under **Deliveries**.
+    `max_attempts` is 4: the first try plus the webhook's 3 retries.
 
 </Steps>
 

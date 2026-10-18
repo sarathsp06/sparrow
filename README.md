@@ -37,7 +37,7 @@ curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-
 docker compose up -d
 ```
 
-Open <http://localhost:8080> for the dashboard and <http://localhost:8080/docs> for the interactive API reference. If port 8080 is taken, start it with `SPARROW_PORT=8090 docker compose up -d` and use that port instead. `docker compose down -v` cleans up.
+Open <http://localhost:8080> for the dashboard and <http://localhost:8080/docs> for the interactive API reference. Most things (registering event types and webhooks, pushing a test event, inspecting every delivery attempt) can be done in the dashboard, and we recommend starting there to get a feel for Sparrow. If port 8080 is taken, start it with `SPARROW_PORT=8090 docker compose up -d` and use that port instead. `docker compose down -v` cleans up.
 
 **Send your first webhook** with the CLI. Install it in one line (macOS and Linux; it verifies the release checksum, and re-running it updates in place):
 
