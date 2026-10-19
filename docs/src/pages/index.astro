@@ -2,6 +2,7 @@
 // Landing page — "Field Guide": DuckDB-style structure on paper canvas.
 // Centered hero → card grid → code demo → pipeline → get started.
 import '../styles/sparrow-tokens.css';
+import SecurityMeta from '../components/SecurityMeta.astro';
 import faviconSrc from '../assets/favicon.svg';
 const favicon = faviconSrc.src;
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -29,6 +30,7 @@ const licenseURL = `${githubURL}/blob/main/LICENSE`;
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <SecurityMeta />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sparrow — Self-hosted webhook delivery</title>
   <meta name="description" content="Sparrow is an open-source webhook delivery server: at-least-once delivery, classified retries, signed deliveries (HMAC-SHA256 or Ed25519), and OpenTelemetry tracing. One Go binary, one PostgreSQL database." />

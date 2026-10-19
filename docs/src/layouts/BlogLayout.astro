@@ -2,6 +2,7 @@
 // Standalone shell for the field notes at /blog. It shares the docs' design
 // tokens, fonts and light/dark preference, but has no docs sidebar or search,
 // and its pages are left out of the docs search index and llms.txt.
+import SecurityMeta from '../components/SecurityMeta.astro';
 import faviconSrc from '../assets/favicon.svg';
 import '../styles/sparrow-tokens.css';
 import '../styles/blog.css';
@@ -38,6 +39,7 @@ const docsHome = `${base}getting-started/installation/`;
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <SecurityMeta />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script is:inline>
       // Same storage key as the docs theme picker, so a reader's choice carries over.

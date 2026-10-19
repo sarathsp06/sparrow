@@ -2,6 +2,7 @@
 import RecipeWorkbenchApp from '../../components/tools/RecipeWorkbenchApp.svelte';
 import '../../styles/sparrow-tokens.css';
 import '../../styles/custom.css';
+import SecurityMeta from '../../components/SecurityMeta.astro';
 import faviconSrc from '../../assets/favicon.svg';
 
 const favicon = faviconSrc.src;
@@ -14,6 +15,7 @@ const satellitesDocs = `${base}satellites/`;
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <SecurityMeta />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Recipe workbench — Sparrow</title>
   <meta name="description" content="Paste a Sparrow transform template and see what Slack, email, SMS, Discord, ntfy, PagerDuty or ClickHouse receives." />

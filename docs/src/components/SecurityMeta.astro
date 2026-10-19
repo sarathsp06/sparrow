@@ -1,0 +1,8 @@
+---
+// The Starlight pages get these from `head` in astro.config.mjs; this is the
+// same pair for pages with their own <head>. See src/lib/security-meta.mjs.
+import { contentSecurityPolicy, referrerPolicy } from '../lib/security-meta.mjs';
+---
+
+<meta http-equiv="Content-Security-Policy" content={contentSecurityPolicy} />
+<meta name="referrer" content={referrerPolicy} />
