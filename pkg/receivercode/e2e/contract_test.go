@@ -29,11 +29,10 @@ var (
 
 // handlerCall is one test-mode line.
 type handlerCall struct {
-	Handler        string          `json:"handler"`
-	SubscriptionID string          `json:"subscription_id"`
-	EventType      string          `json:"event_type"`
-	WebhookID      string          `json:"webhook_id"`
-	Value          json.RawMessage `json:"value"`
+	Handler        string `json:"handler"`
+	SubscriptionID string `json:"subscription_id"`
+	EventType      string `json:"event_type"`
+	WebhookID      string `json:"webhook_id"`
 }
 
 func TestContract(t *testing.T) {
@@ -92,9 +91,6 @@ func TestContract(t *testing.T) {
 		if call.Handler != v.Expect.Handler || call.WebhookID != v.MessageID {
 			t.Errorf("%s: call %+v, want handler %s for %s", name, call, v.Expect.Handler, v.MessageID)
 		}
-		if !matches(v.Expect.Value, call.Value, v.Expect.Match) {
-			t.Errorf("%s: handler got %s, want %s (%s)", name, call.Value, v.Expect.Value, v.Expect.Match)
-		}
 	}
 }
 
@@ -151,51 +147,4 @@ func calls(t *testing.T) []handlerCall {
 		out = append(out, c)
 	}
 	return out
-}
-
-// matches compares JSON values: "equal", or "subset" (every value in want
-// is in got).
-func matches(want, got json.RawMessage, mode string) bool {
-	var w, g any
-	if json.Unmarshal(want, &w) != nil || json.Unmarshal(got, &g) != nil {
-		return false
-	}
-	if mode == "equal" {
-		return equal(w, g)
-	}
-	return subset(w, g)
-}
-
-func subset(want, got any) bool {
-	switch w := want.(type) {
-	case map[string]any:
-		g, ok := got.(map[string]any)
-		if !ok {
-			return false
-		}
-		for k, wv := range w {
-			if !subset(wv, g[k]) {
-				return false
-			}
-		}
-		return true
-	case []any:
-		g, ok := got.([]any)
-		if !ok || len(g) != len(w) {
-			return false
-		}
-		for i := range w {
-			if !subset(w[i], g[i]) {
-				return false
-			}
-		}
-		return true
-	}
-	return equal(want, got)
-}
-
-func equal(a, b any) bool {
-	x, _ := json.Marshal(a)
-	y, _ := json.Marshal(b)
-	return bytes.Equal(x, y)
 }

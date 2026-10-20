@@ -134,9 +134,18 @@ def create_app(config: Config | None = None) -> FastAPI:
 
     @app.post("/webhook")
     async def webhook(request: Request) -> JSONResponse:
-        body = await request.body()
-        if len(body) > MAX_BODY_BYTES:
+        # Read at most MAX_BODY_BYTES: uvicorn itself does not limit bodies.
+        declared = request.headers.get("content-length", "")
+        if declared.isdigit() and int(declared) > MAX_BODY_BYTES:
             return JSONResponse({"error": "body too large"}, status_code=413)
+        chunks: list[bytes] = []
+        size = 0
+        async for chunk in request.stream():
+            size += len(chunk)
+            if size > MAX_BODY_BYTES:
+                return JSONResponse({"error": "body too large"}, status_code=413)
+            chunks.append(chunk)
+        body = b"".join(chunks)
 
         # 1. Verify the signature on the raw bytes, before any parsing. This
         # also rejects a webhook-timestamp outside TOLERANCE_SECONDS.

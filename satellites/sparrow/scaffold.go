@@ -34,7 +34,9 @@ Your webhook secret is never written: the receiver reads SPARROW_WEBHOOK_SECRET.
 Targets: go/nethttp, python/fastapi, node/express (TypeScript). Without
 --offline the server generates the project from the webhook's subscriptions,
 event types and transforms (POST :generateReceiverCode). --offline generates
-it here from a JSON Schema and/or sample payload, with no server.
+it here from a JSON Schema and/or sample payload, with no server. The schema
+types the model; a --sample that contradicts it makes the project's own
+tests fail.
 
 --test sends one test event per subscription after writing (POST
 :sendTestEvent): run the receiver first, at the webhook's URL.`
@@ -99,8 +101,9 @@ type generatedProject struct {
 			Notes     []string `json:"notes"`
 		} `json:"subscriptions"`
 	} `json:"spec"`
-	Run  string `json:"run"`
-	Test string `json:"test"`
+	Run     string `json:"run"`
+	Test    string `json:"test"`
+	HasMore bool   `json:"has_more"`
 }
 
 func runScaffold(cmd *cobra.Command, o scaffoldOpts) error {
@@ -146,6 +149,9 @@ func runScaffold(cmd *cobra.Command, o scaffoldOpts) error {
 		for _, n := range s.Notes {
 			_, _ = fmt.Fprintf(out, "\nnote: %s: %s", s.EventType, n)
 		}
+	}
+	if proj.HasMore {
+		_, _ = fmt.Fprintf(out, "\nwarning: the webhook has more than %d subscriptions; only the first %d have handlers. Pass --subscription to choose them.", len(proj.Spec.Subscriptions), len(proj.Spec.Subscriptions))
 	}
 	_, _ = fmt.Fprintln(out)
 
@@ -261,11 +267,9 @@ func writeProject(dir string, files []receivercode.File, force bool) error {
 var testEventRetryWait = 2100 * time.Millisecond
 
 type testEventResult struct {
-	StatusCode      int    `json:"status_code"`
-	LatencyMs       int64  `json:"latency_ms"`
-	ResponseExcerpt string `json:"response_excerpt"`
-	ErrorClass      string `json:"error_class"`
-	Error           string `json:"error"`
+	StatusCode int    `json:"status_code"`
+	LatencyMs  int64  `json:"latency_ms"`
+	ErrorClass string `json:"error_class"`
 }
 
 // sendTestEvents sends one test event per subscription of the project and
@@ -296,11 +300,7 @@ func sendTestEvents(ctx context.Context, out io.Writer, client *apiClient, consu
 			_, _ = fmt.Fprintf(out, "  ✓ %s: %d in %d ms\n", s.EventType, res.StatusCode, res.LatencyMs)
 		default:
 			failed++
-			detail := res.Error
-			if detail == "" {
-				detail = strings.TrimSpace(res.ResponseExcerpt)
-			}
-			_, _ = fmt.Fprintf(out, "  ✗ %s: %d %s in %d ms %s\n", s.EventType, res.StatusCode, res.ErrorClass, res.LatencyMs, detail)
+			_, _ = fmt.Fprintf(out, "  ✗ %s: %d %s in %d ms\n", s.EventType, res.StatusCode, res.ErrorClass, res.LatencyMs)
 		}
 	}
 	if failed > 0 {

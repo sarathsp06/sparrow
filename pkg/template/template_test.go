@@ -357,3 +357,17 @@ func TestValidate(t *testing.T) {
 		}
 	}
 }
+
+func TestExecuteWithNow(t *testing.T) {
+	fixed := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	e := New()
+	out, err := e.ExecuteWith(`{{now | formatTime "2006-01-02T15:04:05Z07:00"}}`, nil, ExecOptions{Now: func() time.Time { return fixed }})
+	if err != nil || string(out) != "2026-01-02T03:04:05Z" {
+		t.Fatalf("got %q, %v", out, err)
+	}
+	// The cached template is shared: a later render without Now uses the real clock.
+	out, err = e.ExecuteWith(`{{now | formatTime "2006-01-02T15:04:05Z07:00"}}`, nil, ExecOptions{})
+	if err != nil || string(out) == "2026-01-02T03:04:05Z" {
+		t.Fatalf("got %q, %v", out, err)
+	}
+}

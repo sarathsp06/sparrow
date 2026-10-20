@@ -102,7 +102,6 @@ func Generate(in Input) (Output, error) {
 	plans := make([]*plan, 0, len(in.Subscriptions))
 	for _, s := range in.Subscriptions {
 		p := analyze(s)
-		p.settleModel()
 		plans = append(plans, p)
 	}
 	assignNames(plans)

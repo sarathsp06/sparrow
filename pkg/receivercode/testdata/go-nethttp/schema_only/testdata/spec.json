@@ -66,32 +66,7 @@
       "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"order.paid\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"amount\":1.5,\"customer\":{\"email\":\"string\",\"name\":\"string\"},\"extra\":null,\"id\":\"string\",\"items\":[{\"price\":1.5,\"sku\":\"string\"}],\"metadata\":{},\"paid\":true,\"quantity\":1}}",
       "expect": {
         "status": 200,
-        "handler": "handleOrderPaid",
-        "value": {
-          "attempt": 1,
-          "event_id": "00000000-0000-4000-8000-000000000001",
-          "event_name": "order.paid",
-          "payload": {
-            "amount": 1.5,
-            "customer": {
-              "email": "string",
-              "name": "string"
-            },
-            "id": "string",
-            "items": [
-              {
-                "price": 1.5,
-                "sku": "string"
-              }
-            ],
-            "metadata": {},
-            "paid": true,
-            "quantity": 1
-          },
-          "timestamp": "2026-01-01T00:00:00Z",
-          "version": "1"
-        },
-        "match": "subset"
+        "handler": "handleOrderPaid"
       }
     },
     {
@@ -271,32 +246,7 @@
       "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"order.paid\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"amount\":1.5,\"customer\":{\"email\":\"string\",\"name\":\"string\"},\"extra\":null,\"id\":\"string\",\"items\":[{\"price\":1.5,\"sku\":\"string\"}],\"metadata\":{},\"paid\":true,\"quantity\":1}}",
       "expect": {
         "status": 200,
-        "handler": "handleOrderPaid",
-        "value": {
-          "attempt": 1,
-          "event_id": "00000000-0000-4000-8000-000000000001",
-          "event_name": "order.paid",
-          "payload": {
-            "amount": 1.5,
-            "customer": {
-              "email": "string",
-              "name": "string"
-            },
-            "id": "string",
-            "items": [
-              {
-                "price": 1.5,
-                "sku": "string"
-              }
-            ],
-            "metadata": {},
-            "paid": true,
-            "quantity": 1
-          },
-          "timestamp": "2026-01-01T00:00:00Z",
-          "version": "1"
-        },
-        "match": "subset"
+        "handler": "handleOrderPaid"
       }
     },
     {

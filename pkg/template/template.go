@@ -85,6 +85,9 @@ type ExecOptions struct {
 	// help here: the lookup in `default "x" .payload.plan` fails before
 	// default runs; use `dig "plan" "x" .payload` instead.
 	StrictMissingKeys bool
+	// Now replaces the clock the now helper reads; nil uses time.Now.
+	// Code generators and tests set it to render deterministically.
+	Now func() time.Time
 }
 
 // ExecuteWith processes a template with the given data and options.
@@ -127,6 +130,9 @@ func (e *Engine) ExecuteWith(tmplStr string, data any, opts ExecOptions) ([]byte
 		return nil, fmt.Errorf("failed to execute template: %w", err)
 	}
 	run.Funcs(budgetFuncs(b, e.base))
+	if opts.Now != nil {
+		run.Funcs(template.FuncMap{"now": opts.Now})
+	}
 
 	// SEC: Go's text/template has no cancellation. On timeout the caller
 	// stops waiting and sets stopped, which ends the execution at its next
