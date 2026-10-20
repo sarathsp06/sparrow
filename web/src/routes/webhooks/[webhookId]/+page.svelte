@@ -19,6 +19,7 @@
   import { BatchJob } from '$lib/batch-job.svelte';
   import SigningSecretReveal from '$lib/components/SigningSecretReveal.svelte';
   import AlertConfigs from '$lib/components/AlertConfigs.svelte';
+  import ReceiverCodePanel from '$lib/components/ReceiverCodePanel.svelte';
   import { consumerLabel } from '$lib/consumer.svelte';
   import { ALERTS_GUIDE_URL, VERIFY_SIGNATURES_GUIDE_URL, isSystemConsumer, successRateTone } from '$lib/system';
 
@@ -33,8 +34,9 @@
   let subscriptions: SubscriptionItem[] = $state([]);
   let loading = $state(true);
   let error = $state('');
-  const initialTab = (page.url.searchParams.get('tab') as 'deliveries' | 'config' | 'subscriptions' | null) ?? 'deliveries';
-  let activeTab = $state<'deliveries' | 'config' | 'subscriptions'>(['deliveries', 'config', 'subscriptions'].includes(initialTab) ? initialTab : 'deliveries');
+  type Tab = 'deliveries' | 'config' | 'subscriptions' | 'integrate';
+  const initialTab = (page.url.searchParams.get('tab') as Tab | null) ?? 'deliveries';
+  let activeTab = $state<Tab>(['deliveries', 'config', 'subscriptions', 'integrate'].includes(initialTab) ? initialTab : 'deliveries');
 
   // Inline name editing: the name shown in the title is the description.
   let editingName = $state(false);
@@ -808,6 +810,12 @@
             Subscriptions
             <span class="ml-1 chip tnum">{subscriptions.length}</span>
           </button>
+          <button
+            class="pb-3 text-sm font-medium border-b-2 -mb-px transition {activeTab === 'integrate' ? 'border-beacon text-text' : 'border-transparent text-muted hover:text-text hover:border-line-strong'}"
+            onclick={() => (activeTab = 'integrate')}
+          >
+            Integrate
+          </button>
         </nav>
       </div>
 
@@ -1206,6 +1214,12 @@
           bind:subscriptions
           onRefresh={fetchData}
         />
+      {/if}
+
+      {#if activeTab === 'integrate'}
+        <div class="panel p-5">
+          <ReceiverCodePanel {webhookId} consumer={webhook.consumer} {subscriptions} />
+        </div>
       {/if}
     {/if}
 </main>

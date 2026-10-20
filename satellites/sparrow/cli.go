@@ -49,6 +49,7 @@ built-in defaults. Run 'sparrow init' to write a config file.`,
 		newInvitesCmd(),
 		newRecipesCmd(),
 		newTemplateCmd(),
+		newScaffoldCmd(),
 		newFunctionsCmd(),
 		newVersionCmd(),
 	)

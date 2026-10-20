@@ -1,10 +1,8 @@
 package receivercode
 
 import (
-	"bytes"
 	"encoding/json"
 	"strconv"
-	"strings"
 
 	"github.com/sarathsp06/sparrow/pkg/receivercode/infer"
 )
@@ -112,123 +110,6 @@ func (n *typeNamer) dependencyOrder() []objDecl {
 	return out
 }
 
-// conforms reports whether a JSON value decodes into t without error in
-// every target: nulls only where nullable, integers without a fraction,
-// required keys present.
-func conforms(v any, t *infer.Type) bool {
-	if t == nil || t.Kind == infer.Any {
-		return true
-	}
-	if v == nil {
-		return t.Nullable
-	}
-	switch t.Kind {
-	case infer.String:
-		_, ok := v.(string)
-		return ok
-	case infer.Bool:
-		_, ok := v.(bool)
-		return ok
-	case infer.Int:
-		n, ok := v.(json.Number)
-		if !ok || strings.ContainsAny(string(n), ".eE") {
-			return false
-		}
-		_, err := strconv.ParseInt(string(n), 10, 64)
-		return err == nil
-	case infer.Float:
-		_, ok := v.(json.Number)
-		return ok
-	case infer.Array:
-		arr, ok := v.([]any)
-		if !ok {
-			return false
-		}
-		for _, e := range arr {
-			if !conforms(e, t.Elem) {
-				return false
-			}
-		}
-		return true
-	case infer.Map:
-		m, ok := v.(map[string]any)
-		if !ok {
-			return false
-		}
-		for _, e := range m {
-			if !conforms(e, t.Elem) {
-				return false
-			}
-		}
-		return true
-	case infer.Object:
-		m, ok := v.(map[string]any)
-		if !ok {
-			return false
-		}
-		for _, f := range t.Fields {
-			val, present := m[f.Name]
-			if !present {
-				if f.Required {
-					return false
-				}
-				continue
-			}
-			if !conforms(val, f.Type) {
-				return false
-			}
-		}
-		return true
-	}
-	return false
-}
-
-// project keeps the parts of v that a typed decode of t preserves: fields
-// t declares and non-null values. Its result is what a generated handler
-// logs at least, so tests compare it as a subset.
-func project(v any, t *infer.Type) any {
-	if t == nil || t.Kind == infer.Any || v == nil {
-		return v
-	}
-	switch t.Kind {
-	case infer.Object:
-		m, _ := v.(map[string]any)
-		out := map[string]any{}
-		for _, f := range t.Fields {
-			if val, ok := m[f.Name]; ok && val != nil {
-				out[f.Name] = project(val, f.Type)
-			}
-		}
-		return out
-	case infer.Map:
-		m, _ := v.(map[string]any)
-		out := map[string]any{}
-		for k, val := range m {
-			if val != nil {
-				out[k] = project(val, t.Elem)
-			}
-		}
-		return out
-	case infer.Array:
-		arr, _ := v.([]any)
-		out := make([]any, 0, len(arr))
-		for _, e := range arr {
-			out = append(out, project(e, t.Elem))
-		}
-		return out
-	}
-	return v
-}
-
-// decodeNumbers decodes JSON keeping numbers as json.Number.
-func decodeNumbers(b []byte) (any, error) {
-	dec := json.NewDecoder(bytes.NewReader(b))
-	dec.UseNumber()
-	var v any
-	err := dec.Decode(&v)
-	return v, err
-}
-
 // envelopeType is the envelope as a model type around payload.
 func envelopeType(payload *infer.Type) *infer.Type {
 	return &infer.Type{Kind: infer.Object, Fields: []infer.Field{
@@ -241,61 +122,35 @@ func envelopeType(payload *infer.Type) *infer.Type {
 	}}
 }
 
-// bodyType is the model type of p's whole body (the envelope or the
-// transformed JSON), or nil for xml and raw.
-func (p *plan) bodyType() *infer.Type {
-	switch p.Model {
-	case ModelEnvelope:
-		return envelopeType(p.Type)
-	case ModelJSON:
-		return p.Type
+// placeholder is a value of type t, for a sample built from a schema.
+func placeholder(t *infer.Type, depth int) any {
+	if t == nil || depth > 16 {
+		return nil
+	}
+	switch t.Kind {
+	case infer.String:
+		return "string"
+	case infer.Int:
+		return 1
+	case infer.Float:
+		return 1.5
+	case infer.Bool:
+		return true
+	case infer.Array:
+		return []any{placeholder(t.Elem, depth+1)}
+	case infer.Map:
+		return map[string]any{}
+	case infer.Object:
+		m := make(map[string]any, len(t.Fields))
+		for _, f := range t.Fields {
+			m[f.Name] = placeholder(f.Type, depth+1)
+		}
+		return m
 	}
 	return nil
-}
-
-// settleModel makes sure the sample body decodes into the model: a schema
-// type the sample does not satisfy is replaced by the sample's own type,
-// and the expected handler value is the projected sample.
-func (p *plan) settleModel() {
-	t := p.bodyType()
-	if t == nil {
-		return
-	}
-	v, err := decodeNumbers(p.Body)
-	if err != nil {
-		p.Model, p.Type, p.ModelSource = ModelRaw, nil, ""
-		return
-	}
-	if conforms(v, t) {
-		return
-	}
-	if p.Model == ModelEnvelope {
-		env, _ := v.(map[string]any)
-		if st, err := infer.FromJSON(mustJSON(env["payload"])); err == nil && st.Kind == infer.Object {
-			p.Type, p.ModelSource = st, "sample"
-			p.Notes = append(p.Notes, "the sample payload does not match the JSON Schema, so the payload type is inferred from the sample: best effort")
-			if conforms(v, p.bodyType()) {
-				return
-			}
-		}
-	}
-	p.Model, p.Type, p.ModelSource = ModelRaw, nil, ""
-	p.Notes = append(p.Notes, "the sample does not fit any inferred model, so the body is handled as raw text")
 }
 
 func mustJSON(v any) []byte {
 	b, _ := json.Marshal(v)
 	return b
-}
-
-// expectedValue is what a handler for p logs for its sample body (at
-// least, for the subset match).
-func expectedValue(p *plan) (json.RawMessage, string) {
-	if t := p.bodyType(); t != nil {
-		var v any
-		if err := json.Unmarshal(p.Body, &v); err == nil {
-			return mustJSON(project(v, t)), "subset"
-		}
-	}
-	return mustJSON(string(p.Body)), "equal"
 }

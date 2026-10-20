@@ -62,9 +62,7 @@
       "body": "{\"status\": \"paid\", \"id\": \"ord_123\"}",
       "expect": {
         "status": 200,
-        "handler": "handleOrderPaid",
-        "value": "{\"status\": \"paid\", \"id\": \"ord_123\"}",
-        "match": "equal"
+        "handler": "handleOrderPaid"
       }
     },
     {
@@ -230,9 +228,7 @@
       "body": "{\"status\": \"paid\", \"id\": \"ord_123\"}",
       "expect": {
         "status": 200,
-        "handler": "handleOrderPaid",
-        "value": "{\"status\": \"paid\", \"id\": \"ord_123\"}",
-        "match": "equal"
+        "handler": "handleOrderPaid"
       }
     },
     {

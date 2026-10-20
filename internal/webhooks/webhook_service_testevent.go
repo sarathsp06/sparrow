@@ -2,11 +2,9 @@ package webhooks
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -21,12 +19,9 @@ import (
 // limit is per server process.
 const TestEventInterval = 2 * time.Second
 
-// testEventExcerptBytes bounds the response body returned to the caller.
-const testEventExcerptBytes = 1024
-
 // TestEventSender sends one-off test deliveries.
 type TestEventSender interface {
-	SendTestEvent(ctx context.Context, consumer, webhookID, subscriptionID string) (*TestEventResult, error)
+	SendTestEvent(ctx context.Context, consumer, webhookID, subscriptionID string, payload map[string]any) (*TestEventResult, error)
 }
 
 // TestEventResult is the outcome of a test delivery.
@@ -34,13 +29,9 @@ type TestEventResult struct {
 	// StatusCode is the receiver's HTTP status, 0 when nothing was received.
 	StatusCode int
 	Latency    time.Duration
-	// ResponseExcerpt is the start of the response body.
-	ResponseExcerpt string
 	// ErrorClass is the delivery error category (e.g. client_error,
 	// timeout, template_error), empty on a 2xx.
 	ErrorClass string
-	// Error says what went wrong when no response was received.
-	Error string
 }
 
 // WithDeliveryClient sets the client test events are sent with: the same
@@ -77,13 +68,13 @@ func (l *testEventLimiter) allow(id uuid.UUID, now time.Time) bool {
 	return true
 }
 
-// SendTestEvent sends one signed delivery of the subscription's event type
-// sample to the webhook, synchronously, and reports what the receiver
+// SendTestEvent sends one signed delivery of payload, or of the
+// subscription's event type sample when payload is nil, to the webhook, synchronously, and reports what the receiver
 // answered. It goes through the same request builder, signing, SSRF policy
 // and timeout as a real delivery and carries X-Sparrow-Test: true. It records
 // no delivery and never touches the webhook's health or auto-disable state:
 // a test send is the sender's action, not the receiver's track record.
-func (s *WebhookService) SendTestEvent(ctx context.Context, consumer, webhookID, subscriptionID string) (*TestEventResult, error) {
+func (s *WebhookService) SendTestEvent(ctx context.Context, consumer, webhookID, subscriptionID string, payload map[string]any) (*TestEventResult, error) {
 	if s.deliveryClient == nil {
 		return nil, svcerrors.Error(svcerrors.Unavailable, "test events are not available on this server")
 	}
@@ -117,12 +108,15 @@ func (s *WebhookService) SendTestEvent(ctx context.Context, consumer, webhookID,
 		Payload:      event.SamplePayload,
 		EventVersion: event.Version,
 	}
+	if payload != nil {
+		record.Payload = payload
+	}
 	if record.Payload == nil {
 		record.Payload = store.JSONMap{}
 	}
 	body, renderErr := testEventBody(webhook, sub, record)
 	if renderErr != nil {
-		return &TestEventResult{ErrorClass: string(svcerrors.CategoryTemplateError), Error: renderErr.Error()}, nil
+		return &TestEventResult{ErrorClass: string(svcerrors.CategoryTemplateError)}, nil
 	}
 
 	dr, err := client.PrepareDeliveryRequest(webhook, sub, record, "test_"+record.ID.String(), body, s.crypto)
@@ -134,16 +128,10 @@ func (s *WebhookService) SendTestEvent(ctx context.Context, consumer, webhookID,
 	result := &TestEventResult{Latency: latency}
 	if err != nil {
 		result.ErrorClass = string(svcerrors.ClassifyError(err))
-		result.Error = err.Error()
 		return result, nil
 	}
-	defer func() { _ = resp.Body.Close() }()
-	excerpt, _ := client.ReadBody(resp, testEventExcerptBytes)
-	for !utf8.Valid(excerpt) && len(excerpt) > 0 {
-		excerpt = excerpt[:len(excerpt)-1]
-	}
+	_ = resp.Body.Close()
 	result.StatusCode = resp.StatusCode
-	result.ResponseExcerpt = string(excerpt)
 	if category := svcerrors.ClassifyHTTPStatus(resp.StatusCode); category != svcerrors.CategorySuccess {
 		result.ErrorClass = string(category)
 	}
@@ -152,15 +140,13 @@ func (s *WebhookService) SendTestEvent(ctx context.Context, consumer, webhookID,
 
 // testEventBody renders the body the subscription would send for record, as
 // the delivery worker does: the transform, or the envelope without one or
-// as the configured fallback.
+// as the configured fallback. (A webhook that requires a transform cannot
+// have a subscription without one: saving it is refused.)
 func testEventBody(webhook *store.WebhookRegistration, sub *store.EventSubscription, record *store.EventRecord) ([]byte, error) {
 	envelope := func() ([]byte, error) {
 		return client.BuildEnvelopePayload(record.ID.String(), record.Event, 1, record.Payload)
 	}
 	if !sub.HasTransform() {
-		if webhook.RequiresTransform {
-			return nil, errors.New("this webhook requires a payload transform, but the subscription has none")
-		}
 		return envelope()
 	}
 	ctx := template.NewWebhookContext(record.ID.String(), record.Event, time.Now().UTC().Format(time.RFC3339), 1, record.Payload)

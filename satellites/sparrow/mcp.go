@@ -114,6 +114,13 @@ type subscriptionIDIn struct {
 	SubscriptionID string `json:"subscription_id" jsonschema:"subscription id"`
 }
 
+type generateReceiverCodeIn struct {
+	WebhookID       string   `json:"webhook_id" jsonschema:"webhook to generate a receiver for"`
+	Language        string   `json:"language" jsonschema:"go, python or node"`
+	Framework       string   `json:"framework" jsonschema:"nethttp (go), fastapi (python) or express (node)"`
+	SubscriptionIDs []string `json:"subscription_ids,omitempty" jsonschema:"only these subscriptions; default all of the webhook's"`
+}
+
 type createSubscriptionIn struct {
 	WebhookID         string            `json:"webhook_id" jsonschema:"webhook to deliver matching events to"`
 	EventName         string            `json:"event_name" jsonschema:"event type name, or * for every event"`
@@ -217,6 +224,17 @@ func newMCPServer(client *apiClient, consumer string, allowWrite bool) (*mcp.Ser
 				body["payload"] = in.Payload
 			}
 			out, err := post(ctx, "/v1/subscriptions:testTemplate", body)
+			return nil, out, err
+		})
+
+	mcp.AddTool(srv, &mcp.Tool{Name: "generate_receiver_code", Annotations: ro,
+		Description: "Generate a ready-to-run receiver project for a webhook: files (path, content, mode), a spec (how deliveries are verified and routed, each handler's body format and model, signed test vectors) and the run and test commands. Signature verification comes from Sparrow's tested helper and must not be rewritten; put your logic in the handler stubs. Nothing is stored and no secret is included (the receiver reads SPARROW_WEBHOOK_SECRET)."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in generateReceiverCodeIn) (*mcp.CallToolResult, any, error) {
+			body := map[string]any{"language": in.Language, "framework": in.Framework}
+			if len(in.SubscriptionIDs) > 0 {
+				body["subscription_ids"] = in.SubscriptionIDs
+			}
+			out, err := post(ctx, "/v1/consumers/"+c+"/webhooks/"+url.PathEscape(in.WebhookID)+":generateReceiverCode", body)
 			return nil, out, err
 		})
 
@@ -354,6 +372,8 @@ from list_events shows what a receiver would get), else the event type's
 sample payload, which the server derives from its JSON schema with
 placeholder values (get_event_type shows both). export_event_types returns a bundle of
 definitions for another environment.
+To build the receiving side, generate_receiver_code writes a whole project
+(Go, Python or Node) for a webhook; keep its verification helper unchanged.
 Recipes are ready-made destinations (Slack, Discord, PagerDuty, ...):
 list_recipes, get_recipe for params and template, validate_recipe to check one
 (or a draft YAML) before applying.`

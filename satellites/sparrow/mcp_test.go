@@ -134,7 +134,7 @@ func call(t *testing.T, cs *mcp.ClientSession, name string, args map[string]any)
 func TestMCPReadOnlyHidesWriteTools(t *testing.T) {
 	client := newAPIClient(config{ServerURL: newFakeSparrow(t).URL})
 
-	readOnly := []string{"export_event_types", "get_delivery_attempts", "get_event_type", "get_recipe", "get_stats", "get_webhook", "list_deliveries", "list_event_types", "list_events", "list_recipes", "list_subscriptions", "list_webhooks", "test_template", "validate_recipe"}
+	readOnly := []string{"export_event_types", "generate_receiver_code", "get_delivery_attempts", "get_event_type", "get_recipe", "get_stats", "get_webhook", "list_deliveries", "list_event_types", "list_events", "list_recipes", "list_subscriptions", "list_webhooks", "test_template", "validate_recipe"}
 	srv, _ := newMCPServer(client, "acme", false)
 	if got := toolNames(t, connectMCP(t, srv)); strings.Join(got, ",") != strings.Join(readOnly, ",") {
 		t.Fatalf("read-only tools = %v, want %v", got, readOnly)

@@ -66,27 +66,7 @@
       "body": "{\"text\": \"Order ord_123 paid\", \"amount\": 42.5, \"blocks\": [{\"type\": \"section\", \"fields\": [{\"price\":20,\"sku\":\"A-1\"},{\"price\":22.5,\"sku\":\"B-2\"}]}], \"channel\": null}",
       "expect": {
         "status": 200,
-        "handler": "handleOrderPaid",
-        "value": {
-          "amount": 42.5,
-          "blocks": [
-            {
-              "fields": [
-                {
-                  "price": 20,
-                  "sku": "A-1"
-                },
-                {
-                  "price": 22.5,
-                  "sku": "B-2"
-                }
-              ],
-              "type": "section"
-            }
-          ],
-          "text": "Order ord_123 paid"
-        },
-        "match": "subset"
+        "handler": "handleOrderPaid"
       }
     },
     {
@@ -266,27 +246,7 @@
       "body": "{\"text\": \"Order ord_123 paid\", \"amount\": 42.5, \"blocks\": [{\"type\": \"section\", \"fields\": [{\"price\":20,\"sku\":\"A-1\"},{\"price\":22.5,\"sku\":\"B-2\"}]}], \"channel\": null}",
       "expect": {
         "status": 200,
-        "handler": "handleOrderPaid",
-        "value": {
-          "amount": 42.5,
-          "blocks": [
-            {
-              "fields": [
-                {
-                  "price": 20,
-                  "sku": "A-1"
-                },
-                {
-                  "price": 22.5,
-                  "sku": "B-2"
-                }
-              ],
-              "type": "section"
-            }
-          ],
-          "text": "Order ord_123 paid"
-        },
-        "match": "subset"
+        "handler": "handleOrderPaid"
       }
     },
     {

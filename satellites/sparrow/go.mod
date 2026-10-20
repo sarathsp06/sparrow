@@ -4,6 +4,7 @@ go 1.27.2
 
 require (
 	github.com/modelcontextprotocol/go-sdk v1.8.0
+	github.com/sarathsp06/sparrow/pkg/receivercode v0.0.0-00010101000000-000000000000
 	github.com/sarathsp06/sparrow/pkg/signature v0.0.0-00010101000000-000000000000
 	github.com/sarathsp06/sparrow/pkg/template v0.0.0-00010101000000-000000000000
 	github.com/sarathsp06/sparrow/satellites/recipes v0.0.0-00010101000000-000000000000
@@ -26,6 +27,8 @@ require (
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.51.0 // indirect
 )
+
+replace github.com/sarathsp06/sparrow/pkg/receivercode => ../../pkg/receivercode
 
 replace github.com/sarathsp06/sparrow/pkg/signature => ../../pkg/signature
 
