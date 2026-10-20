@@ -229,21 +229,24 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		return river.JobCancel(fmt.Errorf("event record %s not found", args.EventID))
 	}
 
-	// Get subscription if available
+	// Get the subscription the delivery was fanned out through. Sending
+	// without it would skip its transform, headers and pause, so a missing
+	// one fails the delivery and a lookup error is retried.
 	var subscription *store.EventSubscription
 	if args.SubscriptionID != "" {
 		subscriptionID, parseErr := uuid.Parse(args.SubscriptionID)
 		if parseErr != nil {
-			w.logger.WarnContext(ctx, "Invalid subscription ID in job args", "error", parseErr, "subscription_id", args.SubscriptionID)
-		} else {
-			subscription, err = w.subscriptionRepo.GetSubscription(ctx, tenantID, subscriptionID)
-			if err != nil {
-				// If subscription is missing, we might still want to proceed if it's a legacy delivery,
-				// but for now let's assume strict consistency or log warning.
-				// Given the refactor, we expect subscription to exist if ID is passed.
-				w.logger.WarnContext(ctx, "Failed to get subscription", "error", err, "subscription_id", args.SubscriptionID)
-				// Continue without subscription (will use default webhook config)
-			}
+			return river.JobCancel(fmt.Errorf("invalid subscription ID %q in job args: %w", args.SubscriptionID, parseErr))
+		}
+		subscription, err = w.subscriptionRepo.GetSubscription(ctx, tenantID, subscriptionID)
+		if storage.IsNotFound(err) {
+			_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, store.StatusFailed, 0, "", "Subscription was deleted", "unknown")
+			return river.JobCancel(fmt.Errorf("subscription %s was deleted", args.SubscriptionID))
+		}
+		if err != nil {
+			w.logger.ErrorContext(ctx, "Failed to get subscription", "error", err, "subscription_id", args.SubscriptionID)
+			_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, statusForFailure(job.Attempt, args.MaxAttempts), 0, "", fmt.Sprintf("Failed to get subscription: %v", err), "unknown")
+			return fmt.Errorf("failed to get subscription: %w", err)
 		}
 	}
 

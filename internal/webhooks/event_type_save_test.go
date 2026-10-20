@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -407,10 +406,10 @@ func TestPushEvent_PinsTheCurrentVersion(t *testing.T) {
 
 	repo.On("GetEventByName", mock.Anything, mock.Anything, "order.created").
 		Return(&store.EventRegistration{Name: "order.created", Active: true, Version: 3}, nil)
-	repo.On("StoreEvent", mock.Anything, mock.Anything, mock.MatchedBy(func(e *store.EventRecord) bool {
+	repo.On("StoreEventAndEnqueue", mock.Anything, mock.Anything, mock.MatchedBy(func(e *store.EventRecord) bool {
 		return e.EventVersion == 3
 	})).Return(nil)
-	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
+	inserter.On("BatchInsertTx", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	_, _, _, _, err := svc.PushEvent(testContext(), "default", "order.created", map[string]any{}, 0, nil, nil, nil)
 	require.NoError(t, err)
