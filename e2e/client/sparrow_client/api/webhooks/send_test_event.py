@@ -100,12 +100,13 @@ def sync_detailed(
 ) -> Response[ErrorModel | SendTestEventOutputBody]:
     """Send a test event to a webhook
 
-     Sends one signed delivery of the subscription's event type sample (rendered through its transform,
-    as a real delivery would be) to the webhook's URL, synchronously, and returns what the receiver
-    answered. It uses the same request builder, signing, network policy (SSRF protection) and timeout as
-    real deliveries and adds the header X-Sparrow-Test: true. It creates no delivery and never counts
-    toward the webhook's health or auto-disable. A receiver error is reported in the response
-    (status_code, error_class), not as an API error.
+     Sends one signed delivery of payload, or of the subscription's event type sample when payload is
+    omitted (rendered through the subscription's transform, as a real delivery would be), to the
+    webhook's URL, synchronously, and returns what the receiver answered. It uses the same request
+    builder, signing, network policy (SSRF protection) and timeout as real deliveries and adds the
+    header X-Sparrow-Test: true. It creates no delivery and never counts toward the webhook's health or
+    auto-disable. A receiver error is reported in the response (status_code, error_class), not as an API
+    error.
 
     One test event per webhook every 2 seconds on each server: more answer 429. 404 for an unknown
     webhook or a subscription not on it.
@@ -147,12 +148,13 @@ def sync(
 ) -> ErrorModel | SendTestEventOutputBody | None:
     """Send a test event to a webhook
 
-     Sends one signed delivery of the subscription's event type sample (rendered through its transform,
-    as a real delivery would be) to the webhook's URL, synchronously, and returns what the receiver
-    answered. It uses the same request builder, signing, network policy (SSRF protection) and timeout as
-    real deliveries and adds the header X-Sparrow-Test: true. It creates no delivery and never counts
-    toward the webhook's health or auto-disable. A receiver error is reported in the response
-    (status_code, error_class), not as an API error.
+     Sends one signed delivery of payload, or of the subscription's event type sample when payload is
+    omitted (rendered through the subscription's transform, as a real delivery would be), to the
+    webhook's URL, synchronously, and returns what the receiver answered. It uses the same request
+    builder, signing, network policy (SSRF protection) and timeout as real deliveries and adds the
+    header X-Sparrow-Test: true. It creates no delivery and never counts toward the webhook's health or
+    auto-disable. A receiver error is reported in the response (status_code, error_class), not as an API
+    error.
 
     One test event per webhook every 2 seconds on each server: more answer 429. 404 for an unknown
     webhook or a subscription not on it.
@@ -189,12 +191,13 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | SendTestEventOutputBody]:
     """Send a test event to a webhook
 
-     Sends one signed delivery of the subscription's event type sample (rendered through its transform,
-    as a real delivery would be) to the webhook's URL, synchronously, and returns what the receiver
-    answered. It uses the same request builder, signing, network policy (SSRF protection) and timeout as
-    real deliveries and adds the header X-Sparrow-Test: true. It creates no delivery and never counts
-    toward the webhook's health or auto-disable. A receiver error is reported in the response
-    (status_code, error_class), not as an API error.
+     Sends one signed delivery of payload, or of the subscription's event type sample when payload is
+    omitted (rendered through the subscription's transform, as a real delivery would be), to the
+    webhook's URL, synchronously, and returns what the receiver answered. It uses the same request
+    builder, signing, network policy (SSRF protection) and timeout as real deliveries and adds the
+    header X-Sparrow-Test: true. It creates no delivery and never counts toward the webhook's health or
+    auto-disable. A receiver error is reported in the response (status_code, error_class), not as an API
+    error.
 
     One test event per webhook every 2 seconds on each server: more answer 429. 404 for an unknown
     webhook or a subscription not on it.
@@ -234,12 +237,13 @@ async def asyncio(
 ) -> ErrorModel | SendTestEventOutputBody | None:
     """Send a test event to a webhook
 
-     Sends one signed delivery of the subscription's event type sample (rendered through its transform,
-    as a real delivery would be) to the webhook's URL, synchronously, and returns what the receiver
-    answered. It uses the same request builder, signing, network policy (SSRF protection) and timeout as
-    real deliveries and adds the header X-Sparrow-Test: true. It creates no delivery and never counts
-    toward the webhook's health or auto-disable. A receiver error is reported in the response
-    (status_code, error_class), not as an API error.
+     Sends one signed delivery of payload, or of the subscription's event type sample when payload is
+    omitted (rendered through the subscription's transform, as a real delivery would be), to the
+    webhook's URL, synchronously, and returns what the receiver answered. It uses the same request
+    builder, signing, network policy (SSRF protection) and timeout as real deliveries and adds the
+    header X-Sparrow-Test: true. It creates no delivery and never counts toward the webhook's health or
+    auto-disable. A receiver error is reported in the response (status_code, error_class), not as an API
+    error.
 
     One test event per webhook every 2 seconds on each server: more answer 429. 404 for an unknown
     webhook or a subscription not on it.

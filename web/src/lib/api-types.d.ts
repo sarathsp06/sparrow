@@ -13,7 +13,7 @@ export interface paths {
         };
         /**
          * List optional server features
-         * @description Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, and whether alert email delivery is set up. Read-only.
+         * @description Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, whether alert email delivery is set up, and the receiver code generation targets. Read-only.
          *
          *     ai_drafting.enabled reflects SPARROW_AI_ENABLED=true; drafting is usable only when enabled is true and problem is absent; prompt_only is the opposite of enabled.
          *
@@ -630,6 +630,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/consumers/{consumer}/webhooks/{webhook_id}:generateReceiverCode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate receiver code for a webhook
+         * @description Generates a ready-to-run receiver project for the webhook in the chosen language and framework (GET /v1/capabilities lists them under receiver_code.targets). The project verifies Sparrow's signatures on the raw body before parsing (with a copy of Sparrow's tested verification helper), rejects stale timestamps, drops redeliveries by webhook-id, routes on X-Sparrow-Subscription-ID then X-Sparrow-Event-Type, decodes each subscription's body (its transform rendered against the event type's sample decides JSON, XML or text) and ships with tests that replay signed vectors. Secrets are never included: the receiver reads SPARROW_WEBHOOK_SECRET, and the tests use throwaway credentials. Nothing is stored. The same webhook, subscriptions and Sparrow version always produce the same files; the generated code itself may improve between releases.
+         *
+         *     400 for an unsupported target or a subscription that is not on the webhook, 404 for an unknown webhook.
+         *
+         *     Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:generateReceiverCode.
+         */
+        post: operations["generateReceiverCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/consumers/{consumer}/webhooks/{webhook_id}:pause": {
         parameters: {
             query?: never;
@@ -690,6 +714,30 @@ export interface paths {
          *     Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:rotateSecret.
          */
         post: operations["rotateWebhookSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/webhooks/{webhook_id}:sendTestEvent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a test event to a webhook
+         * @description Sends one signed delivery of payload, or of the subscription's event type sample when payload is omitted (rendered through the subscription's transform, as a real delivery would be), to the webhook's URL, synchronously, and returns what the receiver answered. It uses the same request builder, signing, network policy (SSRF protection) and timeout as real deliveries and adds the header X-Sparrow-Test: true. It creates no delivery and never counts toward the webhook's health or auto-disable. A receiver error is reported in the response (status_code, error_class), not as an API error.
+         *
+         *     One test event per webhook every 2 seconds on each server: more answer 429. 404 for an unknown webhook or a subscription not on it.
+         *
+         *     Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:sendTestEvent.
+         */
+        post: operations["sendTestEvent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1515,6 +1563,8 @@ export interface components {
             ai_drafting: components["schemas"]["AIDraftingStruct"];
             /** @description Delivery of Sparrow's own alert emails (see the alert-configs endpoints). */
             alert_delivery: components["schemas"]["AlertDeliveryStruct"];
+            /** @description Receiver code generation (generateReceiverCode). */
+            receiver_code: components["schemas"]["ReceiverCodeStruct"];
         };
         ConsumerHint: {
             /** @description Consumer to register the recipe under, e.g. _sparrow. */
@@ -2119,6 +2169,40 @@ export interface components {
             /** @description Export every event type whose name starts with this prefix. */
             prefix?: string;
         };
+        GenerateReceiverCodeInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/GenerateReceiverCodeInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Target framework: nethttp (go), fastapi (python) or express (node). */
+            framework: string;
+            /** @description Target language: go, python or node (see GET /v1/capabilities, receiver_code.targets). */
+            language: string;
+            /** @description Subscriptions to generate handlers for; omit for every subscription of the webhook. */
+            subscription_ids?: string[];
+        };
+        GenerateReceiverCodeOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/GenerateReceiverCodeOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description The project's files, sorted by path. */
+            files: components["schemas"]["ReceiverFileOut"][];
+            /** @description True when subscription_ids was omitted and the webhook has more than 200 subscriptions: only the first 200 have handlers. Pass subscription_ids to choose them. */
+            has_more: boolean;
+            /** @description Shell command that starts the receiver, from the project root. */
+            run: string;
+            /** @description Machine-readable receiver spec: how deliveries are verified and routed, each handler's body format and model, and the signed test vectors the generated tests replay (signed with throwaway credentials, never the webhook's secret). Its format is versioned by spec_version and, like the generated code, experimental. */
+            spec: {
+                [key: string]: unknown;
+            };
+            /** @description Shell command that runs the generated tests, from the project root. */
+            test: string;
+        };
         HealthRules: {
             /**
              * Format: int64
@@ -2636,6 +2720,33 @@ export interface components {
             /** @description Non-fatal schema validation warnings. The event is stored and delivered regardless. Absent for a duplicate. */
             warnings?: string[];
         };
+        ReceiverCodeStruct: {
+            /** @description Language and framework pairs POST /v1/consumers/{consumer}/webhooks/{webhook_id}:generateReceiverCode supports. */
+            targets: components["schemas"]["ReceiverTargetOut"][];
+        };
+        ReceiverFileOut: {
+            /** @description File content (UTF-8 text). */
+            content: string;
+            /**
+             * Format: int32
+             * @description Unix permission bits, e.g. 420 (0644) or 493 (0755).
+             */
+            mode: number;
+            /** @description Slash-separated path relative to the project root. */
+            path: string;
+        };
+        ReceiverTargetOut: {
+            /** @description Value for the framework field of generateReceiverCode. */
+            framework: string;
+            /** @description Target id, e.g. go-nethttp. */
+            id: string;
+            /** @description Value for the language field of generateReceiverCode. */
+            language: string;
+            /** @description Display name. */
+            name: string;
+            /** @description Runtime the generated project needs. */
+            runtime: string;
+        };
         Recipe: {
             /** @description The consumer the recipe is meant to be registered under, when it matters. */
             consumer?: components["schemas"]["ConsumerHint"];
@@ -2885,6 +2996,40 @@ export interface components {
              * @enum {string}
              */
             result: "compatible" | "breaking";
+        };
+        SendTestEventInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/SendTestEventInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Event payload to send instead of the event type's sample payload. It is rendered through the subscription's transform like a pushed event. */
+            payload?: {
+                [key: string]: unknown;
+            };
+            /** @description Subscription to send through: its transform renders the payload. */
+            subscription_id: string;
+        };
+        SendTestEventOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/SendTestEventOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Delivery error category when the send did not get a 2xx: client_error, server_error, rate_limited, timeout, connection_refused, dns_error, tls_error, network_error, redirect, template_error (nothing was sent) or unknown. */
+            error_class?: string;
+            /**
+             * Format: int64
+             * @description Time to the response headers, in milliseconds.
+             */
+            latency_ms: number;
+            /**
+             * Format: int64
+             * @description The receiver's HTTP status; 0 when no response was received.
+             */
+            status_code: number;
         };
         StampCheckItem: {
             /** @description Sparrow version that exported the file. */
@@ -5299,6 +5444,71 @@ export interface operations {
             };
         };
     };
+    generateReceiverCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tenant consumer the webhook belongs to. */
+                consumer: string;
+                /** @description Webhook id (UUID). */
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateReceiverCodeInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerateReceiverCodeOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     pauseWebhook: {
         parameters: {
             query?: never;
@@ -5462,6 +5672,89 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    sendTestEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tenant consumer the webhook belongs to. */
+                consumer: string;
+                /** @description Webhook id (UUID). */
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendTestEventInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SendTestEventOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

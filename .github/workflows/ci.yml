@@ -117,6 +117,9 @@ jobs:
       - name: Build binaries
         run: go build ./cmd/... github.com/sarathsp06/sparrow/satellites/sparrow/...
 
+      # Includes the receiver code generator's fast tier: its golden files
+      # and a build and test run of every generated Go golden. The other
+      # languages run in receivercode-e2e.yml.
       - name: Run tests
         env:
           DATABASE_URL: postgres://testuser:testpass@localhost:5432/testdb?sslmode=disable

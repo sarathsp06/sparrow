@@ -99,6 +99,13 @@ var testCases = []struct {
 			Sample: json.RawMessage(`{"user_id": 7, "email": "ada@example.com", "roles": ["admin"]}`),
 		}},
 	}},
+	{"schema_only", Input{
+		Webhook: Webhook{ID: "wh_schema_only", SigningScheme: SchemeHMAC},
+		Subscriptions: []Subscription{{
+			ID: "sub_schema", EventType: "order.paid", EventVersion: 1,
+			Schema: json.RawMessage(orderSchema),
+		}},
+	}},
 	{"multi", Input{
 		Webhook: Webhook{ID: "wh_multi", Consumer: "globex", SigningScheme: SchemeHMAC},
 		Subscriptions: []Subscription{

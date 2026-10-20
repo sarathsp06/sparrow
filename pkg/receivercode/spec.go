@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"strconv"
 	"strings"
 )
@@ -144,12 +143,6 @@ type Expect struct {
 	Status int `json:"status"`
 	// Handler is the handler that must be called, or "" for none.
 	Handler string `json:"handler"`
-	// Value is what the handler receives, as JSON: the decoded body for
-	// the json and envelope models (Match "subset": every value in Value
-	// must be in what the handler logged), or the body string otherwise
-	// (Match "equal").
-	Value json.RawMessage `json:"value,omitempty"`
-	Match string          `json:"match,omitempty"`
 }
 
 // testCreds derives the throwaway credentials from the webhook ID, so they
@@ -229,6 +222,17 @@ func (t SpecTest) Request(v Vector, now int64, body []byte) (map[string]string, 
 	return h, body
 }
 
+// Rebuild re-signs v at now: the request a harness sends to a running
+// receiver, whose clock is real. Tampered vectors are tampered again after
+// signing.
+func (t SpecTest) Rebuild(v Vector, now int64) (map[string]string, []byte) {
+	body := []byte(v.Body)
+	if v.Tamper && len(body) > 0 {
+		body = body[:len(body)-1]
+	}
+	return t.Request(v, now, body)
+}
+
 // buildVectors makes the vectors for every subscription, in plan order.
 func buildVectors(plans []*plan, scheme string, creds SpecTest) []Vector {
 	good, bad := []string{"v1:test"}, []string{"v1:wrong"}
@@ -244,8 +248,7 @@ func buildVectors(plans []*plan, scheme string, creds SpecTest) []Vector {
 
 	var out []Vector
 	for i, p := range plans {
-		value, match := expectedValue(p)
-		ok := Expect{Status: 200, Handler: handlerName(p), Value: value, Match: match}
+		ok := Expect{Status: 200, Handler: handlerName(p)}
 		unauthorized := Expect{Status: 401}
 		id := func(name string) string { return "msg_test_" + strconv.Itoa(i+1) + "_" + name }
 		cases := []Vector{
@@ -264,10 +267,9 @@ func buildVectors(plans []*plan, scheme string, creds SpecTest) []Vector {
 			)
 		}
 		first := firstByType[p.Sub.EventType]
-		fv, fm := expectedValue(first)
 		cases = append(cases,
 			Vector{Name: "event_type_fallback", MessageID: id("fallback"), Signatures: good, OmitSubscriptionHeader: true,
-				Expect: Expect{Status: 200, Handler: handlerName(first), Value: fv, Match: fm}},
+				Expect: Expect{Status: 200, Handler: handlerName(first)}},
 		)
 		if i == len(plans)-1 {
 			cases = append(cases, Vector{Name: "unknown_event", MessageID: id("unknown"), Signatures: good,

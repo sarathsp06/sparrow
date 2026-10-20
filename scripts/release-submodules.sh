@@ -105,6 +105,7 @@ release_module satellites/sparrow-sinks "satellites/sparrow-sinks/$VERSION" \
 	"github.com/sarathsp06/sparrow/pkg/signature@$VERSION"
 release_leaf satellites/sparrow-sources "satellites/sparrow-sources/$VERSION"
 release_module satellites/sparrow "satellites/sparrow/$VERSION" \
+	"github.com/sarathsp06/sparrow/pkg/receivercode@$VERSION" \
 	"github.com/sarathsp06/sparrow/pkg/signature@$VERSION" \
 	"github.com/sarathsp06/sparrow/pkg/template@$VERSION" \
 	"github.com/sarathsp06/sparrow/satellites/recipes@$VERSION"

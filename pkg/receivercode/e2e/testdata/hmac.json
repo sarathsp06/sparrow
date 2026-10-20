@@ -1,0 +1,211 @@
+{
+  "SparrowVersion": "contract",
+  "Webhook": {
+    "ID": "wh_contract_hmac",
+    "Consumer": "contract",
+    "SigningScheme": "hmac"
+  },
+  "Subscriptions": [
+    {
+      "ID": "sub_envelope",
+      "EventType": "order.paid",
+      "EventVersion": 2,
+      "Schema": {
+        "type": "object",
+        "required": [
+          "id",
+          "amount",
+          "customer"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "customer": {
+            "type": "object",
+            "required": [
+              "email"
+            ],
+            "properties": {
+              "email": {
+                "type": "string"
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "sku"
+              ],
+              "properties": {
+                "sku": {
+                  "type": "string"
+                },
+                "price": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Sample": {
+        "id": "ord_123",
+        "amount": 42.5,
+        "quantity": 2,
+        "customer": {
+          "email": "ada@example.com",
+          "name": null
+        },
+        "items": [
+          {
+            "sku": "A-1",
+            "price": 20
+          },
+          {
+            "sku": "B-2",
+            "price": 22.5
+          }
+        ],
+        "metadata": {
+          "source": "web"
+        }
+      }
+    },
+    {
+      "ID": "sub_json",
+      "EventType": "order.paid",
+      "Sample": {
+        "id": "ord_123",
+        "amount": 42.5,
+        "quantity": 2,
+        "customer": {
+          "email": "ada@example.com",
+          "name": null
+        },
+        "items": [
+          {
+            "sku": "A-1",
+            "price": 20
+          },
+          {
+            "sku": "B-2",
+            "price": 22.5
+          }
+        ],
+        "metadata": {
+          "source": "web"
+        }
+      },
+      "StrictMissingKeys": true,
+      "Transform": "{\"text\": \"Order {{.payload.id}} paid\", \"amount\": {{.payload.amount}}, \"items\": {{json .payload.items}}}"
+    },
+    {
+      "ID": "sub_xml",
+      "EventType": "order.shipped",
+      "Sample": {
+        "id": "ord_123",
+        "amount": 42.5,
+        "quantity": 2,
+        "customer": {
+          "email": "ada@example.com",
+          "name": null
+        },
+        "items": [
+          {
+            "sku": "A-1",
+            "price": 20
+          },
+          {
+            "sku": "B-2",
+            "price": 22.5
+          }
+        ],
+        "metadata": {
+          "source": "web"
+        }
+      },
+      "Headers": {
+        "Content-Type": "application/xml"
+      },
+      "Transform": "<order id=\"{{.payload.id}}\"><amount currency=\"EUR\">{{.payload.amount}}</amount>{{range .payload.items}}<item><sku>{{.sku}}</sku></item>{{end}}</order>"
+    },
+    {
+      "ID": "sub_text",
+      "EventType": "order.note",
+      "Sample": {
+        "id": "ord_123",
+        "amount": 42.5,
+        "quantity": 2,
+        "customer": {
+          "email": "ada@example.com",
+          "name": null
+        },
+        "items": [
+          {
+            "sku": "A-1",
+            "price": 20
+          },
+          {
+            "sku": "B-2",
+            "price": 22.5
+          }
+        ],
+        "metadata": {
+          "source": "web"
+        }
+      },
+      "Headers": {
+        "Content-Type": "text/plain"
+      },
+      "Transform": "Order {{.payload.id}} at {{now | formatTime \"2006-01-02\"}}"
+    },
+    {
+      "ID": "sub_cond",
+      "EventType": "order.status",
+      "Sample": {
+        "id": "ord_123",
+        "amount": 42.5,
+        "quantity": 2,
+        "customer": {
+          "email": "ada@example.com",
+          "name": null
+        },
+        "items": [
+          {
+            "sku": "A-1",
+            "price": 20
+          },
+          {
+            "sku": "B-2",
+            "price": 22.5
+          }
+        ],
+        "metadata": {
+          "source": "web"
+        }
+      },
+      "Transform": "{{if .payload.quantity}}{\"status\": \"many\"}{{else}}{\"status\": \"none\"}{{end}}"
+    }
+  ]
+}
