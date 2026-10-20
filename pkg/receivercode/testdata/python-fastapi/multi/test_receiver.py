@@ -11,7 +11,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from receiver import Config, create_app
+from receiver import MAX_BODY_BYTES, Config, create_app
 
 SPEC = json.loads((Path(__file__).parent / "testdata" / "spec.json").read_text())
 
@@ -38,3 +38,9 @@ def test_vectors() -> None:
 def test_healthz() -> None:
     cfg = Config(secret=SPEC["test"]["secret"])
     assert TestClient(create_app(cfg)).get("/healthz").status_code == 200
+
+
+def test_body_too_large() -> None:
+    cfg = Config(secret=SPEC["test"]["secret"])
+    resp = TestClient(create_app(cfg)).post("/webhook", content=b"x" * (MAX_BODY_BYTES + 1))
+    assert resp.status_code == 413
