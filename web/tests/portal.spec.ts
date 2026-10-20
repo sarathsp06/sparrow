@@ -1,5 +1,7 @@
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { expect, test } from '@playwright/test';
-import { ensureAlertDelivery, mintPortalToken, newConsumer, registerWebhook } from './api';
+import { ensureAlertDelivery, ensureEventType, mintPortalToken, newConsumer, newEventName, registerWebhook } from './api';
 
 // The consumer portal authenticates purely from the URL fragment (#token=...),
 // so every test mints a link via the admin API and visits its path
@@ -72,4 +74,49 @@ test('a bare #token= link (no consumer in the fragment) still reaches the consum
   const { token } = await mintPortalToken(request, consumer);
   await page.goto(`/portal#token=${token}`);
   await expect(page.getByRole('button', { name: new RegExp(url) })).toBeVisible();
+});
+
+test('the Test tab sends the sample and an edited payload', async ({ page, request }) => {
+  // A receiver on this machine that records what Sparrow sends it.
+  const received: { headers: Record<string, string | string[] | undefined>; body: string }[] = [];
+  const receiver = createServer((req, res) => {
+    let body = '';
+    req.on('data', (chunk) => (body += chunk));
+    req.on('end', () => {
+      received.push({ headers: req.headers, body });
+      res.writeHead(200, { 'Content-Type': 'application/json' }).end('{"ok":true}');
+    });
+  });
+  await new Promise<void>((resolve) => receiver.listen(0, '127.0.0.1', resolve));
+  try {
+    const consumer = newConsumer();
+    const event = await ensureEventType(request, newEventName());
+    const url = `http://127.0.0.1:${(receiver.address() as AddressInfo).port}/webhook`;
+    await registerWebhook(request, consumer, url, [event]);
+    const { path } = await mintPortalToken(request, consumer);
+
+    await page.goto(path);
+    await page.getByRole('button', { name: new RegExp(url) }).click();
+    await page.getByRole('button', { name: 'Test', exact: true }).click();
+
+    const row = page.getByTestId('test-event-row');
+    await row.getByRole('button', { name: 'Send test event' }).click();
+    await expect(page.getByTestId('test-event-result')).toContainText('✓ 200');
+    expect(received).toHaveLength(1);
+    expect(received[0].headers['x-sparrow-test']).toBe('true');
+    expect(received[0].headers['x-sparrow-event-type']).toBe(event);
+
+    // An edited payload is what gets sent.
+    await row.getByRole('button', { name: 'Edit payload' }).click();
+    const editor = page.getByTestId('test-event-payload').locator('.cm-content');
+    await editor.click();
+    await page.keyboard.press('ControlOrMeta+A');
+    await page.keyboard.type('{"order_id":"edited-in-the-ui"}');
+    await page.waitForTimeout(2100); // one test event per webhook every 2s
+    await row.getByRole('button', { name: 'Send test event' }).click();
+    await expect.poll(() => received.length).toBe(2);
+    expect(JSON.parse(received[1].body).payload).toEqual({ order_id: 'edited-in-the-ui' });
+  } finally {
+    receiver.close();
+  }
 });
