@@ -449,4 +449,6 @@ Sparrow sends one delivery of the event type's sample payload (or of the
 a real delivery and marked `X-Sparrow-Test: true`, and answers with the
 receiver's `status_code`, `latency_ms` and `error_class`. It records no delivery
 and never affects the webhook's health. Each server allows one test event per
-webhook every 2 seconds.
+webhook every 2 seconds. For a catch-all (`*`) subscription, name the event to
+send with `"event_name": "order.paid"`; an event type that isn't registered has
+no sample, so pass a `payload` for it.

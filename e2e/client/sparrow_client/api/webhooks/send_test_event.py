@@ -109,7 +109,8 @@ def sync_detailed(
     error.
 
     One test event per webhook every 2 seconds on each server: more answer 429. 404 for an unknown
-    webhook or a subscription not on it.
+    webhook or a subscription not on it. 400 when a catch-all (*) subscription has no event_name, or
+    when the event type is not registered and no payload is given.
 
     Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:sendTestEvent.
 
@@ -157,7 +158,8 @@ def sync(
     error.
 
     One test event per webhook every 2 seconds on each server: more answer 429. 404 for an unknown
-    webhook or a subscription not on it.
+    webhook or a subscription not on it. 400 when a catch-all (*) subscription has no event_name, or
+    when the event type is not registered and no payload is given.
 
     Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:sendTestEvent.
 
@@ -200,7 +202,8 @@ async def asyncio_detailed(
     error.
 
     One test event per webhook every 2 seconds on each server: more answer 429. 404 for an unknown
-    webhook or a subscription not on it.
+    webhook or a subscription not on it. 400 when a catch-all (*) subscription has no event_name, or
+    when the event type is not registered and no payload is given.
 
     Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:sendTestEvent.
 
@@ -246,7 +249,8 @@ async def asyncio(
     error.
 
     One test event per webhook every 2 seconds on each server: more answer 429. 404 for an unknown
-    webhook or a subscription not on it.
+    webhook or a subscription not on it. 400 when a catch-all (*) subscription has no event_name, or
+    when the event type is not registered and no payload is given.
 
     Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:sendTestEvent.
 

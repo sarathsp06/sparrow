@@ -709,7 +709,7 @@ export interface paths {
          * Send a test event to a webhook
          * @description Sends one signed delivery of payload, or of the subscription's event type sample when payload is omitted (rendered through the subscription's transform, as a real delivery would be), to the webhook's URL, synchronously, and returns what the receiver answered. It uses the same request builder, signing, network policy (SSRF protection) and timeout as real deliveries and adds the header X-Sparrow-Test: true. It creates no delivery and never counts toward the webhook's health or auto-disable. A receiver error is reported in the response (status_code, error_class), not as an API error.
          *
-         *     One test event per webhook every 2 seconds on each server: more answer 429. 404 for an unknown webhook or a subscription not on it.
+         *     One test event per webhook every 2 seconds on each server: more answer 429. 404 for an unknown webhook or a subscription not on it. 400 when a catch-all (*) subscription has no event_name, or when the event type is not registered and no payload is given.
          *
          *     Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:sendTestEvent.
          */
@@ -2917,6 +2917,8 @@ export interface components {
              * @example https://example.com/schemas/SendTestEventInputBody.json
              */
             readonly $schema?: string;
+            /** @description Event to send. Required for a catch-all (*) subscription; otherwise it must be the subscription's event, if given. */
+            event_name?: string;
             /** @description Event payload to send instead of the event type's sample payload. It is rendered through the subscription's transform like a pushed event. */
             payload?: {
                 [key: string]: unknown;

@@ -22,8 +22,8 @@ type testEventService struct {
 	err     error
 }
 
-func (s *testEventService) SendTestEvent(_ context.Context, consumer, webhookID, subscriptionID string, payload map[string]any) (*webhooks.TestEventResult, error) {
-	s.sent = append(s.sent, consumer+"/"+webhookID+"/"+subscriptionID)
+func (s *testEventService) SendTestEvent(_ context.Context, consumer, webhookID, subscriptionID, eventName string, payload map[string]any) (*webhooks.TestEventResult, error) {
+	s.sent = append(s.sent, consumer+"/"+webhookID+"/"+subscriptionID+"/"+eventName)
 	s.payload = payload
 	if s.err != nil {
 		return nil, s.err
@@ -52,13 +52,13 @@ func TestSendTestEvent(t *testing.T) {
 	if out.StatusCode != 503 || out.LatencyMs != 42 || out.ErrorClass != "server_error" {
 		t.Errorf("result = %+v", out)
 	}
-	if len(svc.sent) != 1 || svc.sent[0] != "acme/wh1/sub1" || svc.payload != nil {
+	if len(svc.sent) != 1 || svc.sent[0] != "acme/wh1/sub1/" || svc.payload != nil {
 		t.Errorf("sent = %v, payload %v", svc.sent, svc.payload)
 	}
 
-	do(r, http.MethodPost, path, `{"subscription_id":"sub1","payload":{"id":"ord_9"}}`)
-	if svc.payload["id"] != "ord_9" {
-		t.Errorf("payload = %v, want the request's", svc.payload)
+	do(r, http.MethodPost, path, `{"subscription_id":"sub1","event_name":"order.paid","payload":{"id":"ord_9"}}`)
+	if svc.payload["id"] != "ord_9" || svc.sent[1] != "acme/wh1/sub1/order.paid" {
+		t.Errorf("sent %v with payload %v, want the request's event and payload", svc.sent[1], svc.payload)
 	}
 
 	svc.err = svcerrors.Error(svcerrors.ResourceExhausted, "slow down")

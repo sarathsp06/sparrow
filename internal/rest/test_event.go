@@ -14,6 +14,7 @@ type sendTestEventInput struct {
 	WebhookID string `path:"webhook_id" doc:"Webhook id (UUID)."`
 	Body      struct {
 		SubscriptionID string         `json:"subscription_id" required:"true" doc:"Subscription to send through: its transform renders the payload."`
+		EventName      string         `json:"event_name,omitempty" doc:"Event to send. Required for a catch-all (*) subscription; otherwise it must be the subscription's event, if given."`
 		Payload        map[string]any `json:"payload,omitempty" doc:"Event payload to send instead of the event type's sample payload. It is rendered through the subscription's transform like a pushed event."`
 	}
 }
@@ -35,11 +36,11 @@ func registerTestEventRoutes(api huma.API, svc webhooks.TestEventSender) {
 		Description: "Sends one signed delivery of payload, or of the subscription's event type sample when payload is omitted (rendered through the subscription's transform, as a real delivery would be), to the webhook's URL, synchronously, and returns what the receiver answered. " +
 			"It uses the same request builder, signing, network policy (SSRF protection) and timeout as real deliveries and adds the header X-Sparrow-Test: true. " +
 			"It creates no delivery and never counts toward the webhook's health or auto-disable. A receiver error is reported in the response (status_code, error_class), not as an API error.\n\n" +
-			"One test event per webhook every 2 seconds on each server: more answer 429. 404 for an unknown webhook or a subscription not on it.\n\nPortal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:sendTestEvent.",
+			"One test event per webhook every 2 seconds on each server: more answer 429. 404 for an unknown webhook or a subscription not on it. 400 when a catch-all (*) subscription has no event_name, or when the event type is not registered and no payload is given.\n\nPortal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:sendTestEvent.",
 		Errors: []int{400, 404, 429, 503},
 		Tags:   []string{"Webhooks"},
 	}, func(ctx context.Context, in *sendTestEventInput) (*sendTestEventOutput, error) {
-		res, err := svc.SendTestEvent(ctx, in.Consumer, in.WebhookID, in.Body.SubscriptionID, in.Body.Payload)
+		res, err := svc.SendTestEvent(ctx, in.Consumer, in.WebhookID, in.Body.SubscriptionID, in.Body.EventName, in.Body.Payload)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to send the test event")
 		}

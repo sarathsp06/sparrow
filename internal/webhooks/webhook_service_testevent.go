@@ -21,7 +21,7 @@ const TestEventInterval = 2 * time.Second
 
 // TestEventSender sends one-off test deliveries.
 type TestEventSender interface {
-	SendTestEvent(ctx context.Context, consumer, webhookID, subscriptionID string, payload map[string]any) (*TestEventResult, error)
+	SendTestEvent(ctx context.Context, consumer, webhookID, subscriptionID, eventName string, payload map[string]any) (*TestEventResult, error)
 }
 
 // TestEventResult is the outcome of a test delivery.
@@ -68,13 +68,17 @@ func (l *testEventLimiter) allow(id uuid.UUID, now time.Time) bool {
 	return true
 }
 
-// SendTestEvent sends one signed delivery of payload, or of the
-// subscription's event type sample when payload is nil, to the webhook, synchronously, and reports what the receiver
+// SendTestEvent sends one signed delivery of payload, or of the event type's
+// sample when payload is nil, to the webhook, synchronously, and reports what the receiver
 // answered. It goes through the same request builder, signing, SSRF policy
 // and timeout as a real delivery and carries X-Sparrow-Test: true. It records
 // no delivery and never touches the webhook's health or auto-disable state:
 // a test send is the sender's action, not the receiver's track record.
-func (s *WebhookService) SendTestEvent(ctx context.Context, consumer, webhookID, subscriptionID string, payload map[string]any) (*TestEventResult, error) {
+//
+// The event is the subscription's event type; a catch-all ("*")
+// subscription needs eventName. The event type need not be registered when
+// payload is given.
+func (s *WebhookService) SendTestEvent(ctx context.Context, consumer, webhookID, subscriptionID, eventName string, payload map[string]any) (*TestEventResult, error) {
 	if s.deliveryClient == nil {
 		return nil, svcerrors.Error(svcerrors.Unavailable, "test events are not available on this server")
 	}
@@ -93,9 +97,19 @@ func (s *WebhookService) SendTestEvent(ctx context.Context, consumer, webhookID,
 	if sub.WebhookID != webhook.ID {
 		return nil, svcerrors.Error(svcerrors.NotFound, "subscription not found on this webhook")
 	}
-	event, err := s.GetEvent(ctx, sub.EventName)
+	name, err := testEventName(sub.EventName, eventName)
 	if err != nil {
 		return nil, err
+	}
+	event, err := s.webhookRepo.GetEventByName(ctx, tenant.DefaultTenantID, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve event type: %w", err)
+	}
+	if event == nil && payload == nil {
+		return nil, svcerrors.Errorf(svcerrors.InvalidArgument, "event type %q is not registered, so it has no sample: send a payload", name)
+	}
+	if event == nil {
+		event = &store.EventRegistration{Name: name}
 	}
 	if !s.testEvents.allow(webhook.ID, time.Now()) {
 		return nil, svcerrors.Errorf(svcerrors.ResourceExhausted, "one test event per webhook every %s; try again shortly", TestEventInterval)
@@ -136,6 +150,20 @@ func (s *WebhookService) SendTestEvent(ctx context.Context, consumer, webhookID,
 		result.ErrorClass = string(category)
 	}
 	return result, nil
+}
+
+// testEventName is the event a test send is for: the subscription's, or
+// for a catch-all subscription the requested one.
+func testEventName(subscribed, requested string) (string, error) {
+	switch {
+	case subscribed != "*" && requested != "" && requested != subscribed:
+		return "", svcerrors.Errorf(svcerrors.InvalidArgument, "the subscription is for %q, not %q", subscribed, requested)
+	case subscribed != "*":
+		return subscribed, nil
+	case requested == "" || requested == "*":
+		return "", svcerrors.Error(svcerrors.InvalidArgument, "event_name is required for a catch-all subscription")
+	}
+	return requested, nil
 }
 
 // testEventBody renders the body the subscription would send for record, as
