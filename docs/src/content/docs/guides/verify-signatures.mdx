@@ -60,6 +60,23 @@ Re-serialized JSON (different key order, whitespace or escaping) never matches.
 Each example below shows how to get the raw bytes in that framework.
 </Aside>
 
+## Routing headers
+
+Every delivery, signed or not, also carries headers that say what it is, so a
+receiver can route it without reading the body (a transform can reshape the
+body and drop the event name):
+
+| Header | Value |
+|---|---|
+| `X-Sparrow-Event-Type` | The event type name, e.g. `order.paid` |
+| `X-Sparrow-Event-Version` | The event type version the event was accepted under, e.g. `2` |
+| `X-Sparrow-Subscription-ID` | The subscription that matched the event |
+| `X-Sparrow-Event-ID`, `X-Sparrow-Delivery-ID`, `X-Sparrow-Webhook-ID` | The event, delivery and webhook IDs |
+
+They are not signed. Route on them only **after** the signature check passes.
+Custom webhook or subscription headers can't override any `X-Sparrow-*` header
+listed here.
+
 ## Where the secret or public key comes from
 
 | Scheme | Value the receiver needs | Where you get it |

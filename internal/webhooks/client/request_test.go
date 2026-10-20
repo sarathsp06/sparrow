@@ -222,7 +222,9 @@ func TestPrepareDeliveryRequest(t *testing.T) {
 		},
 	}
 
+	subID := uuid.New()
 	sub := &store.EventSubscription{
+		ID:      subID,
 		Method:  "POST",
 		Timeout: 20,
 		Headers: map[string]string{
@@ -232,9 +234,10 @@ func TestPrepareDeliveryRequest(t *testing.T) {
 	}
 
 	event := &store.EventRecord{
-		ID:       eventID,
-		Event:    "user.created",
-		Consumer: "default",
+		ID:           eventID,
+		Event:        "user.created",
+		Consumer:     "default",
+		EventVersion: 3,
 	}
 
 	payload := []byte(`{"user_id": "123"}`)
@@ -275,6 +278,10 @@ func TestPrepareDeliveryRequest(t *testing.T) {
 
 	if dr.EventName != event.Event {
 		t.Errorf("Expected EventName %s, got %s", event.Event, dr.EventName)
+	}
+
+	if dr.EventVersion != 3 || dr.SubscriptionID != subID.String() {
+		t.Errorf("EventVersion, SubscriptionID = %d, %q; want 3, %q", dr.EventVersion, dr.SubscriptionID, subID)
 	}
 
 	// Check header merging - subscription headers should override
@@ -321,6 +328,10 @@ func TestPrepareDeliveryRequestWithoutSubscription(t *testing.T) {
 
 	if dr.Timeout != 15*time.Second {
 		t.Errorf("Expected Timeout 15s (from webhook), got %v", dr.Timeout)
+	}
+
+	if dr.SubscriptionID != "" {
+		t.Errorf("SubscriptionID = %q without a subscription, want empty", dr.SubscriptionID)
 	}
 
 	// Check only webhook headers are present

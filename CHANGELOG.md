@@ -16,6 +16,10 @@ migrations run on startup.
 
 ## [Unreleased]
 
+### Added
+
+- Every delivery carries `X-Sparrow-Event-Type`, `X-Sparrow-Event-Version` and `X-Sparrow-Subscription-ID`, so a receiver can route on headers even when a transform reshapes the body. Custom headers can't override them.
+
 ### Changed
 
 - The quickstart and the Register webhook page now point to [Testhooks](https://testhooks.vercel.app/), an open-source webhook inspector, for watching test deliveries.
