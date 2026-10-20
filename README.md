@@ -74,6 +74,7 @@ Prefer curl or a client generated from the OpenAPI spec? Follow the [Quickstart]
 - **Shaped for the receiver**: per-subscription Go templates reshape payloads; shipped recipes turn an event into a Slack, Discord, PagerDuty, ntfy, ClickHouse, Twilio, SendGrid, or CloudEvents call with no glue service.
 - **Safe to evolve**: versioned event types, soft schema validation that warns instead of dropping, and export/import of definitions between environments.
 - **Self-service for your customers**: an embeddable, token-scoped portal where each consumer registers endpoints and inspects and retries their own deliveries.
+- **Receivers in one click**: generate a ready-to-run receiver for any webhook in Go, Python or Node.js (signature verification, routing, typed models and passing tests), then send it a test event, from the portal, the dashboard, `sparrow scaffold` or an agent.
 - **One API, documented**: OpenAPI 3.1 generated from the Go handlers, served interactively at `/docs`, committed at [`api/openapi.yaml`](api/openapi.yaml).
 
 Curious how it fits together? Read [How it works](https://sarathsp06.github.io/sparrow/getting-started/how-it-works/), or explore the [interactive architecture diagram](https://sarathsp06.github.io/sparrow/diagrams/sparrow-layered-architecture.html).
