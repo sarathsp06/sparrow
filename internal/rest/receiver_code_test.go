@@ -26,6 +26,9 @@ type receiverService struct {
 	subs    []*store.EventSubscription
 	sendErr error
 	sent    []string
+	payload map[string]any
+	// getErr fails GetEvent for order.paid with it.
+	getErr error
 }
 
 func newReceiverService(scheme store.SignatureType) *receiverService {
@@ -53,7 +56,19 @@ func (s *receiverService) ListSubscriptions(_ context.Context, _, _, _ string, _
 	return s.subs, 0, nil
 }
 
+func (s *receiverService) GetSubscription(_ context.Context, id, consumer string) (*store.EventSubscription, error) {
+	for _, sub := range s.subs {
+		if sub.ID.String() == id && sub.Consumer == consumer {
+			return sub, nil
+		}
+	}
+	return nil, svcerrors.Error(svcerrors.NotFound, "subscription not found")
+}
+
 func (s *receiverService) GetEvent(_ context.Context, name string) (*store.EventRegistration, error) {
+	if s.getErr != nil && name == "order.paid" {
+		return nil, s.getErr
+	}
 	if name == "order.note" {
 		return nil, svcerrors.Error(svcerrors.NotFound, "event type not found")
 	}
@@ -66,12 +81,13 @@ func (s *receiverService) WebhookSigningPublicKeyHex([]byte) string { return rec
 
 func (s *receiverService) AlertDeliveryConfigured(context.Context) (bool, error) { return false, nil }
 
-func (s *receiverService) SendTestEvent(_ context.Context, consumer, webhookID, subscriptionID string) (*webhooks.TestEventResult, error) {
+func (s *receiverService) SendTestEvent(_ context.Context, consumer, webhookID, subscriptionID string, payload map[string]any) (*webhooks.TestEventResult, error) {
 	s.sent = append(s.sent, consumer+"/"+webhookID+"/"+subscriptionID)
+	s.payload = payload
 	if s.sendErr != nil {
 		return nil, s.sendErr
 	}
-	return &webhooks.TestEventResult{StatusCode: 503, Latency: 42 * time.Millisecond, ResponseExcerpt: "down", ErrorClass: "server_error"}, nil
+	return &webhooks.TestEventResult{StatusCode: 503, Latency: 42 * time.Millisecond, ErrorClass: "server_error"}, nil
 }
 
 func receiverRouter(svc *receiverService) http.Handler {
@@ -205,19 +221,22 @@ func TestSendTestEvent(t *testing.T) {
 		t.Fatalf("status = %d, body %s", rec.Code, rec.Body)
 	}
 	var out struct {
-		StatusCode      int    `json:"status_code"`
-		LatencyMs       int64  `json:"latency_ms"`
-		ResponseExcerpt string `json:"response_excerpt"`
-		ErrorClass      string `json:"error_class"`
+		StatusCode int    `json:"status_code"`
+		LatencyMs  int64  `json:"latency_ms"`
+		ErrorClass string `json:"error_class"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
 		t.Fatal(err)
 	}
-	if out.StatusCode != 503 || out.LatencyMs != 42 || out.ResponseExcerpt != "down" || out.ErrorClass != "server_error" {
+	if out.StatusCode != 503 || out.LatencyMs != 42 || out.ErrorClass != "server_error" {
 		t.Errorf("result = %+v", out)
 	}
-	if len(svc.sent) != 1 || svc.sent[0] != "acme/"+svc.reg.ID.String()+"/"+subID {
-		t.Errorf("sent = %v", svc.sent)
+	if len(svc.sent) != 1 || svc.sent[0] != "acme/"+svc.reg.ID.String()+"/"+subID || svc.payload != nil {
+		t.Errorf("sent = %v, payload %v", svc.sent, svc.payload)
+	}
+	do(h, http.MethodPost, path, `{"subscription_id":"`+subID+`","payload":{"id":"ord_9"}}`)
+	if svc.payload["id"] != "ord_9" {
+		t.Errorf("payload = %v, want the request's", svc.payload)
 	}
 
 	svc.sendErr = svcerrors.Error(svcerrors.ResourceExhausted, "slow down")
@@ -247,5 +266,43 @@ func TestCapabilitiesListReceiverTargets(t *testing.T) {
 	}
 	if strings.Join(ids, ",") != "go-nethttp,node-express,python-fastapi" {
 		t.Errorf("targets = %v", ids)
+	}
+}
+
+func TestGenerateReceiverCodeCapsSubscriptions(t *testing.T) {
+	svc := newReceiverService(store.SignatureTypeHMAC)
+	for i := 0; i < 200; i++ {
+		svc.subs = append(svc.subs, &store.EventSubscription{ID: uuid.New(), WebhookID: svc.reg.ID, EventName: "order.paid", Consumer: "acme"})
+	}
+	path := "/v1/consumers/acme/webhooks/" + svc.reg.ID.String() + ":generateReceiverCode"
+	rec := do(receiverRouter(svc), http.MethodPost, path, `{"language":"go","framework":"nethttp"}`)
+	var out struct {
+		HasMore bool `json:"has_more"`
+		Spec    struct {
+			Subscriptions []any `json:"subscriptions"`
+		} `json:"spec"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || rec.Code != http.StatusOK {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	if !out.HasMore || len(out.Spec.Subscriptions) != 200 {
+		t.Errorf("has_more = %v with %d handlers, want true with 200", out.HasMore, len(out.Spec.Subscriptions))
+	}
+	// Named subscriptions are looked up one by one, whatever their position.
+	last := svc.subs[len(svc.subs)-1].ID.String()
+	out.HasMore = false
+	out.Spec.Subscriptions = nil
+	rec = do(receiverRouter(svc), http.MethodPost, path, `{"language":"go","framework":"nethttp","subscription_ids":["`+last+`"]}`)
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || rec.Code != http.StatusOK || out.HasMore || len(out.Spec.Subscriptions) != 1 {
+		t.Errorf("subscription past the cap: %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestGenerateReceiverCodeFailsOnEventTypeErrors(t *testing.T) {
+	svc := newReceiverService(store.SignatureTypeHMAC)
+	svc.getErr = svcerrors.Error(svcerrors.Unavailable, "database unavailable")
+	rec := do(receiverRouter(svc), http.MethodPost, "/v1/consumers/acme/webhooks/"+svc.reg.ID.String()+":generateReceiverCode", `{"language":"go","framework":"nethttp"}`)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("status = %d, want 503 instead of a degraded project", rec.Code)
 	}
 }

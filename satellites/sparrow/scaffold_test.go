@@ -40,7 +40,7 @@ func startScaffoldServer(t *testing.T) *scaffoldServer {
 		case strings.HasSuffix(r.URL.Path, ":generateReceiverCode"):
 			_, _ = w.Write([]byte(`{"files":[{"path":"main.go","content":"package main\n","mode":420},{"path":"scripts/run.sh","content":"#!/bin/sh\n","mode":493}],
 				"spec":{"subscriptions":[{"id":"sub_1","event_type":"order.paid","notes":["best effort"]},{"id":"sub_2","event_type":"order.note"}]},
-				"run":"go run .","test":"go test ./..."}`))
+				"run":"go run .","test":"go test ./...","has_more":true}`))
 		case strings.HasSuffix(r.URL.Path, ":sendTestEvent"):
 			if s.limitOne && !s.limited {
 				s.limited = true
@@ -49,7 +49,7 @@ func startScaffoldServer(t *testing.T) *scaffoldServer {
 				return
 			}
 			s.tests = append(s.tests, string(raw))
-			_ = json.NewEncoder(w).Encode(map[string]any{"status_code": s.status, "latency_ms": 3, "response_excerpt": "nope", "error_class": map[bool]string{true: "", false: "client_error"}[s.status < 300]})
+			_ = json.NewEncoder(w).Encode(map[string]any{"status_code": s.status, "latency_ms": 3, "error_class": map[bool]string{true: "", false: "client_error"}[s.status < 300]})
 		default:
 			http.NotFound(w, r)
 		}
@@ -72,7 +72,7 @@ func TestScaffoldWritesTheProject(t *testing.T) {
 	if body["language"] != "go" || body["framework"] != "nethttp" || len(body["subscription_ids"].([]any)) != 1 {
 		t.Errorf("request body = %v", body)
 	}
-	if !strings.Contains(out, "Wrote 2 files") || !strings.Contains(out, "go test ./...") || !strings.Contains(out, "note: order.paid: best effort") {
+	if !strings.Contains(out, "Wrote 2 files") || !strings.Contains(out, "go test ./...") || !strings.Contains(out, "note: order.paid: best effort") || !strings.Contains(out, "warning: the webhook has more than 2 subscriptions") {
 		t.Errorf("output:\n%s", out)
 	}
 	info, err := os.Stat(filepath.Join(dir, "scripts", "run.sh"))
