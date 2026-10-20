@@ -1,5 +1,7 @@
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { expect, test } from '@playwright/test';
-import { ensureAlertDelivery, mintPortalToken, newConsumer, registerWebhook } from './api';
+import { ensureAlertDelivery, ensureEventType, mintPortalToken, newConsumer, newEventName, registerWebhook } from './api';
 
 // The consumer portal authenticates purely from the URL fragment (#token=...),
 // so every test mints a link via the admin API and visits its path
@@ -72,4 +74,47 @@ test('a bare #token= link (no consumer in the fragment) still reaches the consum
   const { token } = await mintPortalToken(request, consumer);
   await page.goto(`/portal#token=${token}`);
   await expect(page.getByRole('button', { name: new RegExp(url) })).toBeVisible();
+});
+
+test('the Integrate tab generates a receiver and sends a test event', async ({ page, request }) => {
+  // A receiver on this machine that records what Sparrow sends it.
+  const received: { headers: Record<string, string | string[] | undefined> }[] = [];
+  const receiver = createServer((req, res) => {
+    received.push({ headers: req.headers });
+    req.resume();
+    req.on('end', () => res.writeHead(200, { 'Content-Type': 'application/json' }).end('{"ok":true}'));
+  });
+  await new Promise<void>((resolve) => receiver.listen(0, '127.0.0.1', resolve));
+  try {
+    const consumer = newConsumer();
+    const event = await ensureEventType(request, newEventName());
+    const url = `http://127.0.0.1:${(receiver.address() as AddressInfo).port}/webhook`;
+    await registerWebhook(request, consumer, url, [event]);
+    const { path } = await mintPortalToken(request, consumer);
+
+    await page.goto(path);
+    await page.getByRole('button', { name: new RegExp(url) }).click();
+    await page.getByRole('button', { name: 'Integrate' }).click();
+
+    await page.getByRole('button', { name: 'Python (FastAPI)' }).click();
+    const files = page.getByRole('navigation', { name: 'Generated files' });
+    await expect(files.getByRole('button', { name: 'receiver.py', exact: true })).toBeVisible();
+    await expect(page.getByTestId('receiver-code-preview')).toContainText('async def handle_');
+    await files.getByRole('button', { name: 'sparrow_verify.py', exact: true }).click();
+    await expect(page.getByTestId('receiver-code-preview')).toContainText('def verify_hmac');
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Download .zip' }).click(),
+    ]);
+    expect(download.suggestedFilename()).toBe('sparrow-receiver-python-fastapi.zip');
+
+    await page.getByTestId('test-event-row').getByRole('button', { name: 'Send test event' }).click();
+    await expect(page.getByTestId('test-event-result')).toContainText('✓ 200');
+    expect(received).toHaveLength(1);
+    expect(received[0].headers['x-sparrow-test']).toBe('true');
+    expect(received[0].headers['x-sparrow-event-type']).toBe(event);
+  } finally {
+    receiver.close();
+  }
 });
