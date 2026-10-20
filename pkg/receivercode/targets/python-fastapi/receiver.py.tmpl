@@ -1,0 +1,230 @@
+# [[.Header]]
+"""Receives Sparrow webhook deliveries for webhook [[.WebhookID]].
+
+Run it with ``python receiver.py`` (or ``uvicorn receiver:create_app --factory``).
+"""
+
+import json
+import logging
+import os
+import sys
+import threading
+import time
+[[- if .HasXML]]
+import xml.etree.ElementTree as ET
+[[- end]]
+from collections import OrderedDict
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
+from typing import Any, TextIO
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from pydantic import TypeAdapter, ValidationError
+
+import handlers
+[[- if .HasModels]]
+import models
+[[- end]]
+from sparrow_verify import SignatureVerificationError, [[if .Ed25519]]verify_ed25519[[else]]verify_hmac[[end]]
+
+# How far a delivery's webhook-timestamp may be from this server's clock
+# before it is rejected as a possible replay.
+TOLERANCE_SECONDS = [[.ToleranceSeconds]]
+
+# How many webhook-ids are remembered to drop redeliveries. 0 turns
+# deduplication off.
+DEDUP_CAPACITY = [[.DedupCapacity]]
+
+# Caps the request body read before verification.
+MAX_BODY_BYTES = 10 * 1024 * 1024
+
+# Answers a verified delivery that no handler matches. A 4xx makes it fail
+# visibly in Sparrow instead of being dropped.
+UNKNOWN_EVENT_STATUS = [[.UnknownStatus]]
+[[- if .Ed25519]]
+
+# This webhook's Ed25519 public key. It is public, so it is safe to embed;
+# [[.EnvPublicKey]] overrides it (tests use a throwaway key).
+SIGNING_PUBLIC_KEY = "[[.PublicKey]]"
+[[- end]]
+
+
+@dataclass
+class Config:
+[[- if .Ed25519]]
+    # Hex Ed25519 public key deliveries are verified with.
+    public_key: str = SIGNING_PUBLIC_KEY
+[[- else]]
+    # The webhook's signing secret (whsec_...). Never commit it.
+    secret: str = ""
+[[- end]]
+    # Returns the current Unix time; None means time.time.
+    now: Callable[["[["]]], float] | None = None
+    # Gets one JSON line per handler call when set ([[.EnvTestMode]]=1 sets
+    # it to stdout).
+    test_log: TextIO | None = None
+    _log_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+
+    @classmethod
+    def from_env(cls) -> "Config":
+        cfg = cls()
+[[- if .Ed25519]]
+        cfg.public_key = os.environ.get("[[.EnvPublicKey]]") or SIGNING_PUBLIC_KEY
+[[- else]]
+        cfg.secret = os.environ.get("[[.EnvSecret]]", "")
+        if not cfg.secret:
+            raise RuntimeError("[[.EnvSecret]] is not set")
+[[- end]]
+        if os.environ.get("[[.EnvTestMode]]") == "1":
+            cfg.test_log = sys.stdout
+        return cfg
+
+
+class DecodeError(Exception):
+    """The body does not match the handler's model; answered with 400."""
+
+
+class _Dedup:
+    """In-memory LRU of seen webhook-ids.
+
+    It is per process and lost on restart: with several instances, use a
+    shared store (your database) instead.
+    """
+
+    def __init__(self, capacity: int) -> None:
+        self._capacity = capacity
+        self._items: OrderedDict[str, None] = OrderedDict()
+        self._lock = threading.Lock()
+
+    def __contains__(self, msg_id: str) -> bool:
+        with self._lock:
+            return msg_id in self._items
+
+    def add(self, msg_id: str) -> None:
+        if self._capacity <= 0 or not msg_id:
+            return
+        with self._lock:
+            self._items[msg_id] = None
+            self._items.move_to_end(msg_id)
+            while len(self._items) > self._capacity:
+                self._items.popitem(last=False)
+
+
+Route = Callable[["[["]]bytes, str], Awaitable[None]]
+
+
+def create_app(config: Config | None = None) -> FastAPI:
+    """Builds the receiver app; config defaults to Config.from_env()."""
+    cfg = config or Config.from_env()
+    seen = _Dedup(DEDUP_CAPACITY)
+    app = FastAPI(title="Sparrow receiver", docs_url=None, redoc_url=None, openapi_url=None)
+
+    def record(handler: str, subscription_id: str, event_type: str, msg_id: str, value: Any) -> None:
+        if cfg.test_log is None:
+            return
+        line = json.dumps({
+            "handler": handler,
+            "subscription_id": subscription_id,
+            "event_type": event_type,
+            "webhook_id": msg_id,
+            "value": value,
+        })
+        with cfg._log_lock:
+            cfg.test_log.write(line + "\n")
+            cfg.test_log.flush()
+[[- range .Subs]]
+[[- if or (eq .Model "envelope") (eq .Model "json")]]
+
+    [[.Adapter]] = TypeAdapter([[.ModelType]])
+[[- end]]
+
+    async def route_[[snake .Name]](body: bytes, msg_id: str) -> None:
+[[- if eq .Model "raw"]]
+        try:
+            event = body.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise DecodeError(str(exc)) from exc
+        record("[[.Handler]]", "[[.ID]]", [[quote .EventType]], msg_id, event)
+[[- else if eq .Model "xml"]]
+        try:
+            event = ET.fromstring(body)
+        except ET.ParseError as exc:
+            raise DecodeError(str(exc)) from exc
+        record("[[.Handler]]", "[[.ID]]", [[quote .EventType]], msg_id, body.decode("utf-8", "replace"))
+[[- else]]
+        try:
+            event = [[.Adapter]].validate_json(body)
+        except ValidationError as exc:
+            raise DecodeError(str(exc)) from exc
+        record("[[.Handler]]", "[[.ID]]", [[quote .EventType]], msg_id,
+               [[.Adapter]].dump_python(event, mode="json", by_alias=True))
+[[- end]]
+        await handlers.[[.Func]](event)
+[[- end]]
+
+    by_subscription: dict[str, Route] = {
+[[- range .Subs]]
+        "[[.ID]]": route_[[snake .Name]],
+[[- end]]
+    }
+    by_event_type: dict[str, Route] = {
+[[- range .EventRoutes]]
+        [[quote .EventType]]: route_[[snake .Name]],
+[[- end]]
+    }
+
+    @app.get("[[.HealthPath]]")
+    async def healthz() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.post("[[.WebhookPath]]")
+    async def webhook(request: Request) -> JSONResponse:
+        body = await request.body()
+        if len(body) > MAX_BODY_BYTES:
+            return JSONResponse({"error": "body too large"}, status_code=413)
+
+        # 1. Verify the signature on the raw bytes, before any parsing. This
+        # also rejects a webhook-timestamp outside TOLERANCE_SECONDS.
+        now = cfg.now() if cfg.now else time.time()
+        try:
+[[- if .Ed25519]]
+            verify_ed25519(body, request.headers, cfg.public_key, TOLERANCE_SECONDS, now)
+[[- else]]
+            verify_hmac(body, request.headers, cfg.secret, TOLERANCE_SECONDS, now)
+[[- end]]
+        except SignatureVerificationError:
+            return JSONResponse({"error": "invalid signature"}, status_code=401)
+
+        # 2. Drop redeliveries: webhook-id stays the same on every retry.
+        msg_id = request.headers.get("webhook-id", "")
+        if msg_id in seen:
+            return JSONResponse({"status": "duplicate"})
+
+        # 3. Route on headers, never on the body: a transform can reshape it.
+        route = by_subscription.get(request.headers.get("x-sparrow-subscription-id", "")) or \
+            by_event_type.get(request.headers.get("x-sparrow-event-type", ""))
+        if route is None:
+            return JSONResponse({"error": "no handler for this event"}, status_code=UNKNOWN_EVENT_STATUS)
+        try:
+            await route(body, msg_id)
+        except DecodeError as exc:
+            return JSONResponse({"error": f"decode body: {exc}"}, status_code=400)
+        except Exception:  # noqa: BLE001 - any handler failure is retried by Sparrow
+            logging.getLogger("receiver").exception("handler failed")
+            return JSONResponse({"error": "handler failed"}, status_code=500)
+        # Remember the delivery only once it was handled, so a failed attempt
+        # is processed again when Sparrow retries it.
+        seen.add(msg_id)
+
+        # Answer fast: Sparrow waits for this response. Move slow work to a
+        # queue or background task and return 2xx as soon as it is accepted.
+        return JSONResponse({"status": "ok"})
+
+    return app
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(create_app(), host="0.0.0.0", port=int(os.environ.get("PORT", "[[.Port]]")))

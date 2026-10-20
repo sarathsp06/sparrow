@@ -94,6 +94,11 @@ release_module() {
 release_leaf pkg/access "pkg/access/$VERSION"
 release_leaf pkg/signature "pkg/signature/$VERSION"
 release_leaf pkg/template "pkg/template/$VERSION"
+# receivercode has replace directives for both, so it is a release_module
+# pinned to the tags above rather than a leaf.
+release_module pkg/receivercode "pkg/receivercode/$VERSION" \
+	"github.com/sarathsp06/sparrow/pkg/signature@$VERSION" \
+	"github.com/sarathsp06/sparrow/pkg/template@$VERSION"
 release_module satellites/recipes "satellites/recipes/$VERSION" \
 	"github.com/sarathsp06/sparrow/pkg/template@$VERSION"
 release_module satellites/sparrow-sinks "satellites/sparrow-sinks/$VERSION" \

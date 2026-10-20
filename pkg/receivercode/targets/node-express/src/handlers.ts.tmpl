@@ -1,0 +1,29 @@
+// [[.Header]]
+
+// Your handlers: one per subscription. Each runs after the signature is
+// verified and the body is decoded. Throw to answer 500, so Sparrow retries
+// the delivery.
+[[- if .HasModels]]
+
+import type * as models from "./models.ts";
+[[- end]]
+[[range .Subs]]
+/**
+ * Handles [[.EventType]] deliveries (subscription [[.ID]]).
+[[- if eq .Model "raw"]]
+ *
+ * The body is passed undecoded ([[.Format]]).
+[[- end]]
+[[- if eq .Model "xml"]]
+ *
+ * The body is passed as XML text: parse it with the XML library you prefer.
+[[- end]]
+[[- if .Notes]]
+ *
+[[comment " * " .Notes | trimNL]]
+[[- end]]
+ */
+export async function [[.Func]](event: [[.ModelType]]): Promise<void> {
+  // TODO: your logic
+}
+[[end -]]

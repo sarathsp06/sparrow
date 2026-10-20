@@ -18,6 +18,7 @@ migrations run on startup.
 
 ### Added
 
+- `pkg/receivercode` (experimental Go module): generates a ready-to-run receiver project for a webhook in Go (`net/http`), Python (FastAPI) or Node.js (Express, TypeScript). The project verifies signatures on the raw body, rejects stale timestamps, drops redeliveries, routes on headers, decodes each subscription's payload (JSON, XML or text, including transformed bodies) and ships with tests that replay signed vectors. It is excluded from the 1.x compatibility promise for now.
 - Every delivery carries `X-Sparrow-Event-Type`, `X-Sparrow-Event-Version` and `X-Sparrow-Subscription-ID`, so a receiver can route on headers even when a transform reshapes the body. Custom headers can't override them.
 
 ### Changed

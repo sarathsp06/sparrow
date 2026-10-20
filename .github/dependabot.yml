@@ -6,6 +6,7 @@ updates:
     directories:
       - /
       - /pkg/access
+      - /pkg/receivercode
       - /pkg/signature
       - /pkg/template
       - /satellites/recipes

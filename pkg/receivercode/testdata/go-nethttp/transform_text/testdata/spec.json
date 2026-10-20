@@ -1,0 +1,261 @@
+{
+  "spec_version": 1,
+  "target": "go-nethttp",
+  "webhook": {
+    "id": "wh_text",
+    "signing_scheme": "hmac"
+  },
+  "receiver": {
+    "webhook_path": "/webhook",
+    "health_path": "/healthz",
+    "secret_env": "SPARROW_WEBHOOK_SECRET",
+    "test_mode_env": "SPARROW_RECEIVER_TEST_MODE",
+    "port_env": "PORT",
+    "default_port": 8000,
+    "tolerance_seconds": 300,
+    "dedup_capacity": 10000,
+    "dispatch_headers": [
+      "X-Sparrow-Subscription-ID",
+      "X-Sparrow-Event-Type"
+    ],
+    "unknown_event_status": 422
+  },
+  "subscriptions": [
+    {
+      "id": "sub_text",
+      "event_type": "order.paid",
+      "handler": "handleOrderPaid",
+      "format": "text",
+      "content_type": "text/plain; charset=utf-8",
+      "model": "raw"
+    }
+  ],
+  "test": {
+    "now": 1767225600,
+    "secret": "whsec_ud8NoMerkUVxlzJ6EfLCIW3YV0o4Lt3PkVT/57+lTkM=",
+    "wrong_secret": "whsec_JVx3jopbKQVOIUhXCrM+KRpEKkBHbtGwj1yZj7BqiNs=",
+    "public_key": "9b6c17f07937ef056495ef4eef8e51887c3c87e09160878dba4dd0d0437a1c97",
+    "private_key_seed": "7dcd0dbd559313b0349df34f3307fb0c3ed64765f52eb6d80c4bda0905ebe59e",
+    "wrong_private_key_seed": "db6dfebefa4315abbdaf7b2fbc61f36729e06cc35e3bce3aa16e6c72e1bbb5d7"
+  },
+  "vectors": [
+    {
+      "name": "valid",
+      "subscription_id": "sub_text",
+      "message_id": "msg_test_1_valid",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:test"
+      ],
+      "event_type": "order.paid",
+      "content_type": "text/plain; charset=utf-8",
+      "headers": {
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Subscription-ID": "sub_text",
+        "webhook-id": "msg_test_1_valid",
+        "webhook-signature": "v1,yQ2ww4wGA2eHqa9F3YdQkawUlUshJOGA4iew7AowaqY=",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "Order ord_123 paid 42.5 EUR at 2026-01-01T00:00:00Z",
+      "expect": {
+        "status": 200,
+        "handler": "handleOrderPaid",
+        "value": "Order ord_123 paid 42.5 EUR at 2026-01-01T00:00:00Z",
+        "match": "equal"
+      }
+    },
+    {
+      "name": "duplicate",
+      "subscription_id": "sub_text",
+      "message_id": "msg_test_1_valid",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:test"
+      ],
+      "event_type": "order.paid",
+      "content_type": "text/plain; charset=utf-8",
+      "headers": {
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Subscription-ID": "sub_text",
+        "webhook-id": "msg_test_1_valid",
+        "webhook-signature": "v1,yQ2ww4wGA2eHqa9F3YdQkawUlUshJOGA4iew7AowaqY=",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "Order ord_123 paid 42.5 EUR at 2026-01-01T00:00:00Z",
+      "expect": {
+        "status": 200,
+        "handler": ""
+      }
+    },
+    {
+      "name": "tampered_body",
+      "subscription_id": "sub_text",
+      "message_id": "msg_test_1_tampered",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:test"
+      ],
+      "tamper": true,
+      "event_type": "order.paid",
+      "content_type": "text/plain; charset=utf-8",
+      "headers": {
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Subscription-ID": "sub_text",
+        "webhook-id": "msg_test_1_tampered",
+        "webhook-signature": "v1,/a0SfF1a9wBPTf/RpeoQQIIND1YcQRbOCdzWb3WX5ho=",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "Order ord_123 paid 42.5 EUR at 2026-01-01T00:00:00Z ",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "wrong_key",
+      "subscription_id": "sub_text",
+      "message_id": "msg_test_1_wrong_key",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:wrong"
+      ],
+      "event_type": "order.paid",
+      "content_type": "text/plain; charset=utf-8",
+      "headers": {
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Subscription-ID": "sub_text",
+        "webhook-id": "msg_test_1_wrong_key",
+        "webhook-signature": "v1,JzE1+NDL8KL83tOzWAdaFraO0pTOMEQLt9YM958TLL0=",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "Order ord_123 paid 42.5 EUR at 2026-01-01T00:00:00Z",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "timestamp_too_old",
+      "subscription_id": "sub_text",
+      "message_id": "msg_test_1_old",
+      "timestamp_offset": -600,
+      "signatures": [
+        "v1:test"
+      ],
+      "event_type": "order.paid",
+      "content_type": "text/plain; charset=utf-8",
+      "headers": {
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Subscription-ID": "sub_text",
+        "webhook-id": "msg_test_1_old",
+        "webhook-signature": "v1,Y2PO3Uur+UcU+KpFee2vsPaQRlsAhai7Gm2sQxDz2Oo=",
+        "webhook-timestamp": "1767225000"
+      },
+      "body": "Order ord_123 paid 42.5 EUR at 2026-01-01T00:00:00Z",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "timestamp_in_future",
+      "subscription_id": "sub_text",
+      "message_id": "msg_test_1_future",
+      "timestamp_offset": 600,
+      "signatures": [
+        "v1:test"
+      ],
+      "event_type": "order.paid",
+      "content_type": "text/plain; charset=utf-8",
+      "headers": {
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Subscription-ID": "sub_text",
+        "webhook-id": "msg_test_1_future",
+        "webhook-signature": "v1,YvZJyn9zr1IpNuA/sK/JuEFv8dliGCSnjaQiMZEZ5Po=",
+        "webhook-timestamp": "1767226200"
+      },
+      "body": "Order ord_123 paid 42.5 EUR at 2026-01-01T00:00:00Z",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "missing_signature",
+      "subscription_id": "sub_text",
+      "message_id": "msg_test_1_unsigned",
+      "timestamp_offset": 0,
+      "signatures": null,
+      "event_type": "order.paid",
+      "content_type": "text/plain; charset=utf-8",
+      "headers": {
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Subscription-ID": "sub_text",
+        "webhook-id": "msg_test_1_unsigned",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "Order ord_123 paid 42.5 EUR at 2026-01-01T00:00:00Z",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "event_type_fallback",
+      "subscription_id": "sub_text",
+      "message_id": "msg_test_1_fallback",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:test"
+      ],
+      "omit_subscription_header": true,
+      "event_type": "order.paid",
+      "content_type": "text/plain; charset=utf-8",
+      "headers": {
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-Sparrow-Event-Type": "order.paid",
+        "webhook-id": "msg_test_1_fallback",
+        "webhook-signature": "v1,iIrzRTFxxKlqHL/rG5eOqjVV54OhvARpZXYJKXiXlWg=",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "Order ord_123 paid 42.5 EUR at 2026-01-01T00:00:00Z",
+      "expect": {
+        "status": 200,
+        "handler": "handleOrderPaid",
+        "value": "Order ord_123 paid 42.5 EUR at 2026-01-01T00:00:00Z",
+        "match": "equal"
+      }
+    },
+    {
+      "name": "unknown_event",
+      "subscription_id": "sub_text",
+      "message_id": "msg_test_1_unknown",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:test"
+      ],
+      "omit_subscription_header": true,
+      "event_type": "sparrow.receivercode.unknown",
+      "content_type": "text/plain; charset=utf-8",
+      "headers": {
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-Sparrow-Event-Type": "sparrow.receivercode.unknown",
+        "webhook-id": "msg_test_1_unknown",
+        "webhook-signature": "v1,P/xd7RU+lELr2ILU5r41Un0ap2nEIjid47soq5tDTDw=",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "Order ord_123 paid 42.5 EUR at 2026-01-01T00:00:00Z",
+      "expect": {
+        "status": 422,
+        "handler": ""
+      }
+    }
+  ]
+}

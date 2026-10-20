@@ -51,6 +51,13 @@ jobs:
           working-directory: satellites/sparrow-sources
           args: --timeout=5m
 
+      - name: golangci-lint (receivercode)
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.14.0
+          working-directory: pkg/receivercode
+          args: --timeout=5m
+
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
 
@@ -60,6 +67,7 @@ jobs:
           (cd satellites/sparrow && govulncheck ./...)
           (cd satellites/sparrow-sinks && govulncheck ./...)
           (cd satellites/sparrow-sources && govulncheck ./...)
+          (cd pkg/receivercode && govulncheck ./...)
 
   test:
     name: Test
@@ -122,6 +130,7 @@ jobs:
             github.com/sarathsp06/sparrow/satellites/sparrow-sinks/... \
             github.com/sarathsp06/sparrow/satellites/sparrow-sources/... \
             github.com/sarathsp06/sparrow/pkg/access/... \
+            github.com/sarathsp06/sparrow/pkg/receivercode/... \
             github.com/sarathsp06/sparrow/pkg/signature/... \
             github.com/sarathsp06/sparrow/pkg/template/...
 
