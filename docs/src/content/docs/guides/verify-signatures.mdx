@@ -60,6 +60,23 @@ Re-serialized JSON (different key order, whitespace or escaping) never matches.
 Each example below shows how to get the raw bytes in that framework.
 </Aside>
 
+## Routing headers
+
+Every delivery, signed or not, also carries headers that say what it is, so a
+receiver can route it without reading the body (a transform can reshape the
+body and drop the event name):
+
+| Header | Value |
+|---|---|
+| `X-Sparrow-Event-Type` | The event type name, e.g. `order.paid` |
+| `X-Sparrow-Event-Version` | The event type version the event was accepted under, e.g. `2` |
+| `X-Sparrow-Subscription-ID` | The subscription that matched the event |
+| `X-Sparrow-Event-ID`, `X-Sparrow-Delivery-ID`, `X-Sparrow-Webhook-ID` | The event, delivery and webhook IDs |
+
+They are not signed. Route on them only **after** the signature check passes.
+Custom webhook or subscription headers can't override any `X-Sparrow-*` header
+listed here.
+
 ## Where the secret or public key comes from
 
 | Scheme | Value the receiver needs | Where you get it |
@@ -415,3 +432,21 @@ machine, with `SPARROW_ALLOW_PRIVATE_NETWORKS=true` on the server.)
 Each helper also takes an optional clock and tolerance (`now` / `nowSeconds` /
 `verify_hmac_at` / `signature.Verifier`), so you can unit-test your handler
 with a fixed recorded request instead of a live one.
+
+### Send a test event
+
+Once your receiver is registered, send it a test event from the webhook page
+or the consumer portal (**Test** tab), or with the API:
+
+```bash
+curl -X POST http://localhost:8080/v1/consumers/default/webhooks/<webhook-id>:sendTestEvent \
+  -H 'Content-Type: application/json' \
+  -d '{"subscription_id": "<subscription-id>"}'
+```
+
+Sparrow sends one delivery of the event type's sample payload (or of the
+`payload` you pass, rendered through the subscription's transform), signed like
+a real delivery and marked `X-Sparrow-Test: true`, and answers with the
+receiver's `status_code`, `latency_ms` and `error_class`. It records no delivery
+and never affects the webhook's health. Each server allows one test event per
+webhook every 2 seconds.

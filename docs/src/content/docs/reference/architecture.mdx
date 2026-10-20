@@ -174,11 +174,14 @@ Every webhook delivery includes these headers:
 - `X-Sparrow-Event-ID` -- Same as `event_id` in the body.
 - `X-Sparrow-Delivery-ID` -- Same as `delivery_id` in the body.
 - `X-Sparrow-Webhook-ID` -- Same as `webhook_id` in the body.
+- `X-Sparrow-Event-Type` -- The event type name (`event_name` in the envelope). Present even when a transform replaces the body.
+- `X-Sparrow-Event-Version` -- The event type version the event was accepted under.
+- `X-Sparrow-Subscription-ID` -- The subscription that matched the event.
 - `webhook-id` -- Standard Webhooks message ID (`msg_<delivery_id>`). Only present when the webhook has a signing secret or an Ed25519 keypair.
 - `webhook-timestamp` -- Unix epoch seconds. Only present when the webhook has a signing secret or an Ed25519 keypair.
 - `webhook-signature` -- Space-delimited signatures (see below). Only present when the webhook has a signing secret or an Ed25519 keypair.
 
-Custom headers configured on the webhook or subscription are merged in, with subscription-level headers overriding webhook-level defaults.
+Custom headers configured on the webhook or subscription are merged in, with subscription-level headers overriding webhook-level defaults. They can't override the `X-Sparrow-*` headers above.
 
 ### Verifying Webhook Signatures
 

@@ -39,7 +39,15 @@ type DeliveryRequest struct {
 	SkipTLSVerify bool
 	EventID       uuid.UUID
 	EventName     string
-	Consumer      string
+	// EventVersion is the event type version the occurrence was accepted
+	// under; 0 omits X-Sparrow-Event-Version.
+	EventVersion int
+	// SubscriptionID is the subscription that matched the event; empty
+	// omits X-Sparrow-Subscription-ID.
+	SubscriptionID string
+	Consumer       string
+	// Test marks a one-off test send (X-Sparrow-Test: true).
+	Test bool
 }
 
 // WebhookEnvelope is the default JSON body sent to webhook endpoints.
@@ -105,6 +113,20 @@ func BuildRequest(ctx context.Context, dr *DeliveryRequest) (*http.Request, erro
 	req.Header.Set("X-Sparrow-Event-ID", dr.EventID.String())
 	req.Header.Set("X-Sparrow-Delivery-ID", dr.DeliveryID)
 	req.Header.Set("X-Sparrow-Webhook-ID", dr.WebhookID.String())
+	// Receivers route on these, never on the body, which a transform can
+	// reshape. An unset value removes any custom header of the same name.
+	setOrDelete(req.Header, "X-Sparrow-Event-Type", dr.EventName)
+	eventVersion := ""
+	if dr.EventVersion > 0 {
+		eventVersion = strconv.Itoa(dr.EventVersion)
+	}
+	setOrDelete(req.Header, "X-Sparrow-Event-Version", eventVersion)
+	setOrDelete(req.Header, "X-Sparrow-Subscription-ID", dr.SubscriptionID)
+	testHeader := ""
+	if dr.Test {
+		testHeader = "true"
+	}
+	setOrDelete(req.Header, "X-Sparrow-Test", testHeader)
 
 	// Standard Webhooks signing (https://www.standardwebhooks.com)
 	// Uses webhook-id, webhook-timestamp, webhook-signature headers.
@@ -142,6 +164,16 @@ func BuildRequest(ctx context.Context, dr *DeliveryRequest) (*http.Request, erro
 	}
 
 	return req, nil
+}
+
+// setOrDelete sets a Sparrow-owned header, or removes it when value is empty
+// so a configured header of the same name cannot stand in for it.
+func setOrDelete(h http.Header, name, value string) {
+	if value == "" {
+		h.Del(name)
+		return
+	}
+	h.Set(name, value)
 }
 
 // generateHMACSignature generates an HMAC-SHA256 signature per Standard Webhooks spec.
@@ -222,6 +254,11 @@ func PrepareDeliveryRequest(
 		}
 	}
 
+	var subscriptionID string
+	if sub != nil && sub.ID != uuid.Nil {
+		subscriptionID = sub.ID.String()
+	}
+
 	// Determine method
 	method := http.MethodPost
 	if sub != nil && sub.Method != "" {
@@ -277,6 +314,8 @@ func PrepareDeliveryRequest(
 		SkipTLSVerify:     !webhook.VerifySSL,
 		EventID:           event.ID,
 		EventName:         event.Event,
+		EventVersion:      event.EventVersion,
+		SubscriptionID:    subscriptionID,
 		Consumer:          event.Consumer,
 	}, nil
 }

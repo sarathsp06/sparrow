@@ -696,6 +696,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/consumers/{consumer}/webhooks/{webhook_id}:sendTestEvent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a test event to a webhook
+         * @description Sends one signed delivery of payload, or of the subscription's event type sample when payload is omitted (rendered through the subscription's transform, as a real delivery would be), to the webhook's URL, synchronously, and returns what the receiver answered. It uses the same request builder, signing, network policy (SSRF protection) and timeout as real deliveries and adds the header X-Sparrow-Test: true. It creates no delivery and never counts toward the webhook's health or auto-disable. A receiver error is reported in the response (status_code, error_class), not as an API error.
+         *
+         *     One test event per webhook every 2 seconds on each server: more answer 429. 404 for an unknown webhook or a subscription not on it.
+         *
+         *     Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:sendTestEvent.
+         */
+        post: operations["sendTestEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/deliveries": {
         parameters: {
             query?: never;
@@ -2885,6 +2909,40 @@ export interface components {
              * @enum {string}
              */
             result: "compatible" | "breaking";
+        };
+        SendTestEventInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/SendTestEventInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Event payload to send instead of the event type's sample payload. It is rendered through the subscription's transform like a pushed event. */
+            payload?: {
+                [key: string]: unknown;
+            };
+            /** @description Subscription to send through: its transform renders the payload. */
+            subscription_id: string;
+        };
+        SendTestEventOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/SendTestEventOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Delivery error category when the send did not get a 2xx: client_error, server_error, rate_limited, timeout, connection_refused, dns_error, tls_error, network_error, redirect, template_error (nothing was sent) or unknown. */
+            error_class?: string;
+            /**
+             * Format: int64
+             * @description Time to the response headers, in milliseconds.
+             */
+            latency_ms: number;
+            /**
+             * Format: int64
+             * @description The receiver's HTTP status; 0 when no response was received.
+             */
+            status_code: number;
         };
         StampCheckItem: {
             /** @description Sparrow version that exported the file. */
@@ -5462,6 +5520,89 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    sendTestEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tenant consumer the webhook belongs to. */
+                consumer: string;
+                /** @description Webhook id (UUID). */
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendTestEventInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SendTestEventOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

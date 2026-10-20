@@ -130,6 +130,9 @@ from .retry_output_body import RetryOutputBody
 from .rotate_webhook_secret_output_body import RotateWebhookSecretOutputBody
 from .schema_compatibility_item import SchemaCompatibilityItem
 from .schema_compatibility_item_result import SchemaCompatibilityItemResult
+from .send_test_event_input_body import SendTestEventInputBody
+from .send_test_event_input_body_payload import SendTestEventInputBodyPayload
+from .send_test_event_output_body import SendTestEventOutputBody
 from .stamp_check_item import StampCheckItem
 from .stamp_check_item_status import StampCheckItemStatus
 from .subscription import Subscription
@@ -304,6 +307,9 @@ __all__ = (
     "RotateWebhookSecretOutputBody",
     "SchemaCompatibilityItem",
     "SchemaCompatibilityItemResult",
+    "SendTestEventInputBody",
+    "SendTestEventInputBodyPayload",
+    "SendTestEventOutputBody",
     "StampCheckItem",
     "StampCheckItemStatus",
     "Subscription",
