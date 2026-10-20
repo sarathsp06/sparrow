@@ -79,6 +79,8 @@ func TestPortalGatewayScopesToTokenConsumer(t *testing.T) {
 		{http.MethodGet, "/portal/api/deliveries", http.StatusNoContent, "/v1/consumers/acme/deliveries"},
 		{http.MethodPost, "/portal/api/deliveries/abc:retry", http.StatusNoContent, "/v1/consumers/acme/deliveries/abc:retry"},
 		{http.MethodGet, "/portal/api/events", http.StatusNoContent, "/v1/consumers/acme/events"},
+		// Test sends act on the token consumer's own webhooks.
+		{http.MethodPost, "/portal/api/webhooks/wh1:sendTestEvent", http.StatusNoContent, "/v1/consumers/acme/webhooks/wh1:sendTestEvent"},
 		// Event injection is denied for portal tokens (token minting lives
 		// under the global /v1/tokens, which no portal path maps to).
 		{http.MethodPost, "/portal/api/events", http.StatusForbidden, ""},
