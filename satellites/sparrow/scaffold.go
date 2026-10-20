@@ -34,7 +34,9 @@ Your webhook secret is never written: the receiver reads SPARROW_WEBHOOK_SECRET.
 Targets: go/nethttp, python/fastapi, node/express (TypeScript). Without
 --offline the server generates the project from the webhook's subscriptions,
 event types and transforms (POST :generateReceiverCode). --offline generates
-it here from a JSON Schema and/or sample payload, with no server.
+it here from a JSON Schema and/or sample payload, with no server. The schema
+types the model; a --sample that contradicts it makes the project's own
+tests fail.
 
 --test sends one test event per subscription after writing (POST
 :sendTestEvent): run the receiver first, at the webhook's URL.`
