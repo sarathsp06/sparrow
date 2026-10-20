@@ -2724,9 +2724,9 @@
     "semantic_hash": ""
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1792475998.7602413,
-    "seen": 1792476150.309149,
-    "ast_hash": "843856201b27fc2785d602657d24c71e",
+    "mtime": 1792477014.09233,
+    "seen": 1792477065.075136,
+    "ast_hash": "96e65dd25c9eeec096cca47d5da131a3",
     "semantic_hash": ""
   },
   ".github/workflows/deploy-docs.yml": {
@@ -2748,9 +2748,9 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1792476023.0706856,
-    "seen": 1792476150.309154,
-    "ast_hash": "f4558752bbde5470baaf1b132adc202f",
+    "mtime": 1792477037.815509,
+    "seen": 1792477065.075142,
+    "ast_hash": "3511fb36c1bbd746107e9a95599a1e6f",
     "semantic_hash": ""
   },
   "CONTRIBUTING.md": {
@@ -5340,15 +5340,15 @@
     "semantic_hash": ""
   },
   "pkg/receivercode/receivercode_test.go": {
-    "mtime": 1792475840.0306823,
-    "seen": 1792476150.308961,
-    "ast_hash": "274d2b7a63d88547c34a7b2d5a47031b",
+    "mtime": 1792476856.806268,
+    "seen": 1792477065.074934,
+    "ast_hash": "64bcadb349cf3d2109fcbc8821a7645a",
     "semantic_hash": ""
   },
   "pkg/receivercode/spec.go": {
-    "mtime": 1792475090.8533022,
-    "seen": 1792476150.308962,
-    "ast_hash": "764728d351ac2ec417a6f24f4f0d0648",
+    "mtime": 1792476841.3087008,
+    "seen": 1792477065.074934,
+    "ast_hash": "f1334dbbb0c5ded21fb66025dd8c5e2e",
     "semantic_hash": ""
   },
   "pkg/receivercode/testdata/go-nethttp/conditional/go.mod": {
@@ -6585,6 +6585,102 @@
     "mtime": 1792476572.7591293,
     "seen": 1792476786.2258859,
     "ast_hash": "abcd84e4ed06d9d1a45717a8b088e6d4",
+    "semantic_hash": ""
+  },
+  "pkg/receivercode/e2e/cmd/gen/main.go": {
+    "mtime": 1792477051.5416384,
+    "seen": 1792477065.0749152,
+    "ast_hash": "00a0ad913eed9e00856652f0723992b2",
+    "semantic_hash": ""
+  },
+  "pkg/receivercode/e2e/contract.sh": {
+    "mtime": 1792477014.08682,
+    "seen": 1792477065.0749161,
+    "ast_hash": "cae7f6d2cdd23756306bcf2598dca191",
+    "semantic_hash": ""
+  },
+  "pkg/receivercode/e2e/contract_test.go": {
+    "mtime": 1792476911.1236584,
+    "seen": 1792477065.074917,
+    "ast_hash": "977df7a30e5df06317a66ad8e2c33fc6",
+    "semantic_hash": ""
+  },
+  "pkg/receivercode/e2e/go.mod": {
+    "mtime": 1792476911.22842,
+    "seen": 1792477065.074917,
+    "ast_hash": "caff2afbc475d8b8f71b83a56620fe31",
+    "semantic_hash": ""
+  },
+  "pkg/receivercode/e2e/targets/go-nethttp/run.sh": {
+    "mtime": 1792476940.6997905,
+    "seen": 1792477065.074917,
+    "ast_hash": "8a82f8c3c331ced106e6049d903caad1",
+    "semantic_hash": ""
+  },
+  "pkg/receivercode/e2e/targets/go-nethttp/setup.sh": {
+    "mtime": 1792476940.6933324,
+    "seen": 1792477065.0749178,
+    "ast_hash": "b1622918058c702e703e03c61377f5b0",
+    "semantic_hash": ""
+  },
+  "pkg/receivercode/e2e/targets/go-nethttp/test.sh": {
+    "mtime": 1792476940.6975234,
+    "seen": 1792477065.074919,
+    "ast_hash": "a6fedf759873f57f6b2a25aedfa706f4",
+    "semantic_hash": ""
+  },
+  "pkg/receivercode/e2e/targets/node-express/run.sh": {
+    "mtime": 1792476940.7131126,
+    "seen": 1792477065.07492,
+    "ast_hash": "0519f9fd17055f5ce529a83ca80c629b",
+    "semantic_hash": ""
+  },
+  "pkg/receivercode/e2e/targets/node-express/setup.sh": {
+    "mtime": 1792476940.7088764,
+    "seen": 1792477065.07492,
+    "ast_hash": "8668b039e89db488b5922e4a5902d8a5",
+    "semantic_hash": ""
+  },
+  "pkg/receivercode/e2e/targets/node-express/test.sh": {
+    "mtime": 1792476940.7111287,
+    "seen": 1792477065.074921,
+    "ast_hash": "344a0dab5956842a9e22c0394648ae1e",
+    "semantic_hash": ""
+  },
+  "pkg/receivercode/e2e/targets/python-fastapi/run.sh": {
+    "mtime": 1792476940.7065792,
+    "seen": 1792477065.074921,
+    "ast_hash": "080f4194a52a47eedc1bcd835541b323",
+    "semantic_hash": ""
+  },
+  "pkg/receivercode/e2e/targets/python-fastapi/setup.sh": {
+    "mtime": 1792476940.70195,
+    "seen": 1792477065.074922,
+    "ast_hash": "6b0bb2695a5d2744fdf4d8a9635d95ee",
+    "semantic_hash": ""
+  },
+  "pkg/receivercode/e2e/targets/python-fastapi/test.sh": {
+    "mtime": 1792476940.7042665,
+    "seen": 1792477065.074922,
+    "ast_hash": "bd875add1db9f2672e046ab7fd096816",
+    "semantic_hash": ""
+  },
+  "pkg/receivercode/e2e/testdata/ed25519.json": {
+    "mtime": 1792476883.8124712,
+    "seen": 1792477065.074923,
+    "ast_hash": "cfb8d4d902a233040fd2e51c72c3bc90",
+    "semantic_hash": ""
+  },
+  "pkg/receivercode/e2e/testdata/hmac.json": {
+    "mtime": 1792476883.8122222,
+    "seen": 1792477065.074923,
+    "ast_hash": "62c2837fdb9f90d1182897ebdeae0c8a",
+    "semantic_hash": ""
+  },
+  ".github/workflows/receivercode-e2e.yml": {
+    "mtime": 1792477004.259821,
+    "seen": 1792477065.075139,
+    "ast_hash": "f4edc411c1c042857e6259c60200929f",
     "semantic_hash": ""
   }
 }
