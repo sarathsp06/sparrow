@@ -58,6 +58,15 @@ type plan struct {
 
 func analyze(s Subscription) *plan {
 	p := &plan{Sub: s, ContentType: headerValue(s.Headers, "Content-Type")}
+	if len(bytes.TrimSpace(s.Sample)) == 0 && len(bytes.TrimSpace(s.Schema)) > 0 {
+		// Like the server, derive placeholder values from the schema, so
+		// the model and the test vectors agree with it.
+		if t, err := infer.FromSchema(s.Schema); err == nil && t.Kind == infer.Object {
+			s.Sample = mustJSON(placeholder(t, 0))
+			p.Sub.Sample = s.Sample
+			p.Notes = append(p.Notes, "the event type has no sample payload; the sample delivery uses placeholder values from its JSON Schema")
+		}
+	}
 	payload, payloadNote := samplePayload(s.Sample)
 	if payloadNote != "" {
 		p.Notes = append(p.Notes, payloadNote)

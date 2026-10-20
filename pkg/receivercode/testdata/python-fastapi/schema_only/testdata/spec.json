@@ -1,0 +1,329 @@
+{
+  "spec_version": 1,
+  "target": "python-fastapi",
+  "webhook": {
+    "id": "wh_schema_only",
+    "signing_scheme": "hmac"
+  },
+  "receiver": {
+    "webhook_path": "/webhook",
+    "health_path": "/healthz",
+    "secret_env": "SPARROW_WEBHOOK_SECRET",
+    "test_mode_env": "SPARROW_RECEIVER_TEST_MODE",
+    "port_env": "PORT",
+    "default_port": 8000,
+    "tolerance_seconds": 300,
+    "dedup_capacity": 10000,
+    "dispatch_headers": [
+      "X-Sparrow-Subscription-ID",
+      "X-Sparrow-Event-Type"
+    ],
+    "unknown_event_status": 422
+  },
+  "subscriptions": [
+    {
+      "id": "sub_schema",
+      "event_type": "order.paid",
+      "event_version": 1,
+      "handler": "handleOrderPaid",
+      "format": "json",
+      "model": "envelope",
+      "model_source": "schema",
+      "notes": [
+        "the event type has no sample payload; the sample delivery uses placeholder values from its JSON Schema"
+      ]
+    }
+  ],
+  "test": {
+    "now": 1767225600,
+    "secret": "whsec_EfXzvZAo+6b8PchNmttY3PAPhPZQW6g4ENq+EscXKCs=",
+    "wrong_secret": "whsec_aS/QKE2+GGMXmmpMpA9EoCwPPUr7Xfzzf4/ZZgdmwSo=",
+    "public_key": "ea8240814f40c6eb7532eaa13d12f347f48f1b31daa57e49d43af5a844f00ac1",
+    "private_key_seed": "9b3f2b47e371f29a35dc75a442d10521bc22e1bbd3b6c429be9250d306ca54c7",
+    "wrong_private_key_seed": "35883988516977f1ddbf801a3a2271ae73a2d4178e07ed9a46efe6818aa8f383"
+  },
+  "vectors": [
+    {
+      "name": "valid",
+      "subscription_id": "sub_schema",
+      "message_id": "msg_test_1_valid",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:test"
+      ],
+      "event_type": "order.paid",
+      "event_version": 1,
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Event-Version": "1",
+        "X-Sparrow-Subscription-ID": "sub_schema",
+        "webhook-id": "msg_test_1_valid",
+        "webhook-signature": "v1,azhwVAuojQGc00EMczdM97P0sdH/adD+AR6XHi5nRMA=",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"order.paid\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"amount\":1.5,\"customer\":{\"email\":\"string\",\"name\":\"string\"},\"extra\":null,\"id\":\"string\",\"items\":[{\"price\":1.5,\"sku\":\"string\"}],\"metadata\":{},\"paid\":true,\"quantity\":1}}",
+      "expect": {
+        "status": 200,
+        "handler": "handleOrderPaid",
+        "value": {
+          "attempt": 1,
+          "event_id": "00000000-0000-4000-8000-000000000001",
+          "event_name": "order.paid",
+          "payload": {
+            "amount": 1.5,
+            "customer": {
+              "email": "string",
+              "name": "string"
+            },
+            "id": "string",
+            "items": [
+              {
+                "price": 1.5,
+                "sku": "string"
+              }
+            ],
+            "metadata": {},
+            "paid": true,
+            "quantity": 1
+          },
+          "timestamp": "2026-01-01T00:00:00Z",
+          "version": "1"
+        },
+        "match": "subset"
+      }
+    },
+    {
+      "name": "duplicate",
+      "subscription_id": "sub_schema",
+      "message_id": "msg_test_1_valid",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:test"
+      ],
+      "event_type": "order.paid",
+      "event_version": 1,
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Event-Version": "1",
+        "X-Sparrow-Subscription-ID": "sub_schema",
+        "webhook-id": "msg_test_1_valid",
+        "webhook-signature": "v1,azhwVAuojQGc00EMczdM97P0sdH/adD+AR6XHi5nRMA=",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"order.paid\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"amount\":1.5,\"customer\":{\"email\":\"string\",\"name\":\"string\"},\"extra\":null,\"id\":\"string\",\"items\":[{\"price\":1.5,\"sku\":\"string\"}],\"metadata\":{},\"paid\":true,\"quantity\":1}}",
+      "expect": {
+        "status": 200,
+        "handler": ""
+      }
+    },
+    {
+      "name": "tampered_body",
+      "subscription_id": "sub_schema",
+      "message_id": "msg_test_1_tampered",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:test"
+      ],
+      "tamper": true,
+      "event_type": "order.paid",
+      "event_version": 1,
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Event-Version": "1",
+        "X-Sparrow-Subscription-ID": "sub_schema",
+        "webhook-id": "msg_test_1_tampered",
+        "webhook-signature": "v1,TFNNaBkW0K50tgUPvIlPDGSosz3N6S2IElNmZrc1Lw4=",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"order.paid\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"amount\":1.5,\"customer\":{\"email\":\"string\",\"name\":\"string\"},\"extra\":null,\"id\":\"string\",\"items\":[{\"price\":1.5,\"sku\":\"string\"}],\"metadata\":{},\"paid\":true,\"quantity\":1}} ",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "wrong_key",
+      "subscription_id": "sub_schema",
+      "message_id": "msg_test_1_wrong_key",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:wrong"
+      ],
+      "event_type": "order.paid",
+      "event_version": 1,
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Event-Version": "1",
+        "X-Sparrow-Subscription-ID": "sub_schema",
+        "webhook-id": "msg_test_1_wrong_key",
+        "webhook-signature": "v1,HVrsT2W06B7D4ivNxQxa3Yq1FMhzdkwYbhT27+fEROs=",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"order.paid\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"amount\":1.5,\"customer\":{\"email\":\"string\",\"name\":\"string\"},\"extra\":null,\"id\":\"string\",\"items\":[{\"price\":1.5,\"sku\":\"string\"}],\"metadata\":{},\"paid\":true,\"quantity\":1}}",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "timestamp_too_old",
+      "subscription_id": "sub_schema",
+      "message_id": "msg_test_1_old",
+      "timestamp_offset": -600,
+      "signatures": [
+        "v1:test"
+      ],
+      "event_type": "order.paid",
+      "event_version": 1,
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Event-Version": "1",
+        "X-Sparrow-Subscription-ID": "sub_schema",
+        "webhook-id": "msg_test_1_old",
+        "webhook-signature": "v1,x3KZZWy0GbNRLiXQB+mPPH0tUrjk0edxJIV60CDO5sE=",
+        "webhook-timestamp": "1767225000"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"order.paid\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"amount\":1.5,\"customer\":{\"email\":\"string\",\"name\":\"string\"},\"extra\":null,\"id\":\"string\",\"items\":[{\"price\":1.5,\"sku\":\"string\"}],\"metadata\":{},\"paid\":true,\"quantity\":1}}",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "timestamp_in_future",
+      "subscription_id": "sub_schema",
+      "message_id": "msg_test_1_future",
+      "timestamp_offset": 600,
+      "signatures": [
+        "v1:test"
+      ],
+      "event_type": "order.paid",
+      "event_version": 1,
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Event-Version": "1",
+        "X-Sparrow-Subscription-ID": "sub_schema",
+        "webhook-id": "msg_test_1_future",
+        "webhook-signature": "v1,65Mbdsw5qj7Kp9gVMYB4dfmn0NIb6B6IGBeQuyLI9Do=",
+        "webhook-timestamp": "1767226200"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"order.paid\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"amount\":1.5,\"customer\":{\"email\":\"string\",\"name\":\"string\"},\"extra\":null,\"id\":\"string\",\"items\":[{\"price\":1.5,\"sku\":\"string\"}],\"metadata\":{},\"paid\":true,\"quantity\":1}}",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "missing_signature",
+      "subscription_id": "sub_schema",
+      "message_id": "msg_test_1_unsigned",
+      "timestamp_offset": 0,
+      "signatures": null,
+      "event_type": "order.paid",
+      "event_version": 1,
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Event-Version": "1",
+        "X-Sparrow-Subscription-ID": "sub_schema",
+        "webhook-id": "msg_test_1_unsigned",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"order.paid\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"amount\":1.5,\"customer\":{\"email\":\"string\",\"name\":\"string\"},\"extra\":null,\"id\":\"string\",\"items\":[{\"price\":1.5,\"sku\":\"string\"}],\"metadata\":{},\"paid\":true,\"quantity\":1}}",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "event_type_fallback",
+      "subscription_id": "sub_schema",
+      "message_id": "msg_test_1_fallback",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:test"
+      ],
+      "omit_subscription_header": true,
+      "event_type": "order.paid",
+      "event_version": 1,
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Event-Version": "1",
+        "webhook-id": "msg_test_1_fallback",
+        "webhook-signature": "v1,AmDUpL1tDz7/lJzXJd1TM1GEzX9/Oh02JJkwYPqlUNA=",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"order.paid\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"amount\":1.5,\"customer\":{\"email\":\"string\",\"name\":\"string\"},\"extra\":null,\"id\":\"string\",\"items\":[{\"price\":1.5,\"sku\":\"string\"}],\"metadata\":{},\"paid\":true,\"quantity\":1}}",
+      "expect": {
+        "status": 200,
+        "handler": "handleOrderPaid",
+        "value": {
+          "attempt": 1,
+          "event_id": "00000000-0000-4000-8000-000000000001",
+          "event_name": "order.paid",
+          "payload": {
+            "amount": 1.5,
+            "customer": {
+              "email": "string",
+              "name": "string"
+            },
+            "id": "string",
+            "items": [
+              {
+                "price": 1.5,
+                "sku": "string"
+              }
+            ],
+            "metadata": {},
+            "paid": true,
+            "quantity": 1
+          },
+          "timestamp": "2026-01-01T00:00:00Z",
+          "version": "1"
+        },
+        "match": "subset"
+      }
+    },
+    {
+      "name": "unknown_event",
+      "subscription_id": "sub_schema",
+      "message_id": "msg_test_1_unknown",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:test"
+      ],
+      "omit_subscription_header": true,
+      "event_type": "sparrow.receivercode.unknown",
+      "event_version": 1,
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "sparrow.receivercode.unknown",
+        "X-Sparrow-Event-Version": "1",
+        "webhook-id": "msg_test_1_unknown",
+        "webhook-signature": "v1,uGWqcDdYUFFhZe5fn6lO1xGkxJVuylYVkzc4/8443Cg=",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"order.paid\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"amount\":1.5,\"customer\":{\"email\":\"string\",\"name\":\"string\"},\"extra\":null,\"id\":\"string\",\"items\":[{\"price\":1.5,\"sku\":\"string\"}],\"metadata\":{},\"paid\":true,\"quantity\":1}}",
+      "expect": {
+        "status": 422,
+        "handler": ""
+      }
+    }
+  ]
+}

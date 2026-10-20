@@ -283,6 +283,34 @@ func (p *plan) settleModel() {
 	p.Notes = append(p.Notes, "the sample does not fit any inferred model, so the body is handled as raw text")
 }
 
+// placeholder is a value of type t, for a sample built from a schema.
+func placeholder(t *infer.Type, depth int) any {
+	if t == nil || depth > 16 {
+		return nil
+	}
+	switch t.Kind {
+	case infer.String:
+		return "string"
+	case infer.Int:
+		return 1
+	case infer.Float:
+		return 1.5
+	case infer.Bool:
+		return true
+	case infer.Array:
+		return []any{placeholder(t.Elem, depth+1)}
+	case infer.Map:
+		return map[string]any{}
+	case infer.Object:
+		m := make(map[string]any, len(t.Fields))
+		for _, f := range t.Fields {
+			m[f.Name] = placeholder(f.Type, depth+1)
+		}
+		return m
+	}
+	return nil
+}
+
 func mustJSON(v any) []byte {
 	b, _ := json.Marshal(v)
 	return b
