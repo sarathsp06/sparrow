@@ -255,9 +255,13 @@ components:
         alert_delivery:
           $ref: "#/components/schemas/AlertDeliveryStruct"
           description: Delivery of Sparrow's own alert emails (see the alert-configs endpoints).
+        receiver_code:
+          $ref: "#/components/schemas/ReceiverCodeStruct"
+          description: Receiver code generation (generateReceiverCode).
       required:
         - ai_drafting
         - alert_delivery
+        - receiver_code
       type: object
     ConsumerHint:
       additionalProperties: false
@@ -1096,6 +1100,67 @@ components:
           description: Export every event type whose name starts with this prefix.
           type: string
       type: object
+    GenerateReceiverCodeInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/GenerateReceiverCodeInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        framework:
+          description: "Target framework: nethttp (go), fastapi (python) or express (node)."
+          type: string
+        language:
+          description: "Target language: go, python or node (see GET /v1/capabilities, receiver_code.targets)."
+          type: string
+        subscription_ids:
+          description: Subscriptions to generate handlers for; omit for every subscription of the webhook.
+          items:
+            type: string
+          maxItems: 200
+          type: array
+      required:
+        - language
+        - framework
+      type: object
+    GenerateReceiverCodeOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/GenerateReceiverCodeOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        files:
+          description: The project's files, sorted by path.
+          items:
+            $ref: "#/components/schemas/ReceiverFileOut"
+          type: array
+        has_more:
+          description: "True when subscription_ids was omitted and the webhook has more than 200 subscriptions: only the first 200 have handlers. Pass subscription_ids to choose them."
+          type: boolean
+        run:
+          description: Shell command that starts the receiver, from the project root.
+          type: string
+        spec:
+          additionalProperties: {}
+          description: "Machine-readable receiver spec: how deliveries are verified and routed, each handler's body format and model, and the signed test vectors the generated tests replay (signed with throwaway credentials, never the webhook's secret). Its format is versioned by spec_version and, like the generated code, experimental."
+          type: object
+        test:
+          description: Shell command that runs the generated tests, from the project root.
+          type: string
+      required:
+        - files
+        - spec
+        - run
+        - test
+        - has_more
+      type: object
     HealthRules:
       additionalProperties: false
       properties:
@@ -1881,6 +1946,61 @@ components:
         - duplicate
         - schema_valid
       type: object
+    ReceiverCodeStruct:
+      additionalProperties: false
+      properties:
+        targets:
+          description: Language and framework pairs POST /v1/consumers/{consumer}/webhooks/{webhook_id}:generateReceiverCode supports.
+          items:
+            $ref: "#/components/schemas/ReceiverTargetOut"
+          type: array
+      required:
+        - targets
+      type: object
+    ReceiverFileOut:
+      additionalProperties: false
+      properties:
+        content:
+          description: File content (UTF-8 text).
+          type: string
+        mode:
+          description: Unix permission bits, e.g. 420 (0644) or 493 (0755).
+          format: int32
+          minimum: 0
+          type: integer
+        path:
+          description: Slash-separated path relative to the project root.
+          type: string
+      required:
+        - path
+        - content
+        - mode
+      type: object
+    ReceiverTargetOut:
+      additionalProperties: false
+      properties:
+        framework:
+          description: Value for the framework field of generateReceiverCode.
+          type: string
+        id:
+          description: Target id, e.g. go-nethttp.
+          type: string
+        language:
+          description: Value for the language field of generateReceiverCode.
+          type: string
+        name:
+          description: Display name.
+          type: string
+        runtime:
+          description: Runtime the generated project needs.
+          type: string
+      required:
+        - id
+        - language
+        - framework
+        - name
+        - runtime
+      type: object
     Recipe:
       additionalProperties: false
       properties:
@@ -2242,6 +2362,51 @@ components:
           type: string
       required:
         - result
+      type: object
+    SendTestEventInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/SendTestEventInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        payload:
+          additionalProperties: {}
+          description: Event payload to send instead of the event type's sample payload. It is rendered through the subscription's transform like a pushed event.
+          type: object
+        subscription_id:
+          description: "Subscription to send through: its transform renders the payload."
+          type: string
+      required:
+        - subscription_id
+      type: object
+    SendTestEventOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/SendTestEventOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        error_class:
+          description: "Delivery error category when the send did not get a 2xx: client_error, server_error, rate_limited, timeout, connection_refused, dns_error, tls_error, network_error, redirect, template_error (nothing was sent) or unknown."
+          type: string
+        latency_ms:
+          description: Time to the response headers, in milliseconds.
+          format: int64
+          type: integer
+        status_code:
+          description: The receiver's HTTP status; 0 when no response was received.
+          format: int64
+          type: integer
+      required:
+        - status_code
+        - latency_ms
       type: object
     StampCheckItem:
       additionalProperties: false
@@ -3061,7 +3226,7 @@ paths:
   /v1/capabilities:
     get:
       description: |-
-        Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, and whether alert email delivery is set up. Read-only.
+        Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, whether alert email delivery is set up, and the receiver code generation targets. Read-only.
 
         ai_drafting.enabled reflects SPARROW_AI_ENABLED=true; drafting is usable only when enabled is true and problem is absent; prompt_only is the opposite of enabled.
 
@@ -5010,6 +5175,70 @@ paths:
       summary: Get health status and metrics for a webhook
       tags:
         - Health
+  /v1/consumers/{consumer}/webhooks/{webhook_id}:generateReceiverCode:
+    post:
+      description: |-
+        Generates a ready-to-run receiver project for the webhook in the chosen language and framework (GET /v1/capabilities lists them under receiver_code.targets). The project verifies Sparrow's signatures on the raw body before parsing (with a copy of Sparrow's tested verification helper), rejects stale timestamps, drops redeliveries by webhook-id, routes on X-Sparrow-Subscription-ID then X-Sparrow-Event-Type, decodes each subscription's body (its transform rendered against the event type's sample decides JSON, XML or text) and ships with tests that replay signed vectors. Secrets are never included: the receiver reads SPARROW_WEBHOOK_SECRET, and the tests use throwaway credentials. Nothing is stored. The same webhook, subscriptions and Sparrow version always produce the same files; the generated code itself may improve between releases.
+
+        400 for an unsupported target or a subscription that is not on the webhook, 404 for an unknown webhook.
+
+        Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:generateReceiverCode.
+      operationId: generateReceiverCode
+      parameters:
+        - description: Tenant consumer the webhook belongs to.
+          in: path
+          name: consumer
+          required: true
+          schema:
+            description: Tenant consumer the webhook belongs to.
+            type: string
+        - description: Webhook id (UUID).
+          in: path
+          name: webhook_id
+          required: true
+          schema:
+            description: Webhook id (UUID).
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateReceiverCodeInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateReceiverCodeOutputBody"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Bad Request
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+      summary: Generate receiver code for a webhook
+      tags:
+        - Webhooks
   /v1/consumers/{consumer}/webhooks/{webhook_id}:pause:
     post:
       description: |-
@@ -5166,6 +5395,82 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Internal Server Error
       summary: Rotate a webhook's signing secret
+      tags:
+        - Webhooks
+  /v1/consumers/{consumer}/webhooks/{webhook_id}:sendTestEvent:
+    post:
+      description: |-
+        Sends one signed delivery of payload, or of the subscription's event type sample when payload is omitted (rendered through the subscription's transform, as a real delivery would be), to the webhook's URL, synchronously, and returns what the receiver answered. It uses the same request builder, signing, network policy (SSRF protection) and timeout as real deliveries and adds the header X-Sparrow-Test: true. It creates no delivery and never counts toward the webhook's health or auto-disable. A receiver error is reported in the response (status_code, error_class), not as an API error.
+
+        One test event per webhook every 2 seconds on each server: more answer 429. 404 for an unknown webhook or a subscription not on it.
+
+        Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:sendTestEvent.
+      operationId: sendTestEvent
+      parameters:
+        - description: Tenant consumer the webhook belongs to.
+          in: path
+          name: consumer
+          required: true
+          schema:
+            description: Tenant consumer the webhook belongs to.
+            type: string
+        - description: Webhook id (UUID).
+          in: path
+          name: webhook_id
+          required: true
+          schema:
+            description: Webhook id (UUID).
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendTestEventInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendTestEventOutputBody"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Bad Request
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Too Many Requests
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Service Unavailable
+      summary: Send a test event to a webhook
       tags:
         - Webhooks
   /v1/deliveries:

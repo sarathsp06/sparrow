@@ -1,0 +1,90 @@
+name: Receiver code e2e
+
+# The slow tier of the receiver code generator's tests (the fast tier, the
+# golden files and a build of every Go golden, runs in ci.yml with the rest of
+# `go test`). For each target and signing scheme it generates a project from
+# pkg/receivercode/e2e/testdata, runs the project's own tests, starts it in
+# test mode and replays every signed vector against it (contract.sh).
+# Nightly runs upgrade each target's dependencies to their latest releases.
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'pkg/receivercode/**'
+      - 'pkg/signature/**'
+      - 'pkg/template/**'
+      - 'client/verify/**'
+      - '.github/workflows/receivercode-e2e.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'pkg/receivercode/**'
+      - 'pkg/signature/**'
+      - 'pkg/template/**'
+      - 'client/verify/**'
+      - '.github/workflows/receivercode-e2e.yml'
+  schedule:
+    - cron: '41 3 * * *'
+  workflow_dispatch:
+    inputs:
+      latest:
+        description: 'Upgrade dependencies to their latest releases'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: ${{ matrix.target }} (${{ matrix.scheme }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [go-nethttp, python-fastapi, node-express]
+        scheme: [hmac, ed25519]
+    env:
+      LATEST: ${{ (github.event_name == 'schedule' || inputs.latest) && '1' || '0' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.2'
+          cache: false
+
+      - name: Set up Python
+        if: matrix.target == 'python-fastapi'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+
+      - name: Set up Node.js
+        if: matrix.target == 'node-express'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Contract
+        working-directory: pkg/receivercode/e2e
+        env:
+          WORK_DIR: ${{ runner.temp }}/receiver
+          TARGET: ${{ matrix.target }}
+          SCHEME: ${{ matrix.scheme }}
+        run: ./contract.sh "$TARGET" "testdata/$SCHEME.json"
+
+      - name: Upload the receiver's output
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: receiver-${{ matrix.target }}-${{ matrix.scheme }}
+          path: |
+            ${{ runner.temp }}/receiver/receiver.log
+            ${{ runner.temp }}/receiver/receiver.err
+          retention-days: 7

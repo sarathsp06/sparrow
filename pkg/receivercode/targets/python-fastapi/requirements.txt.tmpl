@@ -1,0 +1,11 @@
+# [[.Header]]
+fastapi==[[.Pins.FastAPI]]
+uvicorn==[[.Pins.Uvicorn]]
+pydantic==[[.Pins.Pydantic]]
+[[- if .Ed25519]]
+cryptography==[[.Pins.Cryptography]]
+[[- end]]
+
+# Tests
+pytest==[[.Pins.Pytest]]
+httpx2==[[.Pins.HTTPX2]]

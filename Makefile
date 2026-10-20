@@ -70,6 +70,7 @@ MODULE_TEST_PATHS := ./... \
 	github.com/sarathsp06/sparrow/satellites/sparrow-sinks/... \
 	github.com/sarathsp06/sparrow/satellites/sparrow-sources/... \
 	github.com/sarathsp06/sparrow/pkg/access/... \
+	github.com/sarathsp06/sparrow/pkg/receivercode/... \
 	github.com/sarathsp06/sparrow/pkg/signature/... \
 	github.com/sarathsp06/sparrow/pkg/template/...
 
@@ -83,6 +84,7 @@ test-integration: ## Run integration tests (requires Docker for testcontainers)
 CORE_COVERPKG := ./internal/...,github.com/sarathsp06/sparrow/pkg/...
 CORE_TEST_PATHS := ./internal/... \
 	github.com/sarathsp06/sparrow/pkg/access/... \
+	github.com/sarathsp06/sparrow/pkg/receivercode/... \
 	github.com/sarathsp06/sparrow/pkg/signature/... \
 	github.com/sarathsp06/sparrow/pkg/template/...
 COVER_MIN ?= 80

@@ -61,6 +61,9 @@ from .event_type_version_item import EventTypeVersionItem
 from .event_type_version_item_event_schema import EventTypeVersionItemEventSchema
 from .event_type_version_item_sample_payload import EventTypeVersionItemSamplePayload
 from .export_event_types_input_body import ExportEventTypesInputBody
+from .generate_receiver_code_input_body import GenerateReceiverCodeInputBody
+from .generate_receiver_code_output_body import GenerateReceiverCodeOutputBody
+from .generate_receiver_code_output_body_spec import GenerateReceiverCodeOutputBodySpec
 from .health_rules import HealthRules
 from .health_summary_output_body import HealthSummaryOutputBody
 from .import_event_types_input_body import ImportEventTypesInputBody
@@ -107,6 +110,9 @@ from .push_event_body_labels import PushEventBodyLabels
 from .push_event_body_metadata import PushEventBodyMetadata
 from .push_event_body_payload import PushEventBodyPayload
 from .push_event_output_body import PushEventOutputBody
+from .receiver_code_struct import ReceiverCodeStruct
+from .receiver_file_out import ReceiverFileOut
+from .receiver_target_out import ReceiverTargetOut
 from .recipe import Recipe
 from .register_webhook_body import RegisterWebhookBody
 from .register_webhook_body_headers import RegisterWebhookBodyHeaders
@@ -130,6 +136,9 @@ from .retry_output_body import RetryOutputBody
 from .rotate_webhook_secret_output_body import RotateWebhookSecretOutputBody
 from .schema_compatibility_item import SchemaCompatibilityItem
 from .schema_compatibility_item_result import SchemaCompatibilityItemResult
+from .send_test_event_input_body import SendTestEventInputBody
+from .send_test_event_input_body_payload import SendTestEventInputBodyPayload
+from .send_test_event_output_body import SendTestEventOutputBody
 from .stamp_check_item import StampCheckItem
 from .stamp_check_item_status import StampCheckItemStatus
 from .subscription import Subscription
@@ -235,6 +244,9 @@ __all__ = (
     "EventTypeVersionItemEventSchema",
     "EventTypeVersionItemSamplePayload",
     "ExportEventTypesInputBody",
+    "GenerateReceiverCodeInputBody",
+    "GenerateReceiverCodeOutputBody",
+    "GenerateReceiverCodeOutputBodySpec",
     "HealthRules",
     "HealthSummaryOutputBody",
     "ImportEventTypesInputBody",
@@ -281,6 +293,9 @@ __all__ = (
     "PushEventBodyMetadata",
     "PushEventBodyPayload",
     "PushEventOutputBody",
+    "ReceiverCodeStruct",
+    "ReceiverFileOut",
+    "ReceiverTargetOut",
     "Recipe",
     "RegisterWebhookBody",
     "RegisterWebhookBodyHeaders",
@@ -304,6 +319,9 @@ __all__ = (
     "RotateWebhookSecretOutputBody",
     "SchemaCompatibilityItem",
     "SchemaCompatibilityItemResult",
+    "SendTestEventInputBody",
+    "SendTestEventInputBodyPayload",
+    "SendTestEventOutputBody",
     "StampCheckItem",
     "StampCheckItemStatus",
     "Subscription",

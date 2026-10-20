@@ -11,6 +11,7 @@
   import HeldDeliveriesNotice from "$lib/components/HeldDeliveriesNotice.svelte";
   import SubscriptionManager from "$lib/components/SubscriptionManager.svelte";
   import EventPicker from "$lib/components/EventPicker.svelte";
+  import ReceiverCodePanel from "$lib/components/ReceiverCodePanel.svelte";
   import type { components } from "$lib/api-types";
   import { ALERT_EVENT_TYPES, ALERTS_GUIDE_URL, isEmail, listAllEventTypes } from "$lib/system";
 
@@ -52,7 +53,7 @@
 
   // Selected webhook detail
   let selectedId = $state<string | null>(null);
-  let detailTab = $state<"deliveries" | "subscriptions">("deliveries");
+  let detailTab = $state<"deliveries" | "subscriptions" | "integrate">("deliveries");
   let deliveries: DeliveryItem[] = $state([]);
   let deliveriesLoading = $state(false);
   let subscriptions: SubscriptionItem[] = $state([]);
@@ -418,7 +419,7 @@
                     </div>
 
                     <div class="flex gap-4 border-b border-line">
-                      {#each [["deliveries", "Deliveries"], ["subscriptions", "Subscriptions"]] as [id, label]}
+                      {#each [["deliveries", "Deliveries"], ["subscriptions", "Subscriptions"], ["integrate", "Integrate"]] as [id, label]}
                         <button
                           class="pb-2 text-sm font-medium border-b-2 -mb-px transition {detailTab === id ? 'border-beacon text-text' : 'border-transparent text-muted hover:text-text'}"
                           onclick={() => (detailTab = id as typeof detailTab)}
@@ -468,13 +469,15 @@
                           </table>
                         </div>
                       {/if}
-                    {:else}
+                    {:else if detailTab === "subscriptions"}
                       <SubscriptionManager
                         webhookId={w.webhook_id}
                         {consumer}
                         bind:subscriptions
                         onRefresh={() => fetchSubscriptions(w.webhook_id)}
                       />
+                    {:else}
+                      <ReceiverCodePanel webhookId={w.webhook_id} {consumer} {subscriptions} />
                     {/if}
                   </div>
                 {/if}

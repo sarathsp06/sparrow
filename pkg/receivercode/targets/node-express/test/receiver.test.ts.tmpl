@@ -1,0 +1,66 @@
+// [[.Header]]
+
+// Replays testdata/spec.json against the receiver. The vectors are signed
+// with throwaway credentials, never the webhook's real [[if .Ed25519]]key[[else]]secret[[end]].
+
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import type { AddressInfo } from "node:net";
+import { test } from "node:test";
+
+import { createApp } from "../src/receiver.ts";
+
+interface Vector {
+  name: string;
+  headers: Record<string, string>;
+  body: string;
+  expect: { status: number; handler: string };
+}
+
+const spec = JSON.parse(readFileSync(new URL("../testdata/spec.json", import.meta.url), "utf8")) as {
+  test: { now: number; secret: string; public_key: string };
+  vectors: Vector[];
+};
+
+test("vectors", async () => {
+  const lines: string[] = [];
+  const app = createApp({
+[[- if .Ed25519]]
+    publicKey: spec.test.public_key,
+[[- else]]
+    secret: spec.test.secret,
+[[- end]]
+    now: () => spec.test.now,
+    testLog: (line) => lines.push(line),
+  });
+  const server = app.listen(0);
+  await new Promise((resolve) => server.once("listening", resolve));
+  const { port } = server.address() as AddressInfo;
+  try {
+    for (const v of spec.vectors) {
+      const before = lines.length;
+      const res = await fetch(`http://127.0.0.1:${port}[[.WebhookPath]]`, { method: "POST", headers: v.headers, body: v.body });
+      assert.equal(res.status, v.expect.status, `${v.name}: ${await res.text()}`);
+      const calls = lines.slice(before);
+      if (!v.expect.handler) {
+        assert.deepEqual(calls, [], `${v.name}: handler called`);
+        continue;
+      }
+      assert.equal(calls.length, 1, `${v.name}: handler calls`);
+      assert.equal(JSON.parse(calls[0]).handler, v.expect.handler, v.name);
+    }
+  } finally {
+    server.close();
+  }
+});
+
+test("healthz", async () => {
+  const server = createApp({ [[if .Ed25519]]publicKey: spec.test.public_key[[else]]secret: spec.test.secret[[end]] }).listen(0);
+  await new Promise((resolve) => server.once("listening", resolve));
+  try {
+    const res = await fetch(`http://127.0.0.1:${(server.address() as AddressInfo).port}[[.HealthPath]]`);
+    assert.equal(res.status, 200);
+  } finally {
+    server.close();
+  }
+});

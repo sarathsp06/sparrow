@@ -26,6 +26,7 @@
 | Run migrations | `make migrate` | Also runs automatically on server startup |
 | Generate spec | `make generate` | Exports OpenAPI from Go, then `go generate ./...`. Also regenerates `e2e/client/` (`make client-python`, pinned openapi-python-client): the Python client the e2e suite imports, checked in for the tests only. Users generate their own clients from `api/openapi.yaml` |
 | OTel wrapper codegen | `go generate ./...` | Uses gowrap for OTel tracing wrappers |
+| Receiver code contract | `cd pkg/receivercode/e2e && ./contract.sh go-nethttp testdata/hmac.json` | Generates a target, runs its own tests, starts it in test mode and replays the signed vectors (`TestContract`). Module not in `go.work`; CI matrix in `.github/workflows/receivercode-e2e.yml` (Python needs `python3`, Node 22.18+) |
 | Fuzz one target | `cd pkg/template && go test -run '^$' -fuzz '^FuzzExecute$' -fuzztime 1m .` | One `-fuzz` target per run; targets are listed in `.github/workflows/fuzz.yml` (nightly, 5m each). `go test` alone replays the seeds. Commit a crasher from `testdata/fuzz/<Name>/` as a regression seed |
 
 ## Architecture
@@ -63,6 +64,7 @@
 | `pkg/access/` | Separate Go module — reusable token/invite library (memstore, pgstore, storetest, httpauth) |
 | `internal/storage/` | DB abstractions, transaction helpers, error sentinels |
 | `internal/crypto/` | Envelope encryption (AES-256-GCM) |
+| `pkg/receivercode/` | Separate, **experimental** module (ADR 0004): `Generate(Input)` turns a webhook into a receiver project (`go-nethttp`, `python-fastapi`, `node-express`) from `embed.FS` templates in `targets/`. Deterministic; verification comes only from the byte-identical helpers in `helpers/` (identity test). Goldens in `testdata/<target>/<case>/`: `go test -run TestGolden -update` then review the diff; `TestGoTargetBuildsAndPasses` builds and runs every Go golden |
 | `internal/errors/` | Error categories, service errors, retryability |
 
 ## Authentication
@@ -171,12 +173,12 @@ huma.Register(api, huma.Operation{
 - Integration tests (`-tags integration`) use testcontainers — need Docker.
 - E2E tests (Gauge + Python) in `e2e/` — `uv run gauge run specs/`.
 - `make fmt` uses `goimports` with local module grouping — install `go install golang.org/x/tools/cmd/goimports@latest`.
-- The repo is a Go **workspace** (`go.work`): the CLI, `satellites/{recipes,sparrow-sinks,sparrow-sources}`, `pkg/{signature,template}`, and `pkg/access` are separate modules. Root `./...` only tests the root module — `make test` lists the nested modules explicitly (`MODULE_TEST_PATHS`).
+- The repo is a Go **workspace** (`go.work`): the CLI, `satellites/{recipes,sparrow-sinks,sparrow-sources}`, `pkg/{signature,template,receivercode}`, and `pkg/access` are separate modules. Root `./...` only tests the root module — `make test` lists the nested modules explicitly (`MODULE_TEST_PATHS`).
 
 ## Release
 
 - A release is one tag push: `git tag vX.Y.Z && git push origin vX.Y.Z`. `.github/workflows/release.yml` runs on every `v*` tag and does the rest: GoReleaser (server, `sinks`, `sources`, CLI binaries and the GitHub release), the split-module tags, then the Docker image. There is no second manual step.
-- The CLI (`satellites/sparrow`), `satellites/recipes`, `satellites/sparrow-sinks`, `satellites/sparrow-sources`, `pkg/signature`, `pkg/template`, and `pkg/access` are **separate modules** (see `docs/adr/0002-cli-module-split.md`) so `go install` of the CLI doesn't pull the server's dependency tree. They are versioned in lockstep with Sparrow under path-prefixed tags (`pkg/signature/vX.Y.Z`, `satellites/sparrow/vX.Y.Z`, ...), which the workflow's "Release Split Modules" job creates by running `scripts/release-submodules.sh vX.Y.Z --push` (strips each module's `replace` lines on a throwaway commit, never on `main`). Don't run it with `--push` yourself after a release: the tags already exist on the remote. To check what a release tagged, query the remote (`git ls-remote --tags origin 'refs/tags/satellites/*'`) or `git fetch --tags` first; a stale local tag list makes the modules look behind.
+- The CLI (`satellites/sparrow`), `satellites/recipes`, `satellites/sparrow-sinks`, `satellites/sparrow-sources`, `pkg/signature`, `pkg/template`, `pkg/receivercode`, and `pkg/access` are **separate modules** (see `docs/adr/0002-cli-module-split.md`) so `go install` of the CLI doesn't pull the server's dependency tree. They are versioned in lockstep with Sparrow under path-prefixed tags (`pkg/signature/vX.Y.Z`, `satellites/sparrow/vX.Y.Z`, ...), which the workflow's "Release Split Modules" job creates by running `scripts/release-submodules.sh vX.Y.Z --push` (strips each module's `replace` lines on a throwaway commit, never on `main`). Don't run it with `--push` yourself after a release: the tags already exist on the remote. To check what a release tagged, query the remote (`git ls-remote --tags origin 'refs/tags/satellites/*'`) or `git fetch --tags` first; a stale local tag list makes the modules look behind.
 - GoReleaser config at `.goreleaser.yml`; it builds every binary from the checkout via `replace`, so binary releases don't need the tag dance. Release notes come from `CHANGELOG.md`: every user-visible change adds a line under `## [Unreleased]`, and before tagging that section is renamed `## [vX.Y.Z] - date` (with a compare link at the bottom). The release workflow publishes the tag's section as the GitHub release note and fails if it is missing; release candidates use `Unreleased`. Write for users deciding whether to upgrade, and put anything they must do under `### Upgrading`.
 - Conventional Commits (`feat:`, `fix:`, etc.) for clean release-note grouping.
 

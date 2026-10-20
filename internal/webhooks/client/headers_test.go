@@ -72,3 +72,50 @@ func TestBuildRequestHeaderPrecedence(t *testing.T) {
 		t.Errorf("reserved Host header leaked into request: header=%v host=%q", req.Header["Host"], req.Host)
 	}
 }
+
+func TestBuildRequestRoutingHeaders(t *testing.T) {
+	spoofed := map[string]string{
+		"X-Sparrow-Event-Type":      "spoofed.event",
+		"X-Sparrow-Event-Version":   "99",
+		"X-Sparrow-Subscription-ID": "spoofed-sub",
+		"X-Sparrow-Test":            "true",
+	}
+	subID := uuid.New().String()
+
+	set, err := BuildRequest(context.Background(), &DeliveryRequest{
+		Method: "POST", URL: "https://example.com/hook", Payload: []byte(`{}`),
+		EventID: uuid.New(), WebhookID: uuid.New(), DeliveryID: "d1",
+		EventName: "order.paid", EventVersion: 2, SubscriptionID: subID,
+		Headers: spoofed,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]string{
+		"X-Sparrow-Event-Type":      "order.paid",
+		"X-Sparrow-Event-Version":   "2",
+		"X-Sparrow-Subscription-ID": subID,
+	} {
+		if got := set.Header.Values(name); len(got) != 1 || got[0] != want {
+			t.Errorf("%s = %q, want [%q]", name, got, want)
+		}
+	}
+	if got := set.Header.Values("X-Sparrow-Test"); len(got) != 0 {
+		t.Errorf("X-Sparrow-Test = %q on a real delivery, want absent", got)
+	}
+
+	// Unknown values remove the header rather than let a custom one through.
+	unset, err := BuildRequest(context.Background(), &DeliveryRequest{
+		Method: "POST", URL: "https://example.com/hook", Payload: []byte(`{}`),
+		EventID: uuid.New(), WebhookID: uuid.New(), DeliveryID: "d1",
+		Headers: spoofed,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name := range spoofed {
+		if got := unset.Header.Values(name); len(got) != 0 {
+			t.Errorf("%s = %q, want absent", name, got)
+		}
+	}
+}

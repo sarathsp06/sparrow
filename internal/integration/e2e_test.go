@@ -208,6 +208,10 @@ func TestE2E_HappyPath(t *testing.T) {
 	sparrowDeliveryID := delivery.Headers.Get("X-Sparrow-Delivery-ID")
 	assert.NotEmpty(t, sparrowDeliveryID, "X-Sparrow-Delivery-ID header should be set")
 
+	assert.Equal(t, eventName, delivery.Headers.Get("X-Sparrow-Event-Type"), "X-Sparrow-Event-Type header should match event name")
+	assert.Equal(t, "1", delivery.Headers.Get("X-Sparrow-Event-Version"), "X-Sparrow-Event-Version header should be the event type version")
+	assert.Equal(t, subscriptionID, delivery.Headers.Get("X-Sparrow-Subscription-ID"), "X-Sparrow-Subscription-ID header should match the subscription")
+
 	contentType := delivery.Headers.Get("Content-Type")
 	assert.Equal(t, "application/json", contentType, "Content-Type should be application/json")
 
