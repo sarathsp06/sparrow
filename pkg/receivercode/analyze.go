@@ -3,11 +3,9 @@ package receivercode
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
-	gotemplate "text/template"
 	"text/template/parse"
 	"time"
 	"unicode"
@@ -58,6 +56,15 @@ type plan struct {
 
 func analyze(s Subscription) *plan {
 	p := &plan{Sub: s, ContentType: headerValue(s.Headers, "Content-Type")}
+	if len(bytes.TrimSpace(s.Sample)) == 0 && len(bytes.TrimSpace(s.Schema)) > 0 {
+		// Like the server, derive placeholder values from the schema, so
+		// the model and the test vectors agree with it.
+		if t, err := infer.FromSchema(s.Schema); err == nil && t.Kind == infer.Object {
+			s.Sample = mustJSON(placeholder(t, 0))
+			p.Sub.Sample = s.Sample
+			p.Notes = append(p.Notes, "the event type has no sample payload; the sample delivery uses placeholder values from its JSON Schema")
+		}
+	}
 	payload, payloadNote := samplePayload(s.Sample)
 	if payloadNote != "" {
 		p.Notes = append(p.Notes, payloadNote)
@@ -169,44 +176,15 @@ func envelopeBody(eventType string, payload map[string]any) []byte {
 
 var engine = template.New()
 
-// render runs the transform against the sample with the server's engine, so
-// the same limits apply. A template that reads the clock is rendered a
-// second time with the clock fixed, so the output stays deterministic.
+// render runs the transform against the sample with the server's engine and
+// limits, with the clock fixed so a template that reads it stays
+// deterministic.
 func render(s Subscription, payload map[string]any) ([]byte, error) {
 	ctx := template.NewWebhookContext(sampleEventID, s.EventType, sampleTime.Format(time.RFC3339), 1, payload)
-	out, err := engine.ExecuteWith(s.Transform, ctx, template.ExecOptions{StrictMissingKeys: s.StrictMissingKeys})
-	if err != nil {
-		return nil, err
-	}
-	if !usesFunc(s.Transform, "now") {
-		return out, nil
-	}
-	funcs := template.FuncMap()
-	funcs["now"] = func() time.Time { return sampleTime }
-	t, err := gotemplate.New("webhook").Funcs(funcs).Parse(s.Transform)
-	if err != nil {
-		return nil, err
-	}
-	if s.StrictMissingKeys {
-		t = t.Option("missingkey=error")
-	}
-	var buf bytes.Buffer
-	if err := t.Execute(&limitedBuffer{buf: &buf, limit: template.MaxOutputBytes}, ctx); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-type limitedBuffer struct {
-	buf   *bytes.Buffer
-	limit int
-}
-
-func (w *limitedBuffer) Write(p []byte) (int, error) {
-	if w.buf.Len()+len(p) > w.limit {
-		return 0, fmt.Errorf("template output exceeds %d bytes", w.limit)
-	}
-	return w.buf.Write(p)
+	return engine.ExecuteWith(s.Transform, ctx, template.ExecOptions{
+		StrictMissingKeys: s.StrictMissingKeys,
+		Now:               func() time.Time { return sampleTime },
+	})
 }
 
 // parseTrees parses a template with the engine's helper names, for
@@ -237,17 +215,6 @@ func variableShape(src string) string {
 		}
 	})
 	return why
-}
-
-// usesFunc reports whether the template calls the named helper.
-func usesFunc(src, name string) bool {
-	found := false
-	walkTemplate(src, func(n parse.Node) {
-		if id, ok := n.(*parse.IdentifierNode); ok && id.Ident == name {
-			found = true
-		}
-	})
-	return found
 }
 
 func walkTemplate(src string, visit func(parse.Node)) {

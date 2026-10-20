@@ -20,6 +20,8 @@ class GenerateReceiverCodeOutputBody:
     """
     Attributes:
         files (list[ReceiverFileOut]): The project's files, sorted by path.
+        has_more (bool): True when subscription_ids was omitted and the webhook has more than 200 subscriptions: only
+            the first 200 have handlers. Pass subscription_ids to choose them.
         run (str): Shell command that starts the receiver, from the project root.
         spec (GenerateReceiverCodeOutputBodySpec): Machine-readable receiver spec: how deliveries are verified and
             routed, each handler's body format and model, and the signed test vectors the generated tests replay (signed
@@ -30,6 +32,7 @@ class GenerateReceiverCodeOutputBody:
     """
 
     files: list[ReceiverFileOut]
+    has_more: bool
     run: str
     spec: GenerateReceiverCodeOutputBodySpec
     test: str
@@ -40,6 +43,8 @@ class GenerateReceiverCodeOutputBody:
         for files_item_data in self.files:
             files_item = files_item_data.to_dict()
             files.append(files_item)
+
+        has_more = self.has_more
 
         run = self.run
 
@@ -54,6 +59,7 @@ class GenerateReceiverCodeOutputBody:
         field_dict.update(
             {
                 "files": files,
+                "has_more": has_more,
                 "run": run,
                 "spec": spec,
                 "test": test,
@@ -77,6 +83,8 @@ class GenerateReceiverCodeOutputBody:
 
             files.append(files_item)
 
+        has_more = d.pop("has_more")
+
         run = d.pop("run")
 
         spec = GenerateReceiverCodeOutputBodySpec.from_dict(d.pop("spec"))
@@ -87,6 +95,7 @@ class GenerateReceiverCodeOutputBody:
 
         generate_receiver_code_output_body = cls(
             files=files,
+            has_more=has_more,
             run=run,
             spec=spec,
             test=test,

@@ -4,6 +4,7 @@
   // Shared by the admin webhook page and the portal's Integrate tab: the API
   // client routes the same /v1 calls through /portal/api/ in the portal.
   import { onMount } from "svelte";
+  import { JSONEditor, Mode, type Content } from "svelte-jsoneditor";
   import { api, unwrap } from "$lib/services";
   import { formatAPIError } from "$lib/utils";
   import { highlight, languageOf } from "$lib/highlight";
@@ -39,6 +40,8 @@
   let selectedPath = $state("");
   let copied = $state("");
   let tests = $state<Record<string, { busy: boolean; result?: TestResult; error?: string }>>({});
+  // Per subscription: the payload being edited, when its editor is open.
+  let payloads = $state<Record<string, { content: Content; loading: boolean }>>({});
 
   const target = $derived(targets.find((t) => t.id === targetId));
   const selectedFile = $derived(generated?.files.find((f) => f.path === selectedPath));
@@ -103,13 +106,48 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  // Opens the payload editor with the event type's sample, or closes it.
+  async function togglePayload(subscriptionId: string, eventName: string) {
+    if (payloads[subscriptionId]) {
+      delete payloads[subscriptionId];
+      return;
+    }
+    payloads[subscriptionId] = { content: { json: {} }, loading: true };
+    try {
+      const ev = unwrap(await api.GET("/v1/event-types/{name}", { params: { path: { name: eventName } } }));
+      payloads[subscriptionId] = { content: { json: ev.sample_payload ?? {} }, loading: false };
+    } catch {
+      // No sample to start from: edit an empty object.
+      payloads[subscriptionId] = { content: { json: {} }, loading: false };
+    }
+  }
+
+  // The edited payload as an object, or an error message.
+  function editedPayload(content: Content): { payload?: Record<string, unknown>; error?: string } {
+    let value: unknown;
+    try {
+      value = "json" in content ? content.json : JSON.parse(content.text);
+    } catch {
+      return { error: "The payload is not valid JSON." };
+    }
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      return { error: "The payload must be a JSON object." };
+    }
+    return { payload: value as Record<string, unknown> };
+  }
+
   async function sendTest(subscriptionId: string) {
+    const edited = payloads[subscriptionId] ? editedPayload(payloads[subscriptionId].content) : {};
+    if (edited.error) {
+      tests[subscriptionId] = { busy: false, error: edited.error };
+      return;
+    }
     tests[subscriptionId] = { busy: true };
     try {
       const result = unwrap(
         await api.POST("/v1/consumers/{consumer}/webhooks/{webhook_id}:sendTestEvent", {
           params: { path: { consumer, webhook_id: webhookId } },
-          body: { subscription_id: subscriptionId },
+          body: { subscription_id: subscriptionId, ...(edited.payload ? { payload: edited.payload } : {}) },
         }),
       );
       tests[subscriptionId] = { busy: false, result };
@@ -166,6 +204,12 @@
   {/if}
 
   {#if generated && target}
+    {#if generated.has_more}
+      <p class="text-sm text-warn" role="status" data-testid="receiver-code-has-more">
+        This endpoint has more than 200 subscriptions: only the first 200 have handlers. Generate with the CLI's
+        <code class="mono text-xs">--subscription</code> to choose them.
+      </p>
+    {/if}
     <div class="flex flex-wrap items-center gap-2">
       <button class="btn btn-beacon !px-3 !py-1.5" onclick={download}>Download .zip</button>
       {#if selectedFile}
@@ -239,8 +283,9 @@
   <div class="space-y-2 border-t border-line pt-4">
     <h3 class="eyebrow">Send a test event</h3>
     <p class="text-sm text-muted">
-      Sends one signed delivery of the event type's sample, rendered like a real delivery and marked
-      <code class="mono text-xs">X-Sparrow-Test: true</code>. It is not recorded and never affects the endpoint's health.
+      Sends one signed delivery of the event type's sample, or of the payload you edit, rendered like a real delivery
+      and marked <code class="mono text-xs">X-Sparrow-Test: true</code>. It is not recorded and never affects the
+      endpoint's health.
     </p>
     {#if subscriptions.length === 0}
       <p class="text-sm text-muted">Subscribe this endpoint to an event type first.</p>
@@ -253,6 +298,9 @@
               {t?.busy ? "Sending…" : "Send test event"}
             </button>
             <span class="mono text-xs">{s.event_name}</span>
+            <button class="text-xs text-muted hover:text-text" onclick={() => togglePayload(s.subscription_id, s.event_name)}>
+              {payloads[s.subscription_id] ? "Use the sample" : "Edit payload"}
+            </button>
             {#if t?.result}
               <span class={ok(t.result) ? "text-ok" : "text-bad"} data-testid="test-event-result">
                 {ok(t.result) ? "✓" : "✗"}
@@ -260,13 +308,17 @@
                 · {t.result.latency_ms > 0 ? `${t.result.latency_ms} ms` : "<1 ms"}
                 {#if t.result.error_class}· {t.result.error_class}{/if}
               </span>
-              {#if t.result.error || t.result.response_excerpt}
-                <span class="w-full mono text-xs text-muted truncate" title={t.result.error || t.result.response_excerpt}>
-                  {t.result.error || t.result.response_excerpt}
-                </span>
-              {/if}
             {:else if t?.error}
               <span class="text-bad" role="alert">{t.error}</span>
+            {/if}
+            {#if payloads[s.subscription_id]}
+              <div class="w-full h-48" data-testid="test-event-payload">
+                {#if payloads[s.subscription_id].loading}
+                  <p class="text-xs text-muted">Loading the sample…</p>
+                {:else}
+                  <JSONEditor bind:content={payloads[s.subscription_id].content} mode={Mode.text} mainMenuBar={false} />
+                {/if}
+              </div>
             {/if}
           </li>
         {/each}

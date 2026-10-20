@@ -79,6 +79,7 @@ export default defineConfig({
           label: 'Guides',
           items: [
             { slug: 'guides/verify-signatures' },
+            { slug: 'guides/receiver-code' },
             { slug: 'guides/payload-transformation' },
             { slug: 'guides/event-type-versioning' },
             { slug: 'guides/event-type-export-import' },

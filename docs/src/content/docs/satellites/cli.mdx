@@ -444,6 +444,32 @@ sparrow tail deliveries
 [Recipes → Writing your own](/sparrow/satellites/recipes/#writing-your-own)
 lists every recipe field.
 
+### `sparrow scaffold`
+
+Generates a ready-to-run receiver project for a webhook (see
+[Generate a receiver](/sparrow/guides/receiver-code/)): signature
+verification on the raw body, dedup, routing on headers, a model and a handler
+stub per subscription, and tests that replay signed vectors.
+
+```bash
+sparrow scaffold --webhook <id> --lang go --framework nethttp -o ./receiver
+sparrow scaffold --webhook <id> --lang node --framework express --subscription <sub-id> -o ./receiver
+sparrow scaffold --webhook <id> --lang python --framework fastapi -o ./receiver --force --test
+sparrow scaffold --offline --schema order.json --event-type order.paid --signing hmac --lang go --framework nethttp
+```
+
+| Flag | Meaning |
+|---|---|
+| `--webhook` | Webhook to generate for (the server builds it from its subscriptions, event types and transforms). |
+| `--lang`, `--framework` | `go`/`nethttp`, `python`/`fastapi` or `node`/`express`. |
+| `-o`, `--out` | Directory to write to (default `sparrow-receiver`). Here `-o` is the directory, not the output format. |
+| `--force` | Overwrite files that exist. Without it nothing is written if any file is already there. |
+| `--subscription` | Only these subscriptions (repeatable). |
+| `--test` | After writing, send one test event per subscription and print the receiver's status, latency and error class; exits non-zero if any gets no 2xx. Run the receiver at the webhook's URL first. |
+| `--offline` | Generate here with no server, from `--schema`, `--sample` and/or `--transform` files, `--event-type`, `--signing hmac\|ed25519` (`--public-key` for ed25519) and `--content-type`. |
+
+The webhook secret is never written; the receiver reads `SPARROW_WEBHOOK_SECRET`.
+
 ### `sparrow tokens`
 
 Manage access tokens -- named, revocable credentials for people, CI, and
@@ -564,6 +590,7 @@ Read-only tools (always on):
 | `export_event_types` | Exports definitions as one bundle, like `sparrow events export`: exactly one of `names`, `prefix` or `all` |
 | `get_stats` | Delivery counts by outcome and success rate |
 | `test_template` | Renders a transform template server-side with the delivery engine, against `payload` when given (e.g. a real one from `list_events`), else the event type's sample payload |
+| `generate_receiver_code` | A ready-to-run receiver project for a webhook (`language`, `framework`, optional `subscription_ids`): files, spec with signed test vectors, and run and test commands. Nothing is stored; see [Generate a receiver](/sparrow/guides/receiver-code/) |
 | `list_recipes` | Recipes with their params: the built-in catalog plus local recipe files (`source` says which) |
 | `get_recipe` | One recipe in full (url, headers, template, guidance); local files override built-ins as in `sparrow use` |
 | `validate_recipe` | Checks a recipe by name or as draft YAML: schema and param rules, the catalog's shipping rules as warnings, and a strict local render against `payload`, else `event_name`'s registered sample, else a built-in sample. Nothing is created |
@@ -683,6 +710,7 @@ for the task; the last column is the recommendation.
 | Go back to an earlier template | Template editor: history | - | - | UI |
 | Connect a destination from a recipe | Register webhook: **Use recipe** | `use` | `apply_recipe` | Any; the agent validates first |
 | Register a webhook, subscribe it | Register webhook, subscription pages | `use` | `register_webhook`, `create_subscription` | Any |
+| Generate a receiver project, send it a test event | Webhook page and portal: **Integrate** | `scaffold`, `scaffold --test` | `generate_receiver_code` | UI or CLI; an agent fills in the handlers |
 | Develop a receiver locally | - | `listen --forward` | `start_listen`, `list_received` | CLI for your app, agent for its own checks |
 | Retry one delivery | Delivery details | - | `retry_delivery` | Agent or UI |
 | Retry held or failed deliveries in bulk, re-push events | Deliveries, event reports, held-deliveries notice | - | - | UI: bulk jobs snapshot their targets and show progress |

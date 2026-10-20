@@ -60,6 +60,12 @@ Re-serialized JSON (different key order, whitespace or escaping) never matches.
 Each example below shows how to get the raw bytes in that framework.
 </Aside>
 
+<Aside type="tip" title="Or generate the whole receiver">
+[Generate a receiver](/sparrow/guides/receiver-code/) writes a Go, Python or
+Node.js project around these helpers: verification on the raw body, dedup,
+routing and tests, from the webhook's own subscriptions.
+</Aside>
+
 ## Routing headers
 
 Every delivery, signed or not, also carries headers that say what it is, so a

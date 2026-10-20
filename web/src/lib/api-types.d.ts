@@ -731,7 +731,7 @@ export interface paths {
         put?: never;
         /**
          * Send a test event to a webhook
-         * @description Sends one signed delivery of the subscription's event type sample (rendered through its transform, as a real delivery would be) to the webhook's URL, synchronously, and returns what the receiver answered. It uses the same request builder, signing, network policy (SSRF protection) and timeout as real deliveries and adds the header X-Sparrow-Test: true. It creates no delivery and never counts toward the webhook's health or auto-disable. A receiver error is reported in the response (status_code, error_class), not as an API error.
+         * @description Sends one signed delivery of payload, or of the subscription's event type sample when payload is omitted (rendered through the subscription's transform, as a real delivery would be), to the webhook's URL, synchronously, and returns what the receiver answered. It uses the same request builder, signing, network policy (SSRF protection) and timeout as real deliveries and adds the header X-Sparrow-Test: true. It creates no delivery and never counts toward the webhook's health or auto-disable. A receiver error is reported in the response (status_code, error_class), not as an API error.
          *
          *     One test event per webhook every 2 seconds on each server: more answer 429. 404 for an unknown webhook or a subscription not on it.
          *
@@ -2192,6 +2192,8 @@ export interface components {
             readonly $schema?: string;
             /** @description The project's files, sorted by path. */
             files: components["schemas"]["ReceiverFileOut"][];
+            /** @description True when subscription_ids was omitted and the webhook has more than 200 subscriptions: only the first 200 have handlers. Pass subscription_ids to choose them. */
+            has_more: boolean;
             /** @description Shell command that starts the receiver, from the project root. */
             run: string;
             /** @description Machine-readable receiver spec: how deliveries are verified and routed, each handler's body format and model, and the signed test vectors the generated tests replay (signed with throwaway credentials, never the webhook's secret). Its format is versioned by spec_version and, like the generated code, experimental. */
@@ -3002,7 +3004,11 @@ export interface components {
              * @example https://example.com/schemas/SendTestEventInputBody.json
              */
             readonly $schema?: string;
-            /** @description Subscription whose event type sample is sent, rendered through its transform. */
+            /** @description Event payload to send instead of the event type's sample payload. It is rendered through the subscription's transform like a pushed event. */
+            payload?: {
+                [key: string]: unknown;
+            };
+            /** @description Subscription to send through: its transform renders the payload. */
             subscription_id: string;
         };
         SendTestEventOutputBody: {
@@ -3012,17 +3018,13 @@ export interface components {
              * @example https://example.com/schemas/SendTestEventOutputBody.json
              */
             readonly $schema?: string;
-            /** @description What went wrong when no response was received, or the template error. */
-            error?: string;
-            /** @description Delivery error category when the send did not get a 2xx: client_error, server_error, rate_limited, timeout, connection_refused, dns_error, tls_error, network_error, redirect, template_error or unknown. */
+            /** @description Delivery error category when the send did not get a 2xx: client_error, server_error, rate_limited, timeout, connection_refused, dns_error, tls_error, network_error, redirect, template_error (nothing was sent) or unknown. */
             error_class?: string;
             /**
              * Format: int64
              * @description Time to the response headers, in milliseconds.
              */
             latency_ms: number;
-            /** @description The first KiB of the response body. */
-            response_excerpt: string;
             /**
              * Format: int64
              * @description The receiver's HTTP status; 0 when no response was received.
