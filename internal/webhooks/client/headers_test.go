@@ -78,6 +78,7 @@ func TestBuildRequestRoutingHeaders(t *testing.T) {
 		"X-Sparrow-Event-Type":      "spoofed.event",
 		"X-Sparrow-Event-Version":   "99",
 		"X-Sparrow-Subscription-ID": "spoofed-sub",
+		"X-Sparrow-Test":            "true",
 	}
 	subID := uuid.New().String()
 
@@ -98,6 +99,9 @@ func TestBuildRequestRoutingHeaders(t *testing.T) {
 		if got := set.Header.Values(name); len(got) != 1 || got[0] != want {
 			t.Errorf("%s = %q, want [%q]", name, got, want)
 		}
+	}
+	if got := set.Header.Values("X-Sparrow-Test"); len(got) != 0 {
+		t.Errorf("X-Sparrow-Test = %q on a real delivery, want absent", got)
 	}
 
 	// Unknown values remove the header rather than let a custom one through.

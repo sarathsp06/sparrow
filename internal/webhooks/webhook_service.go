@@ -28,6 +28,9 @@ type WebhookService struct {
 	// autoRegisterEvents lets a push to an unknown event name create a
 	// schema-less event type instead of failing with NotFound.
 	autoRegisterEvents bool
+	// deliveryClient sends test events; nil turns them off.
+	deliveryClient *client.WebhookClient
+	testEvents     testEventLimiter
 }
 
 // WebhookManager manages webhook registrations and their lifecycle.
@@ -134,6 +137,7 @@ type WebhookServiceInterface interface {
 	BatchManager
 	SecretRevealer
 	AlertConfigManager
+	TestEventSender
 }
 
 type TemplateFunctionInfo struct {

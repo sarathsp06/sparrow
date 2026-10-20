@@ -18,6 +18,8 @@ migrations run on startup.
 
 ### Added
 
+- `POST /v1/consumers/{consumer}/webhooks/{webhook_id}:generateReceiverCode` returns a ready-to-run receiver project for the webhook (files, a machine-readable spec with signed test vectors, and the run and test commands). `GET /v1/capabilities` lists the supported languages and frameworks under `receiver_code.targets`. Portal tokens can call it for their own webhooks.
+- `POST /v1/consumers/{consumer}/webhooks/{webhook_id}:sendTestEvent` sends one signed delivery of a subscription's sample, rendered through its transform, and returns the receiver's status, latency and response excerpt. It uses the real delivery path (signing, SSRF protection, timeouts), adds `X-Sparrow-Test: true`, records no delivery and never affects health or auto-disable. Limited to one per webhook every 2 seconds on each server. Portal tokens can call it for their own webhooks.
 - `pkg/receivercode` (experimental Go module): generates a ready-to-run receiver project for a webhook in Go (`net/http`), Python (FastAPI) or Node.js (Express, TypeScript). The project verifies signatures on the raw body, rejects stale timestamps, drops redeliveries, routes on headers, decodes each subscription's payload (JSON, XML or text, including transformed bodies) and ships with tests that replay signed vectors. It is excluded from the 1.x compatibility promise for now.
 - Every delivery carries `X-Sparrow-Event-Type`, `X-Sparrow-Event-Version` and `X-Sparrow-Subscription-ID`, so a receiver can route on headers even when a transform reshapes the body. Custom headers can't override them.
 

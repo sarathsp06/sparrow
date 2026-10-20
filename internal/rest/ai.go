@@ -78,6 +78,9 @@ type capabilitiesOutput struct {
 		AlertDelivery struct {
 			Configured bool `json:"configured" doc:"True when an active webhook under the _sparrow consumer has an unpaused subscription to Sparrow's system events, so alert configs actually send email. When false, alert configs are stored but nothing is sent."`
 		} `json:"alert_delivery" doc:"Delivery of Sparrow's own alert emails (see the alert-configs endpoints)."`
+		ReceiverCode struct {
+			Targets []receiverTargetOut `json:"targets" doc:"Language and framework pairs POST /v1/consumers/{consumer}/webhooks/{webhook_id}:generateReceiverCode supports."`
+		} `json:"receiver_code" doc:"Receiver code generation (generateReceiverCode)."`
 	}
 }
 
@@ -120,7 +123,7 @@ func registerAIRoutes(api huma.API, svc webhooks.WebhookServiceInterface, deps A
 		Method:      http.MethodGet,
 		Path:        "/v1/capabilities",
 		Summary:     "List optional server features",
-		Description: "Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, and whether alert email delivery is set up. Read-only.\n\n" +
+		Description: "Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, whether alert email delivery is set up, and the receiver code generation targets. Read-only.\n\n" +
 			"ai_drafting.enabled reflects SPARROW_AI_ENABLED=true; drafting is usable only when enabled is true and problem is absent; prompt_only is the opposite of enabled.\n\nPortal tokens: allowed, as GET /portal/api/capabilities.",
 		Tags: []string{"Server"},
 	}, func(ctx context.Context, _ *struct{}) (*capabilitiesOutput, error) {
@@ -139,6 +142,7 @@ func registerAIRoutes(api huma.API, svc webhooks.WebhookServiceInterface, deps A
 			return nil, mapError(ctx, err, "failed to check alert delivery")
 		}
 		out.Body.AlertDelivery.Configured = configured
+		out.Body.ReceiverCode.Targets = receiverCodeTargets()
 		return out, nil
 	})
 
