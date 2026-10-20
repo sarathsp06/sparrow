@@ -1,0 +1,6 @@
+#!/bin/sh
+# Runs the generated Go receiver's own checks and tests in $1.
+set -eu
+cd "$1"
+go vet ./...
+go test ./...

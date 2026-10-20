@@ -26,6 +26,7 @@
 | Run migrations | `make migrate` | Also runs automatically on server startup |
 | Generate spec | `make generate` | Exports OpenAPI from Go, then `go generate ./...`. Also regenerates `e2e/client/` (`make client-python`, pinned openapi-python-client): the Python client the e2e suite imports, checked in for the tests only. Users generate their own clients from `api/openapi.yaml` |
 | OTel wrapper codegen | `go generate ./...` | Uses gowrap for OTel tracing wrappers |
+| Receiver code contract | `cd pkg/receivercode/e2e && ./contract.sh go-nethttp testdata/hmac.json` | Generates a target, runs its own tests, starts it in test mode and replays the signed vectors (`TestContract`). Module not in `go.work`; CI matrix in `.github/workflows/receivercode-e2e.yml` (Python needs `python3`, Node 22.18+) |
 | Fuzz one target | `cd pkg/template && go test -run '^$' -fuzz '^FuzzExecute$' -fuzztime 1m .` | One `-fuzz` target per run; targets are listed in `.github/workflows/fuzz.yml` (nightly, 5m each). `go test` alone replays the seeds. Commit a crasher from `testdata/fuzz/<Name>/` as a regression seed |
 
 ## Architecture

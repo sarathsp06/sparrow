@@ -103,7 +103,7 @@ func TestRequestRebuildsAtAnotherTime(t *testing.T) {
 			if vec.Name != "valid" {
 				continue
 			}
-			headers, body := out.Spec.Test.Request(vec, now, []byte(vec.Body))
+			headers, body := out.Spec.Test.Rebuild(vec, now)
 			h := http.Header{}
 			for k, val := range headers {
 				h.Set(k, val)
@@ -118,6 +118,30 @@ func TestRequestRebuildsAtAnotherTime(t *testing.T) {
 			}
 			if h.Get("X-Sparrow-Subscription-ID") != vec.SubscriptionID || h.Get("X-Sparrow-Event-Type") == "" {
 				t.Errorf("%s: routing headers missing: %v", tc.name, h)
+			}
+		}
+	}
+}
+
+// TestRebuildMatchesTheVectors rebuilds every vector at its own time: the
+// result must be the vector itself.
+func TestRebuildMatchesTheVectors(t *testing.T) {
+	for _, tc := range testCases {
+		in := tc.in
+		in.Target = Target{Language: "go", Framework: "nethttp"}
+		out, err := Generate(in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, vec := range out.Spec.Vectors {
+			headers, body := out.Spec.Test.Rebuild(vec, out.Spec.Test.Now)
+			if string(body) != vec.Body || len(headers) != len(vec.Headers) {
+				t.Fatalf("%s/%s: rebuilt request differs", tc.name, vec.Name)
+			}
+			for k, v := range vec.Headers {
+				if headers[k] != v {
+					t.Errorf("%s/%s: %s = %q, want %q", tc.name, vec.Name, k, headers[k], v)
+				}
 			}
 		}
 	}
@@ -242,17 +266,20 @@ func TestContentTypeOverridesDetection(t *testing.T) {
 func TestSampleEdgeCases(t *testing.T) {
 	for name, sample := range map[string]string{"none": "", "null": "null", "array": "[1]", "invalid": "{"} {
 		p := analyze(Subscription{ID: "s", EventType: "e", Sample: json.RawMessage(sample)})
-		p.settleModel()
 		if p.Model != ModelEnvelope || len(p.Notes) == 0 {
 			t.Errorf("%s: %+v", name, p)
 		}
 	}
-	// A schema the sample violates falls back to the sample's own type.
+	// The schema types the payload, even when the sample disagrees with it.
 	p := analyze(Subscription{ID: "s", EventType: "e", Schema: json.RawMessage(`{"type":"object","required":["n"],"properties":{"n":{"type":"integer"}}}`),
 		Sample: json.RawMessage(`{"n": "not a number"}`)})
-	p.settleModel()
-	if p.ModelSource != "sample" || p.Type.Fields[0].Type.Kind.String() != "string" {
-		t.Errorf("schema mismatch: %+v", p)
+	if p.ModelSource != "schema" || p.Type.Fields[0].Type.Kind.String() != "int" {
+		t.Errorf("schema typing: %+v", p)
+	}
+	// Without a sample, placeholders from the schema make the sample body.
+	p = analyze(Subscription{ID: "s", EventType: "e", Schema: json.RawMessage(`{"type":"object","required":["n"],"properties":{"n":{"type":"integer"}}}`)})
+	if !strings.Contains(string(p.Body), `"payload":{"n":1}`) {
+		t.Errorf("placeholder body = %s", p.Body)
 	}
 	// An unreadable schema is noted and the sample is used.
 	p = analyze(Subscription{ID: "s", EventType: "e", Schema: json.RawMessage(`[`), Sample: json.RawMessage(`{"a":true}`)})

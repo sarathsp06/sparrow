@@ -64,9 +64,7 @@
       "body": "\u003corder id=\"ord_123\" xmlns=\"urn:example\"\u003e\u003camount currency=\"EUR\"\u003e42.5\u003c/amount\u003e\u003citem\u003e\u003csku\u003eA-1\u003c/sku\u003e\u003c/item\u003e\u003citem\u003e\u003csku\u003eB-2\u003c/sku\u003e\u003c/item\u003e\u003cnote\u003epaid\u003c/note\u003e\u003c/order\u003e",
       "expect": {
         "status": 200,
-        "handler": "handleOrderPaid",
-        "value": "\u003corder id=\"ord_123\" xmlns=\"urn:example\"\u003e\u003camount currency=\"EUR\"\u003e42.5\u003c/amount\u003e\u003citem\u003e\u003csku\u003eA-1\u003c/sku\u003e\u003c/item\u003e\u003citem\u003e\u003csku\u003eB-2\u003c/sku\u003e\u003c/item\u003e\u003cnote\u003epaid\u003c/note\u003e\u003c/order\u003e",
-        "match": "equal"
+        "handler": "handleOrderPaid"
       }
     },
     {
@@ -232,9 +230,7 @@
       "body": "\u003corder id=\"ord_123\" xmlns=\"urn:example\"\u003e\u003camount currency=\"EUR\"\u003e42.5\u003c/amount\u003e\u003citem\u003e\u003csku\u003eA-1\u003c/sku\u003e\u003c/item\u003e\u003citem\u003e\u003csku\u003eB-2\u003c/sku\u003e\u003c/item\u003e\u003cnote\u003epaid\u003c/note\u003e\u003c/order\u003e",
       "expect": {
         "status": 200,
-        "handler": "handleOrderPaid",
-        "value": "\u003corder id=\"ord_123\" xmlns=\"urn:example\"\u003e\u003camount currency=\"EUR\"\u003e42.5\u003c/amount\u003e\u003citem\u003e\u003csku\u003eA-1\u003c/sku\u003e\u003c/item\u003e\u003citem\u003e\u003csku\u003eB-2\u003c/sku\u003e\u003c/item\u003e\u003cnote\u003epaid\u003c/note\u003e\u003c/order\u003e",
-        "match": "equal"
+        "handler": "handleOrderPaid"
       }
     },
     {

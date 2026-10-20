@@ -46,6 +46,8 @@ type DeliveryRequest struct {
 	// omits X-Sparrow-Subscription-ID.
 	SubscriptionID string
 	Consumer       string
+	// Test marks a one-off test send (X-Sparrow-Test: true).
+	Test bool
 }
 
 // WebhookEnvelope is the default JSON body sent to webhook endpoints.
@@ -120,6 +122,11 @@ func BuildRequest(ctx context.Context, dr *DeliveryRequest) (*http.Request, erro
 	}
 	setOrDelete(req.Header, "X-Sparrow-Event-Version", eventVersion)
 	setOrDelete(req.Header, "X-Sparrow-Subscription-ID", dr.SubscriptionID)
+	testHeader := ""
+	if dr.Test {
+		testHeader = "true"
+	}
+	setOrDelete(req.Header, "X-Sparrow-Test", testHeader)
 
 	// Standard Webhooks signing (https://www.standardwebhooks.com)
 	// Uses webhook-id, webhook-timestamp, webhook-signature headers.
