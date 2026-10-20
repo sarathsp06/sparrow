@@ -60,9 +60,7 @@
       "body": "Order ord_123 paid 42.5 EUR at 2026-01-01T00:00:00Z",
       "expect": {
         "status": 200,
-        "handler": "handleOrderPaid",
-        "value": "Order ord_123 paid 42.5 EUR at 2026-01-01T00:00:00Z",
-        "match": "equal"
+        "handler": "handleOrderPaid"
       }
     },
     {
@@ -228,9 +226,7 @@
       "body": "Order ord_123 paid 42.5 EUR at 2026-01-01T00:00:00Z",
       "expect": {
         "status": 200,
-        "handler": "handleOrderPaid",
-        "value": "Order ord_123 paid 42.5 EUR at 2026-01-01T00:00:00Z",
-        "match": "equal"
+        "handler": "handleOrderPaid"
       }
     },
     {

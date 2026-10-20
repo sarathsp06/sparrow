@@ -64,22 +64,7 @@
       "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"user.created\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"email\":\"ada@example.com\",\"roles\":[\"admin\"],\"user_id\":7}}",
       "expect": {
         "status": 200,
-        "handler": "handleUserCreated",
-        "value": {
-          "attempt": 1,
-          "event_id": "00000000-0000-4000-8000-000000000001",
-          "event_name": "user.created",
-          "payload": {
-            "email": "ada@example.com",
-            "roles": [
-              "admin"
-            ],
-            "user_id": 7
-          },
-          "timestamp": "2026-01-01T00:00:00Z",
-          "version": "1"
-        },
-        "match": "subset"
+        "handler": "handleUserCreated"
       }
     },
     {
@@ -246,22 +231,7 @@
       "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"user.created\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"email\":\"ada@example.com\",\"roles\":[\"admin\"],\"user_id\":7}}",
       "expect": {
         "status": 200,
-        "handler": "handleUserCreated",
-        "value": {
-          "attempt": 1,
-          "event_id": "00000000-0000-4000-8000-000000000001",
-          "event_name": "user.created",
-          "payload": {
-            "email": "ada@example.com",
-            "roles": [
-              "admin"
-            ],
-            "user_id": 7
-          },
-          "timestamp": "2026-01-01T00:00:00Z",
-          "version": "1"
-        },
-        "match": "subset"
+        "handler": "handleUserCreated"
       }
     },
     {
@@ -310,22 +280,7 @@
       "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"user.created\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"email\":\"ada@example.com\",\"roles\":[\"admin\"],\"user_id\":7}}",
       "expect": {
         "status": 200,
-        "handler": "handleUserCreated",
-        "value": {
-          "attempt": 1,
-          "event_id": "00000000-0000-4000-8000-000000000001",
-          "event_name": "user.created",
-          "payload": {
-            "email": "ada@example.com",
-            "roles": [
-              "admin"
-            ],
-            "user_id": 7
-          },
-          "timestamp": "2026-01-01T00:00:00Z",
-          "version": "1"
-        },
-        "match": "subset"
+        "handler": "handleUserCreated"
       }
     },
     {

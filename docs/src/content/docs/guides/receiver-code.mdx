@@ -124,8 +124,9 @@ Open the webhook (in the portal, an endpoint) and choose **Integrate**:
    preview; copy a file, or **Download .zip**.
 2. Run it with the commands shown, at the webhook's URL.
 3. Press **Send test event** next to a subscription. Sparrow sends one signed
-   delivery of the event type's sample, rendered through the subscription's
-   transform, and shows the receiver's status, latency and error class.
+   delivery of the event type's sample (or, after **Edit payload**, of the
+   payload you edited), rendered through the subscription's transform, and
+   shows the receiver's status, latency and error class.
 
 A test event goes through the same signing, network policy and timeout as a
 real delivery and carries `X-Sparrow-Test: true`. It is not recorded as a

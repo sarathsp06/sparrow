@@ -266,17 +266,20 @@ func TestContentTypeOverridesDetection(t *testing.T) {
 func TestSampleEdgeCases(t *testing.T) {
 	for name, sample := range map[string]string{"none": "", "null": "null", "array": "[1]", "invalid": "{"} {
 		p := analyze(Subscription{ID: "s", EventType: "e", Sample: json.RawMessage(sample)})
-		p.settleModel()
 		if p.Model != ModelEnvelope || len(p.Notes) == 0 {
 			t.Errorf("%s: %+v", name, p)
 		}
 	}
-	// A schema the sample violates falls back to the sample's own type.
+	// The schema types the payload, even when the sample disagrees with it.
 	p := analyze(Subscription{ID: "s", EventType: "e", Schema: json.RawMessage(`{"type":"object","required":["n"],"properties":{"n":{"type":"integer"}}}`),
 		Sample: json.RawMessage(`{"n": "not a number"}`)})
-	p.settleModel()
-	if p.ModelSource != "sample" || p.Type.Fields[0].Type.Kind.String() != "string" {
-		t.Errorf("schema mismatch: %+v", p)
+	if p.ModelSource != "schema" || p.Type.Fields[0].Type.Kind.String() != "int" {
+		t.Errorf("schema typing: %+v", p)
+	}
+	// Without a sample, placeholders from the schema make the sample body.
+	p = analyze(Subscription{ID: "s", EventType: "e", Schema: json.RawMessage(`{"type":"object","required":["n"],"properties":{"n":{"type":"integer"}}}`)})
+	if !strings.Contains(string(p.Body), `"payload":{"n":1}`) {
+		t.Errorf("placeholder body = %s", p.Body)
 	}
 	// An unreadable schema is noted and the sample is used.
 	p = analyze(Subscription{ID: "s", EventType: "e", Schema: json.RawMessage(`[`), Sample: json.RawMessage(`{"a":true}`)})

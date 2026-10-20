@@ -10,6 +10,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	sparrow "github.com/sarathsp06/sparrow"
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"github.com/sarathsp06/sparrow/pkg/receivercode"
@@ -19,6 +20,7 @@ import (
 type receiverCodeService interface {
 	ListWebhooks(ctx context.Context, consumer string, webhookID string, event string, activeOnly bool, health string, limit, offset int32) ([]*store.WebhookRegistration, int32, error)
 	ListSubscriptions(ctx context.Context, consumer string, webhookID string, eventName string, limit, offset int32) ([]*store.EventSubscription, int32, error)
+	GetSubscription(ctx context.Context, subscriptionID string, consumer string) (*store.EventSubscription, error)
 	GetEvent(ctx context.Context, name string) (*store.EventRegistration, error)
 	WebhookSigningPublicKeyHex(encryptedPrivKey []byte) string
 	webhooks.TestEventSender
@@ -69,6 +71,9 @@ type generateReceiverCodeOutput struct {
 		Spec  map[string]any    `json:"spec" doc:"Machine-readable receiver spec: how deliveries are verified and routed, each handler's body format and model, and the signed test vectors the generated tests replay (signed with throwaway credentials, never the webhook's secret). Its format is versioned by spec_version and, like the generated code, experimental."`
 		Run   string            `json:"run" doc:"Shell command that starts the receiver, from the project root."`
 		Test  string            `json:"test" doc:"Shell command that runs the generated tests, from the project root."`
+		// HasMore keeps a webhook with very many subscriptions from losing
+		// handlers silently.
+		HasMore bool `json:"has_more" doc:"True when subscription_ids was omitted and the webhook has more than 200 subscriptions: only the first 200 have handlers. Pass subscription_ids to choose them."`
 	}
 }
 
@@ -76,17 +81,16 @@ type sendTestEventInput struct {
 	Consumer  string `path:"consumer" doc:"Tenant consumer the webhook belongs to."`
 	WebhookID string `path:"webhook_id" doc:"Webhook id (UUID)."`
 	Body      struct {
-		SubscriptionID string `json:"subscription_id" required:"true" doc:"Subscription whose event type sample is sent, rendered through its transform."`
+		SubscriptionID string         `json:"subscription_id" required:"true" doc:"Subscription to send through: its transform renders the payload."`
+		Payload        map[string]any `json:"payload,omitempty" doc:"Event payload to send instead of the event type's sample payload. It is rendered through the subscription's transform like a pushed event."`
 	}
 }
 
 type sendTestEventOutput struct {
 	Body struct {
-		StatusCode      int    `json:"status_code" doc:"The receiver's HTTP status; 0 when no response was received."`
-		LatencyMs       int64  `json:"latency_ms" doc:"Time to the response headers, in milliseconds."`
-		ResponseExcerpt string `json:"response_excerpt" doc:"The first KiB of the response body."`
-		ErrorClass      string `json:"error_class,omitempty" doc:"Delivery error category when the send did not get a 2xx: client_error, server_error, rate_limited, timeout, connection_refused, dns_error, tls_error, network_error, redirect, template_error or unknown."`
-		Error           string `json:"error,omitempty" doc:"What went wrong when no response was received, or the template error."`
+		StatusCode int    `json:"status_code" doc:"The receiver's HTTP status; 0 when no response was received."`
+		LatencyMs  int64  `json:"latency_ms" doc:"Time to the response headers, in milliseconds."`
+		ErrorClass string `json:"error_class,omitempty" doc:"Delivery error category when the send did not get a 2xx: client_error, server_error, rate_limited, timeout, connection_refused, dns_error, tls_error, network_error, redirect, template_error (nothing was sent) or unknown."`
 	}
 }
 
@@ -105,7 +109,7 @@ func registerReceiverCodeRoutes(api huma.API, svc receiverCodeService) {
 		Errors: []int{400, 404},
 		Tags:   []string{"Webhooks"},
 	}, func(ctx context.Context, in *generateReceiverCodeInput) (*generateReceiverCodeOutput, error) {
-		input, err := receiverCodeInput(ctx, svc, in)
+		input, hasMore, err := receiverCodeInput(ctx, svc, in)
 		if err != nil {
 			return nil, err
 		}
@@ -114,7 +118,7 @@ func registerReceiverCodeRoutes(api huma.API, svc receiverCodeService) {
 			return nil, huma.Error400BadRequest(strings.TrimPrefix(err.Error(), "receivercode: "))
 		}
 		out := &generateReceiverCodeOutput{}
-		out.Body.Run, out.Body.Test = gen.Run, gen.Test
+		out.Body.Run, out.Body.Test, out.Body.HasMore = gen.Run, gen.Test, hasMore
 		for _, f := range gen.Files {
 			out.Body.Files = append(out.Body.Files, receiverFileOut(f))
 		}
@@ -133,60 +137,65 @@ func registerReceiverCodeRoutes(api huma.API, svc receiverCodeService) {
 		Method:      http.MethodPost,
 		Path:        "/v1/consumers/{consumer}/webhooks/{webhook_id}:sendTestEvent",
 		Summary:     "Send a test event to a webhook",
-		Description: "Sends one signed delivery of the subscription's event type sample (rendered through its transform, as a real delivery would be) to the webhook's URL, synchronously, and returns what the receiver answered. " +
+		Description: "Sends one signed delivery of payload, or of the subscription's event type sample when payload is omitted (rendered through the subscription's transform, as a real delivery would be), to the webhook's URL, synchronously, and returns what the receiver answered. " +
 			"It uses the same request builder, signing, network policy (SSRF protection) and timeout as real deliveries and adds the header X-Sparrow-Test: true. " +
 			"It creates no delivery and never counts toward the webhook's health or auto-disable. A receiver error is reported in the response (status_code, error_class), not as an API error.\n\n" +
 			"One test event per webhook every 2 seconds on each server: more answer 429. 404 for an unknown webhook or a subscription not on it.\n\nPortal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:sendTestEvent.",
 		Errors: []int{400, 404, 429, 503},
 		Tags:   []string{"Webhooks"},
 	}, func(ctx context.Context, in *sendTestEventInput) (*sendTestEventOutput, error) {
-		res, err := svc.SendTestEvent(ctx, in.Consumer, in.WebhookID, in.Body.SubscriptionID)
+		res, err := svc.SendTestEvent(ctx, in.Consumer, in.WebhookID, in.Body.SubscriptionID, in.Body.Payload)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to send the test event")
 		}
 		out := &sendTestEventOutput{}
 		out.Body.StatusCode = res.StatusCode
 		out.Body.LatencyMs = res.Latency.Milliseconds()
-		out.Body.ResponseExcerpt = res.ResponseExcerpt
 		out.Body.ErrorClass = res.ErrorClass
-		out.Body.Error = res.Error
 		return out, nil
 	})
 }
 
 // receiverCodeInput collects the webhook, its subscriptions and their event
-// types as receivercode's plain input.
-func receiverCodeInput(ctx context.Context, svc receiverCodeService, in *generateReceiverCodeInput) (receivercode.Input, error) {
+// types as receivercode's plain input. hasMore reports subscriptions left
+// out by the cap.
+func receiverCodeInput(ctx context.Context, svc receiverCodeService, in *generateReceiverCodeInput) (receivercode.Input, bool, error) {
 	regs, _, err := svc.ListWebhooks(ctx, in.Consumer, in.WebhookID, "", false, "", 1, 0)
 	if err != nil {
-		return receivercode.Input{}, mapError(ctx, err, "failed to get webhook")
+		return receivercode.Input{}, false, mapError(ctx, err, "failed to get webhook")
 	}
 	if len(regs) == 0 {
-		return receivercode.Input{}, huma.Error404NotFound("webhook not found")
+		return receivercode.Input{}, false, huma.Error404NotFound("webhook not found")
 	}
 	reg := regs[0]
 
-	subs, _, err := svc.ListSubscriptions(ctx, in.Consumer, reg.ID.String(), "", maxReceiverSubscriptions, 0)
-	if err != nil {
-		return receivercode.Input{}, mapError(ctx, err, "failed to list subscriptions")
-	}
+	var subs []*store.EventSubscription
+	hasMore := false
 	if len(in.Body.SubscriptionIDs) > 0 {
-		byID := make(map[string]*store.EventSubscription, len(subs))
-		for _, s := range subs {
-			byID[s.ID.String()] = s
-		}
-		picked := make([]*store.EventSubscription, 0, len(in.Body.SubscriptionIDs))
 		for _, id := range in.Body.SubscriptionIDs {
-			s, ok := byID[strings.ToLower(id)]
-			if !ok {
-				return receivercode.Input{}, huma.Error400BadRequest("subscription " + id + " is not on this webhook")
+			s, err := svc.GetSubscription(ctx, id, in.Consumer)
+			if err != nil {
+				if st := svcerrors.Classify(err, "").Status; st != svcerrors.NotFound && st != svcerrors.InvalidArgument {
+					return receivercode.Input{}, false, mapError(ctx, err, "failed to get subscription")
+				}
 			}
-			picked = append(picked, s)
+			if err != nil || s.WebhookID != reg.ID {
+				return receivercode.Input{}, false, huma.Error400BadRequest("subscription " + id + " is not on this webhook")
+			}
+			subs = append(subs, s)
 		}
-		subs = picked
+	} else {
+		// Fetch one more than the cap to know whether any were left out.
+		subs, _, err = svc.ListSubscriptions(ctx, in.Consumer, reg.ID.String(), "", maxReceiverSubscriptions+1, 0)
+		if err != nil {
+			return receivercode.Input{}, false, mapError(ctx, err, "failed to list subscriptions")
+		}
+		if len(subs) > maxReceiverSubscriptions {
+			subs, hasMore = subs[:maxReceiverSubscriptions], true
+		}
 	}
 	if len(subs) == 0 {
-		return receivercode.Input{}, huma.Error400BadRequest("the webhook has no subscriptions to generate handlers for")
+		return receivercode.Input{}, false, huma.Error400BadRequest("the webhook has no subscriptions to generate handlers for")
 	}
 
 	version := sparrow.Version
@@ -213,9 +222,15 @@ func receiverCodeInput(ctx context.Context, svc receiverCodeService, in *generat
 	for _, s := range subs {
 		ev, seen := events[s.EventName]
 		if !seen {
-			// An event type that cannot be read leaves the handler untyped
-			// rather than failing the whole receiver.
-			ev, _ = svc.GetEvent(ctx, s.EventName)
+			// A missing event type leaves the handler untyped; any other
+			// failure fails the request rather than degrade the project.
+			ev, err = svc.GetEvent(ctx, s.EventName)
+			if err != nil {
+				if svcerrors.Classify(err, "").Status != svcerrors.NotFound {
+					return receivercode.Input{}, false, mapError(ctx, err, "failed to get event type "+s.EventName)
+				}
+				ev = nil
+			}
 			events[s.EventName] = ev
 		}
 		// Delivery headers are the webhook's, overridden by the
@@ -245,5 +260,5 @@ func receiverCodeInput(ctx context.Context, svc receiverCodeService, in *generat
 		}
 		input.Subscriptions = append(input.Subscriptions, sub)
 	}
-	return input, nil
+	return input, hasMore, nil
 }
