@@ -229,6 +229,17 @@ func (t SpecTest) Request(v Vector, now int64, body []byte) (map[string]string, 
 	return h, body
 }
 
+// Rebuild re-signs v at now: the request a harness sends to a running
+// receiver, whose clock is real. Tampered vectors are tampered again after
+// signing.
+func (t SpecTest) Rebuild(v Vector, now int64) (map[string]string, []byte) {
+	body := []byte(v.Body)
+	if v.Tamper && len(body) > 0 {
+		body = body[:len(body)-1]
+	}
+	return t.Request(v, now, body)
+}
+
 // buildVectors makes the vectors for every subscription, in plan order.
 func buildVectors(plans []*plan, scheme string, creds SpecTest) []Vector {
 	good, bad := []string{"v1:test"}, []string{"v1:wrong"}

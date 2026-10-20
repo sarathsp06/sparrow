@@ -103,7 +103,7 @@ func TestRequestRebuildsAtAnotherTime(t *testing.T) {
 			if vec.Name != "valid" {
 				continue
 			}
-			headers, body := out.Spec.Test.Request(vec, now, []byte(vec.Body))
+			headers, body := out.Spec.Test.Rebuild(vec, now)
 			h := http.Header{}
 			for k, val := range headers {
 				h.Set(k, val)
@@ -118,6 +118,30 @@ func TestRequestRebuildsAtAnotherTime(t *testing.T) {
 			}
 			if h.Get("X-Sparrow-Subscription-ID") != vec.SubscriptionID || h.Get("X-Sparrow-Event-Type") == "" {
 				t.Errorf("%s: routing headers missing: %v", tc.name, h)
+			}
+		}
+	}
+}
+
+// TestRebuildMatchesTheVectors rebuilds every vector at its own time: the
+// result must be the vector itself.
+func TestRebuildMatchesTheVectors(t *testing.T) {
+	for _, tc := range testCases {
+		in := tc.in
+		in.Target = Target{Language: "go", Framework: "nethttp"}
+		out, err := Generate(in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, vec := range out.Spec.Vectors {
+			headers, body := out.Spec.Test.Rebuild(vec, out.Spec.Test.Now)
+			if string(body) != vec.Body || len(headers) != len(vec.Headers) {
+				t.Fatalf("%s/%s: rebuilt request differs", tc.name, vec.Name)
+			}
+			for k, v := range vec.Headers {
+				if headers[k] != v {
+					t.Errorf("%s/%s: %s = %q, want %q", tc.name, vec.Name, k, headers[k], v)
+				}
 			}
 		}
 	}
