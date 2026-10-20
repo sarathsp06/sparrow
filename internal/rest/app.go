@@ -130,6 +130,7 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps Access
 	registerRecipeRoutes(api)
 	registerAccessRoutes(api, accessDeps)
 	registerAIRoutes(api, svc, aiDeps)
+	registerReceiverCodeRoutes(api, svc)
 
 	return api
 }

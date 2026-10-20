@@ -1,0 +1,261 @@
+{
+  "spec_version": 1,
+  "target": "go-nethttp",
+  "webhook": {
+    "id": "wh_xml",
+    "signing_scheme": "hmac"
+  },
+  "receiver": {
+    "webhook_path": "/webhook",
+    "health_path": "/healthz",
+    "secret_env": "SPARROW_WEBHOOK_SECRET",
+    "test_mode_env": "SPARROW_RECEIVER_TEST_MODE",
+    "port_env": "PORT",
+    "default_port": 8000,
+    "tolerance_seconds": 300,
+    "dedup_capacity": 10000,
+    "dispatch_headers": [
+      "X-Sparrow-Subscription-ID",
+      "X-Sparrow-Event-Type"
+    ],
+    "unknown_event_status": 422
+  },
+  "subscriptions": [
+    {
+      "id": "sub_xml",
+      "event_type": "order.paid",
+      "handler": "handleOrderPaid",
+      "format": "xml",
+      "content_type": "application/xml",
+      "model": "xml",
+      "model_source": "sample",
+      "notes": [
+        "the model is inferred from one rendered sample: best effort, check it against the template"
+      ]
+    }
+  ],
+  "test": {
+    "now": 1767225600,
+    "secret": "whsec_NZmEoCxdp5TiIyCQRt9oRl3r8I06NJJvEeu/XzqOQpw=",
+    "wrong_secret": "whsec_mg5r6W10hz4lCZX98MbbMVzwdbAWSSyv5aMWC9ff5+Q=",
+    "public_key": "6db9412d8fe59af1e41fc357b6010b91ac3354fe59c3899cfe08c2a25674b837",
+    "private_key_seed": "b223f322fb06df8a1a6f3211f59891b8005ae7e152f5db74e1e267a3f9851ac3",
+    "wrong_private_key_seed": "0233bb59773f7e8413a52f9f02f316b7e48ea1d5cbbf6a70b87a8668a1978740"
+  },
+  "vectors": [
+    {
+      "name": "valid",
+      "subscription_id": "sub_xml",
+      "message_id": "msg_test_1_valid",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:test"
+      ],
+      "event_type": "order.paid",
+      "content_type": "application/xml",
+      "headers": {
+        "Content-Type": "application/xml",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Subscription-ID": "sub_xml",
+        "webhook-id": "msg_test_1_valid",
+        "webhook-signature": "v1,xhsuywJrX7zhs5LTIfsGv3exPxa9otZLJtXVY8KINHU=",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "\u003corder id=\"ord_123\" xmlns=\"urn:example\"\u003e\u003camount currency=\"EUR\"\u003e42.5\u003c/amount\u003e\u003citem\u003e\u003csku\u003eA-1\u003c/sku\u003e\u003c/item\u003e\u003citem\u003e\u003csku\u003eB-2\u003c/sku\u003e\u003c/item\u003e\u003cnote\u003epaid\u003c/note\u003e\u003c/order\u003e",
+      "expect": {
+        "status": 200,
+        "handler": "handleOrderPaid"
+      }
+    },
+    {
+      "name": "duplicate",
+      "subscription_id": "sub_xml",
+      "message_id": "msg_test_1_valid",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:test"
+      ],
+      "event_type": "order.paid",
+      "content_type": "application/xml",
+      "headers": {
+        "Content-Type": "application/xml",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Subscription-ID": "sub_xml",
+        "webhook-id": "msg_test_1_valid",
+        "webhook-signature": "v1,xhsuywJrX7zhs5LTIfsGv3exPxa9otZLJtXVY8KINHU=",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "\u003corder id=\"ord_123\" xmlns=\"urn:example\"\u003e\u003camount currency=\"EUR\"\u003e42.5\u003c/amount\u003e\u003citem\u003e\u003csku\u003eA-1\u003c/sku\u003e\u003c/item\u003e\u003citem\u003e\u003csku\u003eB-2\u003c/sku\u003e\u003c/item\u003e\u003cnote\u003epaid\u003c/note\u003e\u003c/order\u003e",
+      "expect": {
+        "status": 200,
+        "handler": ""
+      }
+    },
+    {
+      "name": "tampered_body",
+      "subscription_id": "sub_xml",
+      "message_id": "msg_test_1_tampered",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:test"
+      ],
+      "tamper": true,
+      "event_type": "order.paid",
+      "content_type": "application/xml",
+      "headers": {
+        "Content-Type": "application/xml",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Subscription-ID": "sub_xml",
+        "webhook-id": "msg_test_1_tampered",
+        "webhook-signature": "v1,u+cRso8r8D0yEOPmfXNec3vpaG9/3PsegZFcTXQzdSA=",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "\u003corder id=\"ord_123\" xmlns=\"urn:example\"\u003e\u003camount currency=\"EUR\"\u003e42.5\u003c/amount\u003e\u003citem\u003e\u003csku\u003eA-1\u003c/sku\u003e\u003c/item\u003e\u003citem\u003e\u003csku\u003eB-2\u003c/sku\u003e\u003c/item\u003e\u003cnote\u003epaid\u003c/note\u003e\u003c/order\u003e ",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "wrong_key",
+      "subscription_id": "sub_xml",
+      "message_id": "msg_test_1_wrong_key",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:wrong"
+      ],
+      "event_type": "order.paid",
+      "content_type": "application/xml",
+      "headers": {
+        "Content-Type": "application/xml",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Subscription-ID": "sub_xml",
+        "webhook-id": "msg_test_1_wrong_key",
+        "webhook-signature": "v1,dIl1S0m/cFbxQiPNZwyZXkVsXfEleiqG4eNggzxXfFQ=",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "\u003corder id=\"ord_123\" xmlns=\"urn:example\"\u003e\u003camount currency=\"EUR\"\u003e42.5\u003c/amount\u003e\u003citem\u003e\u003csku\u003eA-1\u003c/sku\u003e\u003c/item\u003e\u003citem\u003e\u003csku\u003eB-2\u003c/sku\u003e\u003c/item\u003e\u003cnote\u003epaid\u003c/note\u003e\u003c/order\u003e",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "timestamp_too_old",
+      "subscription_id": "sub_xml",
+      "message_id": "msg_test_1_old",
+      "timestamp_offset": -600,
+      "signatures": [
+        "v1:test"
+      ],
+      "event_type": "order.paid",
+      "content_type": "application/xml",
+      "headers": {
+        "Content-Type": "application/xml",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Subscription-ID": "sub_xml",
+        "webhook-id": "msg_test_1_old",
+        "webhook-signature": "v1,vBNi99yaZRLnw+TWhQLWsElKO1z88WiTk+EhqJWwEQI=",
+        "webhook-timestamp": "1767225000"
+      },
+      "body": "\u003corder id=\"ord_123\" xmlns=\"urn:example\"\u003e\u003camount currency=\"EUR\"\u003e42.5\u003c/amount\u003e\u003citem\u003e\u003csku\u003eA-1\u003c/sku\u003e\u003c/item\u003e\u003citem\u003e\u003csku\u003eB-2\u003c/sku\u003e\u003c/item\u003e\u003cnote\u003epaid\u003c/note\u003e\u003c/order\u003e",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "timestamp_in_future",
+      "subscription_id": "sub_xml",
+      "message_id": "msg_test_1_future",
+      "timestamp_offset": 600,
+      "signatures": [
+        "v1:test"
+      ],
+      "event_type": "order.paid",
+      "content_type": "application/xml",
+      "headers": {
+        "Content-Type": "application/xml",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Subscription-ID": "sub_xml",
+        "webhook-id": "msg_test_1_future",
+        "webhook-signature": "v1,2NawwAk01U0Fnw7scYBdjVlnzL1n7h/uSL7TS1hp9Eg=",
+        "webhook-timestamp": "1767226200"
+      },
+      "body": "\u003corder id=\"ord_123\" xmlns=\"urn:example\"\u003e\u003camount currency=\"EUR\"\u003e42.5\u003c/amount\u003e\u003citem\u003e\u003csku\u003eA-1\u003c/sku\u003e\u003c/item\u003e\u003citem\u003e\u003csku\u003eB-2\u003c/sku\u003e\u003c/item\u003e\u003cnote\u003epaid\u003c/note\u003e\u003c/order\u003e",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "missing_signature",
+      "subscription_id": "sub_xml",
+      "message_id": "msg_test_1_unsigned",
+      "timestamp_offset": 0,
+      "signatures": null,
+      "event_type": "order.paid",
+      "content_type": "application/xml",
+      "headers": {
+        "Content-Type": "application/xml",
+        "X-Sparrow-Event-Type": "order.paid",
+        "X-Sparrow-Subscription-ID": "sub_xml",
+        "webhook-id": "msg_test_1_unsigned",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "\u003corder id=\"ord_123\" xmlns=\"urn:example\"\u003e\u003camount currency=\"EUR\"\u003e42.5\u003c/amount\u003e\u003citem\u003e\u003csku\u003eA-1\u003c/sku\u003e\u003c/item\u003e\u003citem\u003e\u003csku\u003eB-2\u003c/sku\u003e\u003c/item\u003e\u003cnote\u003epaid\u003c/note\u003e\u003c/order\u003e",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "event_type_fallback",
+      "subscription_id": "sub_xml",
+      "message_id": "msg_test_1_fallback",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:test"
+      ],
+      "omit_subscription_header": true,
+      "event_type": "order.paid",
+      "content_type": "application/xml",
+      "headers": {
+        "Content-Type": "application/xml",
+        "X-Sparrow-Event-Type": "order.paid",
+        "webhook-id": "msg_test_1_fallback",
+        "webhook-signature": "v1,cJ31BmqMm5u6qBISdRnSyIWoJ7RaThWTxAIChTKXUho=",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "\u003corder id=\"ord_123\" xmlns=\"urn:example\"\u003e\u003camount currency=\"EUR\"\u003e42.5\u003c/amount\u003e\u003citem\u003e\u003csku\u003eA-1\u003c/sku\u003e\u003c/item\u003e\u003citem\u003e\u003csku\u003eB-2\u003c/sku\u003e\u003c/item\u003e\u003cnote\u003epaid\u003c/note\u003e\u003c/order\u003e",
+      "expect": {
+        "status": 200,
+        "handler": "handleOrderPaid"
+      }
+    },
+    {
+      "name": "unknown_event",
+      "subscription_id": "sub_xml",
+      "message_id": "msg_test_1_unknown",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:test"
+      ],
+      "omit_subscription_header": true,
+      "event_type": "sparrow.receivercode.unknown",
+      "content_type": "application/xml",
+      "headers": {
+        "Content-Type": "application/xml",
+        "X-Sparrow-Event-Type": "sparrow.receivercode.unknown",
+        "webhook-id": "msg_test_1_unknown",
+        "webhook-signature": "v1,jr7wjp3HYIDp9r7iy76Hqm5CkJdJIau6szPO2kASy88=",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "\u003corder id=\"ord_123\" xmlns=\"urn:example\"\u003e\u003camount currency=\"EUR\"\u003e42.5\u003c/amount\u003e\u003citem\u003e\u003csku\u003eA-1\u003c/sku\u003e\u003c/item\u003e\u003citem\u003e\u003csku\u003eB-2\u003c/sku\u003e\u003c/item\u003e\u003cnote\u003epaid\u003c/note\u003e\u003c/order\u003e",
+      "expect": {
+        "status": 422,
+        "handler": ""
+      }
+    }
+  ]
+}

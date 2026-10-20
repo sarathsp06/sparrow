@@ -1,0 +1,311 @@
+{
+  "spec_version": 1,
+  "target": "node-express",
+  "webhook": {
+    "id": "wh_ed25519",
+    "signing_scheme": "ed25519",
+    "public_key": "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29"
+  },
+  "receiver": {
+    "webhook_path": "/webhook",
+    "health_path": "/healthz",
+    "public_key_env": "SPARROW_WEBHOOK_PUBLIC_KEY",
+    "test_mode_env": "SPARROW_RECEIVER_TEST_MODE",
+    "port_env": "PORT",
+    "default_port": 8000,
+    "tolerance_seconds": 300,
+    "dedup_capacity": 10000,
+    "dispatch_headers": [
+      "X-Sparrow-Subscription-ID",
+      "X-Sparrow-Event-Type"
+    ],
+    "unknown_event_status": 422
+  },
+  "subscriptions": [
+    {
+      "id": "sub_signed",
+      "event_type": "user.created",
+      "handler": "handleUserCreated",
+      "format": "json",
+      "model": "envelope",
+      "model_source": "sample",
+      "notes": [
+        "the payload type is inferred from the sample payload: best effort"
+      ]
+    }
+  ],
+  "test": {
+    "now": 1767225600,
+    "secret": "whsec_DWh6frjIFT9vkcIYf1qLgThtulBIrQDcz2gUjEWLDDQ=",
+    "wrong_secret": "whsec_z3vAnS7G+ci+sn+a9yRwsv62MLc25ohzQ4p3WeGCcyU=",
+    "public_key": "c5a6e4fd555648374ff8ea8b038f5a8da16d9555418c1072e481440ffba5a6d8",
+    "private_key_seed": "39af22a79cf7e985ec3c4be839bff5bb3c0053f87460c59b859d938797df09dc",
+    "wrong_private_key_seed": "0de50231ffa6522cb96dc4bb74bf1dfffdb5cf2e21abe226bb3defa5c194110a"
+  },
+  "vectors": [
+    {
+      "name": "valid",
+      "subscription_id": "sub_signed",
+      "message_id": "msg_test_1_valid",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1a:test"
+      ],
+      "event_type": "user.created",
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "user.created",
+        "X-Sparrow-Subscription-ID": "sub_signed",
+        "webhook-id": "msg_test_1_valid",
+        "webhook-signature": "v1a,a4UTJmhdENZI6N5mPkOKqCpP5l3RsaWBO8twNo71X/eX5WIGJzZFy5fcw62Wsqizjly9d7msj7OV7FY6oELDBw==",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"user.created\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"email\":\"ada@example.com\",\"roles\":[\"admin\"],\"user_id\":7}}",
+      "expect": {
+        "status": 200,
+        "handler": "handleUserCreated"
+      }
+    },
+    {
+      "name": "duplicate",
+      "subscription_id": "sub_signed",
+      "message_id": "msg_test_1_valid",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1a:test"
+      ],
+      "event_type": "user.created",
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "user.created",
+        "X-Sparrow-Subscription-ID": "sub_signed",
+        "webhook-id": "msg_test_1_valid",
+        "webhook-signature": "v1a,a4UTJmhdENZI6N5mPkOKqCpP5l3RsaWBO8twNo71X/eX5WIGJzZFy5fcw62Wsqizjly9d7msj7OV7FY6oELDBw==",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"user.created\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"email\":\"ada@example.com\",\"roles\":[\"admin\"],\"user_id\":7}}",
+      "expect": {
+        "status": 200,
+        "handler": ""
+      }
+    },
+    {
+      "name": "tampered_body",
+      "subscription_id": "sub_signed",
+      "message_id": "msg_test_1_tampered",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1a:test"
+      ],
+      "tamper": true,
+      "event_type": "user.created",
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "user.created",
+        "X-Sparrow-Subscription-ID": "sub_signed",
+        "webhook-id": "msg_test_1_tampered",
+        "webhook-signature": "v1a,qhuZpk/hOc3YUi0U5fwuxbgADgdv/M1vX++298ZWeECR6klcTKU2U96qu6qKmrvSZpXEyiSK8PzqK4hhGO7GAQ==",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"user.created\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"email\":\"ada@example.com\",\"roles\":[\"admin\"],\"user_id\":7}} ",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "wrong_key",
+      "subscription_id": "sub_signed",
+      "message_id": "msg_test_1_wrong_key",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1a:wrong"
+      ],
+      "event_type": "user.created",
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "user.created",
+        "X-Sparrow-Subscription-ID": "sub_signed",
+        "webhook-id": "msg_test_1_wrong_key",
+        "webhook-signature": "v1a,MyScacgvJ4996J8hgWOUAgj7pIgEsdk/SYw2IpxwmSEZW4AtVXQQJROJGSWbHhpZX0b01hONUyq3X0ocB1tVAA==",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"user.created\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"email\":\"ada@example.com\",\"roles\":[\"admin\"],\"user_id\":7}}",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "timestamp_too_old",
+      "subscription_id": "sub_signed",
+      "message_id": "msg_test_1_old",
+      "timestamp_offset": -600,
+      "signatures": [
+        "v1a:test"
+      ],
+      "event_type": "user.created",
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "user.created",
+        "X-Sparrow-Subscription-ID": "sub_signed",
+        "webhook-id": "msg_test_1_old",
+        "webhook-signature": "v1a,Ilwac5yYgRuMc51611IkjX2/2taX1Wfz9loPMxglehOsobPkcb8z43deJwhtOgAG+cRYQKxBRCHj2MFj5+poCw==",
+        "webhook-timestamp": "1767225000"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"user.created\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"email\":\"ada@example.com\",\"roles\":[\"admin\"],\"user_id\":7}}",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "timestamp_in_future",
+      "subscription_id": "sub_signed",
+      "message_id": "msg_test_1_future",
+      "timestamp_offset": 600,
+      "signatures": [
+        "v1a:test"
+      ],
+      "event_type": "user.created",
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "user.created",
+        "X-Sparrow-Subscription-ID": "sub_signed",
+        "webhook-id": "msg_test_1_future",
+        "webhook-signature": "v1a,KTsjPYzPrQV9ky7r5tDTM/TBVpuWGVKt7m04LIfqQujSHFpCZlozJbgeNGMMRcDMjrHPMfOs9BKKMIf0S09cCQ==",
+        "webhook-timestamp": "1767226200"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"user.created\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"email\":\"ada@example.com\",\"roles\":[\"admin\"],\"user_id\":7}}",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "missing_signature",
+      "subscription_id": "sub_signed",
+      "message_id": "msg_test_1_unsigned",
+      "timestamp_offset": 0,
+      "signatures": null,
+      "event_type": "user.created",
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "user.created",
+        "X-Sparrow-Subscription-ID": "sub_signed",
+        "webhook-id": "msg_test_1_unsigned",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"user.created\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"email\":\"ada@example.com\",\"roles\":[\"admin\"],\"user_id\":7}}",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "valid_v1a_invalid_v1",
+      "subscription_id": "sub_signed",
+      "message_id": "msg_test_1_v1a_ok",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:wrong",
+        "v1a:test"
+      ],
+      "event_type": "user.created",
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "user.created",
+        "X-Sparrow-Subscription-ID": "sub_signed",
+        "webhook-id": "msg_test_1_v1a_ok",
+        "webhook-signature": "v1,A6SGnrigjcswaDEwhb3aUbVz7e1NkfdrVez4dNZYgEI= v1a,5V1BnL9h6UAUHteyqz/mpPrX7QvSlr6Yy2tTJ2YapMdIS8y1MOp4I76n2lhErL9MRY7UcxRCexBIsZAi6ZGZBA==",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"user.created\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"email\":\"ada@example.com\",\"roles\":[\"admin\"],\"user_id\":7}}",
+      "expect": {
+        "status": 200,
+        "handler": "handleUserCreated"
+      }
+    },
+    {
+      "name": "invalid_v1a_valid_v1",
+      "subscription_id": "sub_signed",
+      "message_id": "msg_test_1_v1_only",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1:test",
+        "v1a:wrong"
+      ],
+      "event_type": "user.created",
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "user.created",
+        "X-Sparrow-Subscription-ID": "sub_signed",
+        "webhook-id": "msg_test_1_v1_only",
+        "webhook-signature": "v1,lZ/l/ONe3okz1fRCdykifXKr88zqDpJjcY4LcVIPDw4= v1a,75Yfcp3gbDFoz02lEmDXPdR8GljJZKerL7Oe8STvr25TmuLyezWhaasJdEJFoiIE2IvwGIQUcbtblQi8Kzl/CA==",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"user.created\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"email\":\"ada@example.com\",\"roles\":[\"admin\"],\"user_id\":7}}",
+      "expect": {
+        "status": 401,
+        "handler": ""
+      }
+    },
+    {
+      "name": "event_type_fallback",
+      "subscription_id": "sub_signed",
+      "message_id": "msg_test_1_fallback",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1a:test"
+      ],
+      "omit_subscription_header": true,
+      "event_type": "user.created",
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "user.created",
+        "webhook-id": "msg_test_1_fallback",
+        "webhook-signature": "v1a,sA0mxu/aTkcL6+5Ywstf8NrE2eFgnXDOfeWYpuooaK3v1+OXRxGxpjNeXRLTWa3v65g0Z9bBNVe7BYem/I9LCw==",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"user.created\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"email\":\"ada@example.com\",\"roles\":[\"admin\"],\"user_id\":7}}",
+      "expect": {
+        "status": 200,
+        "handler": "handleUserCreated"
+      }
+    },
+    {
+      "name": "unknown_event",
+      "subscription_id": "sub_signed",
+      "message_id": "msg_test_1_unknown",
+      "timestamp_offset": 0,
+      "signatures": [
+        "v1a:test"
+      ],
+      "omit_subscription_header": true,
+      "event_type": "sparrow.receivercode.unknown",
+      "content_type": "application/json",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Sparrow-Event-Type": "sparrow.receivercode.unknown",
+        "webhook-id": "msg_test_1_unknown",
+        "webhook-signature": "v1a,6y5ANjpfvA9gXuDtI4JCwK/6QUSBeC3xAp9HN93bA6ptUc0evn1uTpLbuRjh5vuJ4A3wniEsvMARub4sCRLmCg==",
+        "webhook-timestamp": "1767225600"
+      },
+      "body": "{\"version\":\"1\",\"event_id\":\"00000000-0000-4000-8000-000000000001\",\"event_name\":\"user.created\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"attempt\":1,\"payload\":{\"email\":\"ada@example.com\",\"roles\":[\"admin\"],\"user_id\":7}}",
+      "expect": {
+        "status": 422,
+        "handler": ""
+      }
+    }
+  ]
+}

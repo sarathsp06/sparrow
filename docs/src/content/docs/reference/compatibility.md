@@ -22,6 +22,7 @@ Sparrow follows [semantic versioning](https://semver.org/) from 1.0.0. Within a 
 
 ## What isn't covered
 
+- **Experimental Go modules.** `pkg/receivercode`, the receiver code generator, is tagged in lockstep with the other modules but makes no promise: its API can change in any release. The code it generates can also improve between releases (regenerate to pick up changes). The REST endpoint that serves it is covered like the rest of `/v1`.
 - **Anything under `internal/`** and the root module `github.com/sarathsp06/sparrow` as a Go dependency. It isn't `go install`-able (its `go.mod` has `replace` directives for the workspace) and its packages can change in any release.
 - **The database schema as an API.** Tables and columns are Sparrow's own. Read them for debugging, but don't build on them: a migration can reshape them in any minor release.
 - **The embedded UI**: its routes, layout and the requests it makes.

@@ -1,0 +1,22 @@
+// [[.Header]]
+
+package main
+
+import "context"
+[[range .Subs]]
+// [[.Func]] handles [[.EventType]] deliveries (subscription [[.ID]]).
+// It runs after the signature is verified and the body is decoded. Return
+// an error to answer 500, so Sparrow retries the delivery.
+[[- if eq .Model "raw"]]
+//
+// The body is passed undecoded ([[.Format]]).
+[[- end]]
+[[- if .Notes]]
+//
+[[comment "// " .Notes | trimNL]]
+[[- end]]
+func [[.Func]](ctx context.Context, [[if eq .Model "raw"]]body[[else]]event[[end]] [[.ModelType]]) error {
+	// TODO: your logic
+	return nil
+}
+[[end -]]

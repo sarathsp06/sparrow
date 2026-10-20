@@ -1,0 +1,8 @@
+// [[.Header]]
+
+import { configFromEnv, createApp } from "./receiver.ts";
+
+const port = Number(process.env.PORT ?? [[.Port]]);
+createApp(configFromEnv()).listen(port, () => {
+  console.error(`sparrow-receiver listening on :${port}`);
+});
