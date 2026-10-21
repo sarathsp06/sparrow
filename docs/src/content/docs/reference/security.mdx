@@ -159,7 +159,10 @@ compromise this guards against is a CA key, which is what intermediates
 carry.
 
 - **When CRLs are downloaded.** The first delivery whose chain needs a CRL
-  downloads it and waits for it (up to 5s). Each instance keeps its CRLs in
+  downloads it and waits for it: at most 5s in total per connection, however
+  many intermediates the chain has. A download still running after that
+  finishes in the background, and that connection treats the CRL as
+  unavailable (allowed in `soft`). Each instance keeps its CRLs in
   memory. Once a CRL is older than `SPARROW_CRL_MAX_AGE` (default `6h`), the
   next delivery that uses it refreshes it in the background and still uses
   the cached copy. A CRL past its own `nextUpdate` is downloaded again before

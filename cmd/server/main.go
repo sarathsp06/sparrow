@@ -250,6 +250,7 @@ func main() {
 	// come from certificates remote servers send.
 	revocationMode, _ := cfg.TLSRevocationMode() // checked by Validate
 	var revocation *tlsrevocation.Refresher
+	stopRevocationListener := func() {}
 	if revocationMode != "off" {
 		mode := safetransport.RevocationSoft
 		if revocationMode == "hard" {
@@ -262,7 +263,9 @@ func main() {
 		})
 		clientConfig.Revocation = checker
 		revocation = tlsrevocation.New(dbPool, checker, revocationMode)
-		go revocation.Listen(ctx)
+		var listenCtx context.Context
+		listenCtx, stopRevocationListener = context.WithCancel(ctx)
+		go revocation.Listen(listenCtx)
 		fmt.Printf("🔐 TLS revocation checking: %s (CRLs refreshed after %s)\n", revocationMode, cfg.CRLMaxAge)
 	}
 
@@ -453,6 +456,9 @@ func main() {
 	healthChecker.SetDraining()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeoutOrDefault())
 	defer cancel()
+
+	// Release the CRL refresh listener's dedicated database connection.
+	stopRevocationListener()
 
 	// Shutdown HTTP server
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {

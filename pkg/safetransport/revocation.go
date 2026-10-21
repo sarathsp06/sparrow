@@ -52,8 +52,12 @@ type RevocationOptions struct {
 	// it starts a background refresh. The handshake still uses the cached
 	// copy. Default 6h.
 	MaxAge time.Duration
-	// FetchTimeout bounds one CRL download. A handshake waits for a
-	// download only when it has no usable copy of that CRL. Default 5s.
+	// FetchTimeout bounds one CRL download, and is also the most one
+	// handshake waits in total for downloads, however many intermediates
+	// its chain has. A handshake waits only for CRLs it has no usable copy
+	// of; a download still running when the budget is spent finishes in the
+	// background for later handshakes, and this one treats that CRL as
+	// unknown. Keep it below the transport's TLSHandshakeTimeout. Default 5s.
 	FetchTimeout time.Duration
 	// MaxCRLBytes caps a downloaded CRL. Default 10 MiB.
 	MaxCRLBytes int64
@@ -65,7 +69,7 @@ type RevocationOptions struct {
 // their issuers' CRLs. It keeps CRLs in memory and needs no scheduler:
 //
 //   - A CRL is downloaded the first time a chain needs it; that handshake
-//     waits for it (up to FetchTimeout).
+//     waits for it, at most FetchTimeout across the whole chain.
 //   - A cached CRL older than MaxAge is refreshed in the background by the
 //     next handshake that uses it.
 //   - A CRL past its own NextUpdate is downloaded again before use.
@@ -76,6 +80,11 @@ type RevocationOptions struct {
 // fetched. Leaf certificates are not checked. Intermediates without an
 // http(s) CRL address (typical for private CAs) are skipped in both modes.
 // It also runs RejectWeakKeys.
+//
+// The cache holds one entry per CRL address and is never pruned. That is
+// bounded: an address is only added from a chain Go has already verified
+// against the trusted roots, so a server cannot invent entries without a
+// CA's signature, and real chains use a few dozen addresses.
 type RevocationChecker struct {
 	opts       RevocationOptions
 	retryAfter time.Duration
@@ -158,10 +167,14 @@ func (c *RevocationChecker) VerifyConnection(cs tls.ConnectionState) error {
 	if c == nil {
 		return nil
 	}
+	// One wait budget for the whole handshake, spent root-down: downloads
+	// run one at a time so a CRL address below a revoked intermediate is
+	// never fetched, and the total stays under the handshake timeout.
+	deadline := time.Now().Add(c.opts.FetchTimeout)
 	for _, chain := range cs.VerifiedChains {
 		// chain[0] is the leaf, chain[len-1] the trust anchor.
 		for i := len(chain) - 2; i >= 1; i-- {
-			if err := c.checkCert(chain[i], chain[i+1]); err != nil {
+			if err := c.checkCert(chain[i], chain[i+1], deadline); err != nil {
 				return err
 			}
 		}
@@ -169,14 +182,14 @@ func (c *RevocationChecker) VerifyConnection(cs tls.ConnectionState) error {
 	return nil
 }
 
-func (c *RevocationChecker) checkCert(cert, issuer *x509.Certificate) error {
+func (c *RevocationChecker) checkCert(cert, issuer *x509.Certificate, deadline time.Time) error {
 	urls := crlURLs(cert)
 	if len(urls) == 0 {
 		return nil
 	}
 	var unknown error
 	for _, u := range urls {
-		revoked, err := c.lookup(u, cert, issuer)
+		revoked, err := c.lookup(u, cert, issuer, deadline)
 		if revoked {
 			return fmt.Errorf("%w: %q (serial %x)", ErrRevoked, cert.Subject.CommonName, cert.SerialNumber)
 		}
@@ -192,9 +205,10 @@ func (c *RevocationChecker) checkCert(cert, issuer *x509.Certificate) error {
 }
 
 // lookup reports whether cert is on the CRL at u. A non-nil error means the
-// CRL gave no answer for cert (missing, unverifiable or expired); a serial
-// listed on an expired CRL still counts as revoked.
-func (c *RevocationChecker) lookup(u string, cert, issuer *x509.Certificate) (bool, error) {
+// CRL gave no answer for cert (missing, unverifiable, expired, or still
+// downloading at deadline); a serial listed on an expired CRL still counts
+// as revoked.
+func (c *RevocationChecker) lookup(u string, cert, issuer *x509.Certificate, deadline time.Time) (bool, error) {
 	now := time.Now()
 	c.mu.Lock()
 	e, ok := c.crls[u]
@@ -213,15 +227,25 @@ func (c *RevocationChecker) lookup(u string, cert, issuer *x509.Certificate) (bo
 	}
 	c.mu.Unlock()
 
+	timedOut := false
 	if wait != nil {
-		<-wait
+		timer := time.NewTimer(time.Until(deadline))
+		select {
+		case <-wait:
+		case <-timer.C:
+			timedOut = true
+		}
+		timer.Stop()
 	}
 
 	c.mu.Lock()
 	data, lastErr := e.list, e.lastErr
 	c.mu.Unlock()
 	if data == nil {
-		if lastErr == nil {
+		switch {
+		case timedOut:
+			lastErr = errors.New("CRL download did not finish within the handshake's wait budget")
+		case lastErr == nil:
 			lastErr = errors.New("CRL not downloaded")
 		}
 		return false, lastErr

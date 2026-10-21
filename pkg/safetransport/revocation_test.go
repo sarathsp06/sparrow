@@ -16,17 +16,27 @@ import (
 	"time"
 )
 
-// crlServer serves CRLs by path; a path with no body answers 500.
+// crlServer serves CRLs by path; a path with no body answers 500. Requests
+// wait hang first (for slow-server tests).
 type crlServer struct {
 	srv    *httptest.Server
 	mu     sync.Mutex
 	bodies map[string][]byte
 	hits   map[string]int
+	hang   time.Duration
 }
 
 func newCRLServer(t *testing.T) *crlServer {
 	s := &crlServer{bodies: map[string][]byte{}, hits: map[string]int{}}
 	s.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.mu.Lock()
+		hang := s.hang
+		s.mu.Unlock()
+		select {
+		case <-time.After(hang):
+		case <-r.Context().Done():
+			return
+		}
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		s.hits[r.URL.Path]++
@@ -288,5 +298,30 @@ func TestRevocationNilChecker(t *testing.T) {
 	var c *RevocationChecker
 	if c.TLSConfig().VerifyConnection == nil {
 		t.Fatal("nil checker should still reject weak keys")
+	}
+}
+
+func TestRevocationWaitBudgetIsPerHandshake(t *testing.T) {
+	p := newTestPKI(t)
+	a, aKey := p.intermediate(t, "a", p.root, p.rootKey, p.crls.url("/a.crl"))
+	b, bKey := p.intermediate(t, "b", a, aKey, p.crls.url("/b.crl"))
+	c, cKey := p.intermediate(t, "c", b, bKey, p.crls.url("/c.crl"))
+	url := p.serve(t, []*x509.Certificate{a, b, c}, []*ecdsa.PrivateKey{aKey, bKey, cKey})
+	p.crls.hang = 5 * time.Second
+
+	const budget = 300 * time.Millisecond
+	soft := NewRevocationChecker(RevocationOptions{FetchTimeout: budget})
+	start := time.Now()
+	if err := p.get(t, soft, url); err != nil {
+		t.Fatalf("soft mode with a hanging CRL server: %v", err)
+	}
+	// Waiting per intermediate would take 3 x budget.
+	if took := time.Since(start); took > 2*budget {
+		t.Fatalf("handshake waited %s for CRLs, want about one %s budget", took, budget)
+	}
+
+	hard := NewRevocationChecker(RevocationOptions{Mode: RevocationHard, FetchTimeout: budget})
+	if err := p.get(t, hard, url); !errors.Is(err, ErrRevocationUnknown) {
+		t.Fatalf("hard mode with a hanging CRL server: got %v, want ErrRevocationUnknown", err)
 	}
 }
