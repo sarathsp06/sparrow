@@ -19,18 +19,19 @@ def _webhook_id(name):
     return data_store.scenario[f"webhook_id_{name}"]
 
 
-def _subscription_id(name):
+def _subscription(name):
     resp = requests.get(f"{_base()}/v1/consumers/{_ns()}/subscriptions", params={"webhook_id": _webhook_id(name)})
     assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
     items = resp.json()["items"]
     assert items, f"webhook {name} has no subscriptions"
-    return items[0]["subscription_id"]
+    return items[0]
 
 
 def _send_test_event(name):
+    sub = _subscription(name)
     return requests.post(
-        f"{_base()}/v1/consumers/{_ns()}/webhooks/{_webhook_id(name)}:sendTestEvent",
-        json={"subscription_id": _subscription_id(name)},
+        f"{_base()}/v1/consumers/{_ns()}/subscriptions/{sub['subscription_id']}:sendTestEvent",
+        json={"event_name": sub["event_name"]},
     )
 
 

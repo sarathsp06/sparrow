@@ -17,8 +17,9 @@ measured its cost before shipping it.
   `X-Sparrow-Event-Version` and `X-Sparrow-Subscription-ID`, set after custom
   headers like the other `X-Sparrow-*` IDs, so receivers route on headers
   whatever the transform does to the body.
-- **Test events.** `POST …/webhooks/{id}:sendTestEvent` sends one delivery of a
-  subscription's sample, or of a given payload, through the real request
+- **Test events.** `POST …/subscriptions/{id}:sendTestEvent` sends an event
+  (`event_name`, which the subscription must receive) to the subscription: one
+  delivery of its sample, or of a given payload, to the subscription's webhook through the real request
   builder, signing, network policy and timeout, marked `X-Sparrow-Test: true`,
   and returns the receiver's status, latency and error class. It is
   synchronous, writes no delivery row and never touches health or

@@ -35,7 +35,11 @@ func (r *recordingInserter) BatchInsert(context.Context, []river.JobArgs) ([]*ri
 	return nil, nil
 }
 
-func (r *recordingInserter) BatchInsertTx(context.Context, *sql.Tx, []river.JobArgs) error {
+func (r *recordingInserter) BatchInsertTx(_ context.Context, _ *sql.Tx, args []river.JobArgs) error {
+	if r.fail {
+		return errFake
+	}
+	r.jobs = append(r.jobs, args...)
 	return nil
 }
 
@@ -59,9 +63,14 @@ func (r *scriptedEventRepo) GetEventByID(_ context.Context, _, id uuid.UUID) (*s
 	return nil, errFake
 }
 
-func (r *scriptedEventRepo) StoreEvent(_ context.Context, _ uuid.UUID, e *store.EventRecord) error {
+// StoreEventAndEnqueue keeps the event only when enqueue succeeds (the
+// transaction).
+func (r *scriptedEventRepo) StoreEventAndEnqueue(ctx context.Context, _ uuid.UUID, e *store.EventRecord, enqueue store.EventEnqueuer) error {
 	if r.storeErr != nil {
 		return r.storeErr
+	}
+	if err := enqueue(ctx, nil); err != nil {
+		return err
 	}
 	r.stored = append(r.stored, e)
 	return nil
@@ -101,23 +110,21 @@ func TestProcessEventRepushCountsEachOutcome(t *testing.T) {
 	}
 }
 
-func TestProcessEventRepushCompensatesFailedEnqueue(t *testing.T) {
+// The copy and its job commit together: a failed enqueue stores nothing.
+func TestProcessEventRepushFailedEnqueueStoresNothing(t *testing.T) {
 	id := uuid.New()
-	for _, deleteErr := range []error{nil, errFake} {
-		events := &scriptedEventRepo{
-			events:    map[uuid.UUID]*store.EventRecord{id: {ID: id, Consumer: "acme", Event: "order.created"}},
-			deleteErr: deleteErr,
-		}
-		w := &BatchJobWorker{eventRepo: events, jobInserter: &recordingInserter{fail: true}, logger: slog.Default()}
+	events := &scriptedEventRepo{
+		events: map[uuid.UUID]*store.EventRecord{id: {ID: id, Consumer: "acme", Event: "order.created"}},
+	}
+	w := &BatchJobWorker{eventRepo: events, jobInserter: &recordingInserter{fail: true}, logger: slog.Default()}
 
-		processed, failed := w.processEventRepush(context.Background(), uuid.New(), uuid.New(), []string{id.String()})
+	processed, failed := w.processEventRepush(context.Background(), uuid.New(), uuid.New(), []string{id.String()})
 
-		if processed != 0 || failed != 1 {
-			t.Fatalf("processed=%d failed=%d, want the item failed", processed, failed)
-		}
-		if len(events.deleted) != 1 || events.deleted[0] != events.stored[0].ID {
-			t.Fatalf("deleted %v, want the orphaned copy %v removed", events.deleted, events.stored[0].ID)
-		}
+	if processed != 0 || failed != 1 {
+		t.Fatalf("processed=%d failed=%d, want the item failed", processed, failed)
+	}
+	if len(events.stored) != 0 {
+		t.Fatalf("stored %v without a queued job", events.stored)
 	}
 }
 
@@ -172,12 +179,28 @@ func (r *scriptedDeliveryRepo) GetDeliveryByID(_ context.Context, _, id uuid.UUI
 	return nil, errFake
 }
 
-func (r *scriptedDeliveryRepo) ResetDeliveriesForRetry(_ context.Context, ids []uuid.UUID) error {
+// ResetDeliveriesForRetry resets the deliveries not in flight, as the store
+// does, and keeps the reset only when enqueue succeeds (the transaction).
+func (r *scriptedDeliveryRepo) ResetDeliveriesForRetry(ctx context.Context, ids []uuid.UUID, enqueue store.RetryEnqueuer) ([]uuid.UUID, error) {
 	if r.resetErr != nil {
-		return r.resetErr
+		return nil, r.resetErr
 	}
-	r.reset = append(r.reset, ids...)
-	return nil
+	var reset []uuid.UUID
+	for _, id := range ids {
+		switch r.deliveries[id].Status {
+		case store.StatusPending, store.StatusSending, store.StatusRetrying:
+		default:
+			reset = append(reset, id)
+		}
+	}
+	if len(reset) == 0 {
+		return nil, nil
+	}
+	if err := enqueue(ctx, nil, reset); err != nil {
+		return nil, err
+	}
+	r.reset = append(r.reset, reset...)
+	return reset, nil
 }
 
 // scriptedWebhookRepo serves the webhooks it holds.
@@ -195,10 +218,11 @@ func (r *scriptedWebhookRepo) GetWebhookByID(_ context.Context, _, id uuid.UUID,
 
 func TestProcessDeliveryRetry(t *testing.T) {
 	webhookID, subID := uuid.New(), uuid.New()
-	ok, orphan := uuid.New(), uuid.New()
+	ok, orphan, inFlight := uuid.New(), uuid.New(), uuid.New()
 	deliveries := &scriptedDeliveryRepo{deliveries: map[uuid.UUID]*store.WebhookDelivery{
-		ok:     {ID: ok, WebhookID: webhookID, SubscriptionID: &subID, EventID: uuid.New()},
-		orphan: {ID: orphan, WebhookID: uuid.New(), EventID: uuid.New()},
+		ok:       {ID: ok, WebhookID: webhookID, SubscriptionID: &subID, EventID: uuid.New(), Status: store.StatusFailed},
+		orphan:   {ID: orphan, WebhookID: uuid.New(), EventID: uuid.New()},
+		inFlight: {ID: inFlight, WebhookID: webhookID, EventID: uuid.New(), Status: store.StatusRetrying},
 	}}
 	webhooks := &scriptedWebhookRepo{webhooks: map[uuid.UUID]*store.WebhookRegistration{
 		webhookID: {ID: webhookID, Consumer: "acme", MaxRetries: 2, RetryBackoffSeconds: 5},
@@ -207,10 +231,13 @@ func TestProcessDeliveryRetry(t *testing.T) {
 	w := &BatchJobWorker{deliveryRepo: deliveries, webhookRepo: webhooks, jobInserter: ins, logger: slog.Default()}
 
 	processed, failed := w.processDeliveryRetry(context.Background(), uuid.New(), uuid.New(), "acme",
-		[]string{ok.String(), "bad", uuid.NewString(), orphan.String()})
+		[]string{ok.String(), "bad", uuid.NewString(), orphan.String(), inFlight.String()})
 
-	if processed != 1 || failed != 3 {
-		t.Fatalf("processed=%d failed=%d, want 1 retried and 3 failed (bad id, missing delivery, missing webhook)", processed, failed)
+	if processed != 1 || failed != 4 {
+		t.Fatalf("processed=%d failed=%d, want 1 retried and 4 failed (bad id, missing delivery, missing webhook, in flight)", processed, failed)
+	}
+	if len(ins.jobs) != 1 {
+		t.Fatalf("queued %d jobs, want 1 (none for the delivery in flight)", len(ins.jobs))
 	}
 	if len(deliveries.reset) != 1 || deliveries.reset[0] != ok {
 		t.Fatalf("reset %v, want only %v (never reset before the webhook is known)", deliveries.reset, ok)
@@ -242,6 +269,11 @@ func TestProcessDeliveryRetryWriteFailures(t *testing.T) {
 	} {
 		if processed, failed := w.processDeliveryRetry(context.Background(), uuid.New(), uuid.New(), "", []string{id.String()}); processed != 0 || failed != 1 {
 			t.Errorf("%s: processed=%d failed=%d, want the item failed", name, processed, failed)
+		}
+		// The reset and the job commit together: a failed enqueue leaves
+		// the delivery as it was.
+		if reset := w.deliveryRepo.(*scriptedDeliveryRepo).reset; len(reset) != 0 {
+			t.Errorf("%s: reset %v without a queued job", name, reset)
 		}
 	}
 }

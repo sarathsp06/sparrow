@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -259,17 +260,9 @@ func (w *BatchJobWorker) processEventRepush(ctx context.Context, tenantID, batch
 			CreatedAt:    time.Now(),
 		}
 
-		if err := w.eventRepo.StoreEvent(ctx, tenantID, newEvent); err != nil {
-			w.logger.ErrorContext(ctx, "Failed to store re-pushed event", "original_id", idStr, "error", err)
-			failed++
-			continue
-		}
-
-		// Enqueue event processing job.
-		// ponytail: event row (sqlx) and River job (pgx) are inserted in
-		// separate transactions with delete-based compensation. Upgrade path:
-		// run both on a single pgx connection and use river.InsertTx.
-		_, err = w.jobInserter.Insert(ctx, EventArgs{
+		// The copy and its processing job commit together, so a cancel or
+		// crash in between leaves neither.
+		job := EventArgs{
 			TenantID:   tenantID.String(),
 			EventID:    newID.String(),
 			Consumer:   original.Consumer,
@@ -278,17 +271,12 @@ func (w *BatchJobWorker) processEventRepush(ctx context.Context, tenantID, batch
 			Metadata:   original.Metadata,
 			Labels:     original.Labels,
 			CreatedAt:  newEvent.CreatedAt,
+		}
+		err = w.eventRepo.StoreEventAndEnqueue(ctx, tenantID, newEvent, func(ctx context.Context, tx *sql.Tx) error {
+			return w.jobInserter.BatchInsertTx(ctx, tx, []river.JobArgs{job})
 		})
 		if err != nil {
-			w.logger.ErrorContext(ctx, "Failed to enqueue re-pushed event", "event_id", newID, "error", err)
-			// Compensate: delete orphaned event record
-			if delErr := w.eventRepo.DeleteEventByID(ctx, tenantID, newID); delErr != nil {
-				w.logger.ErrorContext(ctx, "COMPENSATION FAILED: orphaned event record remains after job-insert failure",
-					"error", delErr,
-					"event_id", newID,
-					"original_id", idStr,
-				)
-			}
+			w.logger.ErrorContext(ctx, "Failed to re-push event", "original_id", idStr, "error", err)
 			failed++
 			continue
 		}
@@ -343,24 +331,16 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 			continue
 		}
 
-		// Reset delivery status
-		if err := w.deliveryRepo.ResetDeliveriesForRetry(ctx, []uuid.UUID{deliveryID}); err != nil {
-			w.logger.ErrorContext(ctx, "Failed to reset delivery for retry", "delivery_id", idStr, "error", err)
-			failed++
-			continue
-		}
-
 		// Build subscription ID string
 		var subID string
 		if delivery.SubscriptionID != nil {
 			subID = delivery.SubscriptionID.String()
 		}
 
-		maxAttempts := webhook.MaxDeliveryAttempts()
-
-		// Enqueue webhook delivery job. Manual batch retries never expire --
-		// use far-future sentinel so TTL doesn't apply to explicit retries.
-		_, err = w.jobInserter.Insert(ctx, &WebhookArgs{
+		// Reset the delivery and queue its job in one transaction, so a
+		// cancel or crash in between leaves neither. Manual batch retries
+		// never expire -- use far-future sentinel so TTL doesn't apply.
+		job := &WebhookArgs{
 			TenantID:            tenantID.String(),
 			DeliveryID:          deliveryID.String(),
 			WebhookID:           delivery.WebhookID.String(),
@@ -368,11 +348,20 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 			EventID:             delivery.EventID.String(),
 			ExpiresAt:           store.NoExpiryTime,
 			Consumer:            webhook.Consumer,
-			MaxAttempts:         maxAttempts,
+			MaxAttempts:         webhook.MaxDeliveryAttempts(),
 			RetryBackoffSeconds: webhook.RetryBackoffSeconds,
+		}
+		reset, err := w.deliveryRepo.ResetDeliveriesForRetry(ctx, []uuid.UUID{deliveryID}, func(ctx context.Context, tx *sql.Tx, _ []uuid.UUID) error {
+			return w.jobInserter.BatchInsertTx(ctx, tx, []river.JobArgs{job})
 		})
 		if err != nil {
-			w.logger.ErrorContext(ctx, "Failed to enqueue delivery retry", "delivery_id", idStr, "error", err)
+			w.logger.ErrorContext(ctx, "Failed to retry delivery", "delivery_id", idStr, "error", err)
+			failed++
+			continue
+		}
+		if len(reset) == 0 {
+			// Still in flight: its own job will deliver it.
+			w.logger.InfoContext(ctx, "Skipped retrying a delivery still in flight", "delivery_id", idStr)
 			failed++
 			continue
 		}

@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -244,11 +245,9 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, consumer string, del
 	// One UPDATE for every delivery and one insert for every job, rather
 	// than a round trip (and a webhook lookup) per delivery.
 	ids := make([]uuid.UUID, len(deliveriesToResubmit))
-	jobs := make([]river.JobArgs, len(deliveriesToResubmit))
-	resubmittedIDs := make([]string, len(deliveriesToResubmit))
+	jobs := make(map[uuid.UUID]river.JobArgs, len(deliveriesToResubmit))
 	for i, delivery := range deliveriesToResubmit {
 		ids[i] = delivery.ID
-		resubmittedIDs[i] = delivery.ID.String()
 		// Manual retries never expire -- use far-future sentinel so TTL doesn't apply.
 		args := &queue.WebhookArgs{
 			DeliveryID:          delivery.ID.String(),
@@ -263,26 +262,35 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, consumer string, del
 		if delivery.SubscriptionID != nil {
 			args.SubscriptionID = delivery.SubscriptionID.String()
 		}
-		jobs[i] = args
+		jobs[delivery.ID] = args
 	}
 
 	// In chunks, so a forced retry of a large webhook stays a bounded
-	// statement and insert.
+	// statement and insert. Each chunk resets its finished deliveries and
+	// queues their jobs in one transaction; ones still in flight are left
+	// to the job they have.
+	resubmittedIDs := make([]string, 0, len(ids))
 	for start := 0; start < len(ids); start += retryChunkSize {
 		end := min(start+retryChunkSize, len(ids))
-		if err := s.webhookRepo.ResetDeliveriesForRetry(ctx, ids[start:end]); err != nil {
-			s.logger.ErrorContext(ctx, "Failed to reset deliveries for retry", "count", end-start, "error", err)
-			return nil, 0, fmt.Errorf("failed to reset deliveries for retry: %w", err)
+		reset, err := s.webhookRepo.ResetDeliveriesForRetry(ctx, ids[start:end], func(ctx context.Context, tx *sql.Tx, reset []uuid.UUID) error {
+			chunk := make([]river.JobArgs, len(reset))
+			for i, id := range reset {
+				chunk[i] = jobs[id]
+			}
+			return s.jobInserter.BatchInsertTx(ctx, tx, chunk)
+		})
+		if err != nil {
+			s.logger.ErrorContext(ctx, "Failed to resubmit deliveries", "count", end-start, "error", err)
+			return nil, 0, fmt.Errorf("failed to resubmit deliveries: %w", err)
 		}
-		if _, err := s.jobInserter.BatchInsert(ctx, jobs[start:end]); err != nil {
-			s.logger.ErrorContext(ctx, "Failed to queue deliveries for resubmission", "count", end-start, "error", err)
-			return nil, 0, fmt.Errorf("failed to queue deliveries for retry: %w", err)
+		for _, id := range reset {
+			resubmittedIDs = append(resubmittedIDs, id.String())
 		}
 	}
 	resubmittedCount := clampInt32(len(resubmittedIDs))
 
 	if resubmittedCount == 0 {
-		return nil, 0, svcerrors.Error(svcerrors.FailedPrecondition, "failed to resubmit any deliveries")
+		return nil, 0, svcerrors.Error(svcerrors.FailedPrecondition, "nothing to resubmit: the deliveries are still in flight")
 	}
 
 	s.logger.InfoContext(ctx, "Webhook deliveries resubmitted successfully",

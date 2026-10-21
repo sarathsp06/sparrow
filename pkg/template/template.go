@@ -21,13 +21,16 @@ const cacheSize = 100
 // prevent denial-of-service via crafted templates.
 const MaxOutputBytes = 1 * 1024 * 1024 // 1 MB
 
-// ExecutionTimeout bounds how long a caller waits for a template,
-// including the wait for an execution slot. Go's text/template has no
+// ExecutionTimeout bounds how long a template runs, and separately how long
+// a caller waits for an execution slot (ErrBusy). Go's text/template has no
 // cancellation, so Execute runs in a goroutine; on timeout the caller stops
 // waiting and the execution ends at its next loop iteration, template call or
 // string-building helper (see budget.go). MaxSteps and
 // MaxWorkBytes bound what it can do until then.
 const ExecutionTimeout = 5 * time.Second
+
+// execTimeout is ExecutionTimeout, shortened by tests.
+var execTimeout = ExecutionTimeout
 
 // MaxRangeNesting is the deepest allowed nesting of range actions. Each
 // level multiplies the iteration count, so deep nesting over even modest
@@ -89,9 +92,11 @@ type ExecOptions struct {
 
 // ExecuteWith processes a template with the given data and options.
 // Output is limited to MaxOutputBytes, work to MaxSteps and
-// MaxWorkBytes, and the wait to ExecutionTimeout, to prevent
+// MaxWorkBytes, and the run to ExecutionTimeout, to prevent
 // denial-of-service via crafted templates that consume unbounded CPU or
-// memory. It returns ErrBusy when no execution slot frees up in time.
+// memory. It returns ErrBusy when no execution slot frees up within
+// ExecutionTimeout; the run's own timeout starts once it has a slot, so
+// waiting under load never counts against the template.
 func (e *Engine) ExecuteWith(tmplStr string, data any, opts ExecOptions) ([]byte, error) {
 	if tmplStr == "" {
 		return nil, nil
@@ -108,14 +113,16 @@ func (e *Engine) ExecuteWith(tmplStr string, data any, opts ExecOptions) ([]byte
 	// Wrap with a size-limited writer to prevent runaway output
 	lw := &limitedWriter{buf: buf, limit: MaxOutputBytes}
 
-	ctx, cancel := context.WithTimeout(context.Background(), ExecutionTimeout)
-	defer cancel()
-
+	wait := time.NewTimer(execTimeout)
 	select {
 	case execSlots <- struct{}{}:
-	case <-ctx.Done():
+		wait.Stop()
+	case <-wait.C:
 		return nil, ErrBusy
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), execTimeout)
+	defer cancel()
 
 	// Each execution gets its own budget: the cached template is shared, so
 	// the budget-aware helpers are rebound on a clone (which shares the
@@ -144,7 +151,7 @@ func (e *Engine) ExecuteWith(tmplStr string, data any, opts ExecOptions) ([]byte
 		}
 	case <-ctx.Done():
 		b.stopped.Store(true)
-		return nil, fmt.Errorf("template execution timed out after %v (possible infinite loop)", ExecutionTimeout)
+		return nil, fmt.Errorf("template execution timed out after %v (possible infinite loop)", execTimeout)
 	}
 
 	return buf.Bytes(), nil

@@ -120,3 +120,29 @@ func TestCheckPrintfFormat(t *testing.T) {
 		}
 	}
 }
+
+type slowData struct{ d time.Duration }
+
+func (s slowData) Slow() string { time.Sleep(s.d); return "done" }
+
+// Waiting for a slot does not count against the run's timeout: a template
+// that gets its slot late still has the whole timeout to render.
+func TestExecuteTimeoutStartsWithTheSlot(t *testing.T) {
+	defer func(d time.Duration) { execTimeout = d }(execTimeout)
+	execTimeout = 400 * time.Millisecond
+
+	for range cap(execSlots) {
+		execSlots <- struct{}{}
+	}
+	go func() {
+		time.Sleep(300 * time.Millisecond) // most of the timeout spent waiting
+		for range cap(execSlots) {
+			<-execSlots
+		}
+	}()
+
+	out, err := New().ExecuteWith(`{{.Slow}}`, slowData{200 * time.Millisecond}, ExecOptions{})
+	if err != nil || string(out) != "done" {
+		t.Fatalf("out %q, err %v: want the render to get its own timeout after the wait", out, err)
+	}
+}

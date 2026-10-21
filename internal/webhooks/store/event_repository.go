@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -14,6 +15,7 @@ import (
 // EventRepository defines operations for event records and event report listings.
 type EventRepository interface {
 	StoreEvent(ctx context.Context, tenantID uuid.UUID, event *EventRecord) error
+	StoreEventAndEnqueue(ctx context.Context, tenantID uuid.UUID, event *EventRecord, enqueue EventEnqueuer) error
 	GetEventByIdempotencyKey(ctx context.Context, tenantID uuid.UUID, consumer, idempotencyKey string) (*EventRecord, error)
 	GetEventByID(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) (*EventRecord, error)
 	GetEventDeliveryStats(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) (int32, int32, int32, int32, error)
@@ -21,6 +23,29 @@ type EventRepository interface {
 	DeleteEventsBefore(ctx context.Context, cutoff time.Time) (int64, error)
 
 	ListEventReportsFiltered(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) ([]*EventReportWithStats, bool, error)
+}
+
+// EventEnqueuer queues the processing job for an event inside the
+// transaction that stores it.
+type EventEnqueuer func(ctx context.Context, tx *sql.Tx) error
+
+// StoreEventAndEnqueue stores event and queues its processing job with
+// enqueue in one transaction: a crash or error in between leaves neither,
+// so an event is never stored without the job that delivers it.
+func (r *Repository) StoreEventAndEnqueue(ctx context.Context, tenantID uuid.UUID, event *EventRecord, enqueue EventEnqueuer) error {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return fmt.Errorf("begin event transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if err := r.WithConn(tx).StoreEvent(ctx, tenantID, event); err != nil {
+		return err
+	}
+	if err := enqueue(ctx, tx.Tx); err != nil {
+		return err
+	}
+	return storage.Error(tx.Commit())
 }
 
 // StoreEvent persists an event record with automatic ID generation and timestamp management.

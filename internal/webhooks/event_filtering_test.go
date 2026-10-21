@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -164,11 +163,11 @@ func TestPushEvent_WithValidLabels(t *testing.T) {
 		Name:   eventName,
 		Active: true,
 	}, nil)
-	repo.On("StoreEvent", mock.Anything, mock.Anything, mock.MatchedBy(func(e *store.EventRecord) bool {
+	repo.On("StoreEventAndEnqueue", mock.Anything, mock.Anything, mock.MatchedBy(func(e *store.EventRecord) bool {
 		// Verify labels are passed through to the stored event record.
 		return e.Labels["region"] == "us" && e.Labels["tier"] == "premium"
 	})).Return(nil)
-	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
+	inserter.On("BatchInsertTx", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	eventID, _, _, _, err := service.PushEvent(ctx, consumer, eventName, payload, 0, nil, labels, nil)
 	assert.NoError(t, err)
@@ -188,8 +187,8 @@ func TestPushEvent_WithNilLabels(t *testing.T) {
 		Name:   "test.event",
 		Active: true,
 	}, nil)
-	repo.On("StoreEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
+	repo.On("StoreEventAndEnqueue", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	inserter.On("BatchInsertTx", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	eventID, _, _, _, err := service.PushEvent(ctx, "default", "test.event", nil, 0, nil, nil, nil)
 	assert.NoError(t, err)
@@ -488,8 +487,8 @@ func TestPushEvent_EventNameLengthCountsCharacters(t *testing.T) {
 	// 255 two-byte characters = 510 bytes: fits the column, must be accepted.
 	fits := strings.Repeat("é", maxEventNameLength)
 	repo.On("GetEventByName", mock.Anything, mock.Anything, fits).Return(&store.EventRegistration{Name: fits, Active: true}, nil)
-	repo.On("StoreEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
+	repo.On("StoreEventAndEnqueue", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	inserter.On("BatchInsertTx", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	_, _, _, _, err := service.PushEvent(ctx, "default", fits, nil, 0, nil, nil, nil)
 	require.NoError(t, err)
 

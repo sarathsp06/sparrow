@@ -1,6 +1,6 @@
 <script lang="ts">
-  // Sends test events to one webhook (POST :sendTestEvent): the sample, or a
-  // payload the user edits. Shared by the admin webhook page and the portal;
+  // Sends test events to a webhook's subscriptions (POST
+  // subscriptions/{id}:sendTestEvent): the sample, or a payload the user edits. Shared by the admin webhook page and the portal;
   // the API client routes the same /v1 call through /portal/api/ there.
   import { JSONEditor, Mode, type Content } from "svelte-jsoneditor";
   import { api, unwrap } from "$lib/services";
@@ -12,16 +12,21 @@
 
   interface Props {
     consumer: string;
-    webhookId: string;
     /** The webhook's subscriptions, one test button each. */
     subscriptions: { subscription_id: string; event_name: string }[];
   }
 
-  let { consumer, webhookId, subscriptions }: Props = $props();
+  let { consumer, subscriptions }: Props = $props();
 
   let tests = $state<Record<string, { busy: boolean; result?: TestResult; error?: string }>>({});
   // Per subscription: the payload being edited, when its editor is open.
   let payloads = $state<Record<string, { content: Content; loading: boolean }>>({});
+  // Per catch-all (*) subscription: the event to send.
+  let eventNames = $state<Record<string, string>>({});
+
+  // The event a row sends: its own, or the one typed for a catch-all.
+  const eventFor = (s: { subscription_id: string; event_name: string }) =>
+    s.event_name === "*" ? (eventNames[s.subscription_id] ?? "").trim() : s.event_name;
 
   // Opens the payload editor with the event type's sample, or closes it.
   async function togglePayload(subscriptionId: string, eventName: string) {
@@ -30,6 +35,10 @@
       return;
     }
     payloads[subscriptionId] = { content: { json: {} }, loading: true };
+    if (!eventName) {
+      payloads[subscriptionId] = { content: { json: {} }, loading: false };
+      return;
+    }
     try {
       const ev = unwrap(await api.GET("/v1/event-types/{name}", { params: { path: { name: eventName } } }));
       payloads[subscriptionId] = { content: { json: ev.sample_payload ?? {} }, loading: false };
@@ -53,7 +62,11 @@
     return { payload: value as Record<string, unknown> };
   }
 
-  async function sendTest(subscriptionId: string) {
+  async function sendTest(subscriptionId: string, eventName: string) {
+    if (!eventName) {
+      tests[subscriptionId] = { busy: false, error: "Enter the event to send." };
+      return;
+    }
     const edited = payloads[subscriptionId] ? editedPayload(payloads[subscriptionId].content) : {};
     if (edited.error) {
       tests[subscriptionId] = { busy: false, error: edited.error };
@@ -62,9 +75,12 @@
     tests[subscriptionId] = { busy: true };
     try {
       const result = unwrap(
-        await api.POST("/v1/consumers/{consumer}/webhooks/{webhook_id}:sendTestEvent", {
-          params: { path: { consumer, webhook_id: webhookId } },
-          body: { subscription_id: subscriptionId, ...(edited.payload ? { payload: edited.payload } : {}) },
+        await api.POST("/v1/consumers/{consumer}/subscriptions/{subscription_id}:sendTestEvent", {
+          params: { path: { consumer, subscription_id: subscriptionId } },
+          body: {
+            event_name: eventName,
+            ...(edited.payload ? { payload: edited.payload } : {}),
+          },
         }),
       );
       tests[subscriptionId] = { busy: false, result };
@@ -93,11 +109,20 @@
       {#each subscriptions as s (s.subscription_id)}
         {@const t = tests[s.subscription_id]}
         <li class="flex flex-wrap items-center gap-3 text-sm" data-testid="test-event-row">
-          <button class="btn btn-ghost !px-3 !py-1" disabled={t?.busy} onclick={() => sendTest(s.subscription_id)}>
+          <button class="btn btn-ghost !px-3 !py-1" disabled={t?.busy} onclick={() => sendTest(s.subscription_id, eventFor(s))}>
             {t?.busy ? "Sending…" : "Send test event"}
           </button>
-          <span class="mono text-xs">{s.event_name}</span>
-          <button class="text-xs text-muted hover:text-text" onclick={() => togglePayload(s.subscription_id, s.event_name)}>
+          {#if s.event_name === "*"}
+            <input
+              class="input mono text-xs !py-1 w-48"
+              placeholder="event, e.g. order.paid"
+              aria-label="Event to send"
+              bind:value={eventNames[s.subscription_id]}
+            />
+          {:else}
+            <span class="mono text-xs">{s.event_name}</span>
+          {/if}
+          <button class="text-xs text-muted hover:text-text" onclick={() => togglePayload(s.subscription_id, eventFor(s))}>
             {payloads[s.subscription_id] ? "Use the sample" : "Edit payload"}
           </button>
           {#if t?.result}

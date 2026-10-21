@@ -1534,13 +1534,15 @@ func (_d RepositoryInterfaceWithTracing) ReplaceWebhookSubscriptions(ctx context
 }
 
 // ResetDeliveriesForRetry implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uuid.UUID) (err error) {
+func (_d RepositoryInterfaceWithTracing) ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uuid.UUID, enqueue RetryEnqueuer) (ua1 []uuid.UUID, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ResetDeliveriesForRetry")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
 				"ctx":         ctx,
-				"deliveryIDs": deliveryIDs}, map[string]interface{}{
+				"deliveryIDs": deliveryIDs,
+				"enqueue":     enqueue}, map[string]interface{}{
+				"ua1": ua1,
 				"err": err})
 		} else if err != nil {
 			_span.RecordError(err)
@@ -1553,7 +1555,7 @@ func (_d RepositoryInterfaceWithTracing) ResetDeliveriesForRetry(ctx context.Con
 
 		_span.End()
 	}()
-	return _d.RepositoryInterface.ResetDeliveriesForRetry(ctx, deliveryIDs)
+	return _d.RepositoryInterface.ResetDeliveriesForRetry(ctx, deliveryIDs, enqueue)
 }
 
 // ResolveAlertRecipients implements RepositoryInterface
@@ -1682,6 +1684,31 @@ func (_d RepositoryInterfaceWithTracing) StoreEvent(ctx context.Context, tenantI
 		_span.End()
 	}()
 	return _d.RepositoryInterface.StoreEvent(ctx, tenantID, event)
+}
+
+// StoreEventAndEnqueue implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) StoreEventAndEnqueue(ctx context.Context, tenantID uuid.UUID, event *EventRecord, enqueue EventEnqueuer) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.StoreEventAndEnqueue")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":      ctx,
+				"tenantID": tenantID,
+				"event":    event,
+				"enqueue":  enqueue}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.StoreEventAndEnqueue(ctx, tenantID, event, enqueue)
 }
 
 // UnregisterWebhook implements RepositoryInterface

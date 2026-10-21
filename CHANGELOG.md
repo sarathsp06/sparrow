@@ -23,7 +23,7 @@ migrations run on startup.
 ### Added
 
 - Every delivery carries `X-Sparrow-Event-Type`, `X-Sparrow-Event-Version` and `X-Sparrow-Subscription-ID`, so a receiver can route on headers even when a transform reshapes the body. Custom headers can't override them.
-- `POST /v1/consumers/{consumer}/webhooks/{webhook_id}:sendTestEvent` sends one signed delivery of a subscription's sample (or of an optional `payload`), rendered through its transform, and returns the receiver's status, latency and error class. It uses the real delivery path (signing, SSRF protection, timeouts), adds `X-Sparrow-Test: true`, records no delivery and never affects health or auto-disable. Limited to one per webhook every 2 seconds on each server. Portal tokens can call it for their own webhooks.
+- `POST /v1/consumers/{consumer}/subscriptions/{subscription_id}:sendTestEvent` sends `event_name` (the subscription's event, or any event for a catch-all subscription) to the subscription: one signed delivery to its webhook of the event type's sample or an optional `payload`, rendered through the subscription's transform. It returns the receiver's status, latency and error class. It uses the real delivery path (signing, SSRF protection, timeouts), adds `X-Sparrow-Test: true`, records no delivery and never affects health or auto-disable. Limited to one per webhook every 2 seconds on each server. Portal tokens can call it for their own webhooks.
 - A **Test** tab on the webhook page and in the consumer portal sends a test event per subscription, with the sample or a payload you edit, and shows the receiver's status, latency and error class.
 
 ### Changed
@@ -37,10 +37,15 @@ migrations run on startup.
 
 ### Fixed
 
+- A pushed event is stored and queued for delivery in one transaction. A crash in between could leave an event stored but never delivered, and a retry with the same idempotency key was then answered as a duplicate. Batch re-push has the same fix.
+- Retrying a delivery that is still in flight (pending or retrying) no longer queues a second job and delivers it twice. Retry-all now covers only failed and paused deliveries, and a delivery's reset and its new job commit together.
+- A delivery whose subscription was deleted is now failed instead of being sent without its transform, headers or pause. A transient error reading the subscription is retried.
+- Waiting for a template execution slot under load no longer counts toward the 5-second render timeout. Valid templates could fail permanently with "possible infinite loop" when many deliveries rendered at once.
 - A `Retry-After` header with a huge number of seconds (e.g. `18446744074`) no longer overflows into a sub-second retry; it is capped at 15 minutes like any value over the limit.
 
 ### Security
 
+- Built with Go 1.27.3, which fixes a `crypto/x509` certificate verification vulnerability (GO-2026-6809) reachable through outbound HTTPS deliveries.
 - Webhook destinations are now also refused when they are IPv6 addresses carrying a restricted IPv4 address in IPv4-compatible (`::/96`), IPv4-translated (`::ffff:0:0:0/96`) or Teredo (`2001::/32`) form, and in the reserved ranges `100::/64`, `2001:2::/48`, `2001:db8::/32` and `fec0::/10`. A stock Linux host cannot route these forms to the embedded address, so this is hardening rather than a fix for a reachable bypass.
 - The server is built with `google.golang.org/grpc` v1.84.0 (fixes a server panic on requests without an authority or `Host` header, GO-2026-6443). The OTLP gRPC exporters use it.
 - The Docker image's base images are pinned by digest, so a rebuilt release tag uses the same bases.
