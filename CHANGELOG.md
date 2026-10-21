@@ -16,6 +16,8 @@ migrations run on startup.
 
 ## [Unreleased]
 
+## [v1.1.0] - 2026-10-21
+
 ### Upgrading
 
 - Deliveries now check receivers' intermediate certificates against their CRLs (`SPARROW_TLS_REVOCATION=soft` by default), which needs outbound access to the CAs' CRL servers through the same network policy as deliveries. Without it, `soft` lets deliveries through and `GET /v1/tls/crls` shows the download errors. Receivers whose certificates chain through a revoked intermediate, including the roughly 30,000 eMudhra customers still on the compromised G3 intermediates, now fail with `tls_error` until they get a new certificate.
@@ -34,6 +36,10 @@ migrations run on startup.
 
 - Deliveries and the OpenAI-compatible AI provider refuse a TLS server whose certificate chain contains one of the eMudhra intermediate keys compromised in October 2026 ([Mozilla bug 2083449](https://bugzilla.mozilla.org/show_bug.cgi?id=2083449)), including the copies Sectigo cross-signed. Go checks no revocation lists, so the revoked certificates would otherwise still verify. The check matches that flaw (EC private keys below 256), not weak keys in general. Such a delivery fails with `tls_error` and is not retried. Webhooks with `verify_ssl=false` are unaffected. The check ships as a stdlib-only module, `github.com/sarathsp06/sparrow/pkg/safetransport` (`safetransport.New()` for a ready `http.Transport`, `TLSConfig()` to build your own), for other Go programs that make outbound TLS calls.
 - Deliveries check every intermediate in a receiver's TLS chain against its issuer's CRL, which Go doesn't do on its own (`SPARROW_TLS_REVOCATION`: `soft` by default, `hard`, or `off`). CRLs are cached per instance: downloaded the first time a chain needs one, refreshed in the background by the next delivery once older than `SPARROW_CRL_MAX_AGE` (default `6h`), and on demand on every instance with `POST /v1/tls/crls:refresh`; `GET /v1/tls/crls` shows the cache. Nothing runs on a schedule. CRL downloads go through the delivery network policy, and the chain is checked from the root down so a CRL address written by a revoked CA is never fetched. `safetransport.NewRevocationChecker` offers the same check to other Go programs.
+- Built with Go 1.27.3, which fixes a `crypto/x509` certificate verification vulnerability (GO-2026-6809) reachable through outbound HTTPS deliveries.
+- Webhook destinations are now also refused when they are IPv6 addresses carrying a restricted IPv4 address in IPv4-compatible (`::/96`), IPv4-translated (`::ffff:0:0:0/96`) or Teredo (`2001::/32`) form, and in the reserved ranges `100::/64`, `2001:2::/48`, `2001:db8::/32` and `fec0::/10`. A stock Linux host cannot route these forms to the embedded address, so this is hardening rather than a fix for a reachable bypass.
+- The server is built with `google.golang.org/grpc` v1.84.0 (fixes a server panic on requests without an authority or `Host` header, GO-2026-6443). The OTLP gRPC exporters use it.
+- The Docker image's base images are pinned by digest, so a rebuilt release tag uses the same bases.
 
 ### Fixed
 
@@ -42,13 +48,6 @@ migrations run on startup.
 - A delivery whose subscription was deleted is now failed instead of being sent without its transform, headers or pause. A transient error reading the subscription is retried.
 - Waiting for a template execution slot under load no longer counts toward the 5-second render timeout. Valid templates could fail permanently with "possible infinite loop" when many deliveries rendered at once.
 - A `Retry-After` header with a huge number of seconds (e.g. `18446744074`) no longer overflows into a sub-second retry; it is capped at 15 minutes like any value over the limit.
-
-### Security
-
-- Built with Go 1.27.3, which fixes a `crypto/x509` certificate verification vulnerability (GO-2026-6809) reachable through outbound HTTPS deliveries.
-- Webhook destinations are now also refused when they are IPv6 addresses carrying a restricted IPv4 address in IPv4-compatible (`::/96`), IPv4-translated (`::ffff:0:0:0/96`) or Teredo (`2001::/32`) form, and in the reserved ranges `100::/64`, `2001:2::/48`, `2001:db8::/32` and `fec0::/10`. A stock Linux host cannot route these forms to the embedded address, so this is hardening rather than a fix for a reachable bypass.
-- The server is built with `google.golang.org/grpc` v1.84.0 (fixes a server panic on requests without an authority or `Host` header, GO-2026-6443). The OTLP gRPC exporters use it.
-- The Docker image's base images are pinned by digest, so a rebuilt release tag uses the same bases.
 
 ## [v1.0.1] - 2026-10-17
 
@@ -622,7 +621,8 @@ First release: webhook registration and subscriptions, signed delivery with
 retries, payload transforms, soft schema validation, bulk re-push and retry,
 and the embedded web UI.
 
-[Unreleased]: https://github.com/sarathsp06/sparrow/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/sarathsp06/sparrow/compare/v1.1.0...HEAD
+[v1.1.0]: https://github.com/sarathsp06/sparrow/compare/v1.0.1...v1.1.0
 [v1.0.1]: https://github.com/sarathsp06/sparrow/compare/v1.0.0...v1.0.1
 [v1.0.0]: https://github.com/sarathsp06/sparrow/compare/v0.14.0...v1.0.0
 [v0.14.0]: https://github.com/sarathsp06/sparrow/compare/v0.13.0...v0.14.0
