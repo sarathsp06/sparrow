@@ -77,4 +77,30 @@ Two things to set on a server. `RevocationOptions.Client` should enforce your SS
 - **Bind identity to the key.** Compare fingerprints at every hand-off, never labels.
 - **Revocation only protects clients that check it.** If your Go code talks TLS from a server, the browser ecosystem's fixes won't reach you unless you add them.
 
+## But what does it cost?
+
+Fair question. "Download a file from a CA during the TLS handshake" sounds like something that would make every webhook slow. So we pointed the checker at the kinds of receivers Sparrow talks to every day and measured.
+
+The first surprise is how small these files are. A CA revokes an intermediate maybe a few times a decade, so the lists that track them are tiny:
+
+| CRL | Used by | Size | Download |
+|---|---|---|---|
+| SSL.com TLS ECC (two) | example.com | 300 bytes each | 20 ms |
+| Let's Encrypt (four) | Slack, letsencrypt.org | 283–808 bytes | 20–39 ms |
+| Google Trust Services R4 | Discord, Google | 529 bytes | 22 ms |
+| Sectigo E46 | GitHub API | 369 bytes | 36 ms |
+| DigiCert Global Root G2 | PagerDuty | 2.1 KB, the biggest, 33 entries | 28 ms |
+
+That is smaller than most webhook payloads, served from a CDN, and fetched in about the time of one round trip.
+
+The second is how rarely you pay even that. A CRL is downloaded once per instance and then lives in memory for six hours, after which the next delivery refreshes it in the background without waiting. A busy Sparrow talking to a hundred receivers might use ten different CRLs. So, a few times a day, one delivery per CA takes 20 to 40 milliseconds longer. Every other delivery pays for a map lookup.
+
+Lined up against the alternative, the trade is not close. Without the check, a stolen CA key works against Sparrow until a Debian package update reaches your image, and through the cross-signed copies for as long as they stay valid. With it, a revocation that browsers act on within hours reaches every Sparrow instance within six hours, or within seconds if someone calls `POST /v1/tls/crls:refresh`. All of that for a few kilobytes and a few tens of milliseconds, a handful of times a day.
+
+The one case where it costs more is a CRL server that is down or unreachable, as it will be on installs with no internet access. Then the first connection that needs that CRL waits up to five seconds, once, and carries on in soft mode. If that is your setup, `SPARROW_TLS_REVOCATION=off` skips the wait, and the weak-key check keeps working without any network at all.
+
+*Measured on 21 October 2026 from a laptop in Europe; a server in a data center will usually be faster.*
+
+---
+
 Both checks ship in the next Sparrow release; nothing needs configuring. CRL checks need outbound access to the CAs' CRL servers. Receivers whose chains go through a revoked intermediate, including these keys, will fail with `tls_error` until they get a new certificate. Details are in the [changelog](https://github.com/sarathsp06/sparrow/blob/main/CHANGELOG.md) and the [security reference](/sparrow/reference/security/#certificate-revocation).
