@@ -70194,7 +70194,7 @@
       "node_kind": "heading",
       "norm_label": "a one-byte secret",
       "source_file": "docs/src/blog/the-key-was-four.md",
-      "source_location": "L14"
+      "source_location": "L18"
     },
     {
       "id": "docs_src_blog_the_key_was_four_browsers_were_safe_within_hours_go_never_was",
@@ -70206,7 +70206,7 @@
       "node_kind": "heading",
       "norm_label": "browsers were safe within hours. go never was.",
       "source_file": "docs/src/blog/the-key-was-four.md",
-      "source_location": "L22"
+      "source_location": "L26"
     },
     {
       "id": "docs_src_blog_the_key_was_four_but_what_does_it_cost",
@@ -70218,7 +70218,7 @@
       "node_kind": "heading",
       "norm_label": "but what does it cost?",
       "source_file": "docs/src/blog/the-key-was-four.md",
-      "source_location": "L80"
+      "source_location": "L84"
     },
     {
       "id": "docs_src_blog_the_key_was_four_use_it_in_your_own_go_code",
@@ -70230,7 +70230,7 @@
       "node_kind": "heading",
       "norm_label": "use it in your own go code",
       "source_file": "docs/src/blog/the-key-was-four.md",
-      "source_location": "L49"
+      "source_location": "L53"
     },
     {
       "id": "docs_src_blog_the_key_was_four_what_sparrow_does_now",
@@ -70242,7 +70242,7 @@
       "node_kind": "heading",
       "norm_label": "what sparrow does now",
       "source_file": "docs/src/blog/the-key-was-four.md",
-      "source_location": "L34"
+      "source_location": "L38"
     },
     {
       "id": "docs_src_blog_the_key_was_four_what_to_take_from_it",
@@ -70254,7 +70254,7 @@
       "node_kind": "heading",
       "norm_label": "what to take from it",
       "source_file": "docs/src/blog/the-key-was-four.md",
-      "source_location": "L74"
+      "source_location": "L78"
     },
     {
       "id": "e2e_client_sparrow_client_api_access_init",
@@ -289977,7 +289977,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/src/blog/the-key-was-four.md",
-      "source_location": "L14",
+      "source_location": "L18",
       "weight": 1.0
     },
     {
@@ -289988,7 +289988,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/src/blog/the-key-was-four.md",
-      "source_location": "L22",
+      "source_location": "L26",
       "weight": 1.0
     },
     {
@@ -289999,7 +289999,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/src/blog/the-key-was-four.md",
-      "source_location": "L34",
+      "source_location": "L38",
       "weight": 1.0
     },
     {
@@ -290010,7 +290010,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/src/blog/the-key-was-four.md",
-      "source_location": "L49",
+      "source_location": "L53",
       "weight": 1.0
     },
     {
@@ -290021,7 +290021,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/src/blog/the-key-was-four.md",
-      "source_location": "L74",
+      "source_location": "L78",
       "weight": 1.0
     },
     {
@@ -290032,7 +290032,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/src/blog/the-key-was-four.md",
-      "source_location": "L80",
+      "source_location": "L84",
       "weight": 1.0
     },
     {
@@ -397919,5 +397919,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "e4cc302b515c51495959c684138f62c30ed4e44b"
+  "built_at_commit": "a090fe8eecb6ee2f5bd605bd5cbc5a72147c1a5e"
 }

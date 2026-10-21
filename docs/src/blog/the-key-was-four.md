@@ -11,6 +11,10 @@ On 17 October 2026 a researcher reported that eight intermediate certificates is
 
 Six of the eight issue TLS certificates. Whoever holds those keys can mint a certificate for any hostname, and it will verify.
 
+> **TLS trust in one minute.** When your code connects to `hooks.slack.com`, the server sends a short chain of certificates. The **leaf** says "this key belongs to hooks.slack.com". It is signed by an **intermediate**, which is signed by a **root** your machine already trusts. Intermediates do the day-to-day signing, so whoever holds an intermediate's private key can vouch for any website.
+>
+> When a key leaks, the CA **revokes** the certificate by publishing it on a **CRL**, a small signed list of certificates that should no longer be trusted. Browsers check those lists. Go doesn't.
+
 ## A one-byte secret
 
 An ECDSA public key is *Q = d·G*: a secret number *d* times a fixed, public point *G*. It is safe only because *d* is picked from about 2^384 values on P-384. eMudhra's keys were 47 zero bytes and one meaningful byte. To recover one, compute *1·G*, *2·G*, *3·G*… and compare with the certificate. For `G3C` you stop at four.

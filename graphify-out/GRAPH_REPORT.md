@@ -1,7 +1,7 @@
 # Graph Report - bold-euclid-d955a4  (2026-10-21)
 
 ## Corpus Check
-- 859 files · ~654,127 words
+- 859 files · ~654,223 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 42 file(s) not represented in the graph (top: .spec 21, (none) 12, .css 3)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `e4cc302b`
+- Built from commit: `a090fe8e`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
