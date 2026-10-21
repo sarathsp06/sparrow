@@ -477,7 +477,7 @@
                         onRefresh={() => fetchSubscriptions(w.webhook_id)}
                       />
                     {:else}
-                      <TestEventPanel webhookId={w.webhook_id} {consumer} {subscriptions} />
+                      <TestEventPanel {consumer} {subscriptions} />
                     {/if}
                   </div>
                 {/if}

@@ -1,6 +1,6 @@
 <script lang="ts">
-  // Sends test events to one webhook (POST :sendTestEvent): the sample, or a
-  // payload the user edits. Shared by the admin webhook page and the portal;
+  // Sends test events to a webhook's subscriptions (POST
+  // subscriptions/{id}:sendTestEvent): the sample, or a payload the user edits. Shared by the admin webhook page and the portal;
   // the API client routes the same /v1 call through /portal/api/ there.
   import { JSONEditor, Mode, type Content } from "svelte-jsoneditor";
   import { api, unwrap } from "$lib/services";
@@ -12,12 +12,11 @@
 
   interface Props {
     consumer: string;
-    webhookId: string;
     /** The webhook's subscriptions, one test button each. */
     subscriptions: { subscription_id: string; event_name: string }[];
   }
 
-  let { consumer, webhookId, subscriptions }: Props = $props();
+  let { consumer, subscriptions }: Props = $props();
 
   let tests = $state<Record<string, { busy: boolean; result?: TestResult; error?: string }>>({});
   // Per subscription: the payload being edited, when its editor is open.
@@ -76,10 +75,9 @@
     tests[subscriptionId] = { busy: true };
     try {
       const result = unwrap(
-        await api.POST("/v1/consumers/{consumer}/webhooks/{webhook_id}:sendTestEvent", {
-          params: { path: { consumer, webhook_id: webhookId } },
+        await api.POST("/v1/consumers/{consumer}/subscriptions/{subscription_id}:sendTestEvent", {
+          params: { path: { consumer, subscription_id: subscriptionId } },
           body: {
-            subscription_id: subscriptionId,
             event_name: eventName,
             ...(edited.payload ? { payload: edited.payload } : {}),
           },

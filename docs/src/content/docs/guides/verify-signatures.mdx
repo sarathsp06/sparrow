@@ -439,9 +439,9 @@ Once your receiver is registered, send it a test event from the webhook page
 or the consumer portal (**Test** tab), or with the API:
 
 ```bash
-curl -X POST http://localhost:8080/v1/consumers/default/webhooks/<webhook-id>:sendTestEvent \
+curl -X POST http://localhost:8080/v1/consumers/default/subscriptions/<subscription-id>:sendTestEvent \
   -H 'Content-Type: application/json' \
-  -d '{"subscription_id": "<subscription-id>"}'
+  -d '{"event_name": "order.paid"}'
 ```
 
 Sparrow sends one delivery of the event type's sample payload (or of the
@@ -449,6 +449,6 @@ Sparrow sends one delivery of the event type's sample payload (or of the
 a real delivery and marked `X-Sparrow-Test: true`, and answers with the
 receiver's `status_code`, `latency_ms` and `error_class`. It records no delivery
 and never affects the webhook's health. Each server allows one test event per
-webhook every 2 seconds. For a catch-all (`*`) subscription, name the event to
-send with `"event_name": "order.paid"`; an event type that isn't registered has
-no sample, so pass a `payload` for it.
+webhook every 2 seconds. `event_name` is the subscription's event, or any event
+for a catch-all (`*`) subscription; an event type that isn't registered has no
+sample, so pass a `payload` for it.

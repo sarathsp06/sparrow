@@ -19,7 +19,7 @@ migrations run on startup.
 ### Added
 
 - Every delivery carries `X-Sparrow-Event-Type`, `X-Sparrow-Event-Version` and `X-Sparrow-Subscription-ID`, so a receiver can route on headers even when a transform reshapes the body. Custom headers can't override them.
-- `POST /v1/consumers/{consumer}/webhooks/{webhook_id}:sendTestEvent` sends one signed delivery of a subscription's sample (or of an optional `payload`), rendered through its transform; a catch-all (`*`) subscription takes the event to send in `event_name`. It returns the receiver's status, latency and error class. It uses the real delivery path (signing, SSRF protection, timeouts), adds `X-Sparrow-Test: true`, records no delivery and never affects health or auto-disable. Limited to one per webhook every 2 seconds on each server. Portal tokens can call it for their own webhooks.
+- `POST /v1/consumers/{consumer}/subscriptions/{subscription_id}:sendTestEvent` sends `event_name` (the subscription's event, or any event for a catch-all subscription) to the subscription: one signed delivery to its webhook of the event type's sample or an optional `payload`, rendered through the subscription's transform. It returns the receiver's status, latency and error class. It uses the real delivery path (signing, SSRF protection, timeouts), adds `X-Sparrow-Test: true`, records no delivery and never affects health or auto-disable. Limited to one per webhook every 2 seconds on each server. Portal tokens can call it for their own webhooks.
 - A **Test** tab on the webhook page and in the consumer portal sends a test event per subscription, with the sample or a payload you edit, and shows the receiver's status, latency and error class.
 
 ### Changed

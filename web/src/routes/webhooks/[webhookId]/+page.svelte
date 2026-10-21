@@ -1218,7 +1218,7 @@
 
       {#if activeTab === 'test'}
         <div class="panel p-5">
-          <TestEventPanel {webhookId} consumer={webhook.consumer} {subscriptions} />
+          <TestEventPanel consumer={webhook.consumer} {subscriptions} />
         </div>
       {/if}
     {/if}
