@@ -56,7 +56,7 @@ func aiRouter(t *testing.T, drafter rest.TemplateDrafter) http.Handler {
 	svc := eventOnlyService{events: map[string]*store.EventRegistration{
 		"order.created": {Name: "order.created", Schema: map[string]any{"type": "object"}, SamplePayload: map[string]any{"id": "ord_1"}},
 	}}
-	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{Drafter: drafter})
+	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{Drafter: drafter}, nil)
 	return r
 }
 
@@ -95,7 +95,7 @@ func TestCapabilities_ReflectsDrafter(t *testing.T) {
 func TestCapabilities_ReportsAlertDelivery(t *testing.T) {
 	for _, configured := range []bool{false, true} {
 		r := chi.NewRouter()
-		rest.Mount(r, eventOnlyService{alertDelivery: configured}, rest.AccessDeps{}, rest.AIDeps{})
+		rest.Mount(r, eventOnlyService{alertDelivery: configured}, rest.AccessDeps{}, rest.AIDeps{}, nil)
 		rec := do(r, http.MethodGet, "/v1/capabilities", "")
 		if rec.Code != 200 {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body)
@@ -132,7 +132,7 @@ func TestDraftTemplate_EnabledButMisconfigured(t *testing.T) {
 		"order.created": {Name: "order.created", Schema: map[string]any{"type": "object"}, SamplePayload: map[string]any{"id": "ord_1"}},
 	}}
 	problem := errors.New("SPARROW_AI_ENABLED=true but SPARROW_AI_API_KEY is not set")
-	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{ConfigErr: problem})
+	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{ConfigErr: problem}, nil)
 
 	var caps struct {
 		AIDrafting struct {

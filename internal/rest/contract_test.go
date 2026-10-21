@@ -22,7 +22,7 @@ func contractRouter() http.Handler {
 		secret: "whsec_plaintext",
 	}
 	r := chi.NewRouter()
-	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{})
+	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{}, nil)
 	return r
 }
 
@@ -59,7 +59,7 @@ func TestRequestEnumsRejectEmptyString(t *testing.T) {
 
 // The spec types arrays as plain arrays and timestamps as date-time.
 func TestSpecTypesArraysAndTimestamps(t *testing.T) {
-	api := rest.Mount(chi.NewRouter(), nil, rest.AccessDeps{}, rest.AIDeps{})
+	api := rest.Mount(chi.NewRouter(), nil, rest.AccessDeps{}, rest.AIDeps{}, nil)
 	spec, err := json.Marshal(api.OpenAPI())
 	if err != nil {
 		t.Fatal(err)

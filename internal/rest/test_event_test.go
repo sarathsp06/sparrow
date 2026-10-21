@@ -34,7 +34,7 @@ func (s *testEventService) SendTestEvent(_ context.Context, consumer, subscripti
 func TestSendTestEvent(t *testing.T) {
 	svc := &testEventService{}
 	r := chi.NewRouter()
-	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{})
+	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{}, nil)
 	path := "/v1/consumers/acme/subscriptions/sub1:sendTestEvent"
 
 	rec := do(r, http.MethodPost, path, `{"event_name":"order.paid"}`)

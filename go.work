@@ -3,6 +3,7 @@ go 1.27.3
 use (
 	.
 	./pkg/access
+	./pkg/safetransport
 	./pkg/signature
 	./pkg/template
 	./satellites/recipes

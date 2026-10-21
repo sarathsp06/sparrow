@@ -11,6 +11,7 @@ import (
 	"time"
 
 	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
+	"github.com/sarathsp06/sparrow/pkg/safetransport"
 )
 
 // openAIClient talks to any OpenAI-compatible chat completions endpoint over
@@ -27,8 +28,10 @@ type openAIClient struct {
 }
 
 func newOpenAIClient(cfg Config) *openAIClient {
+	// No SSRF policy here: the operator sets the URL, and local servers
+	// (Ollama, vLLM) are the common case. It still refuses compromised CA keys.
 	return &openAIClient{
-		http:    &http.Client{Timeout: 120 * time.Second},
+		http:    &http.Client{Timeout: 120 * time.Second, Transport: safetransport.New()},
 		baseURL: strings.TrimRight(cfg.BaseURL, "/"),
 		apiKey:  cfg.APIKey,
 		model:   cfg.Model,

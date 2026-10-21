@@ -3,6 +3,8 @@ package client
 import (
 	"net"
 	"time"
+
+	"github.com/sarathsp06/sparrow/pkg/safetransport"
 )
 
 // Config holds configuration for the webhook client
@@ -27,6 +29,10 @@ type Config struct {
 	// for webhooks with capture_response_body enabled (others store 1 KB).
 	// 0 means DefaultMaxCapturedResponseBytes.
 	MaxCapturedResponseBytes int64
+
+	// Revocation checks receivers' intermediates against their CRLs. nil
+	// checks weak keys only (safetransport.TLSConfig).
+	Revocation *safetransport.RevocationChecker
 }
 
 // MaxRequestTimeout is the longest a delivery may wait for a receiver: the

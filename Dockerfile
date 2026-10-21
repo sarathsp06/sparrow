@@ -28,7 +28,7 @@ RUN apk add --no-cache git
 
 WORKDIR /build
 
-# Server is the root module; it resolves pkg/access, pkg/signature and pkg/template via
+# Server is the root module; it resolves pkg/access, pkg/safetransport, pkg/signature and pkg/template via
 # `replace` directives in go.mod. GOWORK=off keeps the build off the workspace
 # (go.work also wires the CLI module, which the server image does not need).
 ENV GOWORK=off
@@ -37,6 +37,7 @@ ENV GOWORK=off
 # must be present so `go mod download` can read their go.mod files.
 COPY go.mod go.sum ./
 COPY pkg/access/go.mod ./pkg/access/
+COPY pkg/safetransport/go.mod ./pkg/safetransport/
 COPY pkg/signature/go.mod ./pkg/signature/
 COPY pkg/template/go.mod ./pkg/template/
 COPY satellites/recipes/go.mod ./satellites/recipes/

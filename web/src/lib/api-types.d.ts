@@ -1276,6 +1276,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tls/crls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List cached CRLs
+         * @description Shows the CRLs the instance that answers has cached for checking intermediates in receivers' TLS chains, with when each was fetched and any error. CRLs are downloaded the first time a chain needs them, refreshed in the background by the next handshake once older than SPARROW_CRL_MAX_AGE, and on demand with refreshCrls. Each instance keeps its own cache, so behind a load balancer this shows one instance.
+         */
+        get: operations["listCrls"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tls/crls:refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh cached CRLs on every instance
+         * @description Asks every instance (through Postgres NOTIFY) to download its cached CRLs now, for when a CA revokes an intermediate and deliveries should stop trusting it before SPARROW_CRL_MAX_AGE passes. Returns 202 once the request is sent; check listCrls for the result. One request a minute on each server: more answer 429. 409 when SPARROW_TLS_REVOCATION=off.
+         */
+        post: operations["refreshCrls"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tokens": {
         parameters: {
             query?: never;
@@ -1725,6 +1765,29 @@ export interface components {
             secret: string;
             /** @description The created (or reused) token. */
             token: components["schemas"]["TokenOut"];
+        };
+        CrlOut: {
+            /**
+             * Format: int64
+             * @description Revoked certificates it lists.
+             */
+            entries: number;
+            /** @description Why the last download or check failed. In soft mode such a CRL gives no answer and connections are allowed. */
+            error?: string;
+            /**
+             * Format: date-time
+             * @description When this instance last downloaded it successfully.
+             */
+            fetched_at?: string;
+            /** @description Common name of the CA that signs this CRL. */
+            issuer: string;
+            /**
+             * Format: date-time
+             * @description When the CA promises a newer CRL. Past it, the CRL is downloaded again before use.
+             */
+            next_update?: string;
+            /** @description CRL distribution point, from an intermediate in a receiver's chain. */
+            url: string;
         };
         CursorPaginationOutput: {
             /** @description True when older items follow this page. */
@@ -2359,6 +2422,21 @@ export interface components {
             readonly $schema?: string;
             /** @description Matching consumer names, sorted by name. */
             items: components["schemas"]["ConsumerItem"][];
+        };
+        ListCrlsOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ListCrlsOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description CRLs this instance has cached, by URL. Each instance keeps its own cache. */
+            crls: components["schemas"]["CrlOut"][];
+            /**
+             * @description SPARROW_TLS_REVOCATION: soft allows a connection whose CRL is unavailable, hard refuses it, off skips the check.
+             * @enum {string}
+             */
+            mode: "soft" | "hard" | "off";
         };
         ListDeliveriesOutputBody: {
             /**
@@ -7045,6 +7123,80 @@ export interface operations {
             };
             /** @description Error */
             default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listCrls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListCrlsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    refreshCrls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

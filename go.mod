@@ -23,6 +23,7 @@ require (
 	github.com/rs/cors v1.11.1
 	github.com/sarathsp06/schemagen v0.2.0
 	github.com/sarathsp06/sparrow/pkg/access v0.0.0-00010101000000-000000000000
+	github.com/sarathsp06/sparrow/pkg/safetransport v0.0.0-00010101000000-000000000000
 	github.com/sarathsp06/sparrow/pkg/signature v0.0.0-00010101000000-000000000000
 	github.com/sarathsp06/sparrow/pkg/template v0.0.0-00010101000000-000000000000
 	github.com/sarathsp06/sparrow/satellites/recipes v0.0.0-00010101000000-000000000000
@@ -149,6 +150,8 @@ require (
 )
 
 replace github.com/sarathsp06/sparrow/pkg/access => ./pkg/access
+
+replace github.com/sarathsp06/sparrow/pkg/safetransport => ./pkg/safetransport
 
 replace github.com/sarathsp06/sparrow/pkg/signature => ./pkg/signature
 

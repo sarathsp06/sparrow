@@ -57,7 +57,7 @@ func (s *scopeRecorder) GetDeliveryAttempts(_ context.Context, _ string, consume
 func TestBatchJobsAndAttemptsCarryTheConsumerScope(t *testing.T) {
 	svc := &scopeRecorder{}
 	r := chi.NewRouter()
-	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{})
+	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{}, nil)
 	portal := middleware.PortalGateway(func(context.Context, string) (string, error) { return "acme", nil }, r)
 	const id = "11111111-1111-1111-1111-111111111111"
 

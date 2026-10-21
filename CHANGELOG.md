@@ -16,6 +16,10 @@ migrations run on startup.
 
 ## [Unreleased]
 
+### Upgrading
+
+- Deliveries now check receivers' intermediate certificates against their CRLs (`SPARROW_TLS_REVOCATION=soft` by default), which needs outbound access to the CAs' CRL servers through the same network policy as deliveries. Without it, `soft` lets deliveries through and `GET /v1/tls/crls` shows the download errors. Receivers whose certificates chain through a revoked intermediate, including the roughly 30,000 eMudhra customers still on the compromised G3 intermediates, now fail with `tls_error` until they get a new certificate.
+
 ### Added
 
 - Every delivery carries `X-Sparrow-Event-Type`, `X-Sparrow-Event-Version` and `X-Sparrow-Subscription-ID`, so a receiver can route on headers even when a transform reshapes the body. Custom headers can't override them.
@@ -25,6 +29,11 @@ migrations run on startup.
 ### Changed
 
 - The quickstart and the Register webhook page now point to [Testhooks](https://testhooks.vercel.app/), an open-source webhook inspector, for watching test deliveries.
+
+### Security
+
+- Deliveries and the OpenAI-compatible AI provider refuse a TLS server whose certificate chain contains one of the eMudhra intermediate keys compromised in October 2026 ([Mozilla bug 2083449](https://bugzilla.mozilla.org/show_bug.cgi?id=2083449)), including the copies Sectigo cross-signed. Go checks no revocation lists, so the revoked certificates would otherwise still verify. The check matches that flaw (EC private keys below 256), not weak keys in general. Such a delivery fails with `tls_error` and is not retried. Webhooks with `verify_ssl=false` are unaffected. The check ships as a stdlib-only module, `github.com/sarathsp06/sparrow/pkg/safetransport` (`safetransport.New()` for a ready `http.Transport`, `TLSConfig()` to build your own), for other Go programs that make outbound TLS calls.
+- Deliveries check every intermediate in a receiver's TLS chain against its issuer's CRL, which Go doesn't do on its own (`SPARROW_TLS_REVOCATION`: `soft` by default, `hard`, or `off`). CRLs are cached per instance: downloaded the first time a chain needs one, refreshed in the background by the next delivery once older than `SPARROW_CRL_MAX_AGE` (default `6h`), and on demand on every instance with `POST /v1/tls/crls:refresh`; `GET /v1/tls/crls` shows the cache. Nothing runs on a schedule. CRL downloads go through the delivery network policy, and the chain is checked from the root down so a CRL address written by a revoked CA is never fetched. `safetransport.NewRevocationChecker` offers the same check to other Go programs.
 
 ### Fixed
 
