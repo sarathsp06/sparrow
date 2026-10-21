@@ -1,5 +1,5 @@
 module github.com/sarathsp06/sparrow/pkg/template
 
-go 1.27.2
+go 1.27.3
 
 require github.com/hashicorp/golang-lru/v2 v2.0.7
