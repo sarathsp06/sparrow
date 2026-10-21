@@ -8,6 +8,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/sarathsp06/sparrow/pkg/safetransport"
 )
 
 // maxRedirects is the maximum number of HTTP redirects allowed per request.
@@ -256,6 +258,7 @@ func (p NetworkPolicy) NewHTTPClient(timeout time.Duration) *http.Client {
 		Transport: &http.Transport{
 			DialContext:         dialer.DialContext,
 			TLSHandshakeTimeout: 10 * time.Second,
+			TLSClientConfig:     safetransport.TLSConfig(),
 			MaxIdleConns:        4,
 		},
 		CheckRedirect: p.checkRedirect,

@@ -122,6 +122,7 @@ jobs:
             github.com/sarathsp06/sparrow/satellites/sparrow-sinks/... \
             github.com/sarathsp06/sparrow/satellites/sparrow-sources/... \
             github.com/sarathsp06/sparrow/pkg/access/... \
+            github.com/sarathsp06/sparrow/pkg/safetransport/... \
             github.com/sarathsp06/sparrow/pkg/signature/... \
             github.com/sarathsp06/sparrow/pkg/template/...
 

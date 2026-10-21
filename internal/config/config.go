@@ -128,6 +128,21 @@ type Config struct {
 	// Env: SPARROW_MAX_BODY_BYTES
 	MaxBodyBytes int64 `envconfig:"SPARROW_MAX_BODY_BYTES" default:"5242880"`
 
+	// TLSRevocation checks the intermediates in every receiver's TLS chain
+	// against their issuers' CRLs (Go checks no revocation on its own).
+	// soft (default) allows the connection when a CRL cannot be obtained or
+	// verified and records why in GET /v1/tls/crls; hard refuses it; off
+	// skips the check. A listed intermediate is refused in soft and hard.
+	// Env: SPARROW_TLS_REVOCATION
+	TLSRevocation string `envconfig:"SPARROW_TLS_REVOCATION" default:"soft"`
+
+	// CRLMaxAge is how old a cached CRL may get before the next handshake
+	// that uses it refreshes it in the background. There is no scheduled
+	// refresh: CRLs are downloaded on first use, refreshed by use, and on
+	// demand with POST /v1/tls/crls:refresh.
+	// Env: SPARROW_CRL_MAX_AGE (Go duration, default "6h", minimum "5m")
+	CRLMaxAge time.Duration `envconfig:"SPARROW_CRL_MAX_AGE" default:"6h"`
+
 	// EventRetentionDays purges events (and their deliveries, via cascade)
 	// older than this many days. 0 (default) disables retention: data is
 	// kept forever. Runs hourly as a background job.
@@ -305,6 +320,22 @@ func (c *Config) SlogLevel() (slog.Level, error) {
 	return level, nil
 }
 
+// TLSRevocationMode parses TLSRevocation: soft, hard or off (any case).
+func (c *Config) TLSRevocationMode() (string, error) {
+	switch mode := strings.ToLower(strings.TrimSpace(c.TLSRevocation)); mode {
+	case "":
+		return "soft", nil
+	case "soft", "hard", "off":
+		return mode, nil
+	default:
+		return "", fmt.Errorf("SPARROW_TLS_REVOCATION: %q is not one of soft, hard, off", c.TLSRevocation)
+	}
+}
+
+// MinCRLMaxAge is SPARROW_CRL_MAX_AGE's floor: intermediate CRLs change
+// every few days, and fetching them more often only loads CAs' servers.
+const MinCRLMaxAge = 5 * time.Minute
+
 // DefaultShutdownTimeout is SPARROW_SHUTDOWN_TIMEOUT's default.
 const DefaultShutdownTimeout = 10 * time.Second
 
@@ -346,6 +377,12 @@ func (c *Config) Validate() error {
 	}
 	if _, err := c.SlogLevel(); err != nil {
 		return err
+	}
+	if _, err := c.TLSRevocationMode(); err != nil {
+		return err
+	}
+	if c.CRLMaxAge != 0 && c.CRLMaxAge < MinCRLMaxAge {
+		return fmt.Errorf("SPARROW_CRL_MAX_AGE: %s is below the %s minimum", c.CRLMaxAge, MinCRLMaxAge)
 	}
 	if c.IsProduction() && c.APIKey == "" {
 		return fmt.Errorf("SPARROW_API_KEY is required in production (without it all endpoints are unauthenticated)")

@@ -34,7 +34,7 @@ func (s *testEventService) SendTestEvent(_ context.Context, consumer, webhookID,
 func TestSendTestEvent(t *testing.T) {
 	svc := &testEventService{}
 	r := chi.NewRouter()
-	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{})
+	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{}, nil)
 	path := "/v1/consumers/acme/webhooks/wh1:sendTestEvent"
 
 	rec := do(r, http.MethodPost, path, `{"subscription_id":"sub1"}`)

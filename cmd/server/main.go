@@ -31,12 +31,14 @@ import (
 	"github.com/sarathsp06/sparrow/internal/rest"
 	"github.com/sarathsp06/sparrow/internal/storage/postgres"
 	"github.com/sarathsp06/sparrow/internal/tenant"
+	"github.com/sarathsp06/sparrow/internal/tlsrevocation"
 	"github.com/sarathsp06/sparrow/internal/ui"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"github.com/sarathsp06/sparrow/pkg/access/httpauth"
+	"github.com/sarathsp06/sparrow/pkg/safetransport"
 )
 
 func main() {
@@ -241,6 +243,29 @@ func main() {
 		clientConfig.MaxIdleConns = 2 * workers
 	}
 
+	// Check intermediates in receivers' chains against their CRLs: Go checks
+	// no revocation itself. CRLs are cached per instance, downloaded on first
+	// use and refreshed by use or POST /v1/tls/crls:refresh (NOTIFY to every
+	// instance). Downloads obey the delivery network policy: CRL addresses
+	// come from certificates remote servers send.
+	revocationMode, _ := cfg.TLSRevocationMode() // checked by Validate
+	var revocation *tlsrevocation.Refresher
+	if revocationMode != "off" {
+		mode := safetransport.RevocationSoft
+		if revocationMode == "hard" {
+			mode = safetransport.RevocationHard
+		}
+		checker := safetransport.NewRevocationChecker(safetransport.RevocationOptions{
+			Client: clientConfig.Policy().NewHTTPClient(10 * time.Second),
+			Mode:   mode,
+			MaxAge: cfg.CRLMaxAge,
+		})
+		clientConfig.Revocation = checker
+		revocation = tlsrevocation.New(dbPool, checker, revocationMode)
+		go revocation.Listen(ctx)
+		fmt.Printf("🔐 TLS revocation checking: %s (CRLs refreshed after %s)\n", revocationMode, cfg.CRLMaxAge)
+	}
+
 	// Initialize queue manager
 	autoDisable := queue.AutoDisablePolicy{After: cfg.AutoDisableAfter, MinFailures: cfg.AutoDisableMinFailuresOrDefault()}
 	pool := queue.WorkerPoolConfig{EventWorkers: cfg.EventWorkers, WebhookWorkers: cfg.WebhookWorkers, FetchCooldown: cfg.QueueFetchCooldown}
@@ -314,7 +339,7 @@ func main() {
 	// operation plus /openapi.{json,yaml} and the Scalar reference at /docs.
 	r.Group(func(r chi.Router) {
 		r.Use(auth.HTTPMiddleware)
-		rest.Mount(r, tracedWebhookService, rest.AccessDeps{Service: accessSvc, AuthEnabled: auth.Enabled, TokenDefaultTTL: cfg.TokenDefaultTTL}, aiDeps)
+		rest.Mount(r, tracedWebhookService, rest.AccessDeps{Service: accessSvc, AuthEnabled: auth.Enabled, TokenDefaultTTL: cfg.TokenDefaultTTL}, aiDeps, revocation)
 	})
 
 	// Invite redemption: the invite in the request is the credential, so it

@@ -83,6 +83,8 @@ addresses unless you allow them.
 |----------|---------|-------------|
 | `SPARROW_ALLOWED_NETWORKS` | unset | Comma-separated CIDRs or IPs, e.g. `10.20.0.0/16,fd12::/48`, that deliveries may reach in addition to public addresses. Loopback, cloud metadata and the rest of private space stay blocked. The recommended way to deliver to internal services. Invalid entries stop startup. When set, `.internal` and `.local` host names are checked by their resolved address instead of being blocked by name. |
 | `SPARROW_ALLOW_PRIVATE_NETWORKS` | `false` | Allow every private and loopback address. For local development and tests. Cloud metadata stays blocked. |
+| `SPARROW_TLS_REVOCATION` | `soft` | Check the intermediates in each receiver's TLS chain against their issuers' CRLs, which Go doesn't do on its own. `soft` allows a connection whose CRL can't be downloaded or verified, `hard` refuses it (`tls_error`), `off` skips the check. A revoked intermediate is refused in both `soft` and `hard`. See [Certificate revocation](/sparrow/reference/security/#certificate-revocation). |
+| `SPARROW_CRL_MAX_AGE` | `6h` | How old a cached CRL may get before the next delivery that uses it refreshes it in the background. Minimum `5m`. There is no scheduled refresh: `POST /v1/tls/crls:refresh` refreshes every instance at once. |
 
 ### Events
 

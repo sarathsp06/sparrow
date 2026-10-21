@@ -145,6 +145,53 @@ Deliveries verify the receiver's TLS certificate. A webhook can opt out with
 self-signed certificates; it defaults to `true`, and the SSRF checks above
 still apply to opted-out webhooks.
 
+Go's certificate verification checks no revocation: no CRLs, no OCSP, no
+browser blocklists. Sparrow adds two checks after it, on every outbound
+client that verifies TLS (`pkg/safetransport`, a stdlib-only module other Go
+programs can import).
+
+### Certificate revocation
+
+Each intermediate in a receiver's chain is checked against the CRL its
+issuer publishes (`SPARROW_TLS_REVOCATION`, default `soft`). Leaf
+certificates are not checked: their CRLs are large and change often, and the
+compromise this guards against is a CA key, which is what intermediates
+carry.
+
+- **When CRLs are downloaded.** The first delivery whose chain needs a CRL
+  downloads it and waits for it (up to 5s). Each instance keeps its CRLs in
+  memory. Once a CRL is older than `SPARROW_CRL_MAX_AGE` (default `6h`), the
+  next delivery that uses it refreshes it in the background and still uses
+  the cached copy. A CRL past its own `nextUpdate` is downloaded again before
+  use. Nothing runs on a schedule, and an idle instance downloads nothing.
+- **Refreshing now.** When a CA revokes an intermediate and you don't want to
+  wait for the max age, `POST /v1/tls/crls:refresh` asks every instance to
+  download its CRLs, through a Postgres `NOTIFY`. One request a minute per
+  server. `GET /v1/tls/crls` shows what the answering instance has cached and
+  any download errors.
+- **When a CRL can't be used** (unreachable, bad signature, expired), `soft`
+  allows the connection and records the error, and `hard` refuses it. A
+  certificate listed on an expired CRL is still refused: revocation is
+  permanent. Intermediates without an http(s) CRL address, typical of
+  private CAs, are not checked in either mode.
+- **SSRF.** CRL addresses come from certificates a remote server sends, so
+  downloads go through the same network policy as deliveries. The chain is
+  checked from the root down and stops at the first revoked intermediate, so
+  a CRL address written by a revoked CA, such as one an attacker put in a
+  certificate signed with a stolen key, is never fetched.
+
+A revoked chain fails the delivery with `tls_error`, which is not retried.
+
+### Compromised CA keys
+
+A separate check refuses chains containing an EC key whose private key is
+below 256, or its negation: the eMudhra intermediates of October 2026
+([Mozilla bug 2083449](https://bugzilla.mozilla.org/show_bug.cgi?id=2083449)).
+It needs no network access, so it also protects with
+`SPARROW_TLS_REVOCATION=off` and covers the AI provider and documentation
+fetches, which skip the CRL check. It targets that incident, not weak keys in
+general.
+
 ## HTTP Hardening
 
 Defense-in-depth headers on every API and UI response:

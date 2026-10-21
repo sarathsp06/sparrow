@@ -51,7 +51,7 @@ func TestRegisterWebhook_ReturnsStoredRegistration(t *testing.T) {
 		secret: "whsec_plaintext",
 	}
 	r := chi.NewRouter()
-	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{})
+	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{}, nil)
 
 	rec := do(r, http.MethodPost, "/v1/consumers/acme/webhooks", `{"url":"https://example.com/hook","events":["order.created"]}`)
 	if rec.Code != http.StatusCreated {

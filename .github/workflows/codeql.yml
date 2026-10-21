@@ -64,7 +64,7 @@ jobs:
           mkdir -p internal/ui/dist
           touch internal/ui/dist/.gitkeep
           go build ./...
-          for m in pkg/access pkg/signature pkg/template satellites/recipes satellites/sparrow satellites/sparrow-sinks satellites/sparrow-sources; do
+          for m in pkg/access pkg/safetransport pkg/signature pkg/template satellites/recipes satellites/sparrow satellites/sparrow-sinks satellites/sparrow-sources; do
             (cd "$m" && go build ./...)
           done
 

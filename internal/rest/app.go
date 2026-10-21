@@ -15,8 +15,9 @@ const APIVersion = "1.0.0"
 // the OpenAPI document at /openapi.{json,yaml} (+ 3.0 variants), and the
 // Scalar interactive reference at /docs. Returns the huma.API so callers can
 // export the spec (see cmd/openapi-export). aiDeps is optional: a zero
-// value registers the AI routes in their disabled state.
-func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps AccessDeps, aiDeps AIDeps) huma.API {
+// value registers the AI routes in their disabled state. tlsRev may be nil
+// (revocation checking off).
+func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps AccessDeps, aiDeps AIDeps, tlsRev TLSRevocation) huma.API {
 	config := huma.DefaultConfig("Sparrow", APIVersion)
 	config.Transformers = append(config.Transformers, emptySlices)
 	config.Info.Description = "Sparrow is a self-hosted webhook delivery platform: register the " +
@@ -131,6 +132,7 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps Access
 	registerAccessRoutes(api, accessDeps)
 	registerAIRoutes(api, svc, aiDeps)
 	registerTestEventRoutes(api, svc)
+	registerTLSRoutes(api, tlsRev)
 
 	return api
 }

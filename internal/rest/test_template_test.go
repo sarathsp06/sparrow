@@ -41,7 +41,7 @@ func TestTestTemplate_Payload(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := &templateService{}
 			r := chi.NewRouter()
-			rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{})
+			rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{}, nil)
 
 			rec := do(r, http.MethodPost, "/v1/subscriptions:testTemplate", tc.body)
 			if rec.Code != http.StatusOK {
@@ -64,7 +64,7 @@ func TestTestTemplate_Payload(t *testing.T) {
 func TestTestTemplate_PayloadMustBeObject(t *testing.T) {
 	svc := &templateService{}
 	r := chi.NewRouter()
-	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{})
+	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{}, nil)
 
 	rec := do(r, http.MethodPost, "/v1/subscriptions:testTemplate", `{"event_name":"order.created","template":"{}","payload":[1,2]}`)
 	if rec.Code != http.StatusUnprocessableEntity && rec.Code != http.StatusBadRequest {

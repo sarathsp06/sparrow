@@ -59,6 +59,7 @@ func NewWebhookClient(config *Config) *WebhookClient {
 		IdleConnTimeout:     config.IdleConnTimeout,
 		TLSHandshakeTimeout: 10 * time.Second,
 		DialContext:         dialer.DialContext,
+		TLSClientConfig:     config.Revocation.TLSConfig(),
 	}
 	insecureTransport := transport.Clone()
 	// #nosec G402 -- explicit per-webhook verify_ssl=false opt-in for

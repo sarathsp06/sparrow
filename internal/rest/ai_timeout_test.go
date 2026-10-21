@@ -41,7 +41,7 @@ func draftOverServer(t *testing.T, d rest.TemplateDrafter, timeout time.Duration
 	svc := eventOnlyService{events: map[string]*store.EventRegistration{
 		"order.created": {Name: "order.created", Schema: map[string]any{"type": "object"}, SamplePayload: map[string]any{"id": "ord_1"}},
 	}}
-	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{Drafter: d, Timeout: timeout})
+	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{Drafter: d, Timeout: timeout}, nil)
 	srv := httptest.NewUnstartedServer(r)
 	srv.Config.WriteTimeout = 200 * time.Millisecond
 	srv.Start()

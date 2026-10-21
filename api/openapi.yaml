@@ -527,6 +527,35 @@ components:
         - secret
         - reused
       type: object
+    CrlOut:
+      additionalProperties: false
+      properties:
+        entries:
+          description: Revoked certificates it lists.
+          format: int64
+          type: integer
+        error:
+          description: Why the last download or check failed. In soft mode such a CRL gives no answer and connections are allowed.
+          type: string
+        fetched_at:
+          description: When this instance last downloaded it successfully.
+          format: date-time
+          type: string
+        issuer:
+          description: Common name of the CA that signs this CRL.
+          type: string
+        next_update:
+          description: When the CA promises a newer CRL. Past it, the CRL is downloaded again before use.
+          format: date-time
+          type: string
+        url:
+          description: CRL distribution point, from an intermediate in a receiver's chain.
+          type: string
+      required:
+        - url
+        - issuer
+        - entries
+      type: object
     CursorPaginationOutput:
       additionalProperties: false
       properties:
@@ -1416,6 +1445,32 @@ components:
           type: array
       required:
         - items
+      type: object
+    ListCrlsOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ListCrlsOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        crls:
+          description: CRLs this instance has cached, by URL. Each instance keeps its own cache.
+          items:
+            $ref: "#/components/schemas/CrlOut"
+          type: array
+        mode:
+          description: "SPARROW_TLS_REVOCATION: soft allows a connection whose CRL is unavailable, hard refuses it, off skips the check."
+          enum:
+            - soft
+            - hard
+            - "off"
+          type: string
+      required:
+        - mode
+        - crls
       type: object
     ListDeliveriesOutputBody:
       additionalProperties: false
@@ -6693,6 +6748,54 @@ paths:
       summary: List available payload-transformation template functions
       tags:
         - Webhooks
+  /v1/tls/crls:
+    get:
+      description: Shows the CRLs the instance that answers has cached for checking intermediates in receivers' TLS chains, with when each was fetched and any error. CRLs are downloaded the first time a chain needs them, refreshed in the background by the next handshake once older than SPARROW_CRL_MAX_AGE, and on demand with refreshCrls. Each instance keeps its own cache, so behind a load balancer this shows one instance.
+      operationId: listCrls
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListCrlsOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: List cached CRLs
+      tags:
+        - Server
+  /v1/tls/crls:refresh:
+    post:
+      description: "Asks every instance (through Postgres NOTIFY) to download its cached CRLs now, for when a CA revokes an intermediate and deliveries should stop trusting it before SPARROW_CRL_MAX_AGE passes. Returns 202 once the request is sent; check listCrls for the result. One request a minute on each server: more answer 429. 409 when SPARROW_TLS_REVOCATION=off."
+      operationId: refreshCrls
+      responses:
+        "202":
+          description: Accepted
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Conflict
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Too Many Requests
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+      summary: Refresh cached CRLs on every instance
+      tags:
+        - Server
   /v1/tokens:
     get:
       description: |-
