@@ -16,6 +16,14 @@ migrations run on startup.
 
 ## [Unreleased]
 
+### Fixed
+
+- Web UI: stale async replies no longer overwrite newer state — template
+  preview renders, portal webhook switches, and delivery-list live refresh
+  each ignore out-of-date responses; background pollers no longer overlap,
+  pause while the tab is hidden, and surface poll failures instead of
+  freezing the progress bar.
+
 ## [v1.1.0] - 2026-10-21
 
 ### Upgrading

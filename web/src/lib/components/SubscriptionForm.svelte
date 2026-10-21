@@ -175,8 +175,8 @@
             </div>
           {/if}
           <div class="flex gap-2">
-            <input type="text" placeholder="key" bind:value={newFilterKey} class="input flex-1 min-w-0" />
-            <input type="text" placeholder="value" bind:value={newFilterValue} class="input flex-1 min-w-0" />
+            <input type="text" placeholder="key" aria-label="Filter key" bind:value={newFilterKey} class="input flex-1 min-w-0" />
+            <input type="text" placeholder="value" aria-label="Filter value" bind:value={newFilterValue} class="input flex-1 min-w-0" />
             <button type="button" onclick={addFilter} class="btn btn-ghost !px-3" aria-label="Add label filter">+</button>
           </div>
         </div>
