@@ -2253,15 +2253,15 @@ components:
           format: uri
           readOnly: true
           type: string
+        event_name:
+          description: "Event to send: the subscription's event, or any event for a catch-all (*) subscription."
+          type: string
         payload:
           additionalProperties: {}
           description: Event payload to send instead of the event type's sample payload. It is rendered through the subscription's transform like a pushed event.
           type: object
-        subscription_id:
-          description: "Subscription to send through: its transform renders the payload."
-          type: string
       required:
-        - subscription_id
+        - event_name
       type: object
     SendTestEventOutputBody:
       additionalProperties: false
@@ -4700,6 +4700,82 @@ paths:
       summary: Resume a paused subscription
       tags:
         - Subscriptions
+  /v1/consumers/{consumer}/subscriptions/{subscription_id}:sendTestEvent:
+    post:
+      description: |-
+        Sends event_name to the subscription: one signed delivery of payload, or of the event type's sample when payload is omitted, rendered through the subscription's transform as a real delivery would be, to its webhook's URL, synchronously, and returns what the receiver answered. It uses the same request builder, signing, network policy (SSRF protection) and timeout as real deliveries and adds the header X-Sparrow-Test: true. It creates no delivery and never counts toward the webhook's health or auto-disable. A receiver error is reported in the response (status_code, error_class), not as an API error.
+
+        One test event per webhook every 2 seconds on each server: more answer 429. 404 for a subscription not in this consumer. 400 when the subscription does not receive event_name, or when the event type is not registered and no payload is given.
+
+        Portal tokens: allowed, as POST /portal/api/subscriptions/{subscription_id}:sendTestEvent.
+      operationId: sendTestEvent
+      parameters:
+        - description: Tenant consumer the subscription belongs to.
+          in: path
+          name: consumer
+          required: true
+          schema:
+            description: Tenant consumer the subscription belongs to.
+            type: string
+        - description: "Subscription to send the event to: its transform renders the payload, and its webhook receives it."
+          in: path
+          name: subscription_id
+          required: true
+          schema:
+            description: "Subscription to send the event to: its transform renders the payload, and its webhook receives it."
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendTestEventInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendTestEventOutputBody"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Bad Request
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Too Many Requests
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Service Unavailable
+      summary: Send a test event to a subscription
+      tags:
+        - Subscriptions
   /v1/consumers/{consumer}/webhooks:
     get:
       description: |-
@@ -5211,82 +5287,6 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Internal Server Error
       summary: Rotate a webhook's signing secret
-      tags:
-        - Webhooks
-  /v1/consumers/{consumer}/webhooks/{webhook_id}:sendTestEvent:
-    post:
-      description: |-
-        Sends one signed delivery of payload, or of the subscription's event type sample when payload is omitted (rendered through the subscription's transform, as a real delivery would be), to the webhook's URL, synchronously, and returns what the receiver answered. It uses the same request builder, signing, network policy (SSRF protection) and timeout as real deliveries and adds the header X-Sparrow-Test: true. It creates no delivery and never counts toward the webhook's health or auto-disable. A receiver error is reported in the response (status_code, error_class), not as an API error.
-
-        One test event per webhook every 2 seconds on each server: more answer 429. 404 for an unknown webhook or a subscription not on it.
-
-        Portal tokens: allowed, as POST /portal/api/webhooks/{webhook_id}:sendTestEvent.
-      operationId: sendTestEvent
-      parameters:
-        - description: Tenant consumer the webhook belongs to.
-          in: path
-          name: consumer
-          required: true
-          schema:
-            description: Tenant consumer the webhook belongs to.
-            type: string
-        - description: Webhook id (UUID).
-          in: path
-          name: webhook_id
-          required: true
-          schema:
-            description: Webhook id (UUID).
-            type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SendTestEventInputBody"
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SendTestEventOutputBody"
-          description: OK
-        "400":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-          description: Bad Request
-        "404":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-          description: Not Found
-        "422":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-          description: Unprocessable Entity
-        "429":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-          description: Too Many Requests
-        "500":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-          description: Internal Server Error
-        "503":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-          description: Service Unavailable
-      summary: Send a test event to a webhook
       tags:
         - Webhooks
   /v1/deliveries:

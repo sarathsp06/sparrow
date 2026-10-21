@@ -62,8 +62,11 @@ func (f *fakeRepushEventRepo) GetEventByID(ctx context.Context, _, id uuid.UUID)
 	return &store.EventRecord{ID: id, Consumer: "acme", Event: "order.created"}, nil
 }
 
-func (f *fakeRepushEventRepo) StoreEvent(ctx context.Context, _ uuid.UUID, _ *store.EventRecord) error {
-	return ctx.Err()
+func (f *fakeRepushEventRepo) StoreEventAndEnqueue(ctx context.Context, _ uuid.UUID, _ *store.EventRecord, enqueue store.EventEnqueuer) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return enqueue(ctx, nil)
 }
 
 func newBatchFixture(t *testing.T, n, done int) (*BatchJobWorker, *fakeBatchRepo, *fakeRepushEventRepo, []string, *river.Job[BatchJobArgs]) {
@@ -132,8 +135,8 @@ type cancellingEventRepo struct {
 	cancel context.CancelFunc
 }
 
-func (c *cancellingEventRepo) StoreEvent(ctx context.Context, tenantID uuid.UUID, e *store.EventRecord) error {
-	if err := c.fakeRepushEventRepo.StoreEvent(ctx, tenantID, e); err != nil {
+func (c *cancellingEventRepo) StoreEventAndEnqueue(ctx context.Context, tenantID uuid.UUID, e *store.EventRecord, enqueue store.EventEnqueuer) error {
+	if err := c.fakeRepushEventRepo.StoreEventAndEnqueue(ctx, tenantID, e, enqueue); err != nil {
 		return err
 	}
 	c.stored++

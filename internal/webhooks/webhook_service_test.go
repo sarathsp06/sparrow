@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -118,9 +119,18 @@ func (m *mockRepo) GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUI
 	return args.Get(0).([]*store.WebhookDelivery), args.Error(1)
 }
 
-func (m *mockRepo) ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uuid.UUID) error {
+// ResetDeliveriesForRetry resets the IDs the test returns and runs enqueue
+// for them, as the store does inside its transaction.
+func (m *mockRepo) ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uuid.UUID, enqueue store.RetryEnqueuer) ([]uuid.UUID, error) {
 	args := m.Called(ctx, deliveryIDs)
-	return args.Error(0)
+	reset, _ := args.Get(0).([]uuid.UUID)
+	if err := args.Error(1); err != nil || len(reset) == 0 {
+		return nil, err
+	}
+	if err := enqueue(ctx, nil, reset); err != nil {
+		return nil, err
+	}
+	return reset, nil
 }
 
 func (m *mockRepo) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter store.DeliveryFilter) ([]*store.WebhookDelivery, bool, error) {
@@ -160,6 +170,15 @@ func (m *mockRepo) RegisterEvent(ctx context.Context, tenantID uuid.UUID, event 
 	event.CreatedAt = time.Now()
 	event.UpdatedAt = time.Now()
 	return args.Error(0)
+}
+
+// StoreEventAndEnqueue stores the event as the test says and runs enqueue,
+// as the store does inside its transaction.
+func (m *mockRepo) StoreEventAndEnqueue(ctx context.Context, tenantID uuid.UUID, event *store.EventRecord, enqueue store.EventEnqueuer) error {
+	if err := m.Called(ctx, tenantID, event).Error(0); err != nil {
+		return err
+	}
+	return enqueue(ctx, nil)
 }
 
 func (m *mockRepo) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *store.EventRecord) error {
@@ -230,10 +249,10 @@ func TestWebhookService_RetryDelivery(t *testing.T) {
 	}
 
 	repo.On("GetDeliveryByID", mock.Anything, mock.Anything, deliveryID, consumer).Return(delivery, nil)
-	repo.On("ResetDeliveriesForRetry", mock.Anything, []uuid.UUID{deliveryID}).Return(nil)
+	repo.On("ResetDeliveriesForRetry", mock.Anything, []uuid.UUID{deliveryID}).Return([]uuid.UUID{deliveryID}, nil)
 	repo.On("GetWebhookByID", mock.Anything, mock.Anything, webhookID, consumer).Return(webhook, nil).Once()
-	inserter.On("BatchInsert", mock.Anything, mock.MatchedBy(func(jobs []river.JobArgs) bool { return len(jobs) == 1 })).
-		Return([]*rivertype.JobInsertResult{{}}, nil)
+	inserter.On("BatchInsertTx", mock.Anything, mock.Anything, mock.MatchedBy(func(jobs []river.JobArgs) bool { return len(jobs) == 1 })).
+		Return(nil)
 
 	ids, count, err := service.RetryDelivery(ctx, consumer, deliveryID.String(), "", false)
 
@@ -242,6 +261,28 @@ func TestWebhookService_RetryDelivery(t *testing.T) {
 	assert.Contains(t, ids, deliveryID.String())
 	repo.AssertExpectations(t)
 	inserter.AssertExpectations(t)
+}
+
+// A delivery still in flight already has a job: even a forced retry leaves
+// it to that job instead of queuing a second one.
+func TestWebhookService_RetryDeliveryInFlight(t *testing.T) {
+	repo := new(mockRepo)
+	inserter := new(mockJobInserter)
+	service := NewWebhookService(inserter, repo, nil)
+	ctx := testContext()
+	deliveryID, webhookID := uuid.New(), uuid.New()
+
+	repo.On("GetDeliveryByID", mock.Anything, mock.Anything, deliveryID, "default").
+		Return(&store.WebhookDelivery{ID: deliveryID, WebhookID: webhookID, EventID: uuid.New(), Status: store.StatusRetrying}, nil)
+	repo.On("GetWebhookByID", mock.Anything, mock.Anything, webhookID, "default").Return(&store.WebhookRegistration{ID: webhookID, Consumer: "default"}, nil)
+	repo.On("ResetDeliveriesForRetry", mock.Anything, []uuid.UUID{deliveryID}).Return([]uuid.UUID(nil), nil)
+
+	_, _, err := service.RetryDelivery(ctx, "default", deliveryID.String(), "", true)
+	var svcErr *svcerrors.ServiceError
+	if !errors.As(err, &svcErr) || svcErr.Status != svcerrors.FailedPrecondition {
+		t.Fatalf("err = %v, want FailedPrecondition", err)
+	}
+	inserter.AssertNotCalled(t, "BatchInsertTx", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestWebhookService_ListDeliveries_Pagination(t *testing.T) {
@@ -360,8 +401,8 @@ func TestWebhookService_PushEvent_AutoRegister(t *testing.T) {
 	repo.On("RegisterEvent", mock.Anything, mock.Anything, mock.MatchedBy(func(e *store.EventRegistration) bool {
 		return e.Name == eventName && e.Active == true
 	})).Return(nil)
-	repo.On("StoreEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
+	repo.On("StoreEventAndEnqueue", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	inserter.On("BatchInsertTx", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	eventID, _, _, _, err := service.PushEvent(ctx, consumer, eventName, payload, 0, nil, nil, nil)
 
@@ -386,8 +427,8 @@ func TestWebhookService_PushEvent_ExistingEvent(t *testing.T) {
 		Name:   eventName,
 		Active: true,
 	}, nil)
-	repo.On("StoreEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
+	repo.On("StoreEventAndEnqueue", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	inserter.On("BatchInsertTx", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	eventID, _, _, _, err := service.PushEvent(ctx, consumer, eventName, payload, 0, nil, nil, nil)
 

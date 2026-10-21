@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	jsonschema "github.com/kaptinlin/jsonschema"
+	"github.com/riverqueue/river"
 	"go.opentelemetry.io/otel/attribute"
 	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
@@ -188,7 +190,24 @@ func (s *WebhookService) PushEvent(ctx context.Context, consumer string, event s
 		CreatedAt:      time.Now(),
 	}
 
-	if err := s.webhookRepo.StoreEvent(ctx, tenantID, eventRecord); err != nil {
+	eventArgs := queue.EventArgs{
+		EventID:    eventID,
+		Consumer:   consumer,
+		Event:      event,
+		TTLSeconds: ttl,
+		Metadata:   metadata,
+		Labels:     labels,
+		CreatedAt:  eventRecord.CreatedAt,
+		TenantID:   tenantID.String(),
+	}
+
+	// The event row and its processing job commit together: an event is
+	// never stored without the job that delivers it, which an idempotent
+	// retry would then answer as a duplicate.
+	err = s.webhookRepo.StoreEventAndEnqueue(ctx, tenantID, eventRecord, func(ctx context.Context, tx *sql.Tx) error {
+		return s.jobInserter.BatchInsertTx(ctx, tx, []river.JobArgs{eventArgs})
+	})
+	if err != nil {
 		// Idempotency race: a concurrent push with the same key won the insert
 		// between our lookup above and this insert. Return the winner as a duplicate.
 		if errors.Is(err, storage.ErrAlreadyExists) && idempotencyKey != nil && *idempotencyKey != "" {
@@ -203,48 +222,8 @@ func (s *WebhookService) PushEvent(ctx context.Context, consumer string, event s
 				return existing.ID.String(), true, existing.SchemaValid, nil, nil
 			}
 		}
-		s.logger.ErrorContext(ctx, "Failed to store event record", "error", err, "event_id", eventID)
-		return "", false, false, nil, fmt.Errorf("failed to store event record: %w", err)
-	}
-
-	// Create event processing job with minimal data.
-	//
-	// NOTE: Cross-driver transaction gap — the event INSERT above uses sqlx
-	// while the River job INSERT below uses pgx. These cannot share a
-	// database transaction. If the River insert fails, we compensate by
-	// deleting the orphaned event record (see error handling below).
-	// This is an accepted architectural tradeoff; making both drivers share
-	// a transaction would require migrating all app queries to pgx.
-	eventArgs := queue.EventArgs{
-		EventID:    eventID,
-		Consumer:   consumer,
-		Event:      event,
-		TTLSeconds: ttl,
-		Metadata:   metadata,
-		Labels:     labels,
-		CreatedAt:  eventRecord.CreatedAt,
-		TenantID:   tenantID.String(),
-	}
-
-	// Insert the event processing job
-	_, err = s.jobInserter.Insert(ctx, eventArgs)
-	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to schedule event processing job",
-			"event_id", eventID,
-			"consumer", consumer,
-			"event", event,
-			"error", err,
-		)
-		// Compensation: delete the orphaned event record since the job failed.
-		// This prevents events from existing in the DB without a corresponding
-		// processing job (cross-driver: sqlx event store + pgx River job).
-		if delErr := s.webhookRepo.DeleteEventByID(ctx, tenantID, eventRecord.ID); delErr != nil {
-			s.logger.ErrorContext(ctx, "Failed to compensate: could not delete orphaned event record",
-				"event_id", eventID,
-				"delete_error", delErr,
-			)
-		}
-		return "", false, false, nil, fmt.Errorf("failed to schedule event processing: %w", err)
+		s.logger.ErrorContext(ctx, "Failed to store and schedule event", "error", err, "event_id", eventID)
+		return "", false, false, nil, fmt.Errorf("failed to store event: %w", err)
 	}
 
 	// Record metrics

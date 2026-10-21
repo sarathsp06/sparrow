@@ -25,7 +25,7 @@ type DeliveryRepository interface {
 	ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]*WebhookDelivery, bool, error)
 	CountDeliveries(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) (int, error)
 	GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, force bool) ([]*WebhookDelivery, error)
-	ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uuid.UUID) error
+	ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uuid.UUID, enqueue RetryEnqueuer) ([]uuid.UUID, error)
 	UpdateDeliveryTemplateError(ctx context.Context, deliveryID uuid.UUID, msg string) error
 	GetDeliveryAttempts(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID) ([]*WebhookHealthEvent, error)
 }
@@ -354,7 +354,7 @@ func (r *Repository) GetRetriableDeliveries(ctx context.Context, tenantID uuid.U
 		WHERE wd.webhook_id = $1
 		  AND wr.tenant_id = $2
 		  AND wr.consumer = $3
-		  AND ($4 IS TRUE OR wd.status IN ('failed', 'pending', 'retrying', 'paused'))
+		  AND ($4 IS TRUE OR wd.status IN ('failed', 'paused'))
 		ORDER BY wd.created_at DESC
 	`
 
@@ -378,11 +378,25 @@ func (r *Repository) UpdateDeliveryTemplateError(ctx context.Context, deliveryID
 	return storage.Error(err)
 }
 
-// ResetDeliveriesForRetry resets deliveries to pending for a retry.
-func (r *Repository) ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uuid.UUID) error {
+// RetryEnqueuer queues the jobs for the deliveries a retry reset, inside
+// the transaction that reset them.
+type RetryEnqueuer func(ctx context.Context, tx *sql.Tx, reset []uuid.UUID) error
+
+// ResetDeliveriesForRetry resets the finished deliveries among deliveryIDs
+// to pending and queues their jobs with enqueue, in one transaction, and
+// returns the ones it reset. Deliveries still in flight (pending, sending,
+// retrying) are skipped: they have a job already, and a second one would
+// send them twice.
+func (r *Repository) ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uuid.UUID, enqueue RetryEnqueuer) ([]uuid.UUID, error) {
 	if len(deliveryIDs) == 0 {
-		return nil
+		return nil, nil
 	}
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return nil, fmt.Errorf("begin retry transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
 	query := `
 		UPDATE webhook_deliveries
 		SET status = 'pending',
@@ -394,10 +408,22 @@ func (r *Repository) ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []
 		    error_category = '',
 		    template_error = NULL
 		WHERE id = ANY($1)
+		  AND status IN ('success', 'failed', 'expired', 'paused')
+		RETURNING id
 	`
-
-	_, err := r.conn.ExecContext(ctx, query, pq.Array(deliveryIDs))
-	return storage.Error(err)
+	var reset []uuid.UUID
+	if err := tx.SelectContext(ctx, &reset, query, pq.Array(deliveryIDs)); err != nil {
+		return nil, storage.Error(err)
+	}
+	if len(reset) > 0 {
+		if err := enqueue(ctx, tx.Tx, reset); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, storage.Error(err)
+	}
+	return reset, nil
 }
 
 // GetDeliveryAttempts retrieves all health events for a specific delivery, ordered by timestamp.

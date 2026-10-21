@@ -43,7 +43,10 @@ func (r *readOnlyRepo) GetSubscription(_ context.Context, _ uuid.UUID, id uuid.U
 	return r.sub, nil
 }
 
-func (r *readOnlyRepo) GetEventByName(context.Context, uuid.UUID, string) (*store.EventRegistration, error) {
+func (r *readOnlyRepo) GetEventByName(_ context.Context, _ uuid.UUID, name string) (*store.EventRegistration, error) {
+	if name != r.event.Name {
+		return nil, nil // as the store answers for an unknown name
+	}
 	return r.event, nil
 }
 
@@ -88,7 +91,7 @@ func testEventSetup(t *testing.T, status int) (*WebhookService, *readOnlyRepo, c
 func TestSendTestEventSendsASignedTestDelivery(t *testing.T) {
 	svc, repo, got := testEventSetup(t, http.StatusAccepted)
 
-	res, err := svc.SendTestEvent(testContext(), "acme", repo.webhook.ID.String(), repo.sub.ID.String(), nil)
+	res, err := svc.SendTestEvent(testContext(), "acme", repo.sub.ID.String(), "order.paid", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +117,7 @@ func TestSendTestEventSendsASignedTestDelivery(t *testing.T) {
 	}
 
 	// A second send within the interval is refused without sending.
-	_, err = svc.SendTestEvent(testContext(), "acme", repo.webhook.ID.String(), repo.sub.ID.String(), nil)
+	_, err = svc.SendTestEvent(testContext(), "acme", repo.sub.ID.String(), "order.paid", nil)
 	var svcErr *svcerrors.ServiceError
 	if !errors.As(err, &svcErr) || svcErr.Status != svcerrors.ResourceExhausted {
 		t.Fatalf("second send err = %v, want ResourceExhausted", err)
@@ -128,7 +131,7 @@ func TestSendTestEventSendsAGivenPayload(t *testing.T) {
 	svc, repo, got := testEventSetup(t, http.StatusOK)
 	repo.sub.TransformEnabled = true
 	repo.sub.TransformTemplate = `order {{.payload.id}}`
-	if _, err := svc.SendTestEvent(testContext(), "acme", repo.webhook.ID.String(), repo.sub.ID.String(), map[string]any{"id": "ord_edited"}); err != nil {
+	if _, err := svc.SendTestEvent(testContext(), "acme", repo.sub.ID.String(), "order.paid", map[string]any{"id": "ord_edited"}); err != nil {
 		t.Fatal(err)
 	}
 	if r := <-got; string(r.body) != "order ord_edited" {
@@ -138,7 +141,7 @@ func TestSendTestEventSendsAGivenPayload(t *testing.T) {
 
 func TestSendTestEventReportsReceiverErrors(t *testing.T) {
 	svc, repo, _ := testEventSetup(t, http.StatusBadRequest)
-	res, err := svc.SendTestEvent(testContext(), "acme", repo.webhook.ID.String(), repo.sub.ID.String(), nil)
+	res, err := svc.SendTestEvent(testContext(), "acme", repo.sub.ID.String(), "order.paid", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +154,7 @@ func TestSendTestEventRendersTheTransform(t *testing.T) {
 	svc, repo, got := testEventSetup(t, http.StatusOK)
 	repo.sub.TransformEnabled = true
 	repo.sub.TransformTemplate = `order {{.payload.id}}`
-	if _, err := svc.SendTestEvent(testContext(), "acme", repo.webhook.ID.String(), repo.sub.ID.String(), nil); err != nil {
+	if _, err := svc.SendTestEvent(testContext(), "acme", repo.sub.ID.String(), "order.paid", nil); err != nil {
 		t.Fatal(err)
 	}
 	if r := <-got; string(r.body) != "order ord_1" {
@@ -162,7 +165,7 @@ func TestSendTestEventRendersTheTransform(t *testing.T) {
 	svc.testEvents = testEventLimiter{}
 	repo.sub.TransformTemplate = `{{.payload.missing.deeper}}`
 	repo.sub.TemplateMissingKey = store.TemplateMissingKeyError
-	res, err := svc.SendTestEvent(testContext(), "acme", repo.webhook.ID.String(), repo.sub.ID.String(), nil)
+	res, err := svc.SendTestEvent(testContext(), "acme", repo.sub.ID.String(), "order.paid", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +176,7 @@ func TestSendTestEventRendersTheTransform(t *testing.T) {
 	// With on_transform_error=fallback it sends the envelope instead.
 	svc.testEvents = testEventLimiter{}
 	repo.sub.OnTransformError = store.OnTransformErrorFallback
-	if res, err := svc.SendTestEvent(testContext(), "acme", repo.webhook.ID.String(), repo.sub.ID.String(), nil); err != nil || res.StatusCode != http.StatusOK {
+	if res, err := svc.SendTestEvent(testContext(), "acme", repo.sub.ID.String(), "order.paid", nil); err != nil || res.StatusCode != http.StatusOK {
 		t.Fatalf("fallback: %+v %v", res, err)
 	}
 	if r := <-got; !strings.HasPrefix(string(r.body), `{"version":"1"`) {
@@ -184,23 +187,20 @@ func TestSendTestEventRendersTheTransform(t *testing.T) {
 func TestSendTestEventRefusals(t *testing.T) {
 	svc, repo, got := testEventSetup(t, http.StatusOK)
 	other := uuid.NewString()
-	cases := map[string]struct {
-		consumer, webhook, sub string
-	}{
-		"other consumer":       {"globex", repo.webhook.ID.String(), repo.sub.ID.String()},
-		"unknown webhook":      {"acme", other, repo.sub.ID.String()},
-		"invalid webhook id":   {"acme", "nope", repo.sub.ID.String()},
-		"unknown subscription": {"acme", repo.webhook.ID.String(), other},
+	cases := map[string]struct{ consumer, sub string }{
+		"other consumer":          {"globex", repo.sub.ID.String()},
+		"unknown subscription":    {"acme", other},
+		"invalid subscription id": {"acme", "nope"},
 	}
 	for name, c := range cases {
-		if _, err := svc.SendTestEvent(testContext(), c.consumer, c.webhook, c.sub, nil); err == nil {
+		if _, err := svc.SendTestEvent(testContext(), c.consumer, c.sub, "order.paid", nil); err == nil {
 			t.Errorf("%s: no error", name)
 		}
 	}
-	// A subscription of another webhook in the same consumer.
+	// A subscription whose webhook is gone.
 	repo.sub.WebhookID = uuid.New()
-	if _, err := svc.SendTestEvent(testContext(), "acme", repo.webhook.ID.String(), repo.sub.ID.String(), nil); err == nil {
-		t.Error("subscription of another webhook: no error")
+	if _, err := svc.SendTestEvent(testContext(), "acme", repo.sub.ID.String(), "order.paid", nil); err == nil {
+		t.Error("subscription of a missing webhook: no error")
 	}
 	repo.sub.WebhookID = repo.webhook.ID
 	if len(got) != 0 {
@@ -209,15 +209,57 @@ func TestSendTestEventRefusals(t *testing.T) {
 
 	// Without a delivery client the feature is off.
 	off := NewWebhookService(new(mockJobInserter), repo, nil)
-	if _, err := off.SendTestEvent(testContext(), "acme", repo.webhook.ID.String(), repo.sub.ID.String(), nil); err == nil {
+	if _, err := off.SendTestEvent(testContext(), "acme", repo.sub.ID.String(), "order.paid", nil); err == nil {
 		t.Error("no client: no error")
+	}
+}
+
+func TestSendTestEventCatchAllAndUnregisteredEvents(t *testing.T) {
+	svc, repo, got := testEventSetup(t, http.StatusOK)
+	repo.sub.EventName = "*"
+	send := func(event string, payload map[string]any) error {
+		svc.testEvents = testEventLimiter{}
+		_, err := svc.SendTestEvent(testContext(), "acme", repo.sub.ID.String(), event, payload)
+		return err
+	}
+
+	// A catch-all subscription sends the named event's sample.
+	if err := send("order.paid", nil); err != nil {
+		t.Fatal(err)
+	}
+	if r := <-got; r.header.Get("X-Sparrow-Event-Type") != "order.paid" || !strings.Contains(string(r.body), `"id":"ord_1"`) {
+		t.Errorf("catch-all: type %q body %s", r.header.Get("X-Sparrow-Event-Type"), r.body)
+	}
+	// An unregistered event is fine with a payload, refused without one.
+	if err := send("invoice.sent", map[string]any{"id": "inv_1"}); err != nil {
+		t.Fatal(err)
+	}
+	if r := <-got; r.header.Get("X-Sparrow-Event-Type") != "invoice.sent" || !strings.Contains(string(r.body), `"id":"inv_1"`) {
+		t.Errorf("unregistered: type %q body %s", r.header.Get("X-Sparrow-Event-Type"), r.body)
+	}
+	for name, event := range map[string]string{"no event_name": "", "event_name *": "*", "unregistered, no payload": "invoice.sent"} {
+		var svcErr *svcerrors.ServiceError
+		if err := send(event, nil); !errors.As(err, &svcErr) || svcErr.Status != svcerrors.InvalidArgument {
+			t.Errorf("%s: err = %v, want InvalidArgument", name, err)
+		}
+	}
+
+	// A named subscription needs its own event.
+	repo.sub.EventName = "order.paid"
+	for _, event := range []string{"", "invoice.sent"} {
+		if err := send(event, map[string]any{}); err == nil {
+			t.Errorf("event %q on a named subscription: no error", event)
+		}
+	}
+	if len(got) != 0 {
+		t.Error("a refused test event reached the receiver")
 	}
 }
 
 func TestSendTestEventReportsTransportErrors(t *testing.T) {
 	svc, repo, _ := testEventSetup(t, http.StatusOK)
 	repo.webhook.URL = "http://127.0.0.1:1/unreachable"
-	res, err := svc.SendTestEvent(testContext(), "acme", repo.webhook.ID.String(), repo.sub.ID.String(), nil)
+	res, err := svc.SendTestEvent(testContext(), "acme", repo.sub.ID.String(), "order.paid", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
