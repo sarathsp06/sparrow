@@ -65,8 +65,8 @@ func (w *BatchJobWorker) Timeout(*river.Job[BatchJobArgs]) time.Duration {
 // setTerminalStatus CAS-transitions the batch from processing to a terminal
 // status. A lost race (someone else already transitioned it, e.g. a
 // cancellation) is logged and swallowed — the other writer's status wins.
-func (w *BatchJobWorker) setTerminalStatus(ctx context.Context, batchID uuid.UUID, to store.BatchJobStatus) error {
-	err := w.batchRepo.UpdateBatchJobStatus(ctx, batchID, store.BatchStatusProcessing, to)
+func (w *BatchJobWorker) setTerminalStatus(ctx context.Context, tenantID, batchID uuid.UUID, to store.BatchJobStatus) error {
+	err := w.batchRepo.UpdateBatchJobStatus(ctx, tenantID, batchID, store.BatchStatusProcessing, to)
 	if storage.IsNotFound(err) {
 		w.logger.InfoContext(ctx, "Batch terminal status transition lost race, keeping existing status",
 			"batch_id", batchID, "to", to)
@@ -114,7 +114,7 @@ func (w *BatchJobWorker) Work(ctx context.Context, job *river.Job[BatchJobArgs])
 
 	data, err := batch.GetData()
 	if err != nil {
-		if statusErr := w.setTerminalStatus(ctx, batchID, store.BatchStatusFailed); statusErr != nil {
+		if statusErr := w.setTerminalStatus(ctx, tenantID, batchID, store.BatchStatusFailed); statusErr != nil {
 			w.logger.ErrorContext(ctx, "Failed to mark batch failed", "error", statusErr, "batch_id", args.BatchID)
 		}
 		return fmt.Errorf("failed to parse batch data: %w", err)
@@ -138,7 +138,7 @@ func (w *BatchJobWorker) Work(ctx context.Context, job *river.Job[BatchJobArgs])
 	case store.BatchTypeDeliveryRetry:
 		processed, failed = w.processDeliveryRetry(ctx, tenantID, batchID, batch.Consumer, items)
 	default:
-		if statusErr := w.setTerminalStatus(ctx, batchID, store.BatchStatusFailed); statusErr != nil {
+		if statusErr := w.setTerminalStatus(ctx, tenantID, batchID, store.BatchStatusFailed); statusErr != nil {
 			w.logger.ErrorContext(ctx, "Failed to mark batch failed", "error", statusErr, "batch_id", args.BatchID)
 		}
 		return fmt.Errorf("unknown batch job type: %s", batch.JobType)
@@ -151,7 +151,7 @@ func (w *BatchJobWorker) Work(ctx context.Context, job *river.Job[BatchJobArgs])
 	defer cancel()
 
 	// Final progress flush
-	if err := w.batchRepo.UpdateBatchJobProgress(ctx, batchID, processed, failed); err != nil {
+	if err := w.batchRepo.UpdateBatchJobProgress(ctx, tenantID, batchID, processed, failed); err != nil {
 		w.logger.ErrorContext(ctx, "Failed to update final batch progress", "error", err)
 	}
 	if jobErr != nil {
@@ -184,7 +184,7 @@ func (w *BatchJobWorker) Work(ctx context.Context, job *river.Job[BatchJobArgs])
 	if failed > 0 && processed == 0 {
 		finalStatus = store.BatchStatusFailed
 	}
-	if err := w.setTerminalStatus(ctx, batchID, finalStatus); err != nil {
+	if err := w.setTerminalStatus(ctx, tenantID, batchID, finalStatus); err != nil {
 		w.logger.ErrorContext(ctx, "Failed to set batch terminal status", "error", err)
 	}
 
@@ -212,7 +212,7 @@ func (w *BatchJobWorker) processEventRepush(ctx context.Context, tenantID, batch
 			}
 			// Flush progress. On error keep counting: the counters carry
 			// over to the next flush, so the resume point stays exact.
-			if err := w.batchRepo.UpdateBatchJobProgress(ctx, batchID, processed, failed); err == nil {
+			if err := w.batchRepo.UpdateBatchJobProgress(ctx, tenantID, batchID, processed, failed); err == nil {
 				processed, failed = 0, 0
 			}
 		}
@@ -301,7 +301,7 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 			}
 			// Flush progress. On error keep counting: the counters carry
 			// over to the next flush, so the resume point stays exact.
-			if err := w.batchRepo.UpdateBatchJobProgress(ctx, batchID, processed, failed); err == nil {
+			if err := w.batchRepo.UpdateBatchJobProgress(ctx, tenantID, batchID, processed, failed); err == nil {
 				processed, failed = 0, 0
 			}
 		}
@@ -351,7 +351,7 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 			MaxAttempts:         webhook.MaxDeliveryAttempts(),
 			RetryBackoffSeconds: webhook.RetryBackoffSeconds,
 		}
-		reset, err := w.deliveryRepo.ResetDeliveriesForRetry(ctx, []uuid.UUID{deliveryID}, func(ctx context.Context, tx *sql.Tx, _ []uuid.UUID) error {
+		reset, err := w.deliveryRepo.ResetDeliveriesForRetry(ctx, tenantID, []uuid.UUID{deliveryID}, func(ctx context.Context, tx *sql.Tx, _ []uuid.UUID) error {
 			return w.jobInserter.BatchInsertTx(ctx, tx, []river.JobArgs{job})
 		})
 		if err != nil {

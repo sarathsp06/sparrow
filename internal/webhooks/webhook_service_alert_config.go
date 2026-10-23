@@ -61,7 +61,7 @@ func (s *WebhookService) CreateAlertConfig(ctx context.Context, consumer, webhoo
 		cfg.WebhookID = &id
 	}
 
-	if err := s.webhookRepo.CreateAlertConfig(ctx, cfg); err != nil {
+	if err := s.webhookRepo.CreateAlertConfig(ctx, tenantID, cfg); err != nil {
 		return nil, err
 	}
 	return cfg, nil

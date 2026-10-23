@@ -95,12 +95,12 @@ func (m *mockRepo) RunInTransaction(fn func(store.RepositoryInterface) error) er
 	return fn(m)
 }
 
-func (m *mockRepo) UpsertRateLimitState(ctx context.Context, webhookID uuid.UUID) error {
+func (m *mockRepo) UpsertRateLimitState(ctx context.Context, _ uuid.UUID, webhookID uuid.UUID) error {
 	args := m.Called(ctx, webhookID)
 	return args.Error(0)
 }
 
-func (m *mockRepo) DeleteRateLimitState(ctx context.Context, webhookID uuid.UUID) error {
+func (m *mockRepo) DeleteRateLimitState(ctx context.Context, _ uuid.UUID, webhookID uuid.UUID) error {
 	args := m.Called(ctx, webhookID)
 	return args.Error(0)
 }
@@ -121,7 +121,7 @@ func (m *mockRepo) GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUI
 
 // ResetDeliveriesForRetry resets the IDs the test returns and runs enqueue
 // for them, as the store does inside its transaction.
-func (m *mockRepo) ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uuid.UUID, enqueue store.RetryEnqueuer) ([]uuid.UUID, error) {
+func (m *mockRepo) ResetDeliveriesForRetry(ctx context.Context, _ uuid.UUID, deliveryIDs []uuid.UUID, enqueue store.RetryEnqueuer) ([]uuid.UUID, error) {
 	args := m.Called(ctx, deliveryIDs)
 	reset, _ := args.Get(0).([]uuid.UUID)
 	if err := args.Error(1); err != nil || len(reset) == 0 {

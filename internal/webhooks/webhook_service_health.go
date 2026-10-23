@@ -98,7 +98,7 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 	}
 
 	// Get health state (current status and consecutive failures)
-	healthState, err := s.webhookRepo.GetWebhookHealthState(ctx, id)
+	healthState, err := s.webhookRepo.GetWebhookHealthState(ctx, tenantID, id)
 	if err != nil {
 		if !storage.IsNotFound(err) {
 			span.RecordError(err)
@@ -115,7 +115,7 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 	}
 
 	// Metrics over the same window the health label is derived from.
-	healthSummary, err := s.webhookRepo.GetWebhookHealthSummary(ctx, id, store.DefaultHealthRules.WindowHours)
+	healthSummary, err := s.webhookRepo.GetWebhookHealthSummary(ctx, tenantID, id, store.DefaultHealthRules.WindowHours)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Failed to get health summary", "error", err)
 		// Continue with just the state info

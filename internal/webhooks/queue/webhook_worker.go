@@ -203,14 +203,14 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		// The webhook was deleted after this delivery was queued. Deletes
 		// are soft, so the delivery row stays; retrying cannot bring the
 		// webhook back.
-		_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, store.StatusFailed, 0, "", "Webhook was deleted", "unknown")
+		_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, tenantID, deliveryID, store.StatusFailed, 0, "", "Webhook was deleted", "unknown")
 		return river.JobCancel(fmt.Errorf("webhook %s was deleted", args.WebhookID))
 	}
 	if err != nil {
 		// Transient: River retries the job, so the delivery is only failed
 		// once this was its last attempt.
 		w.logger.ErrorContext(ctx, "Failed to get webhook configuration", "error", err, "webhook_id", args.WebhookID)
-		_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, statusForFailure(job.Attempt, args.MaxAttempts), 0, "", fmt.Sprintf("Failed to get webhook configuration: %v", err), "unknown")
+		_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, tenantID, deliveryID, statusForFailure(job.Attempt, args.MaxAttempts), 0, "", fmt.Sprintf("Failed to get webhook configuration: %v", err), "unknown")
 		return fmt.Errorf("failed to get webhook configuration: %w", err)
 	}
 
@@ -219,13 +219,13 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	eventRecord, err := w.eventRepo.GetEventByID(ctx, tenantID, eventID)
 	if err != nil {
 		w.logger.ErrorContext(ctx, "Failed to get event record", "error", err, "event_id", args.EventID)
-		_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, statusForFailure(job.Attempt, args.MaxAttempts), 0, "", fmt.Sprintf("Failed to get event record: %v", err), "unknown")
+		_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, tenantID, deliveryID, statusForFailure(job.Attempt, args.MaxAttempts), 0, "", fmt.Sprintf("Failed to get event record: %v", err), "unknown")
 		return fmt.Errorf("failed to get event record: %w", err)
 	}
 	if eventRecord == nil {
 		// Missing row is a permanent condition — retrying won't create it.
 		w.logger.ErrorContext(ctx, "Event record not found", "event_id", args.EventID, "delivery_id", args.DeliveryID)
-		_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, store.StatusFailed, 0, "", "Event record not found", "unknown")
+		_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, tenantID, deliveryID, store.StatusFailed, 0, "", "Event record not found", "unknown")
 		return river.JobCancel(fmt.Errorf("event record %s not found", args.EventID))
 	}
 
@@ -240,12 +240,12 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		}
 		subscription, err = w.subscriptionRepo.GetSubscription(ctx, tenantID, subscriptionID)
 		if storage.IsNotFound(err) {
-			_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, store.StatusFailed, 0, "", "Subscription was deleted", "unknown")
+			_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, tenantID, deliveryID, store.StatusFailed, 0, "", "Subscription was deleted", "unknown")
 			return river.JobCancel(fmt.Errorf("subscription %s was deleted", args.SubscriptionID))
 		}
 		if err != nil {
 			w.logger.ErrorContext(ctx, "Failed to get subscription", "error", err, "subscription_id", args.SubscriptionID)
-			_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, statusForFailure(job.Attempt, args.MaxAttempts), 0, "", fmt.Sprintf("Failed to get subscription: %v", err), "unknown")
+			_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, tenantID, deliveryID, statusForFailure(job.Attempt, args.MaxAttempts), 0, "", fmt.Sprintf("Failed to get subscription: %v", err), "unknown")
 			return fmt.Errorf("failed to get subscription: %w", err)
 		}
 	}
@@ -269,7 +269,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		span.SetStatus(otelcodes.Error, "webhook delivery expired")
 		log.WarnContext(ctx, "Webhook delivery expired", "expires_at", args.ExpiresAt)
 
-		err := w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, store.StatusExpired, 0, "", "Delivery expired", "unknown")
+		err := w.deliveryRepo.UpdateDeliveryStatus(ctx, tenantID, deliveryID, store.StatusExpired, 0, "", "Delivery expired", "unknown")
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to update delivery status to expired", "error", err)
 		}
@@ -284,7 +284,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	if reason := holdReason(webhook, subscription); reason != "" {
 		log.InfoContext(ctx, "Holding delivery as paused", "reason", reason)
 		span.SetAttributes(attribute.String("pause_action", "held"))
-		if err := w.deliveryRepo.HoldDelivery(ctx, deliveryID, reason); err != nil {
+		if err := w.deliveryRepo.HoldDelivery(ctx, tenantID, deliveryID, reason); err != nil {
 			return fmt.Errorf("hold paused delivery: %w", err)
 		}
 		return nil
@@ -294,7 +294,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 
 	// Render the payload before taking a rate-limit slot, so a template that
 	// cannot render never consumes one.
-	payloadBytes, templateFailed, err := w.renderPayload(ctx, log, job, webhook.RequiresTransform, subscription, eventRecord, deliveryID)
+	payloadBytes, templateFailed, err := w.renderPayload(ctx, log, job, webhook.RequiresTransform, subscription, eventRecord, tenantID, deliveryID)
 	if err != nil {
 		return err
 	}
@@ -309,7 +309,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	// wait is measured on the database clock, so worker clock skew cannot
 	// burn a granted slot. A non-zero wait snoozes the job.
 	if webhook.RateLimitRPS != nil && *webhook.RateLimitRPS > 0 {
-		delay, rateLimitRPS, err := w.rateLimitRepo.AcquireDeliverySlot(ctx, webhookID)
+		delay, rateLimitRPS, err := w.rateLimitRepo.AcquireDeliverySlot(ctx, tenantID, webhookID)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to acquire delivery slot", "error", err, "webhook_id", args.WebhookID)
 			// Non-fatal: proceed without rate limiting rather than failing delivery
@@ -369,7 +369,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		if !terminal {
 			status = statusForFailure(job.Attempt, args.MaxAttempts)
 		}
-		if recordErr := w.finishAttempt(ctx, log, store.DeliveryAttempt{
+		if recordErr := w.finishAttempt(ctx, log, tenantID, store.DeliveryAttempt{
 			DeliveryID: deliveryID, WebhookID: webhookID, UpdateStatus: true,
 			Status: status, ErrorMessage: fmt.Sprintf("Request failed: %v", err), ErrorCategory: string(errorCategory),
 			RequestBody: &requestBody, Success: false, ResponseTimeMs: int(duration.Milliseconds()), HealthErrorMessage: err.Error(),
@@ -427,7 +427,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		// An unrecorded success would leave the delivery pending (or
 		// retrying) forever: fail the job so River retries it. The receiver
 		// may see the delivery again, which at-least-once delivery allows.
-		return w.finishAttempt(ctx, log, store.DeliveryAttempt{
+		return w.finishAttempt(ctx, log, tenantID, store.DeliveryAttempt{
 			DeliveryID: deliveryID, WebhookID: webhookID, UpdateStatus: true,
 			Status: store.StatusSuccess, ResponseCode: resp.StatusCode, ResponseBody: string(body), ErrorCategory: string(sparrowerrors.CategorySuccess),
 			RequestBody: &requestBody, Success: true, ResponseTimeMs: int(duration.Milliseconds()),
@@ -453,7 +453,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		// Record the 429 as a health event (the endpoint is overloaded); the
 		// delivery row keeps its status since the send will be retried, so a
 		// failed write only loses the health event and the snooze stands.
-		_ = w.finishAttempt(ctx, log, store.DeliveryAttempt{
+		_ = w.finishAttempt(ctx, log, tenantID, store.DeliveryAttempt{
 			DeliveryID: deliveryID, WebhookID: webhookID, UpdateStatus: false,
 			ResponseCode: resp.StatusCode, ErrorCategory: string(sparrowerrors.CategoryRateLimited),
 			Success: false, ResponseTimeMs: int(duration.Milliseconds()), HealthErrorMessage: "HTTP 429: Too Many Requests",
@@ -489,7 +489,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		status = statusForFailure(job.Attempt, args.MaxAttempts)
 	}
 
-	if err := w.finishAttempt(ctx, log, store.DeliveryAttempt{
+	if err := w.finishAttempt(ctx, log, tenantID, store.DeliveryAttempt{
 		DeliveryID: deliveryID, WebhookID: webhookID, UpdateStatus: true,
 		Status: status, ResponseCode: resp.StatusCode, ResponseBody: string(body), ErrorMessage: errorMessage, ErrorCategory: string(errorCategory),
 		RequestBody: &requestBody, Success: false, ResponseTimeMs: int(duration.Milliseconds()), HealthErrorMessage: errorMessage,
@@ -535,7 +535,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 // A template error is a fault in the sender's configuration, not in the
 // receiver, so it is never recorded as a health event: it does not affect the
 // webhook's health or raise health or delivery-failed alerts.
-func (w *WebhookWorker) renderPayload(ctx context.Context, log *slog.Logger, job *river.Job[WebhookArgs], requiresTransform bool, subscription *store.EventSubscription, eventRecord *store.EventRecord, deliveryID uuid.UUID) (payload []byte, terminal bool, err error) {
+func (w *WebhookWorker) renderPayload(ctx context.Context, log *slog.Logger, job *river.Job[WebhookArgs], requiresTransform bool, subscription *store.EventSubscription, eventRecord *store.EventRecord, tenantID, deliveryID uuid.UUID) (payload []byte, terminal bool, err error) {
 	args := job.Args
 	envelope := func() ([]byte, bool, error) {
 		body, err := client.BuildEnvelopePayload(args.EventID, eventRecord.Event, job.Attempt, eventRecord.Payload)
@@ -547,7 +547,7 @@ func (w *WebhookWorker) renderPayload(ctx context.Context, log *slog.Logger, job
 	}
 
 	fail := func(msg string) ([]byte, bool, error) {
-		if err := w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, store.StatusFailed, 0, "",
+		if err := w.deliveryRepo.UpdateDeliveryStatus(ctx, tenantID, deliveryID, store.StatusFailed, 0, "",
 			msg, string(sparrowerrors.CategoryTemplateError)); err != nil {
 			log.ErrorContext(ctx, "Failed to mark delivery failed after template error", "error", err)
 			return nil, false, fmt.Errorf("mark delivery failed: %w", err)
@@ -558,7 +558,7 @@ func (w *WebhookWorker) renderPayload(ctx context.Context, log *slog.Logger, job
 	if subscription == nil || !subscription.HasTransform() {
 		if requiresTransform {
 			msg := "This webhook requires a payload transform, but the subscription has none. Add a transform template, then retry the delivery."
-			if err := w.deliveryRepo.UpdateDeliveryTemplateError(ctx, deliveryID, msg); err != nil {
+			if err := w.deliveryRepo.UpdateDeliveryTemplateError(ctx, tenantID, deliveryID, msg); err != nil {
 				log.ErrorContext(ctx, "Failed to record template error", "error", err)
 			}
 			log.WarnContext(ctx, "Webhook requires a transform but the subscription has none, failing delivery",
@@ -585,7 +585,7 @@ func (w *WebhookWorker) renderPayload(ctx context.Context, log *slog.Logger, job
 	}
 
 	msg := renderErr.Error()
-	if err := w.deliveryRepo.UpdateDeliveryTemplateError(ctx, deliveryID, msg); err != nil {
+	if err := w.deliveryRepo.UpdateDeliveryTemplateError(ctx, tenantID, deliveryID, msg); err != nil {
 		log.ErrorContext(ctx, "Failed to record template error", "error", err)
 	}
 	// A webhook that requires a transform never falls back to the envelope,
@@ -623,9 +623,9 @@ func (w *WebhookWorker) systemEvents() systemEventDeps {
 // A failed write is returned: the delivery row still shows the previous
 // status, so the caller fails the job and River retries the attempt rather
 // than leaving it unrecorded.
-func (w *WebhookWorker) finishAttempt(ctx context.Context, log *slog.Logger, a store.DeliveryAttempt) error {
+func (w *WebhookWorker) finishAttempt(ctx context.Context, log *slog.Logger, tenantID uuid.UUID, a store.DeliveryAttempt) error {
 	w.metrics.recordAttempt(ctx, a.Success, a.ResponseTimeMs, a.ErrorCategory)
-	if err := w.deliveryRepo.RecordDeliveryAttempt(ctx, a); err != nil {
+	if err := w.deliveryRepo.RecordDeliveryAttempt(ctx, tenantID, a); err != nil {
 		log.ErrorContext(ctx, "Failed to record delivery attempt", "error", err, "delivery_id", a.DeliveryID)
 		return fmt.Errorf("record delivery attempt: %w", err)
 	}

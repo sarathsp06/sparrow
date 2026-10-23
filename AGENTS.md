@@ -130,6 +130,7 @@ Route-group middleware (API key auth) wraps only the `/v1/*` group (`r.Group` in
 
 - **Error order**: All `if err != nil { return ... }` before happy path.
 - **WithConn**: `repo.WithConn(tx)` inside `storage.WithTransaction()` for repo-level txns.
+- **Tenant is the second argument**: every method of every interface in `internal/webhooks/store` is `(ctx context.Context, tenantID uuid.UUID, ...)` and scopes its SQL by that tenant; tables without a `tenant_id` column (deliveries, health, rate limit state) scope through their webhook (`EXISTS (SELECT 1 FROM webhook_registrations wr WHERE wr.id = <table>.webhook_id AND wr.tenant_id = $n)`). A method that genuinely spans every tenant (retention, health evaluation, batch cleanup) carries `//sparrow:no-tenant <reason>` directly above it. `tenant_signature_test.go` enforces both in `go test`.
 - **No direct SQL in handlers** — all DB access through RepositoryInterface methods.
 - **REST errors**: use `mapError(ctx, err, msg)` from `internal/rest/errors.go`.
 - **Tenant scoping**: always filter by `tenant.DefaultTenantID` in queries.

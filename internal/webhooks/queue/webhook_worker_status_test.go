@@ -42,12 +42,12 @@ type statusDeliveryRepo struct {
 	recorded  []store.DeliveryAttempt
 }
 
-func (f *statusDeliveryRepo) UpdateDeliveryStatus(_ context.Context, _ uuid.UUID, status store.WebhookDeliveryStatus, _ int, _, _, _ string) error {
+func (f *statusDeliveryRepo) UpdateDeliveryStatus(_ context.Context, _, _ uuid.UUID, status store.WebhookDeliveryStatus, _ int, _, _, _ string) error {
 	f.statuses = append(f.statuses, status)
 	return nil
 }
 
-func (f *statusDeliveryRepo) RecordDeliveryAttempt(_ context.Context, a store.DeliveryAttempt) error {
+func (f *statusDeliveryRepo) RecordDeliveryAttempt(_ context.Context, _ uuid.UUID, a store.DeliveryAttempt) error {
 	if f.recordErr != nil {
 		return f.recordErr
 	}

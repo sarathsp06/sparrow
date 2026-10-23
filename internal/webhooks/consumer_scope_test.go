@@ -23,7 +23,7 @@ func (m *mockRepo) GetBatchJob(ctx context.Context, tenantID uuid.UUID, batchID 
 	return res.(*store.BatchJob), args.Error(1)
 }
 
-func (m *mockRepo) UpdateBatchJobStatus(ctx context.Context, batchID uuid.UUID, from, to store.BatchJobStatus) error {
+func (m *mockRepo) UpdateBatchJobStatus(ctx context.Context, _ uuid.UUID, batchID uuid.UUID, from, to store.BatchJobStatus) error {
 	return m.Called(ctx, batchID, from, to).Error(0)
 }
 

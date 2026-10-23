@@ -272,7 +272,7 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, consumer string, del
 	resubmittedIDs := make([]string, 0, len(ids))
 	for start := 0; start < len(ids); start += retryChunkSize {
 		end := min(start+retryChunkSize, len(ids))
-		reset, err := s.webhookRepo.ResetDeliveriesForRetry(ctx, ids[start:end], func(ctx context.Context, tx *sql.Tx, reset []uuid.UUID) error {
+		reset, err := s.webhookRepo.ResetDeliveriesForRetry(ctx, tenantID, ids[start:end], func(ctx context.Context, tx *sql.Tx, reset []uuid.UUID) error {
 			chunk := make([]river.JobArgs, len(reset))
 			for i, id := range reset {
 				chunk[i] = jobs[id]

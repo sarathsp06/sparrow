@@ -252,7 +252,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 
 	// Initialize rate limit state if rate limiting is configured
 	if storeWebhook.RateLimitRPS != nil {
-		if err := s.webhookRepo.UpsertRateLimitState(ctx, webhookID); err != nil {
+		if err := s.webhookRepo.UpsertRateLimitState(ctx, tenantID, webhookID); err != nil {
 			s.logger.WarnContext(ctx, "Failed to initialize rate limit state",
 				"webhook_id", webhookReg.ID,
 				"error", err,
@@ -682,7 +682,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 
 	// Manage rate limit state: upsert when rate limit is set, delete when cleared
 	if webhook.RateLimitRPS != nil {
-		if err := s.webhookRepo.UpsertRateLimitState(ctx, webhookUUID); err != nil {
+		if err := s.webhookRepo.UpsertRateLimitState(ctx, tenantID, webhookUUID); err != nil {
 			s.logger.WarnContext(ctx, "Failed to upsert rate limit state",
 				"webhook_id", webhookID,
 				"error", err,
@@ -690,7 +690,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		}
 	} else {
 		// Rate limit removed (or was never set) — clean up any existing state
-		if err := s.webhookRepo.DeleteRateLimitState(ctx, webhookUUID); err != nil {
+		if err := s.webhookRepo.DeleteRateLimitState(ctx, tenantID, webhookUUID); err != nil {
 			s.logger.WarnContext(ctx, "Failed to delete rate limit state",
 				"webhook_id", webhookID,
 				"error", err,

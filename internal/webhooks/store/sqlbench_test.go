@@ -154,7 +154,7 @@ func TestSQLBench(t *testing.T) {
 		return fmt.Sprintf("%d webhooks, %d attempts", s.TotalWebhooks, s.TotalDeliveries), nil
 	})
 	bench("webhook health summary: hot webhook, 24h", func() (string, error) {
-		s, err := r.GetWebhookHealthSummary(ctx, hotWebhook, DefaultHealthRules.WindowHours)
+		s, err := r.GetWebhookHealthSummary(ctx, tid, hotWebhook, DefaultHealthRules.WindowHours)
 		if err != nil {
 			return "", err
 		}

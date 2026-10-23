@@ -27,9 +27,9 @@ type WebhookRepository interface {
 
 // RateLimitRepository defines operations for per-webhook rate limiting.
 type RateLimitRepository interface {
-	AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUID) (time.Duration, float64, error)
-	UpsertRateLimitState(ctx context.Context, webhookID uuid.UUID) error
-	DeleteRateLimitState(ctx context.Context, webhookID uuid.UUID) error
+	AcquireDeliverySlot(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) (time.Duration, float64, error)
+	UpsertRateLimitState(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) error
+	DeleteRateLimitState(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) error
 }
 
 // RegisterWebhook creates a new webhook registration.
@@ -526,13 +526,13 @@ func insertSubscription(ctx context.Context, conn storage.DBTX, tenantID uuid.UU
 // ponytail: under READ COMMITTED a concurrent waiter can read a stale tail in
 // the SELECT branch and send one extra delivery; bounded by worker concurrency.
 // Upgrade path: SELECT ... FOR UPDATE in a transaction if strict RPS matters.
-func (r *Repository) AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUID) (time.Duration, float64, error) {
+func (r *Repository) AcquireDeliverySlot(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) (time.Duration, float64, error) {
 	query := `
 		WITH granted AS (
 			UPDATE webhook_rate_limit_state rls
 			SET next_delivery_at = NOW() + (interval '1 second' / wr.rate_limit_rps)
 			FROM webhook_registrations wr
-			WHERE rls.webhook_id = wr.id AND rls.webhook_id = $1
+			WHERE rls.webhook_id = wr.id AND rls.webhook_id = $1 AND wr.tenant_id = $2
 			  AND wr.rate_limit_rps > 0
 			  AND rls.next_delivery_at <= NOW()
 			RETURNING wr.rate_limit_rps
@@ -542,7 +542,7 @@ func (r *Repository) AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUI
 		SELECT GREATEST(EXTRACT(EPOCH FROM rls.next_delivery_at - NOW()), 0)::float8, wr.rate_limit_rps
 		FROM webhook_rate_limit_state rls
 		JOIN webhook_registrations wr ON rls.webhook_id = wr.id
-		WHERE rls.webhook_id = $1
+		WHERE rls.webhook_id = $1 AND wr.tenant_id = $2
 		  AND wr.rate_limit_rps > 0
 		  AND NOT EXISTS (SELECT 1 FROM granted)
 	`
@@ -551,23 +551,23 @@ func (r *Repository) AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUI
 		WaitSeconds  float64 `db:"wait_seconds"`
 		RateLimitRPS float64 `db:"rate_limit_rps"`
 	}
-	err := storage.Error(r.conn.GetContext(ctx, &result, query, webhookID))
+	err := storage.Error(r.conn.GetContext(ctx, &result, query, webhookID, tenantID))
 	if storage.IsNotFound(err) {
 		// No row, or no limit. Create the row only for a limited webhook;
 		// the CTE above cannot see a row inserted in the same statement,
 		// so query again once it exists.
 		res, insErr := r.conn.ExecContext(ctx, `
 			INSERT INTO webhook_rate_limit_state (webhook_id, next_delivery_at)
-			SELECT id, NOW() FROM webhook_registrations WHERE id = $1 AND rate_limit_rps > 0
+			SELECT id, NOW() FROM webhook_registrations WHERE id = $1 AND tenant_id = $2 AND rate_limit_rps > 0
 			ON CONFLICT (webhook_id) DO NOTHING
-		`, webhookID)
+		`, webhookID, tenantID)
 		if insErr != nil {
 			return 0, 0, storage.Error(insErr)
 		}
 		if n, _ := res.RowsAffected(); n == 0 {
 			return 0, 0, nil
 		}
-		err = storage.Error(r.conn.GetContext(ctx, &result, query, webhookID))
+		err = storage.Error(r.conn.GetContext(ctx, &result, query, webhookID, tenantID))
 	}
 	if err != nil {
 		return 0, 0, err
@@ -579,21 +579,24 @@ func (r *Repository) AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUI
 // UpsertRateLimitState creates the rate limit state row for a webhook if
 // absent. An existing row keeps its future backlog (GREATEST) so config
 // updates cannot rewind the bucket and let a burst exceed the configured RPS.
-func (r *Repository) UpsertRateLimitState(ctx context.Context, webhookID uuid.UUID) error {
+func (r *Repository) UpsertRateLimitState(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) error {
 	query := `
 		INSERT INTO webhook_rate_limit_state (webhook_id, next_delivery_at)
-		VALUES ($1, NOW())
+		SELECT id, NOW() FROM webhook_registrations WHERE id = $1 AND tenant_id = $2
 		ON CONFLICT (webhook_id) DO UPDATE
 		SET next_delivery_at = GREATEST(webhook_rate_limit_state.next_delivery_at, NOW())
 	`
-	_, err := r.conn.ExecContext(ctx, query, webhookID)
+	_, err := r.conn.ExecContext(ctx, query, webhookID, tenantID)
 	return storage.Error(err)
 }
 
 // DeleteRateLimitState removes the rate limit state row for a webhook.
 // Called when rate limiting is removed from a webhook.
-func (r *Repository) DeleteRateLimitState(ctx context.Context, webhookID uuid.UUID) error {
-	query := `DELETE FROM webhook_rate_limit_state WHERE webhook_id = $1`
-	_, err := r.conn.ExecContext(ctx, query, webhookID)
+func (r *Repository) DeleteRateLimitState(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) error {
+	query := `
+		DELETE FROM webhook_rate_limit_state rls
+		USING webhook_registrations wr
+		WHERE rls.webhook_id = $1 AND wr.id = rls.webhook_id AND wr.tenant_id = $2`
+	_, err := r.conn.ExecContext(ctx, query, webhookID, tenantID)
 	return storage.Error(err)
 }

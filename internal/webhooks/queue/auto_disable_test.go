@@ -21,7 +21,7 @@ type fakeAutoDisableRepo struct {
 	failingFor  time.Duration
 }
 
-func (f *fakeAutoDisableRepo) AutoDisableWebhook(ctx context.Context, webhookID uuid.UUID, minFailures int, failingFor time.Duration) (*store.AutoDisableResult, error) {
+func (f *fakeAutoDisableRepo) AutoDisableWebhook(ctx context.Context, _ uuid.UUID, webhookID uuid.UUID, minFailures int, failingFor time.Duration) (*store.AutoDisableResult, error) {
 	f.calls++
 	f.minFailures = minFailures
 	f.failingFor = failingFor

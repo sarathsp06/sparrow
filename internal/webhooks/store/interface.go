@@ -38,6 +38,7 @@ type RepositoryInterface interface {
 // The fn receives a full RepositoryInterface, enabling cross-domain operations
 // within a single transaction.
 type Transactor interface {
+	//sparrow:no-tenant runs fn in a transaction; fn makes its own tenant-scoped calls
 	RunInTransaction(fn func(RepositoryInterface) error) error
 }
 

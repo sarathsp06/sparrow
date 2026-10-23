@@ -12,12 +12,12 @@ import (
 
 // HealthRepository defines operations for webhook health tracking.
 type HealthRepository interface {
-	RecordWebhookHealthEvent(ctx context.Context, webhookID, deliveryID uuid.UUID, success bool, responseTime, responseCode int, errorMessage string, errorCategory string) error
-	GetWebhookHealthState(ctx context.Context, webhookID uuid.UUID) (*WebhookHealthMetrics, error)
-	GetWebhookHealthSummary(ctx context.Context, webhookID uuid.UUID, hours int) (*WebhookHealthSummary, error)
+	RecordWebhookHealthEvent(ctx context.Context, tenantID uuid.UUID, webhookID, deliveryID uuid.UUID, success bool, responseTime, responseCode int, errorMessage string, errorCategory string) error
+	GetWebhookHealthState(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) (*WebhookHealthMetrics, error)
+	GetWebhookHealthSummary(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, hours int) (*WebhookHealthSummary, error)
 	GetHealthSummary(ctx context.Context, tenantID uuid.UUID, consumer string) (map[WebhookHealth]int, error)
 	GetConsumerStats(ctx context.Context, tenantID uuid.UUID, consumer string) (*ConsumerStats, error)
-	AutoDisableWebhook(ctx context.Context, webhookID uuid.UUID, minFailures int, failingFor time.Duration) (*AutoDisableResult, error)
+	AutoDisableWebhook(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, minFailures int, failingFor time.Duration) (*AutoDisableResult, error)
 	CountWebhooksByState(ctx context.Context, tenantID uuid.UUID) ([]WebhookStateCount, error)
 }
 
@@ -40,7 +40,7 @@ type AutoDisableResult struct {
 // least minFailures attempts in a row, with no success for failingFor. The
 // check and the pause are one statement, so concurrent delivery jobs pause a
 // webhook at most once. It returns nil when nothing was disabled.
-func (r *Repository) AutoDisableWebhook(ctx context.Context, webhookID uuid.UUID, minFailures int, failingFor time.Duration) (*AutoDisableResult, error) {
+func (r *Repository) AutoDisableWebhook(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, minFailures int, failingFor time.Duration) (*AutoDisableResult, error) {
 	var result AutoDisableResult
 	err := r.conn.GetContext(ctx, &result, `
 		UPDATE webhook_registrations wr
@@ -50,11 +50,11 @@ func (r *Repository) AutoDisableWebhook(ctx context.Context, webhookID uuid.UUID
 		        hs.consecutive_failures, to_char(hs.failing_since AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')),
 		    updated_at = NOW()
 		FROM webhook_health_state hs
-		WHERE wr.id = $1 AND hs.webhook_id = wr.id AND wr.active
+		WHERE wr.id = $1 AND wr.tenant_id = $4 AND hs.webhook_id = wr.id AND wr.active
 		  AND hs.consecutive_failures >= $2
 		  AND hs.failing_since <= NOW() - make_interval(secs => $3)
 		RETURNING wr.auto_disabled_reason AS reason, hs.consecutive_failures, hs.failing_since
-	`, webhookID, minFailures, failingFor.Seconds())
+	`, webhookID, minFailures, failingFor.Seconds(), tenantID)
 	if err != nil {
 		if storage.IsNotFound(storage.Error(err)) {
 			return nil, nil
@@ -122,12 +122,13 @@ func healthLabel(recentEvents int, successRate float64, consecutiveFailures int)
 // Captures delivery outcome, response time metrics, HTTP status codes, error details,
 // and error category for classifying failures (client_error, server_error, timeout, etc.).
 // Timestamp is set to NOW() for accurate time-series data collection.
-func (r *Repository) RecordWebhookHealthEvent(ctx context.Context, webhookID, deliveryID uuid.UUID, success bool, responseTime, responseCode int, errorMessage string, errorCategory string) error {
+func (r *Repository) RecordWebhookHealthEvent(ctx context.Context, tenantID uuid.UUID, webhookID, deliveryID uuid.UUID, success bool, responseTime, responseCode int, errorMessage string, errorCategory string) error {
 	query := `
 		INSERT INTO webhook_health_events (webhook_id, delivery_id, success, response_time, response_code, error_message, error_category, timestamp)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+		SELECT $1, $2, $3, $4, $5, $6, $7, NOW()
+		WHERE EXISTS (SELECT 1 FROM webhook_registrations wr WHERE wr.id = $1 AND wr.tenant_id = $8)
 	`
-	_, err := r.conn.ExecContext(ctx, query, webhookID, deliveryID, success, responseTime, responseCode, errorMessage, errorCategory)
+	_, err := r.conn.ExecContext(ctx, query, webhookID, deliveryID, success, responseTime, responseCode, errorMessage, errorCategory, tenantID)
 	if err != nil {
 		return fmt.Errorf("failed to record health event: %w", err)
 	}
@@ -139,16 +140,16 @@ func (r *Repository) RecordWebhookHealthEvent(ctx context.Context, webhookID, de
 // Returns metrics including consecutive failure count, timestamps of last success/failure,
 // and when the last delivery event occurred. Used for health status calculations
 // and determining when webhooks should be automatically disabled.
-func (r *Repository) GetWebhookHealthState(ctx context.Context, webhookID uuid.UUID) (*WebhookHealthMetrics, error) {
+func (r *Repository) GetWebhookHealthState(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) (*WebhookHealthMetrics, error) {
 	query := `
 		SELECT id, webhook_id, consecutive_failures, last_success_at, last_failure_at, 
 		       last_event_at, created_at, updated_at
 		FROM webhook_health_state
-		WHERE webhook_id = $1
+		WHERE webhook_id = $1 AND EXISTS (SELECT 1 FROM webhook_registrations wr WHERE wr.id = webhook_health_state.webhook_id AND wr.tenant_id = $2)
 	`
 
 	var state WebhookHealthMetrics
-	err := r.conn.GetContext(ctx, &state, query, webhookID)
+	err := r.conn.GetContext(ctx, &state, query, webhookID, tenantID)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
@@ -161,7 +162,7 @@ func (r *Repository) GetWebhookHealthState(ctx context.Context, webhookID uuid.U
 // Uses COUNT(DISTINCT delivery_id) for delivery counts to avoid inflating numbers
 // when a single delivery has multiple attempts (retries).
 // Includes delivery counts, success rates, response time percentiles, and error breakdown.
-func (r *Repository) GetWebhookHealthSummary(ctx context.Context, webhookID uuid.UUID, hours int) (*WebhookHealthSummary, error) {
+func (r *Repository) GetWebhookHealthSummary(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, hours int) (*WebhookHealthSummary, error) {
 	query := `
 		SELECT 
 			$1::uuid as webhook_id,
@@ -187,12 +188,13 @@ func (r *Repository) GetWebhookHealthSummary(ctx context.Context, webhookID uuid
 			NOW() as created_at,
 			NOW() as updated_at
 		FROM webhook_health_events
-		WHERE webhook_id = $1 
+		WHERE webhook_id = $1
 		  AND timestamp >= NOW() - INTERVAL '1 hour' * $2
+		  AND EXISTS (SELECT 1 FROM webhook_registrations wr WHERE wr.id = webhook_health_events.webhook_id AND wr.tenant_id = $3)
 	`
 
 	var summary WebhookHealthSummary
-	err := r.conn.GetContext(ctx, &summary, query, webhookID, hours)
+	err := r.conn.GetContext(ctx, &summary, query, webhookID, hours, tenantID)
 	if err != nil {
 		return nil, storage.Error(err)
 	}

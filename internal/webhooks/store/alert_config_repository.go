@@ -25,7 +25,7 @@ type AlertConfig struct {
 
 // AlertConfigRepository defines operations for webhook_alert_configs.
 type AlertConfigRepository interface {
-	CreateAlertConfig(ctx context.Context, cfg *AlertConfig) error
+	CreateAlertConfig(ctx context.Context, tenantID uuid.UUID, cfg *AlertConfig) error
 	ListAlertConfigs(ctx context.Context, tenantID uuid.UUID, consumer string, webhookID *uuid.UUID) ([]*AlertConfig, error)
 	GetAlertConfig(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (*AlertConfig, error)
 	DeleteAlertConfig(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) error
@@ -35,7 +35,9 @@ type AlertConfigRepository interface {
 }
 
 // CreateAlertConfig inserts a new alert recipient config.
-func (r *Repository) CreateAlertConfig(ctx context.Context, cfg *AlertConfig) error {
+// The row is always written under tenantID, whatever cfg.TenantID says.
+func (r *Repository) CreateAlertConfig(ctx context.Context, tenantID uuid.UUID, cfg *AlertConfig) error {
+	cfg.TenantID = tenantID
 	if cfg.ID == uuid.Nil {
 		cfg.ID = uuid.New()
 	}

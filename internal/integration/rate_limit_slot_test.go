@@ -56,7 +56,7 @@ func TestAcquireDeliverySlot_BusyBucketDoesNotBurnSlots(t *testing.T) {
 	// fails): the first acquire creates it, so limiting still applies.
 	// Free bucket: granted immediately and the tail advances.
 	interval := time.Duration(float64(time.Second) / rps)
-	wait, gotRPS, err := repo.AcquireDeliverySlot(ctx, reg.ID)
+	wait, gotRPS, err := repo.AcquireDeliverySlot(ctx, tenant.DefaultTenantID, reg.ID)
 	require.NoError(t, err)
 	require.Equal(t, rps, gotRPS)
 	require.Zero(t, wait, "first acquire must grant immediately")
@@ -64,9 +64,9 @@ func TestAcquireDeliverySlot_BusyBucketDoesNotBurnSlots(t *testing.T) {
 
 	// Busy bucket: repeated calls must NOT advance the tail (no slot burn)
 	// and must ask the caller to wait at most one interval.
-	busy1, _, err := repo.AcquireDeliverySlot(ctx, reg.ID)
+	busy1, _, err := repo.AcquireDeliverySlot(ctx, tenant.DefaultTenantID, reg.ID)
 	require.NoError(t, err)
-	busy2, _, err := repo.AcquireDeliverySlot(ctx, reg.ID)
+	busy2, _, err := repo.AcquireDeliverySlot(ctx, tenant.DefaultTenantID, reg.ID)
 	require.NoError(t, err)
 	require.True(t, tail().Equal(grantedTail), "busy acquires must not advance the tail")
 	for _, w := range []time.Duration{busy1, busy2} {
@@ -77,7 +77,7 @@ func TestAcquireDeliverySlot_BusyBucketDoesNotBurnSlots(t *testing.T) {
 
 	// Once the wait passes, the bucket grants again.
 	time.Sleep(busy2 + 50*time.Millisecond)
-	wait, _, err = repo.AcquireDeliverySlot(ctx, reg.ID)
+	wait, _, err = repo.AcquireDeliverySlot(ctx, tenant.DefaultTenantID, reg.ID)
 	require.NoError(t, err)
 	require.Zero(t, wait, "acquire after waiting out the tail must grant")
 	require.True(t, tail().After(grantedTail), "a grant must advance the tail")
@@ -106,7 +106,7 @@ func TestAcquireDeliverySlot_NoLimitCreatesNoRow(t *testing.T) {
 	}
 	require.NoError(t, repo.RegisterWebhook(ctx, tenant.DefaultTenantID, reg))
 
-	wait, gotRPS, err := repo.AcquireDeliverySlot(ctx, reg.ID)
+	wait, gotRPS, err := repo.AcquireDeliverySlot(ctx, tenant.DefaultTenantID, reg.ID)
 	require.NoError(t, err)
 	require.Zero(t, wait)
 	require.Zero(t, gotRPS)

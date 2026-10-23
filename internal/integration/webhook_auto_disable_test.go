@@ -64,10 +64,10 @@ func TestWebhookAutoDisable(t *testing.T) {
 	require.NotNil(t, state.FailingSince, "a failure run must record when it started")
 
 	// Not enough failures, or not failing for long enough: stays active.
-	got, err := repo.AutoDisableWebhook(ctx, id, 100, time.Minute)
+	got, err := repo.AutoDisableWebhook(ctx, tenant.DefaultTenantID, id, 100, time.Minute)
 	require.NoError(t, err)
 	assert.Nil(t, got, "below the failure minimum")
-	got, err = repo.AutoDisableWebhook(ctx, id, 3, time.Hour)
+	got, err = repo.AutoDisableWebhook(ctx, tenant.DefaultTenantID, id, 3, time.Hour)
 	require.NoError(t, err)
 	assert.Nil(t, got, "failing for less than the window")
 
@@ -75,13 +75,13 @@ func TestWebhookAutoDisable(t *testing.T) {
 	_, err = env.sqlxDB.ExecContext(ctx,
 		`UPDATE webhook_health_state SET failing_since = NOW() - INTERVAL '2 hours' WHERE webhook_id = $1`, id)
 	require.NoError(t, err)
-	got, err = repo.AutoDisableWebhook(ctx, id, 3, time.Hour)
+	got, err = repo.AutoDisableWebhook(ctx, tenant.DefaultTenantID, id, 3, time.Hour)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	assert.Equal(t, 3, got.ConsecutiveFailures)
 	assert.Contains(t, got.Reason, "3 failed attempts in a row")
 
-	again, err := repo.AutoDisableWebhook(ctx, id, 3, time.Hour)
+	again, err := repo.AutoDisableWebhook(ctx, tenant.DefaultTenantID, id, 3, time.Hour)
 	require.NoError(t, err)
 	assert.Nil(t, again, "an already disabled webhook is not disabled twice")
 
@@ -125,7 +125,7 @@ func TestWebhookAutoDisable(t *testing.T) {
 
 	readState()
 	assert.Nil(t, state.FailingSince, "resume must restart the failure window")
-	got, err = repo.AutoDisableWebhook(ctx, id, 3, time.Hour)
+	got, err = repo.AutoDisableWebhook(ctx, tenant.DefaultTenantID, id, 3, time.Hour)
 	require.NoError(t, err)
 	assert.Nil(t, got, "a resumed webhook gets a full window again")
 }

@@ -29,7 +29,7 @@ func (f *fakeBatchRepo) GetBatchJob(ctx context.Context, _, _ uuid.UUID) (*store
 	return &b, nil
 }
 
-func (f *fakeBatchRepo) UpdateBatchJobProgress(ctx context.Context, _ uuid.UUID, processed, failed int) error {
+func (f *fakeBatchRepo) UpdateBatchJobProgress(ctx context.Context, _, _ uuid.UUID, processed, failed int) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func (f *fakeBatchRepo) UpdateBatchJobProgress(ctx context.Context, _ uuid.UUID,
 	return nil
 }
 
-func (f *fakeBatchRepo) UpdateBatchJobStatus(ctx context.Context, _ uuid.UUID, from, to store.BatchJobStatus) error {
+func (f *fakeBatchRepo) UpdateBatchJobStatus(ctx context.Context, _, _ uuid.UUID, from, to store.BatchJobStatus) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
