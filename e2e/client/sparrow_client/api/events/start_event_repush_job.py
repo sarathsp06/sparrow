@@ -100,7 +100,7 @@ def sync_detailed(
     A snapshot can be started once: 409 when it is not pending (already started or cancelled) or expired
     (15 minutes after it was taken), 404 when the id is unknown, 400 when it is not a UUID.
 
-    Portal tokens: allowed, as POST /portal/api/events:rePush.
+    Portal tokens: not allowed (re-pushing events is the producer's job, like pushing them).
 
     Args:
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
@@ -144,7 +144,7 @@ def sync(
     A snapshot can be started once: 409 when it is not pending (already started or cancelled) or expired
     (15 minutes after it was taken), 404 when the id is unknown, 400 when it is not a UUID.
 
-    Portal tokens: allowed, as POST /portal/api/events:rePush.
+    Portal tokens: not allowed (re-pushing events is the producer's job, like pushing them).
 
     Args:
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
@@ -183,7 +183,7 @@ async def asyncio_detailed(
     A snapshot can be started once: 409 when it is not pending (already started or cancelled) or expired
     (15 minutes after it was taken), 404 when the id is unknown, 400 when it is not a UUID.
 
-    Portal tokens: allowed, as POST /portal/api/events:rePush.
+    Portal tokens: not allowed (re-pushing events is the producer's job, like pushing them).
 
     Args:
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
@@ -225,7 +225,7 @@ async def asyncio(
     A snapshot can be started once: 409 when it is not pending (already started or cancelled) or expired
     (15 minutes after it was taken), 404 when the id is unknown, 400 when it is not a UUID.
 
-    Portal tokens: allowed, as POST /portal/api/events:rePush.
+    Portal tokens: not allowed (re-pushing events is the producer's job, like pushing them).
 
     Args:
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer

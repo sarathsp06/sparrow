@@ -1,0 +1,31 @@
+# Public vhost for the consumer portal: forwards only the portal slice to
+# Sparrow and answers everything else itself with a 404, so the admin UI,
+# /v1, /docs and /openapi.* are never reachable from here.
+#
+# Local: ":80" serves plain HTTP on the published port. In production use
+# your hostname instead (e.g. "hooks.yourapp.com {"): Caddy then gets and
+# renews the TLS certificate itself.
+:80 {
+	# /portal and everything under it: the portal page, its pages for
+	# subscriptions (/portal/webhooks/...), and the API (/portal/api/*). The
+	# API is bearer-scoped by Sparrow's portal gateway, so no deny rules.
+	@portal path /portal /portal/* /_app/* /favicon.png
+	handle @portal {
+		reverse_proxy sparrow:8080
+	}
+
+	# Consumer invite links (/portal#invite=...) are exchanged here for a
+	# portal token. The invite is the credential, single-use and expiring.
+	@redeem {
+		method POST
+		path /invite/redeem
+	}
+	handle @redeem {
+		reverse_proxy sparrow:8080
+	}
+
+	# Never add an X-API-Key header here. The portal does not need it (it
+	# sends its own token), and on any route beyond this allowlist it would
+	# make every visitor an admin.
+	respond 404
+}

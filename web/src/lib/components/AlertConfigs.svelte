@@ -4,6 +4,7 @@
   // when an alert-delivery webhook exists under _sparrow (the capability).
   import { api, unwrap } from "$lib/services";
   import { formatAPIError } from "$lib/utils";
+  import { loadCapabilities } from "$lib/capabilities.svelte";
   import type { components } from "$lib/api-types";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import { ALERT_EVENT_TYPES, ALERTS_GUIDE_URL, isEmail } from "$lib/system";
@@ -32,12 +33,12 @@
     try {
       const [list, caps] = await Promise.all([
         api.GET("/v1/consumers/{consumer}/alert-configs", { params: { path: { consumer } } }),
-        api.GET("/v1/capabilities"),
+        loadCapabilities(),
       ]);
       // Without webhook_id the API lists the whole consumer: keep this
       // webhook's configs and the consumer-wide ones.
       configs = (unwrap(list).items ?? []).filter((c) => !c.webhook_id || c.webhook_id === webhookId);
-      deliveryConfigured = unwrap(caps).alert_delivery.configured;
+      deliveryConfigured = caps.alert_delivery.configured;
     } catch (e: any) {
       error = formatAPIError(e, "Failed to load alert recipients");
     } finally {

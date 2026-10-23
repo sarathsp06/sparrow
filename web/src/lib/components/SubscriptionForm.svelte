@@ -2,7 +2,7 @@
   // Create/edit a subscription on its own page. Everything about the
   // template lives behind "Edit template", which opens TemplateEditor.
   import { goto } from "$app/navigation";
-  import { api, unwrap } from "$lib/services";
+  import { api, unwrap, webhookHref } from "$lib/services";
   import { formatAPIError } from "$lib/utils";
   import { listAllEventTypes } from "$lib/system";
   import { onMount } from "svelte";
@@ -30,7 +30,7 @@
   } = $props();
 
   const CATCH_ALL = "*";
-  const backHref = $derived(`/webhooks/${webhookId}?tab=subscriptions`);
+  const backHref = $derived(webhookHref(webhookId, "subscriptions"));
 
   let eventName = $state(subscription?.event_name ?? "");
   let catchAll = $state(subscription?.event_name === CATCH_ALL);

@@ -85,12 +85,16 @@ can carry the token in the `/portal#token=...` URL *fragment*, which browsers
 never send to the server, so it stays out of access logs.
 
 A portal token authorizes exactly: everything under its own consumer's routes
-**except** pushing events and minting further tokens, plus the read-only
+**except** pushing or re-pushing events (`events:rePush`, `repush-jobs`,
+`prepare_repush`) and minting further tokens, plus the read-only
 helpers the portal UI needs (event-type catalog, template functions, server
 capabilities, template dry-run). The portal calls these through the single `/portal/api/` gateway
 prefix — the consumer is carried by the token, not the URL, so cross-consumer
 access is structurally impossible and event injection, token minting, other
 consumers, global routes, and admin operations all return 401/403.
+Retrying the consumer's own deliveries is allowed unless the server runs
+with `SPARROW_PORTAL_RETRY=false`, which refuses the retry calls and
+`prepare_retry` with 403.
 
 Behind the gateway, every `/v1/consumers/{consumer}/...` route also checks that
 the resource it names belongs to that consumer: a webhook, subscription,

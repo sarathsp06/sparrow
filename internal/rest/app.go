@@ -55,9 +55,12 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps Access
 		"`/portal/api/` prefix with `Authorization: Bearer <token>`, and the consumer is carried " +
 		"by the token, not the URL, so exposing the portal means allowlisting only `/portal`, " +
 		"`/_app`, and `/portal/api`. `/portal/api/<rest>` is served by " +
-		"`/v1/consumers/<token's consumer>/<rest>`, except `POST events` (refused), plus these " +
+		"`/v1/consumers/<token's consumer>/<rest>`, except pushing or re-pushing events " +
+		"(`POST events`, `POST events:rePush`, `repush-jobs`, `prepare_repush`: refused), plus these " +
 		"global helpers: `GET event-types[/...]` (listed for the token's consumer), " +
 		"`GET template-functions`, `GET capabilities`, and `POST subscriptions:testTemplate`. " +
+		"With `SPARROW_PORTAL_RETRY=false` the delivery retry calls and `prepare_retry` are refused too (403), " +
+		"and `GET capabilities` reports `portal.retry: false`. " +
 		"Each operation's description says whether portal tokens can call it.\n\n" +
 		"## Errors\n\n" +
 		"Errors from the API itself are RFC 9457 problem details " +
@@ -131,6 +134,7 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps Access
 	registerRecipeRoutes(api)
 	registerAccessRoutes(api, accessDeps)
 	registerAIRoutes(api, svc, aiDeps)
+	registerCapabilitiesRoute(api, svc, aiDeps, accessDeps.PortalRetry)
 	registerTestEventRoutes(api, svc)
 	registerTLSRoutes(api, tlsRev)
 

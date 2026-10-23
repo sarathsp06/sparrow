@@ -121,7 +121,8 @@ def sync_detailed(
     Side effect: prepare_retry=true also snapshots every match (up to 10,000) into a batch job and
     returns retry_id for POST .../deliveries:retryBatch.
 
-    Portal tokens: allowed, as GET /portal/api/deliveries.
+    Portal tokens: allowed, as GET /portal/api/deliveries; prepare_retry only while SPARROW_PORTAL_RETRY
+    is true (otherwise 403).
 
     Args:
         consumer (str): Consumer to list deliveries in.
@@ -207,7 +208,8 @@ def sync(
     Side effect: prepare_retry=true also snapshots every match (up to 10,000) into a batch job and
     returns retry_id for POST .../deliveries:retryBatch.
 
-    Portal tokens: allowed, as GET /portal/api/deliveries.
+    Portal tokens: allowed, as GET /portal/api/deliveries; prepare_retry only while SPARROW_PORTAL_RETRY
+    is true (otherwise 403).
 
     Args:
         consumer (str): Consumer to list deliveries in.
@@ -288,7 +290,8 @@ async def asyncio_detailed(
     Side effect: prepare_retry=true also snapshots every match (up to 10,000) into a batch job and
     returns retry_id for POST .../deliveries:retryBatch.
 
-    Portal tokens: allowed, as GET /portal/api/deliveries.
+    Portal tokens: allowed, as GET /portal/api/deliveries; prepare_retry only while SPARROW_PORTAL_RETRY
+    is true (otherwise 403).
 
     Args:
         consumer (str): Consumer to list deliveries in.
@@ -372,7 +375,8 @@ async def asyncio(
     Side effect: prepare_retry=true also snapshots every match (up to 10,000) into a batch job and
     returns retry_id for POST .../deliveries:retryBatch.
 
-    Portal tokens: allowed, as GET /portal/api/deliveries.
+    Portal tokens: allowed, as GET /portal/api/deliveries; prepare_retry only while SPARROW_PORTAL_RETRY
+    is true (otherwise 403).
 
     Args:
         consumer (str): Consumer to list deliveries in.

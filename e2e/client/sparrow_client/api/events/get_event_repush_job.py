@@ -88,7 +88,7 @@ def sync_detailed(
      Returns a batch re-push job's status and processed/failed/total counts. 404 when the id is unknown,
     409 when the id belongs to a delivery retry job.
 
-    Portal tokens: allowed, as GET /portal/api/repush-jobs/{job_id}.
+    Portal tokens: not allowed.
 
     Args:
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
@@ -127,7 +127,7 @@ def sync(
      Returns a batch re-push job's status and processed/failed/total counts. 404 when the id is unknown,
     409 when the id belongs to a delivery retry job.
 
-    Portal tokens: allowed, as GET /portal/api/repush-jobs/{job_id}.
+    Portal tokens: not allowed.
 
     Args:
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
@@ -161,7 +161,7 @@ async def asyncio_detailed(
      Returns a batch re-push job's status and processed/failed/total counts. 404 when the id is unknown,
     409 when the id belongs to a delivery retry job.
 
-    Portal tokens: allowed, as GET /portal/api/repush-jobs/{job_id}.
+    Portal tokens: not allowed.
 
     Args:
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
@@ -198,7 +198,7 @@ async def asyncio(
      Returns a batch re-push job's status and processed/failed/total counts. 404 when the id is unknown,
     409 when the id belongs to a delivery retry job.
 
-    Portal tokens: allowed, as GET /portal/api/repush-jobs/{job_id}.
+    Portal tokens: not allowed.
 
     Args:
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
