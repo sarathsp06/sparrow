@@ -190,7 +190,7 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 		Path:        "/v1/consumers/{consumer}/deliveries",
 		Summary:     "List deliveries",
 		Description: "Lists deliveries in a consumer, newest first, optionally filtered by webhook, event occurrence, subscription, event type, status, error category, or creation time. Cursor paginated: pass pagination.next_cursor as cursor for the next page; there is no total count and offset is rejected.\n\n" +
-			"Side effect: prepare_retry=true also snapshots every match (up to 10,000) into a batch job and returns retry_id for POST .../deliveries:retryBatch.\n\nPortal tokens: allowed, as GET /portal/api/deliveries.",
+			"Side effect: prepare_retry=true also snapshots every match (up to 10,000) into a batch job and returns retry_id for POST .../deliveries:retryBatch.\n\nPortal tokens: allowed, as GET /portal/api/deliveries; prepare_retry only while SPARROW_PORTAL_RETRY is true (otherwise 403).",
 		Tags: []string{"Deliveries"},
 	}, func(ctx context.Context, in *listDeliveriesInput) (*listDeliveriesOutput, error) {
 		return listDeliveriesImpl(ctx, svc, in.Consumer, in.DeliveryListParams)
@@ -213,7 +213,7 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 		Path:        "/v1/consumers/{consumer}/deliveries/{delivery_id}:retry",
 		Summary:     "Retry a single delivery",
 		Description: "Queues one delivery for another round of attempts right away: it is reset to pending and gets up to max_attempts new attempts, without TTL expiry. Works for failed, expired, paused, pending and retrying deliveries; a successful one is refused with 409 (use the bulk route with force to resend it). If the webhook or subscription is still paused the delivery is held as paused again. Not idempotent: each call queues another round.\n\n" +
-			"Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry.",
+			"Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry, unless the server runs with SPARROW_PORTAL_RETRY=false (then 403).",
 		Errors: []int{400, 404, 409},
 		Tags:   []string{"Deliveries"},
 	}, func(ctx context.Context, in *retryDeliveryInput) (*retryOutput, error) {
@@ -233,7 +233,7 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 		Path:        "/v1/consumers/{consumer}/deliveries:retry",
 		Summary:     "Retry deliveries in bulk for a webhook",
 		Description: "Queues every failed, pending, retrying or paused delivery of one webhook for another round of attempts (see retryDelivery), in one request. With force, every delivery of the webhook is resent, including successful and expired ones. Returns count 0 when nothing matched. For a filtered or very large set, use prepare_retry and :retryBatch instead.\n\n" +
-			"404 when the webhook does not exist in this consumer.\n\nPortal tokens: allowed, as POST /portal/api/deliveries:retry.",
+			"404 when the webhook does not exist in this consumer.\n\nPortal tokens: allowed, as POST /portal/api/deliveries:retry, unless the server runs with SPARROW_PORTAL_RETRY=false (then 403).",
 		Errors: []int{400, 404},
 		Tags:   []string{"Deliveries"},
 	}, func(ctx context.Context, in *retryDeliveriesByWebhookInput) (*retryOutput, error) {
@@ -281,7 +281,7 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 		Path:        "/v1/consumers/{consumer}/deliveries:retryBatch",
 		Summary:     "Start a batch retry job from a prepared snapshot",
 		Description: "Starts an async job that retries every delivery in a snapshot taken by an earlier GET .../deliveries?prepare_retry=true call, like retryDelivery for each one. Send the retry_id the deliveries list returned. Returns 202 with the job; poll it with getDeliveryRetryJob.\n\n" +
-			"A snapshot can be started once: 409 when it is not pending (already started or cancelled), expired (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400 when it is not a UUID.\n\nPortal tokens: allowed, as POST /portal/api/deliveries:retryBatch.",
+			"A snapshot can be started once: 409 when it is not pending (already started or cancelled), expired (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400 when it is not a UUID.\n\nPortal tokens: allowed, as POST /portal/api/deliveries:retryBatch, unless the server runs with SPARROW_PORTAL_RETRY=false (then 403).",
 		Errors:        []int{400, 404, 409},
 		Tags:          []string{"Deliveries"},
 		DefaultStatus: http.StatusAccepted,

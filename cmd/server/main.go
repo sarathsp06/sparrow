@@ -342,7 +342,7 @@ func main() {
 	// operation plus /openapi.{json,yaml} and the Scalar reference at /docs.
 	r.Group(func(r chi.Router) {
 		r.Use(auth.HTTPMiddleware)
-		rest.Mount(r, tracedWebhookService, rest.AccessDeps{Service: accessSvc, AuthEnabled: auth.Enabled, TokenDefaultTTL: cfg.TokenDefaultTTL}, aiDeps, revocation)
+		rest.Mount(r, tracedWebhookService, rest.AccessDeps{Service: accessSvc, AuthEnabled: auth.Enabled, TokenDefaultTTL: cfg.TokenDefaultTTL, PortalRetry: cfg.PortalRetry}, aiDeps, revocation)
 	})
 
 	// Invite redemption: the invite in the request is the credential, so it
@@ -354,7 +354,8 @@ func main() {
 	// path, and re-dispatches into the router so the same handlers run. The
 	// consumer is carried by the token, never the URL, so an operator exposing
 	// the portal allowlists just /portal, /_app, and /portal/api.
-	r.Handle("/portal/api/*", middleware.PortalGateway(middleware.NewPortalVerifier(accessSvc, accessauth.Realm()), r))
+	// SPARROW_PORTAL_RETRY=false refuses delivery retries there.
+	r.Handle("/portal/api/*", middleware.PortalGateway(middleware.NewPortalVerifier(accessSvc, accessauth.Realm()), middleware.PortalOptions{Retry: cfg.PortalRetry}, r))
 
 	// Initialize health checker
 	healthChecker := health.NewChecker(dbPool, startTime)

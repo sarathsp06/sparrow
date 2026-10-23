@@ -1,6 +1,6 @@
 ---
 title: Error Classification
-description: How Sparrow classifies delivery errors and determines retry behavior
+description: How Sparrow classifies delivery errors into categories, and which failures it retries with backoff and which stop the delivery immediately.
 ---
 
 Sparrow classifies every delivery error into categories. The classification determines whether the delivery is retried or permanently failed. (For the errors the API itself returns to your calls, see [API Errors](/sparrow/reference/api-errors/).)

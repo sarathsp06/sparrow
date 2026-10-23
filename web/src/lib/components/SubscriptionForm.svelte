@@ -2,7 +2,7 @@
   // Create/edit a subscription on its own page. Everything about the
   // template lives behind "Edit template", which opens TemplateEditor.
   import { goto } from "$app/navigation";
-  import { api, unwrap } from "$lib/services";
+  import { api, unwrap, webhookHref } from "$lib/services";
   import { formatAPIError } from "$lib/utils";
   import { listAllEventTypes } from "$lib/system";
   import { onMount } from "svelte";
@@ -30,7 +30,7 @@
   } = $props();
 
   const CATCH_ALL = "*";
-  const backHref = $derived(`/webhooks/${webhookId}?tab=subscriptions`);
+  const backHref = $derived(webhookHref(webhookId, "subscriptions"));
 
   let eventName = $state(subscription?.event_name ?? "");
   let catchAll = $state(subscription?.event_name === CATCH_ALL);
@@ -175,8 +175,8 @@
             </div>
           {/if}
           <div class="flex gap-2">
-            <input type="text" placeholder="key" bind:value={newFilterKey} class="input flex-1 min-w-0" />
-            <input type="text" placeholder="value" bind:value={newFilterValue} class="input flex-1 min-w-0" />
+            <input type="text" placeholder="key" aria-label="Filter key" bind:value={newFilterKey} class="input flex-1 min-w-0" />
+            <input type="text" placeholder="value" aria-label="Filter value" bind:value={newFilterValue} class="input flex-1 min-w-0" />
             <button type="button" onclick={addFilter} class="btn btn-ghost !px-3" aria-label="Add label filter">+</button>
           </div>
         </div>

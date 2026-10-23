@@ -13,6 +13,7 @@
 | Build UI | `make build-ui` | Svelte 5 → `internal/ui/dist/` (embedded via `go:embed`) |
 | Build both | `make build-with-ui` | |
 | Run (dev) | `make run` | Shell/`.env` values win; otherwise `scripts/dev-env.sh` defaults `DATABASE_URL` + an all-zeros keyring. Start Postgres first with `make dev-db` |
+| Portal behind a proxy | `cd deploy/portal && docker compose up -d && ./try.sh` | Private network + Caddy forwarding only `/portal*` and `/_app/*`, like a real portal deployment; `SPARROW_IMAGE=sparrow:dev` tests a local `docker build -t sparrow:dev .` |
 | Start dev Postgres | `make dev-db` | Throwaway `postgres:15-alpine` on localhost:5432 matching the default `DATABASE_URL` |
 | Run UI dev server | `make run-web` | Hot-reload Svelte at localhost (:5173 default) |
 | Run all tests | `make test` | `go test -v ./...` |
@@ -36,6 +37,38 @@
 - **DB**: pgxpool (50 conns, 10 min) for River + sqlx (25 conns) for app queries.
 - **Config**: env vars via `kelseyhightower/envconfig` — see `internal/config/config.go`. A value of `""` or `-` means unset (`config.Load` unsets it before parsing, so defaults apply and the OTel exporters agree); never give an empty value its own meaning in a new variable.
 - **Logging**: `slog` JSON on stdout, bridged to OTel logs. `SPARROW_LOG_LEVEL` (`debug`/`info`/`warn`/`error`, default `info`) sets the level in `cmd/server/main.go` via `Config.SlogLevel`. `info` logs every event and delivery; keep per-request detail at `Debug` so busy instances can run at `warn`.
+
+## Philosophy
+
+Code, docs and reviews in this repository follow the Zen of Python
+([PEP 20](https://peps.python.org/pep-0020/)), whatever the language:
+
+```
+Beautiful is better than ugly.
+Explicit is better than implicit.
+Simple is better than complex.
+Complex is better than complicated.
+Flat is better than nested.
+Sparse is better than dense.
+Readability counts.
+Special cases aren't special enough to break the rules.
+Although practicality beats purity.
+Errors should never pass silently.
+Unless explicitly silenced.
+In the face of ambiguity, refuse the temptation to guess.
+There should be one-- and preferably only one --obvious way to do it.
+Although that way may not be obvious at first unless you're Dutch.
+Now is better than never.
+Although never is often better than *right* now.
+If the implementation is hard to explain, it's a bad idea.
+If the implementation is easy to explain, it may be a good idea.
+Namespaces are one honking great idea -- let's do more of those!
+```
+
+The design principles and conventions below are how it plays out here. A
+change that needs a long explanation, a second way to do something that
+already has one, or an error swallowed without a comment saying why, is the
+signal to stop and simplify. Docs say only what we have run or tested.
 
 ## Design Principles
 
@@ -86,7 +119,7 @@ The embedded UI (`SPARROW_SERVE_UI=true`) is served exactly as built -- the serv
 | `/v1/consumers/{c}/subscriptions/{id}/templateVersions` | Saved template history (`internal/rest/subscription.go`) | Yes | Newest = current; last 20 kept; written when a save changes `transform_template` |
 | `GET /v1/tls/crls`, `POST /v1/tls/crls:refresh` | CRL cache status and refresh (`internal/rest/tls.go`) | Yes | Status is per instance; refresh reaches all instances via NOTIFY, one per minute per server |
 | `/v1/tokens`, `/v1/invites`, `/v1/whoami` | Access token/invite endpoints (`internal/rest/access.go`) | Yes | Under `/v1` — require master key or tenant-wide token |
-| `/portal/api/*` | Portal gateway (`internal/middleware/portal_gateway.go`) | Portal bearer or consumer token | Re-dispatches to `/v1` scoped to the token's consumer |
+| `/portal/api/*` | Portal gateway (`internal/middleware/portal_gateway.go`) | Portal bearer or consumer token | Re-dispatches to `/v1` scoped to the token's consumer. `SPARROW_PORTAL_RETRY=false` refuses the delivery retry routes and `prepare_retry` (403; `portal.retry` in capabilities, portal disables Retry). Re-push (`events:rePush`, `repush-jobs`, `prepare_repush`) is always refused, like `POST events` |
 | `POST /invite/redeem` | Invite redemption (`pkg/access/httpauth`) | No (invite is the credential) | Body `{"invite": "..."}` → token; `400 invalid_invite` for bad/used/expired/cancelled |
 | `* (NotFound)` | UI SPA | No | GET/HEAD → HTML; others → JSON 404 |
 

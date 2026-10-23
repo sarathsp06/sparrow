@@ -104,7 +104,8 @@ def sync_detailed(
     Side effect: prepare_repush=true also snapshots every match (up to 10,000) into a batch job and
     returns repush_id for POST .../events:rePush.
 
-    Portal tokens: allowed, as GET /portal/api/events.
+    Portal tokens: allowed, as GET /portal/api/events, without prepare_repush (re-push is not a portal
+    action; 403).
 
     Args:
         consumer (str): Consumer to list occurrences in.
@@ -179,7 +180,8 @@ def sync(
     Side effect: prepare_repush=true also snapshots every match (up to 10,000) into a batch job and
     returns repush_id for POST .../events:rePush.
 
-    Portal tokens: allowed, as GET /portal/api/events.
+    Portal tokens: allowed, as GET /portal/api/events, without prepare_repush (re-push is not a portal
+    action; 403).
 
     Args:
         consumer (str): Consumer to list occurrences in.
@@ -249,7 +251,8 @@ async def asyncio_detailed(
     Side effect: prepare_repush=true also snapshots every match (up to 10,000) into a batch job and
     returns repush_id for POST .../events:rePush.
 
-    Portal tokens: allowed, as GET /portal/api/events.
+    Portal tokens: allowed, as GET /portal/api/events, without prepare_repush (re-push is not a portal
+    action; 403).
 
     Args:
         consumer (str): Consumer to list occurrences in.
@@ -322,7 +325,8 @@ async def asyncio(
     Side effect: prepare_repush=true also snapshots every match (up to 10,000) into a batch job and
     returns repush_id for POST .../events:rePush.
 
-    Portal tokens: allowed, as GET /portal/api/events.
+    Portal tokens: allowed, as GET /portal/api/events, without prepare_repush (re-push is not a portal
+    action; 403).
 
     Args:
         consumer (str): Consumer to list occurrences in.

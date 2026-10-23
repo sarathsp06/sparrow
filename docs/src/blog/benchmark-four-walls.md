@@ -2,7 +2,7 @@
 title: The benchmark that measured nothing
 kicker: On finding four walls in a webhook pipeline
 author: sarathsp06
-description: We ran a load-test tool nobody had touched in months. It printed zeros and a capacity plan. Four ceilings, several embarrassing mistakes and one redesign later, a single busy webhook delivers four and a half times faster. The story, the numbers, and what we'd tell ourselves at the start.
+description: A load test nobody had run in months printed zeros. Four ceilings and one redesign later, a single busy webhook delivers 4.5x faster. The story and the numbers.
 pubDate: 2026-10-07
 updated: 2026-10-16
 tags: [performance, benchmark, architecture, river, postgres]

@@ -58,7 +58,7 @@ func TestBatchJobsAndAttemptsCarryTheConsumerScope(t *testing.T) {
 	svc := &scopeRecorder{}
 	r := chi.NewRouter()
 	rest.Mount(r, svc, rest.AccessDeps{}, rest.AIDeps{}, nil)
-	portal := middleware.PortalGateway(func(context.Context, string) (string, error) { return "acme", nil }, r)
+	portal := middleware.PortalGateway(func(context.Context, string) (string, error) { return "acme", nil }, middleware.PortalOptions{Retry: true}, r)
 	const id = "11111111-1111-1111-1111-111111111111"
 
 	send := func(h http.Handler, method, path, body, token string) {
@@ -76,7 +76,6 @@ func TestBatchJobsAndAttemptsCarryTheConsumerScope(t *testing.T) {
 	}
 
 	send(portal, http.MethodGet, "/portal/api/retry-jobs/"+id, "", "t")
-	send(portal, http.MethodGet, "/portal/api/repush-jobs/"+id, "", "t")
 	send(portal, http.MethodPost, "/portal/api/retry-jobs/"+id+":cancel", "", "t")
 	send(portal, http.MethodPost, "/portal/api/deliveries:retryBatch", `{"retry_id":"`+id+`"}`, "t")
 	for i, got := range svc.scopes {

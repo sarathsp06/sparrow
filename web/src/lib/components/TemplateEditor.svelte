@@ -5,6 +5,7 @@
   // copy and hands the result back through onSave; nothing is persisted here.
   import { api, unwrap } from "$lib/services";
   import { formatAPIError } from "$lib/utils";
+  import { loadCapabilities } from "$lib/capabilities.svelte";
   import type { components } from "$lib/api-types";
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
@@ -44,6 +45,7 @@
   let strict = $derived(missingKey === "error");
   let viewAs: "raw" | "json" = $state("json");
   let renderTimer: ReturnType<typeof setTimeout> | null = null;
+  let renderSeq = 0; // drops out-of-order render replies
 
   // Helper reference
   let showFunctions = $state(false);
@@ -124,7 +126,7 @@
 
   async function loadContext() {
     try {
-      const caps = unwrap(await api.GET('/v1/capabilities'));
+      const caps = await loadCapabilities();
       aiCapability = caps.ai_drafting ?? { enabled: false };
     } catch { aiCapability = { enabled: false }; }
     if (canRender) {
@@ -162,18 +164,21 @@
     if (!open) return;
     if (!canRender) { rendered = ""; renderError = ""; return; }
     if (!draft.trim()) { rendered = ""; renderError = ""; return; }
+    const seq = ++renderSeq;
     try {
       rendering = true;
       const res = unwrap(await api.POST('/v1/subscriptions:testTemplate', {
         body: { event_name: eventName, template: draft, template_missing_key: strict ? "error" : "zero" },
       }));
+      if (seq !== renderSeq) return; // a newer render superseded this one
       rendered = res.rendered;
       renderError = "";
     } catch (e: any) {
+      if (seq !== renderSeq) return;
       rendered = "";
       renderError = formatAPIError(e, "Template did not render");
     } finally {
-      rendering = false;
+      if (seq === renderSeq) rendering = false;
     }
   }
 

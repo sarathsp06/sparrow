@@ -48,7 +48,7 @@ func newPortalGateway(t *testing.T) (*access.Service, http.Handler, *string) {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
-	return svc, PortalGateway(NewPortalVerifier(svc, testRealm), next), seen
+	return svc, PortalGateway(NewPortalVerifier(svc, testRealm), PortalOptions{Retry: true}, next), seen
 }
 
 func doBearer(handler http.Handler, method, path, token string) int {
@@ -84,6 +84,14 @@ func TestPortalGatewayScopesToTokenConsumer(t *testing.T) {
 		// Event injection is denied for portal tokens (token minting lives
 		// under the global /v1/tokens, which no portal path maps to).
 		{http.MethodPost, "/portal/api/events", http.StatusForbidden, ""},
+		// Re-push is the producer's job too: the action, its jobs, and the
+		// snapshot that feeds it.
+		{http.MethodPost, "/portal/api/events:rePush", http.StatusForbidden, ""},
+		{http.MethodGet, "/portal/api/repush-jobs/job1", http.StatusForbidden, ""},
+		{http.MethodPost, "/portal/api/repush-jobs/job1:cancel", http.StatusForbidden, ""},
+		{http.MethodGet, "/portal/api/events?prepare_repush=true", http.StatusForbidden, ""},
+		// Retry snapshots are allowed while retries are (see TestPortalGatewayRetryOff).
+		{http.MethodGet, "/portal/api/deliveries?prepare_retry=true", http.StatusNoContent, "/v1/consumers/acme/deliveries?prepare_retry=true"},
 		{http.MethodPost, "/portal/api/tokens", http.StatusNoContent, "/v1/consumers/acme/tokens"},
 		// Read-only global helpers the portal UI needs: allowed, not consumer-scoped.
 		// The event-type list is pinned to the token's consumer, whatever the
@@ -115,6 +123,35 @@ func TestPortalGatewayScopesToTokenConsumer(t *testing.T) {
 	}
 }
 
+// SPARROW_PORTAL_RETRY=false: the consumer still reads its deliveries and
+// retry jobs, but every way of sending a delivery again is refused.
+func TestPortalGatewayRetryOff(t *testing.T) {
+	svc := newPortalService(t)
+	token := mintConsumerToken(t, svc, "acme")
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
+	gw := PortalGateway(NewPortalVerifier(svc, testRealm), PortalOptions{Retry: false}, next)
+
+	cases := []struct {
+		method, path string
+		want         int
+	}{
+		{http.MethodPost, "/portal/api/deliveries/abc:retry", http.StatusForbidden},
+		{http.MethodPost, "/portal/api/deliveries:retry", http.StatusForbidden},
+		{http.MethodPost, "/portal/api/deliveries:retryBatch", http.StatusForbidden},
+		{http.MethodGet, "/portal/api/deliveries?prepare_retry=true", http.StatusForbidden},
+		{http.MethodGet, "/portal/api/deliveries", http.StatusNoContent},
+		{http.MethodGet, "/portal/api/deliveries/abc", http.StatusNoContent},
+		{http.MethodGet, "/portal/api/deliveries/abc/attempts", http.StatusNoContent},
+		{http.MethodGet, "/portal/api/retry-jobs/job1", http.StatusNoContent},
+		{http.MethodPost, "/portal/api/retry-jobs/job1:cancel", http.StatusNoContent},
+	}
+	for _, c := range cases {
+		if got := doBearer(gw, c.method, c.path, token); got != c.want {
+			t.Errorf("%s %s = %d, want %d", c.method, c.path, got, c.want)
+		}
+	}
+}
+
 func TestPortalGatewayRejectsGarbageToken(t *testing.T) {
 	_, handler, _ := newPortalGateway(t)
 	if got := doBearer(handler, http.MethodGet, "/portal/api/webhooks", "sparrow_tk_garbage"); got != http.StatusUnauthorized {
@@ -139,7 +176,7 @@ func TestPortalGatewayReDispatchesThroughRouter(t *testing.T) {
 			_, _ = w.Write([]byte(chi.URLParam(req, "consumer")))
 		})
 	})
-	r.Handle("/portal/api/*", PortalGateway(NewPortalVerifier(svc, testRealm), r))
+	r.Handle("/portal/api/*", PortalGateway(NewPortalVerifier(svc, testRealm), PortalOptions{Retry: true}, r))
 
 	token := mintConsumerToken(t, svc, "acme")
 
@@ -171,7 +208,7 @@ func (downStore) TokenByHash(context.Context, []byte) (access.Token, error) {
 func TestPortalGatewayAcceptsConsumerAccessTokens(t *testing.T) {
 	svc := newPortalService(t)
 	seen := new(string)
-	gw := PortalGateway(NewPortalVerifier(svc, testRealm), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	gw := PortalGateway(NewPortalVerifier(svc, testRealm), PortalOptions{Retry: true}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		*seen = r.URL.Path
 		if r.URL.RawQuery != "" {
 			*seen += "?" + r.URL.RawQuery
@@ -212,7 +249,7 @@ func TestPortalGatewayAcceptsConsumerAccessTokens(t *testing.T) {
 
 func TestPortalGatewayStoreOutageIs503(t *testing.T) {
 	svc, _ := access.New(access.Config{Store: downStore{memstore.New()}, TokenPrefix: "sparrow_tk_"})
-	gw := PortalGateway(NewPortalVerifier(svc, testRealm), http.NotFoundHandler())
+	gw := PortalGateway(NewPortalVerifier(svc, testRealm), PortalOptions{Retry: true}, http.NotFoundHandler())
 	if code := doBearer(gw, http.MethodGet, "/portal/api/webhooks", "sparrow_tk_anything"); code != http.StatusServiceUnavailable {
 		t.Fatalf("outage: %d, want 503", code)
 	}

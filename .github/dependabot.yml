@@ -38,8 +38,6 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: docker
-    directories:
-      - /
-      - /.oss-scanner
+    directory: /
     schedule:
       interval: weekly

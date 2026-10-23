@@ -3,6 +3,7 @@ import RecipeWorkbenchApp from '../../components/tools/RecipeWorkbenchApp.svelte
 import '../../styles/sparrow-tokens.css';
 import '../../styles/custom.css';
 import SecurityMeta from '../../components/SecurityMeta.astro';
+import SocialCard from '../../components/SocialCard.astro';
 import faviconSrc from '../../assets/favicon.svg';
 
 const favicon = faviconSrc.src;
@@ -19,6 +20,7 @@ const satellitesDocs = `${base}satellites/`;
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Recipe workbench — Sparrow</title>
   <meta name="description" content="Paste a Sparrow transform template and see what Slack, email, SMS, Discord, ntfy, PagerDuty or ClickHouse receives." />
+  <SocialCard title="Recipe workbench — Sparrow" description="Paste a Sparrow transform template and see what Slack, email, SMS, Discord, ntfy, PagerDuty or ClickHouse receives." />
   <link rel="icon" href={favicon} type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

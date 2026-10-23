@@ -83,7 +83,7 @@ def sync_detailed(
     (every 25 items). Occurrences already re-pushed are not rolled back. Returns 204. 409 when the job
     is already completed or cancelled.
 
-    Portal tokens: allowed, as POST /portal/api/repush-jobs/{job_id}:cancel.
+    Portal tokens: not allowed.
 
     Args:
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
@@ -123,7 +123,7 @@ def sync(
     (every 25 items). Occurrences already re-pushed are not rolled back. Returns 204. 409 when the job
     is already completed or cancelled.
 
-    Portal tokens: allowed, as POST /portal/api/repush-jobs/{job_id}:cancel.
+    Portal tokens: not allowed.
 
     Args:
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
@@ -158,7 +158,7 @@ async def asyncio_detailed(
     (every 25 items). Occurrences already re-pushed are not rolled back. Returns 204. 409 when the job
     is already completed or cancelled.
 
-    Portal tokens: allowed, as POST /portal/api/repush-jobs/{job_id}:cancel.
+    Portal tokens: not allowed.
 
     Args:
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
@@ -196,7 +196,7 @@ async def asyncio(
     (every 25 items). Occurrences already re-pushed are not rolled back. Returns 204. 409 when the job
     is already completed or cancelled.
 
-    Portal tokens: allowed, as POST /portal/api/repush-jobs/{job_id}:cancel.
+    Portal tokens: not allowed.
 
     Args:
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer

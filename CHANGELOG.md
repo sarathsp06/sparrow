@@ -16,6 +16,30 @@ migrations run on startup.
 
 ## [Unreleased]
 
+### Added
+
+- `SPARROW_PORTAL_RETRY` (default `true`) controls whether consumers can retry their own deliveries from the portal. With `false` the portal API refuses retries (403), `GET /v1/capabilities` reports `portal.retry: false`, and the portal shows its Retry buttons disabled; consumers still see every delivery.
+- `deploy/portal/`: a Docker Compose stack with Sparrow on a private network and a Caddy proxy that exposes only the portal, plus a seed script. A starting point for hosting the portal, and a way to test it locally.
+
+### Changed
+
+- Portal tokens are refused for event re-push (`events:rePush`, re-push jobs and the `prepare_repush` snapshot), like pushing events. Re-push stays available with the master key and tenant-wide tokens.
+
+### Fixed
+
+- Portal: adding or editing a subscription no longer leaves the portal for console pages. Behind a proxy that forwards only `/portal`, those pages failed to load deliveries, health and access (`Unexpected token '<'`). Subscription pages now live under `/portal/webhooks/...` and saving returns to the portal.
+- Web UI: stale async replies no longer overwrite newer state — template
+  preview renders, portal webhook switches, and delivery-list live refresh
+  each ignore out-of-date responses; background pollers no longer overlap,
+  pause while the tab is hidden, and surface poll failures instead of
+  freezing the progress bar.
+- Docs: the portal guide's Caddy example answered 404 to every request (Caddy runs `respond` before `reverse_proxy`); it now uses `handle` blocks and forwards `POST /invite/redeem` so consumer invite links work through the proxy. The untested nginx and Express examples were removed; the Caddy example is the one `deploy/portal/` runs.
+
+### Upgrading
+
+- Portal tokens can no longer re-push events: `POST /portal/api/events:rePush`, `/portal/api/repush-jobs/*` and `GET /portal/api/events?prepare_repush` now answer 403. The portal UI never offered re-push; re-push from the admin side (`/v1`) instead.
+- If a proxy exposes the portal, forward everything under `/portal/` (not only `/portal` and `/portal/api/`), so a reload on a portal subscription page works. The Caddy example in the portal guide shows the new rule.
+
 ## [v1.1.0] - 2026-10-21
 
 ### Upgrading

@@ -105,6 +105,7 @@ from .patch_webhook_body import PatchWebhookBody
 from .patch_webhook_body_headers import PatchWebhookBodyHeaders
 from .patch_webhook_body_secret_headers import PatchWebhookBodySecretHeaders
 from .pause_subscription_input_body import PauseSubscriptionInputBody
+from .portal_struct import PortalStruct
 from .push_event_body import PushEventBody
 from .push_event_body_labels import PushEventBodyLabels
 from .push_event_body_metadata import PushEventBodyMetadata
@@ -285,6 +286,7 @@ __all__ = (
     "PatchWebhookBodyHeaders",
     "PatchWebhookBodySecretHeaders",
     "PauseSubscriptionInputBody",
+    "PortalStruct",
     "PushEventBody",
     "PushEventBodyLabels",
     "PushEventBodyMetadata",

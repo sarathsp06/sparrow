@@ -529,7 +529,7 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		Path:        "/v1/consumers/{consumer}/events",
 		Summary:     "List pushed event occurrences",
 		Description: "Lists pushed event occurrences in a consumer, newest first, with delivery outcome counts per occurrence. Cursor paginated: pass pagination.next_cursor as cursor for the next page; there is no total count and offset is rejected.\n\n" +
-			"Side effect: prepare_repush=true also snapshots every match (up to 10,000) into a batch job and returns repush_id for POST .../events:rePush.\n\nPortal tokens: allowed, as GET /portal/api/events.",
+			"Side effect: prepare_repush=true also snapshots every match (up to 10,000) into a batch job and returns repush_id for POST .../events:rePush.\n\nPortal tokens: allowed, as GET /portal/api/events, without prepare_repush (re-push is not a portal action; 403).",
 		Tags: []string{"Events"},
 	}, func(ctx context.Context, in *listEventOccurrencesInput) (*listEventOccurrencesOutput, error) {
 		return listEventOccurrencesImpl(ctx, svc, in.Consumer, in.EventOccurrenceListParams)
@@ -605,7 +605,7 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		Path:        "/v1/consumers/{consumer}/events:rePush",
 		Summary:     "Start a batch re-push job from a prepared snapshot",
 		Description: "Starts an async job that re-pushes every event occurrence in a snapshot taken by an earlier GET .../events?prepare_repush=true call. Each re-push creates a new event occurrence with the original payload, without re-validating it; sparrow.* system events are skipped and counted as failed. Returns 202 with the job; poll it with getEventRepushJob.\n\n" +
-			"A snapshot can be started once: 409 when it is not pending (already started or cancelled) or expired (15 minutes after it was taken), 404 when the id is unknown, 400 when it is not a UUID.\n\nPortal tokens: allowed, as POST /portal/api/events:rePush.",
+			"A snapshot can be started once: 409 when it is not pending (already started or cancelled) or expired (15 minutes after it was taken), 404 when the id is unknown, 400 when it is not a UUID.\n\nPortal tokens: not allowed (re-pushing events is the producer's job, like pushing them).",
 		Errors:        []int{400, 404, 409},
 		Tags:          []string{"Events"},
 		DefaultStatus: http.StatusAccepted,
@@ -625,7 +625,7 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		Method:      http.MethodGet,
 		Path:        "/v1/consumers/{consumer}/repush-jobs/{job_id}",
 		Summary:     "Get batch re-push job progress",
-		Description: "Returns a batch re-push job's status and processed/failed/total counts. 404 when the id is unknown, 409 when the id belongs to a delivery retry job.\n\nPortal tokens: allowed, as GET /portal/api/repush-jobs/{job_id}.",
+		Description: "Returns a batch re-push job's status and processed/failed/total counts. 404 when the id is unknown, 409 when the id belongs to a delivery retry job.\n\nPortal tokens: not allowed.",
 		Errors:      []int{400, 404, 409},
 		Tags:        []string{"Events"},
 	}, func(ctx context.Context, in *jobIDInput) (*batchJobOutput, error) {
@@ -641,7 +641,7 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		Method:        http.MethodPost,
 		Path:          "/v1/consumers/{consumer}/repush-jobs/{job_id}:cancel",
 		Summary:       "Cancel a pending or in-progress batch re-push job",
-		Description:   "Cancels a pending or running batch re-push job; a running job stops at its next progress check (every 25 items). Occurrences already re-pushed are not rolled back. Returns 204. 409 when the job is already completed or cancelled.\n\nPortal tokens: allowed, as POST /portal/api/repush-jobs/{job_id}:cancel.",
+		Description:   "Cancels a pending or running batch re-push job; a running job stops at its next progress check (every 25 items). Occurrences already re-pushed are not rolled back. Returns 204. 409 when the job is already completed or cancelled.\n\nPortal tokens: not allowed.",
 		Errors:        []int{400, 404, 409},
 		Tags:          []string{"Events"},
 		DefaultStatus: http.StatusNoContent,

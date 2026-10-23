@@ -1,6 +1,6 @@
 ---
 title: Embedding the Consumer Portal
-description: Give external consumers a self-service webhook portal while Sparrow stays on a private network — full walkthrough of the proxy-the-slice topology with nginx and Express examples, plus the security analysis.
+description: "Give consumers a self-service webhook portal while Sparrow stays private: the proxy-the-slice topology, a tested Caddy and Compose stack, and its security."
 ---
 
 
@@ -130,13 +130,14 @@ origin, no CORS configuration is needed anywhere.
 
 ## The route allowlist
 
-Forward exactly these routes (three required, the favicon optional), deny everything else:
+Forward exactly these routes (three required, invites and the favicon optional), deny everything else:
 
 | Route | Why the portal needs it |
 |---|---|
-| `GET /portal` | the portal page itself |
+| `GET /portal`, `GET /portal/*` | the portal page itself, and its subscription pages (`/portal/webhooks/...`), which a browser reload requests directly |
 | `GET /_app/*` | SPA JS/CSS bundle |
 | `* /portal/api/*` | **every** portal API call — webhooks, subscriptions, deliveries, retries, and the read-only catalog/template helpers, all bearer-scoped to the token's consumer |
+| `POST /invite/redeem` | only if you hand out consumer invite links (`/portal#invite=...`): exchanges the single-use invite for a portal token (optional) |
 | `GET /favicon.png` | tab icon (optional) |
 
 That single `/portal/api/*` prefix replaces every per-consumer and per-helper
@@ -152,88 +153,177 @@ cannot be remounted under `/integrations/webhooks/`. If those roots collide
 with your app's own routes, put the proxy on a dedicated subdomain
 (`hooks.yourapp.com`).
 
-## Example: Caddy (simplest — start here)
+## Serving the portal with Caddy
 
-[Caddy](https://caddyserver.com) provisions the TLS certificate itself, so
-the entire public vhost is one `Caddyfile` block:
+[Caddy](https://caddyserver.com) is the proxy we test the portal with: one
+short file, and with a hostname it manages the TLS certificate itself
+([automatic HTTPS](https://caddyserver.com/docs/automatic-https)). The configuration below is
+[`deploy/portal/Caddyfile`](https://github.com/sarathsp06/sparrow/blob/main/deploy/portal/Caddyfile),
+which the [Docker Compose stack](#try-the-whole-topology-locally) runs, with
+`:80` replaced by a hostname.
+
+### The Caddyfile
 
 ```text
 hooks.yourapp.com {
-	# No deny rules needed — the portal gateway scopes and refuses on its own.
-	@portal path /portal /portal/api/* /_app/* /favicon.png
-	reverse_proxy @portal sparrow:8080
+	# The portal page, its subscription pages (/portal/webhooks/...), and its
+	# API (/portal/api/*). The API is bearer-scoped by Sparrow's portal
+	# gateway, so no deny rules are needed here.
+	@portal path /portal /portal/* /_app/* /favicon.png
+	handle @portal {
+		reverse_proxy sparrow:8080
+	}
 
-	respond 404   # everything else
+	# Consumer invite links (/portal#invite=...) are exchanged here for a
+	# portal token. Leave this block out if you only hand out portal links.
+	@redeem {
+		method POST
+		path /invite/redeem
+	}
+	handle @redeem {
+		reverse_proxy sparrow:8080
+	}
+
+	# Everything else, including /, /v1, /docs, /health and /metrics.
+	respond 404
 }
 ```
 
-Run `caddy run --config Caddyfile` on the dual-homed machine and the portal
-is live at `https://hooks.yourapp.com/portal#token=...`.
+| Part | What it does |
+|---|---|
+| `hooks.yourapp.com {` | The public hostname, which turns on Caddy's automatic HTTPS (ports 80 and 443 must reach Caddy). The Compose stack uses `:80` instead: plain HTTP, for local testing or behind another TLS terminator. |
+| `@portal path ...` | The allowlist. `/portal/*` covers the subscription pages and every API call under `/portal/api/`; `/_app/*` is the JavaScript and CSS bundle. |
+| `handle @portal { reverse_proxy sparrow:8080 }` | Forwards matching requests unchanged: same path, method, headers (including the `Authorization: Bearer` token) and body. `sparrow:8080` is Sparrow's address on your private network. |
+| `@redeem` + `handle @redeem` | `POST /invite/redeem` only. The single-use invite in the body is the credential; any other method gets the 404 below. |
+| `respond 404` | Caddy answers everything else itself; Sparrow never sees the request. |
 
-## Example: nginx
+### Running it
 
-```nginx
-# hooks.yourapp.com — public vhost, forwards only the portal slice.
-# Rate-limit the API slice (Sparrow does not rate-limit itself).
-# limit_req_zone is only allowed in the http {} context.
-limit_req_zone $binary_remote_addr zone=portal:10m rate=20r/s;
+Run Caddy wherever it can reach both the internet and Sparrow on the private
+network. As a container, this is the `portal-proxy` service from
+`deploy/portal/docker-compose.yml` with production ports:
 
-server {
-    listen 443 ssl;
-    server_name hooks.yourapp.com;
-    # ... ssl_certificate, etc.
-
-    location = /portal          { proxy_pass http://sparrow:8080; }
-    location /_app/             { proxy_pass http://sparrow:8080; }
-    location = /favicon.png     { proxy_pass http://sparrow:8080; }
-
-    # Every portal API call, bearer-scoped by the gateway. No deny rules
-    # needed — the gateway refuses minting/injection and cross-consumer itself.
-    location /portal/api/ {
-        limit_req zone=portal burst=40 nodelay;
-        proxy_pass http://sparrow:8080;
-    }
-
-    location / { return 404; }
-}
+```yaml
+portal-proxy:
+  image: caddy:2-alpine
+  restart: unless-stopped
+  networks: [private, public]     # the only service on both
+  ports:
+    - "80:80"                     # certificate challenges and the HTTPS redirect
+    - "443:443"
+  volumes:
+    - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    - caddy_data:/data            # keeps certificates across restarts
 ```
 
-Never add `proxy_set_header X-API-Key ...` in this vhost — a valid admin key
-outranks portal token scoping, so injecting it would silently make every
-portal visitor an admin.
+Sparrow itself must not publish a port to the internet. In the Compose stack
+it publishes only `127.0.0.1:8180`, standing in for "reachable over the
+VPN"; your backend mints portal tokens and your producers push events
+through that private side, never through Caddy.
 
-## Example: Express (your app's backend as the proxy)
+### Checking it
 
-If you'd rather not run a separate vhost, a few lines in your existing Node
-backend do the same job:
+These are the responses through the proxy in the Compose stack (`$T` is a
+portal token from `./try.sh`). Run the same requests against your hostname
+after deploying:
 
-```js
-import { createProxyMiddleware } from "http-proxy-middleware";
+| Request through the proxy | Response | Why |
+|---|---|---|
+| `GET /portal`, `GET /portal/webhooks/<id>/subscriptions/new` | 200 | portal pages |
+| `GET /portal/api/webhooks` without a token | 401 | the gateway needs a portal token |
+| `GET /portal/api/webhooks` with `Authorization: Bearer $T` | 200 | that consumer's webhooks only |
+| `POST /portal/api/events`, `POST /portal/api/events:rePush` | 403 | pushing and re-pushing events is the producer's job |
+| `POST /invite/redeem` with an unknown invite | 400 | forwarded; the invite is checked by Sparrow |
+| `GET /invite/redeem` | 404 | only `POST` is forwarded |
+| `GET /`, `/v1/webhooks`, `/v1/tokens`, `/docs`, `/openapi.yaml`, `/health`, `/ready`, `/metrics` | 404 | from Caddy: not in the allowlist |
+| `GET /v1/webhooks` with a valid `X-API-Key` | 404 | an admin key does not help from the public side |
 
-const SPARROW = "http://sparrow:8080"; // reachable over the VPN only
-
-const portalSlice = ["/portal", "/portal/api", "/_app", "/favicon.png"];
-
-// No deny middleware needed: the gateway derives the consumer from the token
-// and refuses minting, event injection, and cross-consumer access itself.
-app.use(portalSlice, createProxyMiddleware({ target: SPARROW, changeOrigin: true }));
-
-// Minting stays server-side, behind YOUR auth:
-app.post("/api/webhook-portal-link", requireLogin, async (req, res) => {
-  const consumer = req.user.tenantId; // however you map users → consumers
-  const r = await fetch(`${SPARROW}/v1/tokens`, {
-    method: "POST",
-    headers: { "X-API-Key": process.env.SPARROW_API_KEY, "Content-Type": "application/json" },
-    // external_id: the same user gets the same link back while it is valid.
-    body: JSON.stringify({ name: "portal", consumer, ttl_seconds: 3600, external_id: req.user.id }),
-  });
-  const { portal_path } = await r.json();
-  res.json({ url: portal_path }); // same-origin: /portal#token=...
-});
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://hooks.yourapp.com/v1/webhooks   # 404
+curl -s -o /dev/null -w '%{http_code}\n' https://hooks.yourapp.com/portal/api/webhooks   # 401
 ```
 
-Then link or iframe `url` from your UI. Because everything is same-origin,
-no `SPARROW_CORS_ALLOWED_ORIGINS` configuration is needed.
+### Mistakes to avoid
+
+Each of these was tried against the Compose stack:
+
+- **A bare `reverse_proxy @portal` next to `respond 404`** answers 404 to
+  every request, `/portal` included: Caddy runs `respond` before
+  `reverse_proxy` whatever their order in the file. Keep each
+  `reverse_proxy` inside a `handle` block, as above.
+- **`handle_path /portal/*`** strips the prefix, so `/portal/api/webhooks`
+  reaches Sparrow as `/api/webhooks` and comes back as the dashboard's HTML
+  with a 200. The portal then fails with `Unexpected token '<'`. Use
+  `handle`, which forwards paths unchanged; if `/portal` collides with your
+  own routes, give the portal its own hostname.
+- **An injected admin key** (`header_up X-API-Key ...`) is not needed, and on
+  these routes it changes nothing: portal calls stay pinned to the token's
+  consumer, and a call without a portal token is still 401. Leave it out
+  anyway. On any route beyond this allowlist, such as `/v1`, it would make
+  every visitor an admin.
+
+Sparrow does not limit request rates. If the portal faces untrusted
+traffic, put a limiter in front of `/portal/api/`.
+
+## Try the whole topology locally
+
+[`deploy/portal/`](https://github.com/sarathsp06/sparrow/tree/main/deploy/portal)
+runs everything on one machine, so you can see which side reaches what
+before deploying:
+
+| Service | Networks | Published | Stands in for |
+|---|---|---|---|
+| `postgres` | `private` | nothing | your database |
+| `sparrow` | `private` | `127.0.0.1:8180` | Sparrow on your VPN: admin UI, `/v1`, token minting |
+| `portal-proxy` (Caddy, the file above with `:80`) | `private`, `public` | `127.0.0.1:8181` | your public portal hostname |
+| `receiver` | `private` | nothing | a consumer's webhook endpoint: `/hook` answers 200, `/fail` answers 410 |
+
+```bash
+cd deploy/portal
+docker compose up -d
+./try.sh     # webhooks, events and a portal link for consumer "acme"
+```
+
+Then:
+
+1. **The public side.** Open the printed `http://localhost:8181/portal#token=...`
+   link. The consumer sees both webhooks, their successful and failed
+   deliveries, and can retry the failed ones. Every request in the browser's
+   network tab goes to `/portal/...` or `/_app/...`.
+2. **What the public side cannot reach.** Run the requests from
+   [Checking it](#checking-it) against `http://localhost:8181`: the admin
+   UI, `/v1`, `/docs` and the health endpoints are 404 from Caddy.
+3. **The private ("VPN") side.** `http://localhost:8180` is the admin UI and
+   API (key `local-admin-key`): the only place tokens are minted and events
+   pushed.
+4. **Retries off.** Restart Sparrow with the switch:
+   `SPARROW_PORTAL_RETRY=false docker compose up -d sparrow`. The portal
+   shows its Retry buttons disabled and the retry calls answer 403.
+5. **A local build.** To test changes to Sparrow itself:
+   `docker build -t sparrow:dev ../.. && SPARROW_IMAGE=sparrow:dev docker compose up -d`.
+
+`docker compose down -v` removes everything. The admin key, the all-zeros
+encryption key and `SPARROW_ALLOW_PRIVATE_NETWORKS` (for the demo receiver)
+are local-only values; [Production
+Deployment](/sparrow/deployment/production/) covers the real ones.
+
+## Letting consumers retry
+
+By default a consumer can retry its own failed deliveries from the portal
+(one at a time, or the deliveries held while a webhook was paused). To keep
+resending in your hands, start Sparrow with `SPARROW_PORTAL_RETRY=false`:
+
+- the portal gateway answers `403` to `POST /portal/api/deliveries/{id}:retry`,
+  `deliveries:retry` and `deliveries:retryBatch`;
+- `GET /portal/api/capabilities` reports `portal.retry: false`, and the
+  portal shows its Retry buttons disabled, with the reason;
+- consumers still see every delivery and its attempts, and the master key
+  and tenant-wide tokens can still retry on `/v1`.
+
+Re-pushing events (`events:rePush`) is never available to portal tokens,
+whatever this switch says: it fans events out again, in bulk, to the current
+subscriptions, which is the producer's job like pushing them. To backfill a
+consumer's new subscription, re-push from the admin side.
 
 ## Security analysis
 
@@ -241,7 +331,7 @@ What each party can and cannot do:
 
 | Actor | Can | Cannot |
 |---|---|---|
-| Portal visitor with a valid token for `acme` | Manage `acme`'s webhooks/subscriptions, view and retry `acme`'s deliveries | Read any other consumer, inject events, mint tokens, reach the admin UI/API |
+| Portal visitor with a valid token for `acme` | Manage `acme`'s webhooks/subscriptions, view `acme`'s deliveries and retry them (unless `SPARROW_PORTAL_RETRY=false`) | Read any other consumer, push or re-push events, mint tokens, reach the admin UI/API |
 | Anyone hitting the public vhost without a token | Load the portal shell (renders "missing access link") | Call any API route — everything under `/portal/api` returns 401 |
 | Someone who steals a portal link | Everything the legitimate holder can, until it expires or you revoke it | Escalate beyond that consumer |
 | Your backend | Mint tokens for any consumer (it holds the admin key) | — (it is fully trusted; keep the key server-side) |
@@ -259,9 +349,9 @@ Why the pieces hold:
   is impossible even if the whole prefix is forwarded.
 - **No admin key in the browser, ever.** The server never writes
   `SPARROW_API_KEY` into any served page (portal or dashboard), and the
-  mint call is server-to-server. The single fatal misconfiguration is a
-  proxy that injects `X-API-Key` on forwarded portal routes -- never do
-  that.
+  mint call is server-to-server. The fatal misconfiguration is a public
+  vhost that forwards more than the allowlist, such as `/v1`, while
+  injecting `X-API-Key`: whoever reaches it is an admin.
 - **Fragment tokens don't leak into logs.** `#token=...` is never sent in
   HTTP requests; the portal moves it to `sessionStorage` and sends it only
   as an `Authorization` header over TLS.

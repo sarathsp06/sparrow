@@ -61,6 +61,29 @@ function initPortal(): PortalSession | null {
 
 export const portal = initPortal();
 
+// Page links shared by the console and the portal. A portal is often exposed
+// through a proxy that forwards only /portal (and /portal/api/), so in portal
+// mode a link must never leave /portal: the console pages call APIs the
+// proxy does not forward.
+
+/** The webhook list: the console's, or the portal home. */
+export const webhooksHref = portal ? "/portal" : "/webhooks";
+
+/** Tabs both the console's webhook page and the portal home can open on. */
+export type WebhookTab = "deliveries" | "subscriptions" | "test";
+
+/** A webhook's page, opened on tab: the console page, or the portal home with it selected. */
+export function webhookHref(webhookId: string, tab?: WebhookTab): string {
+  const id = encodeURIComponent(webhookId);
+  if (portal) return `/portal?webhook=${id}${tab ? `&tab=${tab}` : ""}`;
+  return `/webhooks/${id}${tab ? `?tab=${tab}` : ""}`;
+}
+
+/** Base of a webhook's subscription create/edit pages (".../new", ".../<id>/edit"). */
+export function subscriptionPagesHref(webhookId: string): string {
+  return `${portal ? "/portal" : ""}/webhooks/${encodeURIComponent(webhookId)}/subscriptions`;
+}
+
 
 // Portal path gateway: in portal mode every API call goes out under the single
 // /portal/api/ prefix instead of /v1/..., so an operator embedding the portal

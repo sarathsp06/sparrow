@@ -24,7 +24,7 @@ release, and the release notes credit the reporter unless you ask otherwise.
 
 1. **Acknowledge** within 14 days and confirm whether the issue reproduces.
 2. **Assess** severity using the ratings in the
-   [threat model](.oss-scanner/threat_model.md#severity), and agree a
+   [threat model](THREAT_MODEL.md#severity), and agree a
    disclosure date with the reporter (normally within 90 days of the report).
 3. **Fix** in private, through a GitHub security advisory and its temporary
    private fork, with a regression test.
@@ -41,7 +41,7 @@ reporting, if you can.
 ## Scope
 
 The server (`cmd/server`), the CLI and satellites under `satellites/`, and the
-libraries under `pkg/` are in scope. [`.oss-scanner/threat_model.md`](.oss-scanner/threat_model.md)
+libraries under `pkg/` are in scope. [`THREAT_MODEL.md`](THREAT_MODEL.md)
 describes the trust boundaries and how findings are rated. Behaviour documented
 as a known gap in [AGENTS.md](AGENTS.md) (for example, no inbound rate limiting
 on `/v1`) is not a vulnerability by itself. See

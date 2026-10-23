@@ -5,6 +5,7 @@
   // leave them.
   import { api, unwrap } from "$lib/services";
   import { formatAPIError } from "$lib/utils";
+  import { retryPolicy } from "$lib/capabilities.svelte";
 
   let {
     consumer,
@@ -51,10 +52,15 @@
     {count === 1
       ? "1 delivery was held while paused. It is not sent automatically."
       : `${count} deliveries were held while paused. They are not sent automatically.`}
+    {#if !retryPolicy.allowed}<span class="block text-xs text-muted mt-1">{retryPolicy.reason}</span>{/if}
     {#if error}<span class="block text-xs mt-1" style="color:var(--color-bad)">{error}</span>{/if}
   </p>
   <div class="flex gap-2">
     <button class="btn btn-ghost !px-3 !py-1.5" onclick={onclose}>Leave them</button>
-    <button class="btn btn-beacon !px-3 !py-1.5" disabled={retrying} onclick={retryHeld}>Retry paused deliveries</button>
+    <button
+      class="btn btn-beacon !px-3 !py-1.5"
+      disabled={retrying || !retryPolicy.allowed}
+      title={retryPolicy.allowed ? undefined : retryPolicy.reason}
+      onclick={retryHeld}>Retry paused deliveries</button>
   </div>
 </div>

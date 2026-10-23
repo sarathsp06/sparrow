@@ -13,7 +13,7 @@ export interface paths {
         };
         /**
          * List optional server features
-         * @description Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, and whether alert email delivery is set up. Read-only.
+         * @description Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, whether alert email delivery is set up, and whether portal tokens may retry deliveries. Read-only.
          *
          *     ai_drafting.enabled reflects SPARROW_AI_ENABLED=true; drafting is usable only when enabled is true and problem is absent; prompt_only is the opposite of enabled.
          *
@@ -115,7 +115,7 @@ export interface paths {
          *
          *     Side effect: prepare_retry=true also snapshots every match (up to 10,000) into a batch job and returns retry_id for POST .../deliveries:retryBatch.
          *
-         *     Portal tokens: allowed, as GET /portal/api/deliveries.
+         *     Portal tokens: allowed, as GET /portal/api/deliveries; prepare_retry only while SPARROW_PORTAL_RETRY is true (otherwise 403).
          */
         get: operations["listDeliveries"];
         put?: never;
@@ -183,7 +183,7 @@ export interface paths {
          * Retry a single delivery
          * @description Queues one delivery for another round of attempts right away: it is reset to pending and gets up to max_attempts new attempts, without TTL expiry. Works for failed, expired, paused, pending and retrying deliveries; a successful one is refused with 409 (use the bulk route with force to resend it). If the webhook or subscription is still paused the delivery is held as paused again. Not idempotent: each call queues another round.
          *
-         *     Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry.
+         *     Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry, unless the server runs with SPARROW_PORTAL_RETRY=false (then 403).
          */
         post: operations["retryDelivery"];
         delete?: never;
@@ -207,7 +207,7 @@ export interface paths {
          *
          *     404 when the webhook does not exist in this consumer.
          *
-         *     Portal tokens: allowed, as POST /portal/api/deliveries:retry.
+         *     Portal tokens: allowed, as POST /portal/api/deliveries:retry, unless the server runs with SPARROW_PORTAL_RETRY=false (then 403).
          */
         post: operations["retryDeliveriesByWebhook"];
         delete?: never;
@@ -231,7 +231,7 @@ export interface paths {
          *
          *     A snapshot can be started once: 409 when it is not pending (already started or cancelled), expired (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400 when it is not a UUID.
          *
-         *     Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch.
+         *     Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch, unless the server runs with SPARROW_PORTAL_RETRY=false (then 403).
          */
         post: operations["startDeliveryRetryJob"];
         delete?: never;
@@ -253,7 +253,7 @@ export interface paths {
          *
          *     Side effect: prepare_repush=true also snapshots every match (up to 10,000) into a batch job and returns repush_id for POST .../events:rePush.
          *
-         *     Portal tokens: allowed, as GET /portal/api/events.
+         *     Portal tokens: allowed, as GET /portal/api/events, without prepare_repush (re-push is not a portal action; 403).
          */
         get: operations["listEventOccurrences"];
         put?: never;
@@ -289,7 +289,7 @@ export interface paths {
          *
          *     A snapshot can be started once: 409 when it is not pending (already started or cancelled) or expired (15 minutes after it was taken), 404 when the id is unknown, 400 when it is not a UUID.
          *
-         *     Portal tokens: allowed, as POST /portal/api/events:rePush.
+         *     Portal tokens: not allowed (re-pushing events is the producer's job, like pushing them).
          */
         post: operations["startEventRepushJob"];
         delete?: never;
@@ -309,7 +309,7 @@ export interface paths {
          * Get batch re-push job progress
          * @description Returns a batch re-push job's status and processed/failed/total counts. 404 when the id is unknown, 409 when the id belongs to a delivery retry job.
          *
-         *     Portal tokens: allowed, as GET /portal/api/repush-jobs/{job_id}.
+         *     Portal tokens: not allowed.
          */
         get: operations["getEventRepushJob"];
         put?: never;
@@ -333,7 +333,7 @@ export interface paths {
          * Cancel a pending or in-progress batch re-push job
          * @description Cancels a pending or running batch re-push job; a running job stops at its next progress check (every 25 items). Occurrences already re-pushed are not rolled back. Returns 204. 409 when the job is already completed or cancelled.
          *
-         *     Portal tokens: allowed, as POST /portal/api/repush-jobs/{job_id}:cancel.
+         *     Portal tokens: not allowed.
          */
         post: operations["cancelEventRepushJob"];
         delete?: never;
@@ -1579,6 +1579,8 @@ export interface components {
             ai_drafting: components["schemas"]["AIDraftingStruct"];
             /** @description Delivery of Sparrow's own alert emails (see the alert-configs endpoints). */
             alert_delivery: components["schemas"]["AlertDeliveryStruct"];
+            /** @description What the consumer portal is allowed to do on this server. */
+            portal: components["schemas"]["PortalStruct"];
         };
         ConsumerHint: {
             /** @description Consumer to register the recipe under, e.g. _sparrow. */
@@ -2694,6 +2696,10 @@ export interface components {
             readonly $schema?: string;
             /** @description Why the subscription is paused, shown next to it, for example: receiver maintenance until Friday. */
             reason?: string;
+        };
+        PortalStruct: {
+            /** @description True when portal tokens may retry their deliveries (SPARROW_PORTAL_RETRY, default true). When false, the retry calls under /portal/api/ answer 403; admins can still retry. */
+            retry: boolean;
         };
         PushEventBody: {
             /**

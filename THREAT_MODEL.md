@@ -6,8 +6,8 @@ the subscriptions of a *consumer*, optionally reshapes the payload with a Go
 template, signs it, and POSTs it to the consumer's registered webhook URLs with
 retries, pausing, health tracking and auto-disable. PostgreSQL holds all state
 and the job queue (River). An embedded Svelte SPA and a consumer-facing portal
-are served by the same binary. Read `AGENTS.md` and `okf/index.md` in the scanned
-revision for the current architecture; do not assume package names are fixed.
+are served by the same binary. Read `AGENTS.md` and `okf/index.md` for the current
+architecture; do not assume package names are fixed.
 
 The typical deployment is one organisation running Sparrow behind a VPN, with
 several internal teams (consumers) sharing it. It is not designed as public
@@ -80,18 +80,15 @@ networks and the consumer boundary is a real security boundary.
 
 ## How to exercise it
 
-The checkout is at `/src`. Binaries are in `/usr/local/bin`: `sparrow-server`,
-`sparrow-migrate`, `sparrow` (CLI), `sparrow-sinks`, `sparrow-sources`.
-PostgreSQL is installed; `DATABASE_URL` and a dev-only all-zeros keyring are
-set in the environment. Go module caches are populated and
-`GOPROXY=off`/`GOSUMDB=off` keep builds offline.
+From a checkout, `make dev-db` starts a throwaway PostgreSQL matching the
+default `DATABASE_URL`, and `make run` fills in a dev-only all-zeros keyring
+(`scripts/dev-env.sh`).
 
 ```sh
-service postgresql start
-cd /src
+make dev-db
 make test                              # all workspace modules
 go test ./internal/middleware/... ./pkg/access/...
-SPARROW_API_KEY=master SPARROW_HTTP_PORT=8080 sparrow-server &   # migrates on start
+SPARROW_API_KEY=master make run &      # migrates on start, listens on :8080
 curl -s -H 'X-API-Key: master' localhost:8080/v1/whoami
 cd web && npm run test:unit
 ```
@@ -99,8 +96,8 @@ cd web && npm run test:unit
 Use local HTTP servers as webhook receivers; with the default SSRF policy you
 need `SPARROW_ALLOWED_NETWORKS=127.0.0.1/32` (or
 `SPARROW_ALLOW_PRIVATE_NETWORKS=true`) to deliver to localhost. Integration
-(`-tags integration`, testcontainers), Gauge e2e and Playwright tests need
-Docker or browsers and are not provisioned.
+(`-tags integration`, testcontainers), Gauge e2e and Playwright tests also need
+Docker or browsers.
 
 ## Severity
 
@@ -131,6 +128,6 @@ Docker or browsers and are not provisioned.
 ## Reports
 
 Include the attacker's starting credential (none, consumer token, tenant token,
-master key), the request sequence, and a reproducer that runs against the local
-PostgreSQL in this image, ideally as a Go test. Proposed patches should follow
+master key), the request sequence, and a reproducer that runs against a local
+PostgreSQL (`make dev-db`), ideally as a Go test. Proposed patches should follow
 `AGENTS.md` conventions and come with a regression test.

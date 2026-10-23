@@ -1,7 +1,0 @@
-# The repository's .dockerignore trims the context for the release image
-# (it drops testdata/, pkg/testutils/, docs/ ...). The scanner needs the whole
-# checkout, so this Dockerfile-specific ignore file replaces it.
-.git
-web/node_modules/
-web/.svelte-kit/
-build/
