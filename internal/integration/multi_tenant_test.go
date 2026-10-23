@@ -27,6 +27,7 @@ const tenantHeader = "X-Test-Tenant"
 // embeddedSparrow is Sparrow run through the public server package with a
 // test middleware that maps tenantHeader to server.WithTenant.
 type embeddedSparrow struct {
+	srv     *server.Server
 	baseURL string
 	db      *sqlx.DB
 }
@@ -42,6 +43,7 @@ func startEmbeddedSparrow(t *testing.T) *embeddedSparrow {
 	t.Setenv("SPARROW_METRICS_ENABLED", "false")
 	t.Setenv("SPARROW_TLS_REVOCATION", "off")
 	t.Setenv("SPARROW_ALLOW_PRIVATE_NETWORKS", "true")
+	t.Setenv("SPARROW_HEALTH_EVAL_INTERVAL", "1s")
 
 	srv, err := server.New(ctx)
 	require.NoError(t, err)
@@ -67,15 +69,14 @@ func startEmbeddedSparrow(t *testing.T) *embeddedSparrow {
 		defer cancel()
 		require.NoError(t, srv.Shutdown(shutdownCtx))
 	})
-	return &embeddedSparrow{baseURL: ts.URL, db: db}
+	return &embeddedSparrow{srv: srv, baseURL: ts.URL, db: db}
 }
 
-// addTenant inserts a tenant row directly (until Sparrow has CreateTenant).
+// addTenant creates a tenant through the public package.
 func (e *embeddedSparrow) addTenant(t *testing.T, name string) uuid.UUID {
 	t.Helper()
 	id := uuid.New()
-	_, err := e.db.Exec(`INSERT INTO tenants (id, name, slug) VALUES ($1, $2, $3)`, id, name, name+"-"+id.String()[:8])
-	require.NoError(t, err)
+	require.NoError(t, e.srv.CreateTenant(context.Background(), id, name))
 	return id
 }
 

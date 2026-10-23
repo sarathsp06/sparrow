@@ -55,6 +55,7 @@ import (
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	"github.com/sarathsp06/sparrow/pkg/access"
 	"github.com/sarathsp06/sparrow/pkg/access/httpauth"
 	"github.com/sarathsp06/sparrow/pkg/safetransport"
 )
@@ -72,6 +73,8 @@ type Server struct {
 	handler http.Handler
 
 	queue          *queue.Manager
+	repo           store.RepositoryInterface
+	access         *access.Service
 	db             *sqlx.DB
 	health         *health.Checker
 	revocation     *tlsrevocation.Refresher
@@ -191,6 +194,7 @@ func New(ctx context.Context, opts ...Option) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create access service: %w", err)
 	}
+	s.access = accessSvc
 
 	// Authentication for /v1. When SPARROW_API_KEY is set, every request needs
 	// the master key or a tenant-wide access token (X-API-Key header or
@@ -222,8 +226,11 @@ func New(ctx context.Context, opts ...Option) (*Server, error) {
 
 	// Create webhook repository
 	webhookRepo := store.NewRepositoryInterfaceWithTracing(store.NewRepository(sqlxDB), "")
+	s.repo = webhookRepo
 
-	registerSystemEventTypes(ctx, webhookRepo)
+	if err := registerSystemEventTypes(ctx, webhookRepo); err != nil {
+		log.Printf("⚠️  %v", err)
+	}
 
 	// Initialize webhook HTTP client config
 	clientConfig := client.DefaultConfig()
@@ -396,6 +403,41 @@ func New(ctx context.Context, opts ...Option) (*Server, error) {
 // Sparrow does.
 func WithTenant(ctx context.Context, tenantID uuid.UUID) context.Context {
 	return tenant.WithTenant(ctx, tenantID)
+}
+
+// CreateTenant creates a tenant, if it does not exist yet, with Sparrow's
+// own sparrow.* system event types, so requests run under WithTenant for it
+// work like those of a fresh self-hosted Sparrow. It is idempotent.
+func (s *Server) CreateTenant(ctx context.Context, tenantID uuid.UUID, name string) error {
+	if tenantID == uuid.Nil {
+		return errors.New("create tenant: tenant id is required")
+	}
+	if err := s.repo.CreateTenant(ctx, tenantID, name); err != nil {
+		return fmt.Errorf("create tenant: %w", err)
+	}
+	return registerSystemEventTypes(tenant.WithTenant(ctx, tenantID), s.repo)
+}
+
+// PurgeTenant erases a tenant and everything it owns: its queued jobs, its
+// webhooks, subscriptions, events, deliveries, health history, event types,
+// alert configs, batch jobs, access tokens and invites. Stop routing the
+// tenant's requests to Sparrow first. It refuses the default tenant, and it
+// is safe to run again if it fails part way. Rows already in database
+// backups age out with those backups.
+func (s *Server) PurgeTenant(ctx context.Context, tenantID uuid.UUID) error {
+	if tenantID == uuid.Nil || tenantID == tenant.DefaultTenantID {
+		return errors.New("purge tenant: refusing to purge the default tenant")
+	}
+	if _, err := s.queue.CancelTenantJobs(ctx, tenantID); err != nil {
+		return fmt.Errorf("purge tenant: %w", err)
+	}
+	if err := s.repo.PurgeTenant(ctx, tenantID); err != nil {
+		return err
+	}
+	if _, _, err := s.access.PurgeRealm(ctx, tenantID.String()); err != nil {
+		return fmt.Errorf("purge tenant access tokens: %w", err)
+	}
+	return nil
 }
 
 // Addr is the listen address Sparrow is configured for (SPARROW_HTTP_PORT),
@@ -581,19 +623,24 @@ func logCORSMode(mode middleware.CORSMode, origins []string) {
 // into them via the webhook_alert_configs API; they are never delivered
 // directly, only fanned out through the normal event/subscription/delivery
 // pipeline under the "_sparrow" consumer.
-func registerSystemEventTypes(ctx context.Context, repo store.EventTypeRepository) {
+//
+// The tenant comes from ctx (the default tenant unless set with WithTenant).
+func registerSystemEventTypes(ctx context.Context, repo store.EventTypeRepository) error {
+	tenantID := tenant.FromContext(ctx)
+	var errs []error
 	for _, t := range queue.SystemEventRegistrations() {
-		existing, err := repo.GetEventByName(ctx, tenant.DefaultTenantID, t.Name)
+		existing, err := repo.GetEventByName(ctx, tenantID, t.Name)
 		if err != nil {
-			log.Printf("⚠️  Failed to look up system event type %s: %v", t.Name, err)
+			errs = append(errs, fmt.Errorf("failed to look up system event type %s: %w", t.Name, err))
 			continue
 		}
 		if existing != nil {
 			continue
 		}
 		reg := t
-		if err := repo.RegisterEvent(ctx, tenant.DefaultTenantID, &reg); err != nil {
-			log.Printf("⚠️  Failed to register system event type %s: %v", t.Name, err)
+		if err := repo.RegisterEvent(ctx, tenantID, &reg); err != nil {
+			errs = append(errs, fmt.Errorf("failed to register system event type %s: %w", t.Name, err))
 		}
 	}
+	return errors.Join(errs...)
 }

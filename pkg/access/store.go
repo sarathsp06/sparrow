@@ -33,6 +33,10 @@ type Store interface {
 	// cutoff, in all realms, and returns how many it deleted. Invites that
 	// created a purged token keep their other fields; their TokenID becomes nil.
 	PurgeTokens(ctx context.Context, cutoff time.Time) (int64, error)
+	// PurgeRealm deletes every token and invite in realm, whatever their
+	// state, and returns how many of each it deleted. It is for erasing a
+	// realm entirely; other realms are untouched.
+	PurgeRealm(ctx context.Context, realm string) (tokens, invites int64, err error)
 
 	// CreateInvite stores inv with the hash of its secret.
 	CreateInvite(ctx context.Context, inv Invite, secretHash []byte) error

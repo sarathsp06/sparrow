@@ -219,6 +219,12 @@ func (s *Service) PurgeTokens(ctx context.Context, retention time.Duration) (int
 	return s.store.PurgeTokens(ctx, s.now().Add(-max(retention, 0)))
 }
 
+// PurgeRealm deletes every token and invite in realm, for erasing a realm
+// (a tenant) entirely, and returns how many of each it deleted.
+func (s *Service) PurgeRealm(ctx context.Context, realm string) (tokens, invites int64, err error) {
+	return s.store.PurgeRealm(ctx, realm)
+}
+
 // CreateInviteRequest describes a new invite.
 type CreateInviteRequest struct {
 	Realm string

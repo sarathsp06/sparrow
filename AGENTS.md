@@ -203,6 +203,7 @@ huma.Register(api, huma.Operation{
 - Also runnable standalone via `cmd/migrate`.
 - Location: `db/migrations/000001_...up.sql` etc.
 - Uses `golang-migrate` with PostgreSQL advisory locks (safe for concurrent instances).
+- **Every tenant-owned table must be erasable by `store.PurgeTenant`** (behind `server.PurgeTenant`): give it a `tenant_id` that cascades from `tenants`, or a `webhook_id` that cascades from `webhook_registrations`, or add an explicit delete there. `internal/integration/tenant_purge_test.go` finds tenant- and webhook-keyed tables from the schema and fails when a new table keeps a purged tenant's rows or is left empty by its setup.
 
 ## Test nuances
 

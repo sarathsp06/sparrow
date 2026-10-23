@@ -89,6 +89,48 @@ func Run(t *testing.T, newStore func(t *testing.T) access.Store) {
 		}
 	})
 
+	t.Run("purge realm deletes every token and invite in that realm only", func(t *testing.T) {
+		s := newStore(t)
+		future := now.Add(time.Hour)
+		must(t, s.CreateToken(ctx, access.Token{ID: "tok_r1a", Realm: "r1", Name: "a", CreatedBy: "x", CreatedAt: now}, []byte("p1")))
+		must(t, s.CreateToken(ctx, access.Token{ID: "tok_r1b", Realm: "r1", Name: "b", CreatedBy: "x", CreatedAt: now, ExpiresAt: &future}, []byte("p2")))
+		must(t, s.RevokeToken(ctx, "r1", "tok_r1b", now))
+		must(t, s.CreateToken(ctx, access.Token{ID: "tok_r2", Realm: "r2", Name: "c", CreatedBy: "x", CreatedAt: now}, []byte("p3")))
+		must(t, s.CreateInvite(ctx, access.Invite{ID: "inv_r1", Realm: "r1", Name: "d", CreatedBy: "x", CreatedAt: now, ExpiresAt: future}, []byte("pi1")))
+		must(t, s.CreateInvite(ctx, access.Invite{ID: "inv_r2", Realm: "r2", Name: "e", CreatedBy: "x", CreatedAt: now, ExpiresAt: future}, []byte("pi2")))
+
+		tokens, invites, err := s.PurgeRealm(ctx, "r1")
+		must(t, err)
+		if tokens != 2 || invites != 1 {
+			t.Fatalf("purged %d tokens and %d invites, want 2 and 1", tokens, invites)
+		}
+		for _, h := range []string{"p1", "p2"} {
+			if _, err := s.TokenByHash(ctx, []byte(h)); !errors.Is(err, access.ErrNotFound) {
+				t.Fatalf("token %s still present: err = %v", h, err)
+			}
+		}
+		if _, _, err := s.RedeemInvite(ctx, []byte("pi1"), now, func(inv access.Invite) (access.Token, []byte, error) {
+			return access.Token{ID: "tok_new", Realm: inv.Realm, Name: inv.Name, CreatedBy: inv.CreatedBy, CreatedAt: now}, []byte("p9"), nil
+		}); !errors.Is(err, access.ErrInvalidInvite) {
+			t.Fatalf("purged invite redeemed: err = %v", err)
+		}
+		if got, _ := s.ListTokens(ctx, "r1"); len(got) != 0 {
+			t.Fatalf("r1 tokens after purge = %v", ids(got))
+		}
+		if got, _ := s.ListInvites(ctx, "r1"); len(got) != 0 {
+			t.Fatalf("r1 invites after purge = %d", len(got))
+		}
+		if _, err := s.TokenByHash(ctx, []byte("p3")); err != nil {
+			t.Fatalf("other realm's token purged: %v", err)
+		}
+		if got, _ := s.ListInvites(ctx, "r2"); len(got) != 1 {
+			t.Fatalf("other realm's invites = %d, want 1", len(got))
+		}
+		if tokens, invites, err := s.PurgeRealm(ctx, "r1"); err != nil || tokens != 0 || invites != 0 {
+			t.Fatalf("second purge = %d, %d, %v; want 0, 0, nil", tokens, invites, err)
+		}
+	})
+
 	t.Run("purge deletes only tokens expired or revoked before the cutoff", func(t *testing.T) {
 		s := newStore(t)
 		old, recent := now.Add(-48*time.Hour), now.Add(-time.Hour)

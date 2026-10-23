@@ -3,14 +3,18 @@ package queue
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivertype"
 
 	"github.com/sarathsp06/sparrow/internal/crypto"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
@@ -179,6 +183,35 @@ func (m *Manager) Stop(ctx context.Context) error {
 	}
 	m.dbPool.Close()
 	return err
+}
+
+// CancelTenantJobs cancels every unfinished job whose args belong to
+// tenantID (event fan-out, delivery and batch jobs carry a tenant_id) and
+// returns how many it cancelled. A job already running is cancelled through
+// its context. Used before erasing a tenant.
+func (m *Manager) CancelTenantJobs(ctx context.Context, tenantID uuid.UUID) (int, error) {
+	filter, err := json.Marshal(map[string]string{"tenant_id": tenantID.String()})
+	if err != nil {
+		return 0, err
+	}
+	// The containment form uses river_job's GIN index on args.
+	rows, err := m.dbPool.Query(ctx, `
+		SELECT id FROM river_job
+		WHERE args @> $1::jsonb
+		  AND state NOT IN ('completed', 'cancelled', 'discarded')`, filter)
+	if err != nil {
+		return 0, fmt.Errorf("list tenant jobs: %w", err)
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[int64])
+	if err != nil {
+		return 0, fmt.Errorf("list tenant jobs: %w", err)
+	}
+	for _, id := range ids {
+		if _, err := m.client.JobCancel(ctx, id); err != nil && !errors.Is(err, rivertype.ErrNotFound) {
+			return 0, fmt.Errorf("cancel job %d: %w", id, err)
+		}
+	}
+	return len(ids), nil
 }
 
 func (m *Manager) GetJobInserter() JobInserter {

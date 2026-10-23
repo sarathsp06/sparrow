@@ -311,6 +311,30 @@ func (_d RepositoryInterfaceWithTracing) CreateSubscription(ctx context.Context,
 	return _d.RepositoryInterface.CreateSubscription(ctx, tenantID, sub)
 }
 
+// CreateTenant implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) CreateTenant(ctx context.Context, tenantID uuid.UUID, name string) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.CreateTenant")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":      ctx,
+				"tenantID": tenantID,
+				"name":     name}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.CreateTenant(ctx, tenantID, name)
+}
+
 // DeleteAlertConfig implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) DeleteAlertConfig(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.DeleteAlertConfig")
@@ -1386,6 +1410,29 @@ func (_d RepositoryInterfaceWithTracing) LockWebhook(ctx context.Context, tenant
 		_span.End()
 	}()
 	return _d.RepositoryInterface.LockWebhook(ctx, tenantID, webhookID, consumer, exclusive)
+}
+
+// PurgeTenant implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) PurgeTenant(ctx context.Context, tenantID uuid.UUID) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.PurgeTenant")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":      ctx,
+				"tenantID": tenantID}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.PurgeTenant(ctx, tenantID)
 }
 
 // RecordDeliveryAttempt implements RepositoryInterface

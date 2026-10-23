@@ -133,6 +133,37 @@ func (s *Store) TouchToken(_ context.Context, id string, at time.Time) error {
 	return nil
 }
 
+// PurgeRealm implements access.Store.
+func (s *Store) PurgeRealm(_ context.Context, realm string) (tokens, invites int64, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.init()
+	for id, t := range s.tokens {
+		if t.Realm == realm {
+			delete(s.tokens, id)
+			delete(s.sealed, id)
+			tokens++
+		}
+	}
+	for h, id := range s.tokHash {
+		if _, ok := s.tokens[id]; !ok {
+			delete(s.tokHash, h)
+		}
+	}
+	for id, inv := range s.invites {
+		if inv.Realm == realm {
+			delete(s.invites, id)
+			invites++
+		}
+	}
+	for h, id := range s.invHash {
+		if _, ok := s.invites[id]; !ok {
+			delete(s.invHash, h)
+		}
+	}
+	return tokens, invites, nil
+}
+
 // PurgeTokens implements access.Store.
 func (s *Store) PurgeTokens(_ context.Context, cutoff time.Time) (int64, error) {
 	s.mu.Lock()

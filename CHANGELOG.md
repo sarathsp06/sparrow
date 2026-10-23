@@ -20,6 +20,7 @@ migrations run on startup.
 
 - `SPARROW_PORTAL_RETRY` (default `true`) controls whether consumers can retry their own deliveries from the portal. With `false` the portal API refuses retries (403), `GET /v1/capabilities` reports `portal.retry: false`, and the portal shows its Retry buttons disabled; consumers still see every delivery.
 - Sparrow can be embedded as a Go library through the new `server` package (`server.New`, `Start`, `Handler`, `Shutdown`): another program can serve Sparrow's HTTP handler behind its own middleware in the same process. Configuration is unchanged: the same `SPARROW_*` environment variables. The `sparrow-server` binary now uses this package and behaves as before.
+- `pkg/access`: `Store.PurgeRealm` (and `Service.PurgeRealm`) deletes every token and invite in one realm, for erasing a tenant. A custom `Store` implementation must add it; `storetest` covers it.
 - `deploy/portal/`: a Docker Compose stack with Sparrow on a private network and a Caddy proxy that exposes only the portal, plus a seed script. A starting point for hosting the portal, and a way to test it locally.
 
 ### Changed
