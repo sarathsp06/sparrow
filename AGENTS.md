@@ -46,6 +46,7 @@
 5. **Implicit infrastructure, explicit actions** — Batch jobs are an implementation detail. Users see "re-push ID" and "retry ID", not "batch job IDs".
 6. **Postgres-only, no Redis** — All queuing, state, and caching uses PostgreSQL. Don't introduce Redis or other external dependencies without strong justification.
 7. **Self-hosted first** — Sparrow targets teams running it behind a VPN for internal webhook delivery, not multi-tenant SaaS.
+8. **Principle of least astonishment** — Software and interfaces should behave in a way that least surprises users and other developers. Names, endpoints, config and error messages follow existing conventions in the codebase. When a choice is between a clever behaviour and a predictable one, pick the predictable one and document the rest. A surprise a user has to discover in production is a defect even when the code is correct.
 
 ## Key packages
 
