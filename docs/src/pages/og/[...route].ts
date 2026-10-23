@@ -1,7 +1,8 @@
-// Per-page social preview images for the docs at /og/<entry id>.png, rendered at
-// build time by astro-og-canvas in the docs' paper palette (sparrow-tokens.css).
-// src/route-data.ts points each docs page's og:image here. The field notes have
-// their own, dark, route in src/pages/blog/og/.
+// Social preview images in the docs' paper palette (sparrow-tokens.css), rendered
+// at build time by astro-og-canvas: /og/site.png, the site card (src/lib/
+// social-card.mjs), and /og/<entry id>.png for each docs page, which
+// src/route-data.ts points its og:image at. The field notes have their own,
+// dark, route in src/pages/blog/og/.
 import { getCollection } from 'astro:content';
 import { OGImageRoute } from 'astro-og-canvas';
 
@@ -16,7 +17,13 @@ const clamp = (text: string, max = 170) => {
 
 export const { getStaticPaths, GET } = await OGImageRoute({
   param: 'route',
-  pages: Object.fromEntries(entries.map((e) => [e.id, e.data])),
+  pages: {
+    site: {
+      title: 'Sparrow',
+      description: 'Self-hosted webhook delivery: classified retries, HMAC and Ed25519 signing, OpenTelemetry. One Go binary and PostgreSQL.',
+    },
+    ...Object.fromEntries(entries.map((e) => [e.id, e.data])),
+  },
   getImageOptions: (_path, page) => ({
     title: page.title,
     description: clamp(page.description ?? 'Self-hosted webhook delivery'),

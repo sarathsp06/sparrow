@@ -606,9 +606,9 @@
     "semantic_hash": ""
   },
   "docs/astro.config.mjs": {
-    "mtime": 1792771344.480773,
-    "seen": 1792771371.2549891,
-    "ast_hash": "ce440bcbe0488309dae2f2cbda6754a4",
+    "mtime": 1792774744.184852,
+    "seen": 1792774776.488194,
+    "ast_hash": "1cfa4976c6dfdf35b3fcfb6886bede70",
     "semantic_hash": ""
   },
   "docs/package.json": {
@@ -5430,21 +5430,33 @@
     "semantic_hash": ""
   },
   "docs/src/components/SocialCard.astro": {
-    "mtime": 1792771122.2216747,
-    "seen": 1792771200.405834,
-    "ast_hash": "0b68bddc14dc9d8c0185118309be7f14",
+    "mtime": 1792774744.1902955,
+    "seen": 1792774776.4882,
+    "ast_hash": "6fd0d30a6823f4d18c261866f5f14a11",
     "semantic_hash": ""
   },
   "docs/src/lib/social-card.mjs": {
-    "mtime": 1792768916.0141616,
-    "seen": 1792771200.405845,
-    "ast_hash": "d8c9ec173ccfeb28063a5a14dfe1934f",
+    "mtime": 1792774744.1877985,
+    "seen": 1792774776.488213,
+    "ast_hash": "ea6aea3a86592949408c5d934f139c0f",
     "semantic_hash": ""
   },
   "docs/public/favicon.svg": {
     "mtime": 1792771122.2009518,
     "seen": 1792771200.406206,
     "ast_hash": "f63b8a07aacd9a89310f53e32cca35c6",
+    "semantic_hash": ""
+  },
+  "docs/src/pages/og/[...route].ts": {
+    "mtime": 1792774743.8033257,
+    "seen": 1792774776.488217,
+    "ast_hash": "8ca4942478720291bfc36f0baee1c34c",
+    "semantic_hash": ""
+  },
+  "docs/src/route-data.ts": {
+    "mtime": 1792774743.8846498,
+    "seen": 1792774776.4882188,
+    "ast_hash": "313b396a7481a04948980aee5bd8a862",
     "semantic_hash": ""
   }
 }
