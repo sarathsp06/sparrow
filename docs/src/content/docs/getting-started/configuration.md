@@ -73,6 +73,7 @@ Grouped by what they control. Durations use Go syntax: `90s`, `20ms`, `1m`,
 |----------|---------|-------------|
 | `SPARROW_API_KEY` | unset (API open) | The master key. When set, every `/v1` request needs it or an access token, in `X-API-Key` or `Authorization: Bearer`. Required, and at least 32 characters, with `SPARROW_ENVIRONMENT=production` (the server won't start otherwise). Generate with `openssl rand -hex 32`. See [Access tokens and invites](/sparrow/deployment/access/). |
 | `SPARROW_TOKEN_DEFAULT_TTL` | `2160h` (90 days) | Lifetime of a tenant-wide access token created without `ttl_seconds` or `never_expires`, including browser sign-ins and invites. `0` means such tokens never expire. |
+| `SPARROW_PORTAL_RETRY` | `true` | Whether consumer (portal) tokens may retry their own deliveries. `false`: the retry calls under `/portal/api/` answer `403`, `GET /v1/capabilities` reports `portal.retry: false`, and the portal shows its Retry buttons disabled. Consumers still see every delivery; the master key and tenant-wide tokens can still retry. See [Embedding the Consumer Portal](/sparrow/guides/portal-embedding/#letting-consumers-retry). |
 
 ### Outbound network
 

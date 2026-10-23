@@ -91,7 +91,8 @@ def sync_detailed(
     it). If the webhook or subscription is still paused the delivery is held as paused again. Not
     idempotent: each call queues another round.
 
-    Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry.
+    Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry, unless the server runs
+    with SPARROW_PORTAL_RETRY=false (then 403).
 
     Args:
         consumer (str): Consumer the delivery belongs to.
@@ -131,7 +132,8 @@ def sync(
     it). If the webhook or subscription is still paused the delivery is held as paused again. Not
     idempotent: each call queues another round.
 
-    Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry.
+    Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry, unless the server runs
+    with SPARROW_PORTAL_RETRY=false (then 403).
 
     Args:
         consumer (str): Consumer the delivery belongs to.
@@ -166,7 +168,8 @@ async def asyncio_detailed(
     it). If the webhook or subscription is still paused the delivery is held as paused again. Not
     idempotent: each call queues another round.
 
-    Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry.
+    Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry, unless the server runs
+    with SPARROW_PORTAL_RETRY=false (then 403).
 
     Args:
         consumer (str): Consumer the delivery belongs to.
@@ -204,7 +207,8 @@ async def asyncio(
     it). If the webhook or subscription is still paused the delivery is held as paused again. Not
     idempotent: each call queues another round.
 
-    Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry.
+    Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry, unless the server runs
+    with SPARROW_PORTAL_RETRY=false (then 403).
 
     Args:
         consumer (str): Consumer the delivery belongs to.

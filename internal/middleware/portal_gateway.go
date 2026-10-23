@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -31,13 +32,27 @@ func PortalAuthorized(ctx context.Context) bool {
 	return v
 }
 
+// PortalOptions are the operator's switches for what portal tokens may do.
+type PortalOptions struct {
+	// Retry lets portal tokens retry their own deliveries
+	// (SPARROW_PORTAL_RETRY). Without it a consumer still sees every
+	// delivery but cannot send one again.
+	Retry bool
+}
+
+// Why a portal call is refused, as the 403 message says it.
+const (
+	refusedForPortal = "not permitted for portal tokens"
+	refusedRetry     = "retrying deliveries is turned off for portal tokens on this server"
+)
+
 // PortalGateway serves the portal API under one static prefix (/portal/api/).
 // It verifies the consumer-scoped bearer token, maps the portal-relative path
 // to its real /v1 path, and re-dispatches into next (the main router) so the
 // existing handlers run unchanged. The consumer never appears in the public
 // URL, which collapses the operator's proxy allowlist to a single prefix and
 // makes cross-consumer access structurally impossible.
-func PortalGateway(verify PortalVerifier, next http.Handler) http.Handler {
+func PortalGateway(verify PortalVerifier, opts PortalOptions, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if !ok {
@@ -52,12 +67,13 @@ func PortalGateway(verify PortalVerifier, next http.Handler) http.Handler {
 		// The consumer becomes one path segment of the /v1 target, so it
 		// must be one literal segment whoever minted the token.
 		if accessauth.ValidateConsumer(consumer) != nil {
-			writeJSONError(w, http.StatusForbidden, "forbidden", "not permitted for portal tokens")
+			writeJSONError(w, http.StatusForbidden, "forbidden", refusedForPortal)
 			return
 		}
-		target, ok := portalTarget(r.Method, strings.TrimPrefix(r.URL.Path, portalAPIPrefix), consumer)
-		if !ok {
-			writeJSONError(w, http.StatusForbidden, "forbidden", "not permitted for portal tokens")
+		rest := strings.TrimPrefix(r.URL.Path, portalAPIPrefix)
+		target, refused := portalTarget(r.Method, rest, r.URL.Query(), consumer, opts)
+		if refused != "" {
+			writeJSONError(w, http.StatusForbidden, "forbidden", refused)
 			return
 		}
 
@@ -81,30 +97,55 @@ func PortalGateway(verify PortalVerifier, next http.Handler) http.Handler {
 	})
 }
 
-// portalTarget is the entire portal authorization model, in one place: it maps
-// a portal-relative path to its real /v1 path, or returns ok=false to deny.
-// A token for consumer C may reach anything under /v1/consumers/C/ except
-// injecting events (the producer's job), plus the
+// portalTarget is the entire portal authorization model, in one place: it
+// maps a portal call to its real /v1 path, or says why it is refused.
+//
+// A token for consumer C may reach anything under /v1/consumers/C/ plus the
 // read-only global helpers the portal UI needs (event-type catalog, template
-// function list, server capabilities, and the stateless template dry-run).
-func portalTarget(method, rest, consumer string) (string, bool) {
+// function list, server capabilities, and the stateless template dry-run),
+// except:
+//   - pushing or re-pushing events, and the snapshot that feeds a re-push
+//     (the producer's job: re-push fans events out again, in bulk, to the
+//     current subscriptions);
+//   - retrying deliveries, and the snapshot that feeds a batch retry, unless
+//     opts.Retry is set.
+func portalTarget(method, rest string, query url.Values, consumer string, opts PortalOptions) (target, refused string) {
 	if !cleanPortalPath(rest) {
-		return "", false
+		return "", refusedForPortal
 	}
 	switch {
-	case method == http.MethodPost && rest == "events":
-		return "", false
+	case method == http.MethodPost && (rest == "events" || rest == "events:rePush"),
+		rest == "repush-jobs" || strings.HasPrefix(rest, "repush-jobs/"),
+		method == http.MethodGet && rest == "events" && query.Has("prepare_repush"):
+		return "", refusedForPortal
+	case !opts.Retry && sendsRetry(method, rest, query):
+		return "", refusedRetry
 	case method == http.MethodGet && (rest == "event-types" || strings.HasPrefix(rest, "event-types/")):
-		return "/v1/" + rest, true
+		return "/v1/" + rest, ""
 	case method == http.MethodGet && rest == "template-functions":
-		return "/v1/template-functions", true
+		return "/v1/template-functions", ""
 	case method == http.MethodGet && rest == "capabilities":
-		return "/v1/capabilities", true
+		return "/v1/capabilities", ""
 	case method == http.MethodPost && rest == "subscriptions:testTemplate":
-		return "/v1/subscriptions:testTemplate", true
+		return "/v1/subscriptions:testTemplate", ""
 	default:
-		return "/v1/consumers/" + consumer + "/" + rest, true
+		return "/v1/consumers/" + consumer + "/" + rest, ""
 	}
+}
+
+// sendsRetry reports whether a portal call sends deliveries again: one
+// (deliveries/{id}:retry), by filter (deliveries:retry), by id list
+// (deliveries:retryBatch), or the list call that snapshots that id list
+// (GET deliveries?prepare_retry). Reading or cancelling a retry job is not.
+func sendsRetry(method, rest string, query url.Values) bool {
+	switch method {
+	case http.MethodGet:
+		return rest == "deliveries" && query.Has("prepare_retry")
+	case http.MethodPost:
+		return rest == "deliveries:retry" || rest == "deliveries:retryBatch" ||
+			(strings.HasPrefix(rest, "deliveries/") && strings.HasSuffix(rest, ":retry"))
+	}
+	return false
 }
 
 // cleanPortalPath reports whether rest is a plain relative path: no "." or

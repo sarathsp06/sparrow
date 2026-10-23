@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api, unwrap, portal } from "$lib/services";
+  import { replaceState } from "$app/navigation";
+  import { api, unwrap, portal, type WebhookTab } from "$lib/services";
   import { portalInvite } from "$lib/access/portal-invite.svelte";
   import { formatAPIError } from "$lib/utils";
+  import { loadCapabilities, retryPolicy } from "$lib/capabilities.svelte";
   import HealthBadge from "$lib/components/HealthBadge.svelte";
   import StatusBadge from "$lib/components/StatusBadge.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
@@ -53,7 +55,7 @@
 
   // Selected webhook detail
   let selectedId = $state<string | null>(null);
-  let detailTab = $state<"deliveries" | "subscriptions" | "test">("deliveries");
+  let detailTab = $state<WebhookTab>("deliveries");
   let deliveries: DeliveryItem[] = $state([]);
   let deliveriesLoading = $state(false);
   let subscriptions: SubscriptionItem[] = $state([]);
@@ -236,23 +238,37 @@
     }
   }
 
+  // ?webhook=<id>&tab=<tab> (webhookHref): reopen a webhook, e.g. after
+  // saving one of its subscriptions, then drop the query.
+  function openFromURL() {
+    const params = new URLSearchParams(location.search);
+    const id = params.get("webhook");
+    if (!id || !webhooks.some((w) => w.webhook_id === id)) return;
+    selectWebhook(id);
+    const tab = params.get("tab");
+    if (tab === "deliveries" || tab === "subscriptions" || tab === "test") detailTab = tab;
+    replaceState(location.pathname, {});
+  }
+
   onMount(() => {
     if (!portal) {
       loading = false;
       return;
     }
-    refresh();
+    refresh().then(openFromURL);
     listAllEventTypes({ active_only: true })
       .then((items) => {
         eventTypes = items;
       })
       .catch(() => {});
-    api
-      .GET("/v1/capabilities")
-      .then((res) => {
-        alertDeliveryConfigured = unwrap(res).alert_delivery.configured;
+    loadCapabilities()
+      .then((caps) => {
+        alertDeliveryConfigured = caps.alert_delivery.configured;
       })
-      .catch(() => {});
+      .catch((e) => {
+        // Alert copy stays neutral and Retry is left to the server.
+        console.warn("Could not read server capabilities", e);
+      });
   });
 
   const expired = $derived(portal?.expiresAt != null && portal.expiresAt.getTime() < Date.now());
@@ -462,7 +478,11 @@
                                   <td class="td hidden md:table-cell text-xs text-muted">{new Date(d.created_at).toLocaleString()}</td>
                                   <td class="td text-right">
                                     {#if d.status === "failed" || d.status === "expired"}
-                                      <button class="btn btn-ghost !px-2.5 !py-1 text-xs" onclick={() => retryDelivery(d.delivery_id)}>Retry</button>
+                                      <button
+                                        class="btn btn-ghost !px-2.5 !py-1 text-xs"
+                                        disabled={!retryPolicy.allowed}
+                                        title={retryPolicy.allowed ? undefined : retryPolicy.reason}
+                                        onclick={() => retryDelivery(d.delivery_id)}>Retry</button>
                                     {/if}
                                   </td>
                                 </tr>

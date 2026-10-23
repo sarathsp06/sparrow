@@ -100,7 +100,8 @@ def sync_detailed(
     (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400
     when it is not a UUID.
 
-    Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch.
+    Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch, unless the server runs with
+    SPARROW_PORTAL_RETRY=false (then 403).
 
     Args:
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
@@ -144,7 +145,8 @@ def sync(
     (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400
     when it is not a UUID.
 
-    Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch.
+    Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch, unless the server runs with
+    SPARROW_PORTAL_RETRY=false (then 403).
 
     Args:
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
@@ -183,7 +185,8 @@ async def asyncio_detailed(
     (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400
     when it is not a UUID.
 
-    Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch.
+    Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch, unless the server runs with
+    SPARROW_PORTAL_RETRY=false (then 403).
 
     Args:
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer
@@ -225,7 +228,8 @@ async def asyncio(
     (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400
     when it is not a UUID.
 
-    Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch.
+    Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch, unless the server runs with
+    SPARROW_PORTAL_RETRY=false (then 403).
 
     Args:
         consumer (str): Consumer the job belongs to. A job snapshotted for another consumer

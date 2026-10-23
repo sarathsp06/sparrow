@@ -26,6 +26,9 @@ type AccessDeps struct {
 	// TokenDefaultTTL is the lifetime of a tenant-wide token created without
 	// ttl_seconds or never_expires (SPARROW_TOKEN_DEFAULT_TTL). 0 = never.
 	TokenDefaultTTL time.Duration
+	// PortalRetry is true when portal tokens may retry deliveries
+	// (SPARROW_PORTAL_RETRY); reported by GET /v1/capabilities.
+	PortalRetry bool
 }
 
 // --- Output shapes ---

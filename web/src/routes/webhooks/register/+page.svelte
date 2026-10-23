@@ -3,6 +3,7 @@
   import { page } from '$app/state';
   import { api, unwrap } from '$lib/services';
   import { formatAPIError } from '$lib/utils';
+  import { loadCapabilities } from '$lib/capabilities.svelte';
   import ConsumerPicker from '$lib/components/ConsumerPicker.svelte';
   import { onMount } from 'svelte';
   import type { components } from '$lib/api-types';
@@ -110,7 +111,7 @@
       error = formatAPIError(e, 'Failed to load form data');
     }
     try {
-      alertDeliveryConfigured = unwrap(await api.GET('/v1/capabilities')).alert_delivery.configured;
+      alertDeliveryConfigured = (await loadCapabilities()).alert_delivery.configured;
     } catch {
       // Leave unknown: the alert copy then stays neutral.
     }

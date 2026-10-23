@@ -1,0 +1,106 @@
+# Sparrow on a private network, with only the consumer portal published
+# through a Caddy proxy. This is the topology from the "Embedding the
+# Consumer Portal" guide, runnable on one machine:
+#
+#   docker compose up -d
+#   ./try.sh                    # demo webhook + deliveries, prints a portal link
+#
+#   http://localhost:8181/portal#token=...   public side: the portal only
+#   http://localhost:8180                    "VPN" side: admin UI + /v1 API
+#
+# Test a local build instead of the release:
+#   docker build -t sparrow:dev ../..  &&  SPARROW_IMAGE=sparrow:dev docker compose up -d
+#
+# Networks: "private" stands in for your VPN (Postgres, Sparrow), "public"
+# for the internet. Only the proxy joins both. Sparrow's admin port is
+# published on 127.0.0.1, standing in for "reachable over the VPN only".
+#
+# LOCAL ONLY as written: the admin key and encryption key below are
+# well-known values, and SSRF protection is relaxed for the demo receiver.
+# For production see https://sarathsp06.github.io/sparrow/deployment/production/
+#
+# Clean up: docker compose down -v
+
+name: sparrow-portal
+
+networks:
+  private: {}
+  public: {}
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sparrow
+      POSTGRES_USER: sparrow
+      POSTGRES_PASSWORD: sparrow # local only: Postgres has no published port
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [private]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sparrow -d sparrow"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  sparrow:
+    image: "${SPARROW_IMAGE:-ghcr.io/sarathsp06/sparrow:latest}"
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks: [private]
+    # The "VPN" side: admin UI and /v1 on loopback only. Drop this in
+    # production and reach Sparrow over your private network instead.
+    ports:
+      - "127.0.0.1:${SPARROW_ADMIN_PORT:-8180}:8080"
+    environment:
+      DATABASE_URL: postgres://sparrow:sparrow@postgres:5432/sparrow?sslmode=disable
+      SPARROW_SERVE_UI: "true" # serves /portal and /_app
+      # Required: without a key /v1 is open, and so would be anything the
+      # proxy forwarded. LOCAL ONLY value; use `openssl rand -hex 32`.
+      SPARROW_API_KEY: "${SPARROW_API_KEY:-local-admin-key}"
+      # LOCAL ONLY: well-known all-zeros key. A real deployment needs
+      # `openssl rand -hex 32` stored in a secret manager.
+      SPARROW_ENCRYPTION_KEYS: "main=0000000000000000000000000000000000000000000000000000000000000000"
+      SPARROW_ENCRYPTION_PRIMARY_KEY_ID: main
+      # LOCAL ONLY: lets webhooks target the demo receiver on the private
+      # network. Remove in production.
+      SPARROW_ALLOW_PRIVATE_NETWORKS: "true"
+      SPARROW_AUTO_REGISTER_EVENTS: "true"
+      # Consumers may retry their own deliveries from the portal (default
+      # true). false: they still see every delivery but cannot resend one.
+      SPARROW_PORTAL_RETRY: "${SPARROW_PORTAL_RETRY:-true}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # The public side: the only service published for consumers.
+  portal-proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    networks: [private, public]
+    ports:
+      - "127.0.0.1:${PORTAL_PORT:-8181}:80" # production: "80:80" and "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on: [sparrow]
+
+  # Demo webhook endpoint on the private network, so ./try.sh produces
+  # deliveries: /fail* answers 410 (a permanent failure, to try Retry), any
+  # other path 200. Not needed in production.
+  receiver:
+    image: caddy:2-alpine
+    networks: [private]
+    command:
+      - sh
+      - -c
+      - printf ':80 {\n\trespond /fail* 410\n\trespond "ok" 200\n}\n' > /tmp/Caddyfile && exec caddy run --config /tmp/Caddyfile
+
+volumes:
+  postgres_data:
+  caddy_data:

@@ -5,6 +5,7 @@
   // copy and hands the result back through onSave; nothing is persisted here.
   import { api, unwrap } from "$lib/services";
   import { formatAPIError } from "$lib/utils";
+  import { loadCapabilities } from "$lib/capabilities.svelte";
   import type { components } from "$lib/api-types";
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
@@ -125,7 +126,7 @@
 
   async function loadContext() {
     try {
-      const caps = unwrap(await api.GET('/v1/capabilities'));
+      const caps = await loadCapabilities();
       aiCapability = caps.ai_drafting ?? { enabled: false };
     } catch { aiCapability = { enabled: false }; }
     if (canRender) {

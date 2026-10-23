@@ -255,9 +255,13 @@ components:
         alert_delivery:
           $ref: "#/components/schemas/AlertDeliveryStruct"
           description: Delivery of Sparrow's own alert emails (see the alert-configs endpoints).
+        portal:
+          $ref: "#/components/schemas/PortalStruct"
+          description: What the consumer portal is allowed to do on this server.
       required:
         - ai_drafting
         - alert_delivery
+        - portal
       type: object
     ConsumerHint:
       additionalProperties: false
@@ -1873,6 +1877,15 @@ components:
           maxLength: 500
           type: string
       type: object
+    PortalStruct:
+      additionalProperties: false
+      properties:
+        retry:
+          description: True when portal tokens may retry their deliveries (SPARROW_PORTAL_RETRY, default true). When false, the retry calls under /portal/api/ answer 403; admins can still retry.
+          type: boolean
+      required:
+        - retry
+      type: object
     PushEventBody:
       additionalProperties: false
       properties:
@@ -3141,7 +3154,7 @@ info:
 
     ## Portal tokens
 
-    A consumer-scoped access token (`createToken` with a `consumer`) powers the embedded portal at `/portal`. It is refused on `/v1` (403); its API calls go to the single `/portal/api/` prefix with `Authorization: Bearer <token>`, and the consumer is carried by the token, not the URL, so exposing the portal means allowlisting only `/portal`, `/_app`, and `/portal/api`. `/portal/api/<rest>` is served by `/v1/consumers/<token's consumer>/<rest>`, except `POST events` (refused), plus these global helpers: `GET event-types[/...]` (listed for the token's consumer), `GET template-functions`, `GET capabilities`, and `POST subscriptions:testTemplate`. Each operation's description says whether portal tokens can call it.
+    A consumer-scoped access token (`createToken` with a `consumer`) powers the embedded portal at `/portal`. It is refused on `/v1` (403); its API calls go to the single `/portal/api/` prefix with `Authorization: Bearer <token>`, and the consumer is carried by the token, not the URL, so exposing the portal means allowlisting only `/portal`, `/_app`, and `/portal/api`. `/portal/api/<rest>` is served by `/v1/consumers/<token's consumer>/<rest>`, except pushing or re-pushing events (`POST events`, `POST events:rePush`, `repush-jobs`, `prepare_repush`: refused), plus these global helpers: `GET event-types[/...]` (listed for the token's consumer), `GET template-functions`, `GET capabilities`, and `POST subscriptions:testTemplate`. With `SPARROW_PORTAL_RETRY=false` the delivery retry calls and `prepare_retry` are refused too (403), and `GET capabilities` reports `portal.retry: false`. Each operation's description says whether portal tokens can call it.
 
     ## Errors
 
@@ -3161,7 +3174,7 @@ paths:
   /v1/capabilities:
     get:
       description: |-
-        Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, and whether alert email delivery is set up. Read-only.
+        Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, whether alert email delivery is set up, and whether portal tokens may retry deliveries. Read-only.
 
         ai_drafting.enabled reflects SPARROW_AI_ENABLED=true; drafting is usable only when enabled is true and problem is absent; prompt_only is the opposite of enabled.
 
@@ -3373,7 +3386,7 @@ paths:
 
         Side effect: prepare_retry=true also snapshots every match (up to 10,000) into a batch job and returns retry_id for POST .../deliveries:retryBatch.
 
-        Portal tokens: allowed, as GET /portal/api/deliveries.
+        Portal tokens: allowed, as GET /portal/api/deliveries; prepare_retry only while SPARROW_PORTAL_RETRY is true (otherwise 403).
       operationId: listDeliveries
       parameters:
         - description: Consumer to list deliveries in.
@@ -3603,7 +3616,7 @@ paths:
       description: |-
         Queues one delivery for another round of attempts right away: it is reset to pending and gets up to max_attempts new attempts, without TTL expiry. Works for failed, expired, paused, pending and retrying deliveries; a successful one is refused with 409 (use the bulk route with force to resend it). If the webhook or subscription is still paused the delivery is held as paused again. Not idempotent: each call queues another round.
 
-        Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry.
+        Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry, unless the server runs with SPARROW_PORTAL_RETRY=false (then 403).
       operationId: retryDelivery
       parameters:
         - description: Consumer the delivery belongs to.
@@ -3667,7 +3680,7 @@ paths:
 
         404 when the webhook does not exist in this consumer.
 
-        Portal tokens: allowed, as POST /portal/api/deliveries:retry.
+        Portal tokens: allowed, as POST /portal/api/deliveries:retry, unless the server runs with SPARROW_PORTAL_RETRY=false (then 403).
       operationId: retryDeliveriesByWebhook
       parameters:
         - description: Consumer the webhook belongs to.
@@ -3724,7 +3737,7 @@ paths:
 
         A snapshot can be started once: 409 when it is not pending (already started or cancelled), expired (15 minutes after it was taken), or is an event re-push snapshot; 404 when the id is unknown, 400 when it is not a UUID.
 
-        Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch.
+        Portal tokens: allowed, as POST /portal/api/deliveries:retryBatch, unless the server runs with SPARROW_PORTAL_RETRY=false (then 403).
       operationId: startDeliveryRetryJob
       parameters:
         - description: Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token.
@@ -3787,7 +3800,7 @@ paths:
 
         Side effect: prepare_repush=true also snapshots every match (up to 10,000) into a batch job and returns repush_id for POST .../events:rePush.
 
-        Portal tokens: allowed, as GET /portal/api/events.
+        Portal tokens: allowed, as GET /portal/api/events, without prepare_repush (re-push is not a portal action; 403).
       operationId: listEventOccurrences
       parameters:
         - description: Consumer to list occurrences in.
@@ -3968,7 +3981,7 @@ paths:
 
         A snapshot can be started once: 409 when it is not pending (already started or cancelled) or expired (15 minutes after it was taken), 404 when the id is unknown, 400 when it is not a UUID.
 
-        Portal tokens: allowed, as POST /portal/api/events:rePush.
+        Portal tokens: not allowed (re-pushing events is the producer's job, like pushing them).
       operationId: startEventRepushJob
       parameters:
         - description: Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token.
@@ -4029,7 +4042,7 @@ paths:
       description: |-
         Returns a batch re-push job's status and processed/failed/total counts. 404 when the id is unknown, 409 when the id belongs to a delivery retry job.
 
-        Portal tokens: allowed, as GET /portal/api/repush-jobs/{job_id}.
+        Portal tokens: not allowed.
       operationId: getEventRepushJob
       parameters:
         - description: Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token.
@@ -4091,7 +4104,7 @@ paths:
       description: |-
         Cancels a pending or running batch re-push job; a running job stops at its next progress check (every 25 items). Occurrences already re-pushed are not rolled back. Returns 204. 409 when the job is already completed or cancelled.
 
-        Portal tokens: allowed, as POST /portal/api/repush-jobs/{job_id}:cancel.
+        Portal tokens: not allowed.
       operationId: cancelEventRepushJob
       parameters:
         - description: Consumer the job belongs to. A job snapshotted for another consumer answers 404; a job snapshotted across all consumers is reachable under any consumer, except with a portal token.

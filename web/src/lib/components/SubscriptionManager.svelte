@@ -2,7 +2,7 @@
   // Subscriptions list for one webhook. Add and Edit navigate to the
   // subscription page; the template editor lives there.
   import { goto } from "$app/navigation";
-  import { api, unwrap } from "$lib/services";
+  import { api, unwrap, subscriptionPagesHref } from "$lib/services";
   import { formatAPIError } from "$lib/utils";
   import EmptyState from "./EmptyState.svelte";
   import CopyableId from "./CopyableId.svelte";
@@ -32,11 +32,11 @@
   const CATCH_ALL_EVENT = "*";
 
   function openCreateModal() {
-    goto(`/webhooks/${webhookId}/subscriptions/new`);
+    goto(`${subscriptionPagesHref(webhookId)}/new`);
   }
 
   function openEditModal(subscription: SubscriptionItem) {
-    goto(`/webhooks/${webhookId}/subscriptions/${subscription.subscription_id}/edit`);
+    goto(`${subscriptionPagesHref(webhookId)}/${subscription.subscription_id}/edit`);
   }
 
   async function fetchSubscriptions() {

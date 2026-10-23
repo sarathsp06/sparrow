@@ -117,7 +117,7 @@ How that plays out per network topology:
       accTitle: Portal slice topology
       accDescr: Portal slice topology: the internet reaches a proxy (TLS and rate limiting) that forwards only /portal, /_app/*, and the single bearer-scoped /portal/api/* prefix to Sparrow, denying everything else; a separate VPN path reaches Sparrow :8080 for the admin UI, full API, and token minting.
       Net[internet] --> Proxy["proxy<br>TLS + rate limit"]
-      Proxy -->|"/portal, /_app/*"| S["Sparrow :8080"]
+      Proxy -->|"/portal, /portal/*, /_app/*"| S["Sparrow :8080"]
       Proxy -->|"/portal/api/* — bearer-scoped, all portal API"| S
       Proxy -->|everything else| Deny[deny]
       VPN["VPN (admin)"] -->|"admin UI, full API, token minting"| S
@@ -128,9 +128,10 @@ How that plays out per network topology:
   "proxy" can be a standalone reverse proxy **or your own product's
   backend** forwarding those routes over the VPN — same origin as your app,
   so no CORS setup and no iframe required. Two constraints: paths must be
-  preserved verbatim (`/portal`, `/portal/api`, `/_app` are root-absolute in
+  preserved verbatim (`/portal`, `/portal/*`, `/_app` are root-absolute in
   the SPA — use a dedicated subdomain if they collide with your app's routes),
-  and the proxy must never inject the admin `X-API-Key` on these routes.
+  and the proxy forwards nothing beyond them: above all not `/v1` with an
+  injected admin `X-API-Key`.
 - **Embedded in your own product** (the intended design) — your app is
   already public and already authenticates its users. Its backend calls the
   mint endpoint over the private network and renders the returned
@@ -147,9 +148,9 @@ Copying the HTML copies neither. If you want zero Sparrow UI in the browser,
 build your own screens on the consumer-scoped REST API instead: your backend
 holds the token, calls Sparrow over the VPN, and renders native components.
 
-A full worked example of the external topology — nginx and Express proxy
-configs, the mint flow, and the threat analysis — is in [Embedding the
-Consumer Portal](/sparrow/guides/portal-embedding/).
+A full worked example of the external topology — a Caddy proxy config, a
+Docker Compose stack that runs it, the mint flow, and the threat analysis —
+is in [Embedding the Consumer Portal](/sparrow/guides/portal-embedding/).
 
 Portal caveats: the token rides in the URL fragment, so anyone the link is
 forwarded to can use it until it expires (default 7 days, max 30 — use a short
@@ -168,6 +169,61 @@ proxy authenticates humans, then injects the `X-API-Key` header on every
 authenticated request. Sparrow needs zero configuration changes beyond setting
 the key, and the browser never sees the key at all.
 
+### What must be private, and what can be public
+
+Sparrow is one process on one port (`:8080`), but its routes fall into three
+groups with different exposure. Decide per group, not per port:
+
+| Route | Who needs it | Exposure |
+|---|---|---|
+| Postgres | Sparrow only | **Private.** Never published; only Sparrow connects. |
+| `/` (dashboard), `/_app/*` for it, `/docs`, `/openapi.*` | your operators | **Behind SSO or the VPN.** The dashboard has no login of its own beyond the key prompt. |
+| `/v1/*` | operators (via the SSO proxy), your producers and CI (`X-API-Key`) | **Behind SSO or the VPN.** Producers push events here and your backend mints portal tokens here, so it must be reachable from them, not from the internet. |
+| `/health`, `/ready`, `/metrics` | your orchestrator and monitoring | **Private.** Unauthenticated by design; `/metrics` shows per-webhook traffic. |
+| `/portal`, `/portal/*` (incl. `/portal/api/*`), `/_app/*`, `/favicon.png` | your consumers' browsers | **Can be public.** Every API call needs a consumer-scoped bearer token; the gateway pins it to one consumer. |
+| `POST /invite/redeem` | whoever holds an invite link | **Can be public** if you hand out consumer invites; the single-use invite is the credential. |
+| Outbound HTTPS to receivers | Sparrow | **Egress only.** Sparrow must reach webhook URLs; nothing needs to reach Sparrow for that. |
+
+Two rules hold in every layout: set `SPARROW_API_KEY` (without it `/v1` is
+open to anyone who can reach the port), and forward nothing to the public
+side beyond the "can be public" rows (rule 4 below).
+
+[`deploy/portal/`](https://github.com/sarathsp06/sparrow/tree/main/deploy/portal)
+in the repository is this table as a runnable Docker Compose stack:
+
+```mermaid
+flowchart LR
+    accTitle: Exposure of each Sparrow route
+    accDescr: Consumers on the internet reach only the portal proxy, which forwards /portal, /portal/*, /_app/* and POST /invite/redeem to Sparrow and answers 404 to everything else. Operators reach the admin UI, /v1 and /docs through the VPN or an SSO proxy that injects X-API-Key. Producers and CI call /v1 directly with X-API-Key over the private network. Postgres is reachable only from Sparrow. Sparrow makes outbound calls to webhook receivers.
+    C["consumers<br>(internet)"] --> PP["portal proxy<br>(Caddy)"]
+    PP -->|"/portal, /portal/*, /_app/*,<br>POST /invite/redeem"| S["Sparrow :8080"]
+    PP -.->|"everything else"| X["404"]
+    O["operators"] --> SSO["VPN or SSO proxy<br>injects X-API-Key"]
+    SSO -->|"/, /v1/*, /docs"| S
+    P["producers / CI"] -->|"/v1 + X-API-Key<br>(private network)"| S
+    S --> DB[("Postgres<br>private")]
+    S -->|"HTTPS"| R["webhook receivers"]
+    subgraph private["private network / VPN"]
+        S
+        DB
+        SSO
+    end
+```
+
+In that stack:
+
+- `postgres` and `sparrow` sit only on the `private` network; Postgres
+  publishes no port.
+- `portal-proxy` (Caddy) is the only service on the `public` network. Its
+  `Caddyfile` forwards the "can be public" rows and answers 404 to the rest;
+  `http://localhost:8181/v1/webhooks` and `/docs` are 404 from Caddy.
+- Sparrow's own port is published on `127.0.0.1:8180` only. That line
+  stands in for "reachable over the VPN": in production, replace it with your
+  VPN, or with the identity-aware proxy from this section on the private
+  network, published on an internal hostname.
+
+### Rules for the SSO proxy
+
 ```mermaid
 flowchart LR
     accTitle: Auth proxy topology
@@ -177,18 +233,17 @@ flowchart LR
     CI["CI / services"] -->|"X-API-Key directly"| S
 ```
 
-Rules for this topology:
-
 1. Sparrow's port must be reachable **only** from the proxy (and trusted
    machine clients). If clients can bypass the proxy, the overlay is decoration.
 2. Set `SPARROW_API_KEY`; give it only to the proxy config and machine clients.
 3. Set `SPARROW_CORS_ALLOWED_ORIGINS` to the proxy's public origin (or leave unset if
    the UI is served through the same origin).
-4. **Never inject `X-API-Key` on `/portal` or `/portal/api/*` if portal
-   users go through the same proxy.** A valid API key outranks portal token
-   scoping, so blanket header injection silently escalates every portal
-   visitor to admin. Exclude those paths from injection, or serve the portal
-   on a separate route/vhost without the overlay.
+4. **Serve the portal on its own vhost, as `deploy/portal/` does, not as a
+   login-free exception on the SSO proxy.** The SSO proxy injects the admin
+   key, so any path it lets through without a login is an admin route for
+   anyone, and an exception list is easy to widen by mistake. On the portal
+   routes themselves an injected key changes nothing (portal calls stay
+   pinned to the token's consumer); the danger is everything next to them.
 
 ### Option A — Authentik (username/password + Entra + Google in one tool)
 

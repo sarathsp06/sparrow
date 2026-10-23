@@ -70,6 +70,13 @@ type Config struct {
 	// Env: SPARROW_TOKEN_DEFAULT_TTL (Go duration, e.g. "2160h" = 90 days)
 	TokenDefaultTTL time.Duration `envconfig:"SPARROW_TOKEN_DEFAULT_TTL" default:"2160h"`
 
+	// PortalRetry lets consumer (portal) tokens retry their own deliveries.
+	// Off: the portal gateway refuses the retry calls with 403 and the portal
+	// shows its retry buttons disabled; consumers still see every delivery, and the
+	// master key and tenant-wide tokens can still retry.
+	// Env: SPARROW_PORTAL_RETRY (default true)
+	PortalRetry bool `envconfig:"SPARROW_PORTAL_RETRY" default:"true"`
+
 	// AllowPrivateNetworks relaxes SSRF protection to allow localhost and
 	// private IP addresses as webhook target URLs. Useful for local dev.
 	// Env: SPARROW_ALLOW_PRIVATE_NETWORKS

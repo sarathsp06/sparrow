@@ -94,7 +94,8 @@ def sync_detailed(
 
     404 when the webhook does not exist in this consumer.
 
-    Portal tokens: allowed, as POST /portal/api/deliveries:retry.
+    Portal tokens: allowed, as POST /portal/api/deliveries:retry, unless the server runs with
+    SPARROW_PORTAL_RETRY=false (then 403).
 
     Args:
         consumer (str): Consumer the webhook belongs to.
@@ -135,7 +136,8 @@ def sync(
 
     404 when the webhook does not exist in this consumer.
 
-    Portal tokens: allowed, as POST /portal/api/deliveries:retry.
+    Portal tokens: allowed, as POST /portal/api/deliveries:retry, unless the server runs with
+    SPARROW_PORTAL_RETRY=false (then 403).
 
     Args:
         consumer (str): Consumer the webhook belongs to.
@@ -171,7 +173,8 @@ async def asyncio_detailed(
 
     404 when the webhook does not exist in this consumer.
 
-    Portal tokens: allowed, as POST /portal/api/deliveries:retry.
+    Portal tokens: allowed, as POST /portal/api/deliveries:retry, unless the server runs with
+    SPARROW_PORTAL_RETRY=false (then 403).
 
     Args:
         consumer (str): Consumer the webhook belongs to.
@@ -210,7 +213,8 @@ async def asyncio(
 
     404 when the webhook does not exist in this consumer.
 
-    Portal tokens: allowed, as POST /portal/api/deliveries:retry.
+    Portal tokens: allowed, as POST /portal/api/deliveries:retry, unless the server runs with
+    SPARROW_PORTAL_RETRY=false (then 403).
 
     Args:
         consumer (str): Consumer the webhook belongs to.
