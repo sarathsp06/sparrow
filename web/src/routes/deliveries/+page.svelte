@@ -56,7 +56,11 @@
     function startLive() {
         stopLive();
         live = true;
-        liveTimer = setInterval(() => { pages.reset(); fetchDeliveries(false, true); pulseStore.ping(); }, 5000);
+        liveTimer = setInterval(() => {
+            // Don't yank the user off an older page, and skip hidden tabs.
+            if (document.hidden || pages.page !== 1) return;
+            pages.reset(); fetchDeliveries(false, true); pulseStore.ping();
+        }, 5000);
     }
     function stopLive() {
         live = false;
@@ -67,7 +71,9 @@
         else startLive();
     }
 
+    let fetchSeq = 0; // drops out-of-order responses (live tick vs. filter change)
     async function fetchDeliveries(prepareRetry: boolean = false, silent: boolean = false) {
+        const seq = ++fetchSeq;
         loading = !prepareRetry && !silent;
         if (!prepareRetry) error = '';
 
@@ -90,6 +96,7 @@
                     },
                 },
             }));
+            if (seq !== fetchSeq) return; // a newer fetch superseded this one
             if (prepareRetry) {
                 if (!retry.prepared(res.retry_id, res.retry_total)) {
                     error = 'No matching deliveries to retry.';
@@ -99,10 +106,11 @@
             deliveries = res.items || [];
             pages.update(res.pagination);
         } catch (e: any) {
+            if (seq !== fetchSeq) return;
             console.error('Failed to fetch deliveries:', e);
             error = formatAPIError(e, 'Failed to load deliveries');
         } finally {
-            loading = false;
+            if (seq === fetchSeq) loading = false;
         }
     }
 
