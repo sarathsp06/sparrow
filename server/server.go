@@ -60,11 +60,39 @@ import (
 	"github.com/sarathsp06/sparrow/pkg/safetransport"
 )
 
-// Option configures New. There are no options yet; the type exists so later
-// ones can be added without changing New's signature.
+// Option configures New.
 type Option func(*options)
 
-type options struct{}
+type options struct {
+	queues map[string]int
+	limits func(ctx context.Context, tenantID uuid.UUID) TenantLimits
+}
+
+// TenantLimits bound one tenant's share of the shared work queues. Zero
+// values mean no limit and the default queues.
+type TenantLimits struct {
+	// MaxInFlight caps the tenant's event fan-out and delivery jobs running
+	// at once in one process; a job over the cap waits a second or two and
+	// tries again, without using a retry attempt. With N processes a tenant
+	// can run up to N times MaxInFlight.
+	MaxInFlight int
+	// Queue, when set, names one of the queues declared in WithTenantLimits;
+	// the tenant's event fan-out and delivery jobs run there.
+	Queue string
+}
+
+// WithTenantLimits keeps one busy tenant from delaying the others. queues
+// declares extra work queues by name with their worker counts (for example
+// a small queue for free tenants); limits returns each tenant's limits and
+// is called for every event fan-out and delivery job, so it must be fast.
+// Without this option every tenant shares the default queues with no cap,
+// as in a self-hosted Sparrow.
+func WithTenantLimits(queues map[string]int, limits func(ctx context.Context, tenantID uuid.UUID) TenantLimits) Option {
+	return func(o *options) {
+		o.queues = queues
+		o.limits = limits
+	}
+}
 
 // Server is a fully wired Sparrow: database pools, queue workers, the webhook
 // service and the HTTP router. Create it with New, then Start it.
@@ -271,6 +299,13 @@ func New(ctx context.Context, opts ...Option) (*Server, error) {
 	// Initialize queue manager
 	autoDisable := queue.AutoDisablePolicy{After: cfg.AutoDisableAfter, MinFailures: cfg.AutoDisableMinFailuresOrDefault()}
 	pool := queue.WorkerPoolConfig{EventWorkers: cfg.EventWorkers, WebhookWorkers: cfg.WebhookWorkers, FetchCooldown: cfg.QueueFetchCooldown}
+	if o.limits != nil {
+		pool.ExtraQueues = o.queues
+		pool.TenantLimits = func(ctx context.Context, tenantID uuid.UUID) queue.TenantLimits {
+			l := o.limits(ctx, tenantID)
+			return queue.TenantLimits{MaxInFlight: l.MaxInFlight, Queue: l.Queue}
+		}
+	}
 	healthEval := queue.HealthEvaluatorConfig{Interval: cfg.HealthEvalInterval}
 	queueManager, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, dbPool, clientConfig, cfg.EventRetentionDays, autoDisable, pool, healthEval)
 	if err != nil {

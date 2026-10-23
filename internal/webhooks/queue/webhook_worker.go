@@ -32,6 +32,7 @@ import (
 // WebhookWorker handles webhook delivery jobs
 type WebhookWorker struct {
 	river.WorkerDefaults[WebhookArgs]
+	gate             *tenantGate // per-tenant cap; nil when self-hosted
 	webhookRepo      store.WebhookRepository
 	eventRepo        systemEventRepo
 	deliveryRepo     store.DeliveryRepository
@@ -184,6 +185,11 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	if err != nil {
 		return river.JobCancel(fmt.Errorf("invalid tenant ID %q in job args: %w", args.TenantID, err))
 	}
+	release, admitted := w.gate.acquire(ctx, tenantID)
+	if !admitted {
+		return fairnessSnooze()
+	}
+	defer release()
 	webhookID, err := uuid.Parse(args.WebhookID)
 	if err != nil {
 		return river.JobCancel(fmt.Errorf("invalid webhook ID %q in job args: %w", args.WebhookID, err))

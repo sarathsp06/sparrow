@@ -32,7 +32,7 @@ type embeddedSparrow struct {
 	db      *sqlx.DB
 }
 
-func startEmbeddedSparrow(t *testing.T) *embeddedSparrow {
+func startEmbeddedSparrow(t *testing.T, opts ...server.Option) *embeddedSparrow {
 	t.Helper()
 	ctx := context.Background()
 	databaseURL, _ := setupTestDB(t, ctx)
@@ -45,7 +45,7 @@ func startEmbeddedSparrow(t *testing.T) *embeddedSparrow {
 	t.Setenv("SPARROW_ALLOW_PRIVATE_NETWORKS", "true")
 	t.Setenv("SPARROW_HEALTH_EVAL_INTERVAL", "1s")
 
-	srv, err := server.New(ctx)
+	srv, err := server.New(ctx, opts...)
 	require.NoError(t, err)
 	require.NoError(t, srv.Start(ctx))
 

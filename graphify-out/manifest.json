@@ -1500,9 +1500,9 @@
     "semantic_hash": ""
   },
   "internal/webhooks/queue/events_worker.go": {
-    "mtime": 1791992655.400086,
-    "seen": 1792774526.33499,
-    "ast_hash": "db66e203d127ad1c6bebe6c3ffcd538a",
+    "mtime": 1792775599.686141,
+    "seen": 1792775755.6907961,
+    "ast_hash": "806f648f513c73955c14c9ad76f952f0",
     "semantic_hash": ""
   },
   "internal/webhooks/queue/health_evaluator_worker.go": {
@@ -1512,9 +1512,9 @@
     "semantic_hash": ""
   },
   "internal/webhooks/queue/jobs.go": {
-    "mtime": 1791992655.4003942,
-    "seen": 1792774526.3349912,
-    "ast_hash": "e0bc6a6a035568f879fa652e8fcc3c09",
+    "mtime": 1792775605.0625663,
+    "seen": 1792775755.690798,
+    "ast_hash": "6d8fecc527a3fbe2987c0c3ccb149ce7",
     "semantic_hash": ""
   },
   "internal/webhooks/queue/jobs_test.go": {
@@ -1524,9 +1524,9 @@
     "semantic_hash": ""
   },
   "internal/webhooks/queue/manager.go": {
-    "mtime": 1792775291.824625,
-    "seen": 1792775524.150887,
-    "ast_hash": "c9c7e2053515b0a7f5244f3468cf0cc3",
+    "mtime": 1792775595.862744,
+    "seen": 1792775755.690799,
+    "ast_hash": "6c4f7071e8f7ffe350cbf00b708843de",
     "semantic_hash": ""
   },
   "internal/webhooks/queue/metrics.go": {
@@ -1572,9 +1572,9 @@
     "semantic_hash": ""
   },
   "internal/webhooks/queue/webhook_worker.go": {
-    "mtime": 1792774830.4210804,
-    "seen": 1792774949.1498802,
-    "ast_hash": "f78a3ba169029d3abd380d4bfc99389a",
+    "mtime": 1792775599.6884396,
+    "seen": 1792775755.690805,
+    "ast_hash": "e43727ac2fea0179bdb17ffbc7d8e528",
     "semantic_hash": ""
   },
   "internal/webhooks/queue/webhook_worker_test.go": {
@@ -2748,9 +2748,9 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1792775483.3966992,
-    "seen": 1792775524.1510332,
-    "ast_hash": "14e0f559d5640554d2dc017b9e53fb34",
+    "mtime": 1792775726.2539334,
+    "seen": 1792775755.690939,
+    "ast_hash": "7efb04e25fff15abaea77b541c62cdfa",
     "semantic_hash": ""
   },
   "CONTRIBUTING.md": {
@@ -5472,15 +5472,15 @@
     "semantic_hash": ""
   },
   "server/server.go": {
-    "mtime": 1792775325.246761,
-    "seen": 1792775524.150978,
-    "ast_hash": "c1a26cc5a7b6f3bcc910205545f8876d",
+    "mtime": 1792775623.4978273,
+    "seen": 1792775755.6908858,
+    "ast_hash": "adc88890bad662df2ddf0462faf09d18",
     "semantic_hash": ""
   },
   "internal/integration/multi_tenant_test.go": {
-    "mtime": 1792775431.5091386,
-    "seen": 1792775524.1508281,
-    "ast_hash": "44871f6aeed94be1214196ea7a5379fd",
+    "mtime": 1792775684.1309278,
+    "seen": 1792775755.690743,
+    "ast_hash": "716e9b51398f7ead60d1774bf2a8d26a",
     "semantic_hash": ""
   },
   "internal/tenant/context_test.go": {
@@ -5499,6 +5499,24 @@
     "mtime": 1792775469.6229515,
     "seen": 1792775524.1509051,
     "ast_hash": "78ed22f5dfabd03f95b8243f98f874de",
+    "semantic_hash": ""
+  },
+  "internal/integration/tenant_fairness_test.go": {
+    "mtime": 1792775684.2182071,
+    "seen": 1792775755.69075,
+    "ast_hash": "43687e19164b473369bfbc8c18725894",
+    "semantic_hash": ""
+  },
+  "internal/webhooks/queue/tenant_limits.go": {
+    "mtime": 1792775716.444594,
+    "seen": 1792775755.690803,
+    "ast_hash": "c21601f0a6484dfded96352a27e2f542",
+    "semantic_hash": ""
+  },
+  "internal/webhooks/queue/tenant_limits_test.go": {
+    "mtime": 1792775652.7795162,
+    "seen": 1792775755.690803,
+    "ast_hash": "746cc16945baf4e62967654f4862a725",
     "semantic_hash": ""
   }
 }

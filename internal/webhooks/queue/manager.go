@@ -28,6 +28,9 @@ type Manager struct {
 	workers  *river.Workers
 	dbPool   *pgxpool.Pool
 	logger   *slog.Logger
+
+	tenantLimits TenantLimiter
+	extraQueues  map[string]int
 }
 
 // WorkerPoolConfig sizes the River queues. Zero values take the defaults.
@@ -41,6 +44,14 @@ type WorkerPoolConfig struct {
 	EventWorkers   int
 	WebhookWorkers int
 	FetchCooldown  time.Duration
+
+	// ExtraQueues are additional queues, by name, with their worker counts.
+	// TenantLimits.Queue routes a tenant's jobs to one of them. Self-hosted
+	// Sparrow sets none.
+	ExtraQueues map[string]int
+	// TenantLimits, when set, caps each tenant's running jobs and routes its
+	// jobs to its queue. Nil means no per-tenant limits (self-hosted).
+	TenantLimits TenantLimiter
 }
 
 // Default worker pool sizing.
@@ -93,17 +104,30 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 		))
 	}
 
+	queues := map[string]river.QueueConfig{
+		QueueDefault:         {MaxWorkers: 5},
+		QueueEventProcessing: {MaxWorkers: pool.EventWorkers, FetchPollInterval: time.Second * 2},   // Event fan-out queue
+		QueueWebhookDelivery: {MaxWorkers: pool.WebhookWorkers, FetchPollInterval: time.Second * 2}, // Webhook delivery queue
+		QueueBatchJobs:       {MaxWorkers: 5, FetchPollInterval: time.Second * 5},                   // Batch job processing queue
+	}
+	for name, workers := range pool.ExtraQueues {
+		if _, exists := queues[name]; exists {
+			dbPool.Close()
+			return nil, fmt.Errorf("extra queue %q clashes with a built-in queue", name)
+		}
+		if workers <= 0 {
+			dbPool.Close()
+			return nil, fmt.Errorf("extra queue %q needs at least one worker", name)
+		}
+		queues[name] = river.QueueConfig{MaxWorkers: workers, FetchPollInterval: time.Second * 2}
+	}
+
 	// Create River client first (needed for workers)
 	riverClient, err := river.NewClient(riverpgxv5.New(dbPool), &river.Config{
 		PeriodicJobs:  periodicJobs,
 		FetchCooldown: pool.FetchCooldown,
-		Queues: map[string]river.QueueConfig{
-			QueueDefault:         {MaxWorkers: 5},
-			QueueEventProcessing: {MaxWorkers: pool.EventWorkers, FetchPollInterval: time.Second * 2},   // Event fan-out queue
-			QueueWebhookDelivery: {MaxWorkers: pool.WebhookWorkers, FetchPollInterval: time.Second * 2}, // Webhook delivery queue
-			QueueBatchJobs:       {MaxWorkers: 5, FetchPollInterval: time.Second * 5},                   // Batch job processing queue
-		},
-		Workers: riverWorkers,
+		Queues:        queues,
+		Workers:       riverWorkers,
 	})
 	if err != nil {
 		dbPool.Close()
@@ -117,18 +141,25 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 	}
 
 	manager := &Manager{
-		client:   riverClient,
-		txClient: txClient,
-		workers:  riverWorkers,
-		dbPool:   dbPool,
-		logger:   slog.Default().With("component", "queue-manager"),
+		client:       riverClient,
+		txClient:     txClient,
+		workers:      riverWorkers,
+		dbPool:       dbPool,
+		logger:       slog.Default().With("component", "queue-manager"),
+		tenantLimits: pool.TenantLimits,
+		extraQueues:  pool.ExtraQueues,
 	}
+	gate := newTenantGate(pool.TenantLimits)
 
 	// Add workers with explicit generic types.
 	// RepositoryInterface satisfies all narrow interfaces via embedding.
-	river.AddWorker(riverWorkers, NewWebhookWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter(), cryptoSvc, clientConfig))
+	webhookWorker := NewWebhookWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter(), cryptoSvc, clientConfig)
+	webhookWorker.gate = gate
+	river.AddWorker(riverWorkers, webhookWorker)
 	river.AddWorker(riverWorkers, NewHealthEvaluatorWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter(), autoDisable, health))
-	river.AddWorker(riverWorkers, NewEventProcessingWorker(webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter()))
+	eventWorker := NewEventProcessingWorker(webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter())
+	eventWorker.gate = gate
+	river.AddWorker(riverWorkers, eventWorker)
 	river.AddWorker(riverWorkers, NewBatchJobWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter()))
 	river.AddWorker(riverWorkers, NewRetentionWorker(webhookRepo, retentionDays))
 	river.AddWorker(riverWorkers, NewBatchCleanupWorker(webhookRepo))
@@ -215,5 +246,8 @@ func (m *Manager) CancelTenantJobs(ctx context.Context, tenantID uuid.UUID) (int
 }
 
 func (m *Manager) GetJobInserter() JobInserter {
-	return NewJobInserterWithTracing(NewJobInserter(m.client, m.txClient), "")
+	ji := NewJobInserter(m.client, m.txClient)
+	ji.tenantLimits = m.tenantLimits
+	ji.extraQueues = m.extraQueues
+	return NewJobInserterWithTracing(ji, "")
 }
