@@ -63,7 +63,7 @@
   onMount(() => {
     if (isPortal) return;
     refreshTelemetry();
-    telemetryTimer = setInterval(refreshTelemetry, 10000);
+    telemetryTimer = setInterval(() => { if (!document.hidden) refreshTelemetry(); }, 10000);
   });
   onDestroy(() => clearInterval(telemetryTimer));
 </script>

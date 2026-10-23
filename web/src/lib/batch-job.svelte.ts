@@ -33,7 +33,7 @@ export class BatchJob {
   confirming = $state(false);
   /** Progress of the started job, for BatchProgress. */
   progress = $state<BatchProgressState | undefined>();
-  #timer: ReturnType<typeof setInterval> | undefined;
+  #timer: NodeJS.Timeout | undefined;
   private kind: BatchKind;
   private consumer: () => string;
   private onerror: (msg: string) => void;
@@ -75,8 +75,12 @@ export class BatchJob {
 
   #poll() {
     this.stop();
-    this.#timer = setInterval(async () => {
-      if (!this.id) return this.stop();
+    const tick = async () => {
+      if (!this.id) return;
+      if (document.hidden) {
+        this.#timer = setTimeout(tick, 2000);
+        return;
+      }
       const path = { consumer: this.consumer() || "default", job_id: this.id };
       try {
         const res =
@@ -84,16 +88,19 @@ export class BatchJob {
             ? unwrap(await api.GET("/v1/consumers/{consumer}/repush-jobs/{job_id}", { params: { path } }))
             : unwrap(await api.GET("/v1/consumers/{consumer}/retry-jobs/{job_id}", { params: { path } }));
         this.progress = progressOf(res);
-        if (terminal.has(res.status)) this.stop();
-      } catch {
-        this.stop();
+        if (terminal.has(res.status)) return;
+      } catch (e) {
+        this.onerror(formatAPIError(e, `Failed to track ${this.#label}`));
+        return;
       }
-    }, 2000);
+      this.#timer = setTimeout(tick, 2000);
+    };
+    this.#timer = setTimeout(tick, 2000);
   }
 
   /** Stops polling; call from onDestroy. */
   stop() {
-    if (this.#timer) clearInterval(this.#timer);
+    clearTimeout(this.#timer);
     this.#timer = undefined;
   }
 

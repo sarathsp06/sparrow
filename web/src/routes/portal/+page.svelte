@@ -99,6 +99,7 @@
           params: { path: { consumer }, query: { webhook_id: webhookId, limit: 25 } },
         }),
       );
+      if (selectedId !== webhookId) return; // panel switched while loading
       deliveries = res.items || [];
     } catch (e) {
       error = formatAPIError(e, "Failed to load deliveries");
@@ -114,6 +115,7 @@
           params: { path: { consumer }, query: { webhook_id: webhookId } },
         }),
       );
+      if (selectedId !== webhookId) return; // panel switched while loading
       subscriptions = res.items || [];
     } catch (e) {
       error = formatAPIError(e, "Failed to load subscriptions");

@@ -44,6 +44,7 @@
   let strict = $derived(missingKey === "error");
   let viewAs: "raw" | "json" = $state("json");
   let renderTimer: ReturnType<typeof setTimeout> | null = null;
+  let renderSeq = 0; // drops out-of-order render replies
 
   // Helper reference
   let showFunctions = $state(false);
@@ -162,18 +163,21 @@
     if (!open) return;
     if (!canRender) { rendered = ""; renderError = ""; return; }
     if (!draft.trim()) { rendered = ""; renderError = ""; return; }
+    const seq = ++renderSeq;
     try {
       rendering = true;
       const res = unwrap(await api.POST('/v1/subscriptions:testTemplate', {
         body: { event_name: eventName, template: draft, template_missing_key: strict ? "error" : "zero" },
       }));
+      if (seq !== renderSeq) return; // a newer render superseded this one
       rendered = res.rendered;
       renderError = "";
     } catch (e: any) {
+      if (seq !== renderSeq) return;
       rendered = "";
       renderError = formatAPIError(e, "Template did not render");
     } finally {
-      rendering = false;
+      if (seq === renderSeq) rendering = false;
     }
   }
 
