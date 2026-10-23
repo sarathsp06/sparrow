@@ -1,6 +1,6 @@
 ---
 title: Configuration
-description: Environment variables and configuration options.
+description: "Every Sparrow environment variable: the minimum to start, access, outbound network, deliveries, throughput, encryption keys, OpenTelemetry and AI drafting."
 sidebar:
   order: 5
 ---

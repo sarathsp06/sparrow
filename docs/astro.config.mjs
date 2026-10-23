@@ -106,7 +106,6 @@ export default defineConfig({
         {
           label: 'Interactive Apps',
           items: [
-            { label: 'Email Recipe Studio', link: '/tools/email-studio/' },
             { label: 'Recipe Workbench', link: '/tools/recipe-workbench/' },
           ],
         },

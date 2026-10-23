@@ -606,9 +606,9 @@
     "semantic_hash": ""
   },
   "docs/astro.config.mjs": {
-    "mtime": 1792768916.182757,
-    "seen": 1792771200.405828,
-    "ast_hash": "f4ed07613455674ccc6f16deb37887a6",
+    "mtime": 1792771344.480773,
+    "seen": 1792771371.2549891,
+    "ast_hash": "ce440bcbe0488309dae2f2cbda6754a4",
     "semantic_hash": ""
   },
   "docs/package.json": {
@@ -816,15 +816,15 @@
     "semantic_hash": ""
   },
   "docs/src/pages/blog/tags/[tag].astro": {
-    "mtime": 1791463164.3236318,
-    "seen": 1792771200.405848,
-    "ast_hash": "58726b808b1c21e75cf440329890477f",
+    "mtime": 1792771344.4806118,
+    "seen": 1792771371.255009,
+    "ast_hash": "60a1504d8408804fc77f1aa13bebafb2",
     "semantic_hash": ""
   },
   "docs/src/pages/index.astro": {
-    "mtime": 1792770894.7891145,
-    "seen": 1792771200.405849,
-    "ast_hash": "3c6f5f70967eef94040748b9c928506f",
+    "mtime": 1792771344.4800682,
+    "seen": 1792771371.2550101,
+    "ast_hash": "a6a66285e0fd5fd41514f5ffdd3776de",
     "semantic_hash": ""
   },
   "docs/src/pages/reference/api.astro": {
@@ -2838,9 +2838,9 @@
     "semantic_hash": ""
   },
   "docs/src/blog/benchmark-four-walls.md": {
-    "mtime": 1792138406.2117345,
-    "seen": 1792771200.406183,
-    "ast_hash": "00dae8b2d843b6a05bed4dd17292cb9f",
+    "mtime": 1792771313.3507378,
+    "seen": 1792771371.255379,
+    "ast_hash": "635f7a392fef494ba05978c21b963fac",
     "semantic_hash": ""
   },
   "docs/src/blog/introducing-sparrow.md": {
@@ -2868,9 +2868,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/deployment/security.mdx": {
-    "mtime": 1792768770.2631192,
-    "seen": 1792771200.4061859,
-    "ast_hash": "8255c874098392f95222924e88bb04a4",
+    "mtime": 1792771324.483079,
+    "seen": 1792771371.255382,
+    "ast_hash": "f60587c314b9233f6c0160db7ed7de51",
     "semantic_hash": ""
   },
   "docs/src/content/docs/deployment/separate-ui.md": {
@@ -2880,9 +2880,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/configuration.md": {
-    "mtime": 1792768770.26349,
-    "seen": 1792771200.406187,
-    "ast_hash": "2a81a772d7b672fc4306683a83070c2c",
+    "mtime": 1792771324.4832172,
+    "seen": 1792771371.255384,
+    "ast_hash": "3b5cfce223d88afab36f4720a7ee4dee",
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/for-decision-makers.mdx": {
@@ -2898,9 +2898,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/installation.mdx": {
-    "mtime": 1792574638.5808725,
-    "seen": 1792771200.406189,
-    "ast_hash": "203473aff6537669b98ee97aea7c325d",
+    "mtime": 1792771324.4834821,
+    "seen": 1792771371.2553852,
+    "ast_hash": "969e59efc901f336d34d4dfb31059664",
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/quickstart.mdx": {
@@ -2934,9 +2934,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/guides/portal-embedding.mdx": {
-    "mtime": 1792768770.2639296,
-    "seen": 1792771200.406191,
-    "ast_hash": "ce025e5a1fa3159f23c6ba51e4cc6d59",
+    "mtime": 1792771344.4798377,
+    "seen": 1792771371.255388,
+    "ast_hash": "0489b485ec7f1db1271747f00d00fe7e",
     "semantic_hash": ""
   },
   "docs/src/content/docs/guides/subscription-pause.mdx": {
@@ -2958,21 +2958,21 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/architecture.mdx": {
-    "mtime": 1792496000.045561,
-    "seen": 1792771200.406194,
-    "ast_hash": "8fc9a04ecc803f6ba19300da04c82588",
+    "mtime": 1792771324.4839303,
+    "seen": 1792771371.25539,
+    "ast_hash": "14dbe7b6452982ade882aa1788e46796",
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/client-libraries.mdx": {
-    "mtime": 1792069529.2086854,
-    "seen": 1792771200.406194,
-    "ast_hash": "7665915415c06cf6c026f8e6faf74835",
+    "mtime": 1792771324.4843185,
+    "seen": 1792771371.255391,
+    "ast_hash": "5328aaf2245148a4565070c3c96e5454",
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/error-classification.md": {
-    "mtime": 1792069529.2093897,
-    "seen": 1792771200.406195,
-    "ast_hash": "c6a6b5f47c6229fd2513d82899d013e2",
+    "mtime": 1792771324.4846935,
+    "seen": 1792771371.255392,
+    "ast_hash": "ddbabaa3dfb7248af4811a325500735b",
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/layered-architecture.mdx": {
@@ -3006,9 +3006,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/recipes.mdx": {
-    "mtime": 1792069529.2109442,
-    "seen": 1792771200.406198,
-    "ast_hash": "7654264700ef796d02c82640941834e9",
+    "mtime": 1792771324.4849632,
+    "seen": 1792771371.2553952,
+    "ast_hash": "c5cb9f178d70431c9ca1af1a656e2490",
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/sinks.mdx": {
@@ -5352,9 +5352,9 @@
     "semantic_hash": ""
   },
   "docs/src/blog/the-key-was-four.md": {
-    "mtime": 1792750655.6678648,
-    "seen": 1792771200.406184,
-    "ast_hash": "c26a77b04df34b9ecfa76c3263edb03f",
+    "mtime": 1792771324.482862,
+    "seen": 1792771371.25538,
+    "ast_hash": "e287674a4c61c779483ee99cbf985aaa",
     "semantic_hash": ""
   },
   "web/src/routes/portal/webhooks/[webhookId]/subscriptions/[subscriptionId]/edit/+page.svelte": {

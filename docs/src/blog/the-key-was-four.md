@@ -2,7 +2,7 @@
 title: The private key was 4
 kicker: What the eMudhra key compromise means for Go programs that talk TLS
 author: sarathsp06
-description: "In October 2026 eight eMudhra intermediate CAs turned out to have private keys below 256. Browsers blocked them within hours; Go kept trusting them, because Go checks no revocation. Here is what Sparrow does about it, and a stdlib-only package you can drop into your own Go clients."
+description: Eight eMudhra intermediate CAs had private keys below 256. Browsers blocked them in hours; Go kept trusting them. What Sparrow does, and a fix for Go clients.
 pubDate: 2026-10-21
 tags: [security, tls, pki, go]
 ---
