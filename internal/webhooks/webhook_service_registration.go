@@ -29,7 +29,7 @@ func (s *WebhookService) setWebhookActive(ctx context.Context, webhookID string,
 		return svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
 	}
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	id, err := parseUUID(webhookID, "webhook ID")
 	if err != nil {
@@ -84,7 +84,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		"url", redactedURL,
 	)
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	if req.Consumer == "" {
 		return nil, "", svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
@@ -292,7 +292,7 @@ func (s *WebhookService) UnregisterWebhook(ctx context.Context, webhookID string
 		return svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
 	}
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	id, err := parseUUID(webhookID, "webhook ID")
 	if err != nil {
@@ -331,7 +331,7 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, consumer string, webh
 		"offset", offset,
 	)
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	l, o := normalizePagination(int(limit), int(offset))
 	limit, offset = clampInt32(l), clampInt32(o)
@@ -401,7 +401,7 @@ func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, co
 		return nil, err
 	}
 	status := string(store.StatusPaused)
-	count, err := s.webhookRepo.CountDeliveries(ctx, tenant.DefaultTenantID, store.DeliveryFilter{
+	count, err := s.webhookRepo.CountDeliveries(ctx, tenant.FromContext(ctx), store.DeliveryFilter{
 		Consumer:  consumer,
 		WebhookID: &id,
 		Status:    &status,
@@ -439,7 +439,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		return svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
 	}
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	webhookUUID, err := parseUUID(webhookID, "webhook ID")
 	if err != nil {
@@ -716,7 +716,7 @@ func (s *WebhookService) RotateWebhookSecret(ctx context.Context, webhookID stri
 		return "", err
 	}
 
-	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenant.DefaultTenantID, webhookUUID, consumer)
+	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenant.FromContext(ctx), webhookUUID, consumer)
 	if err != nil {
 		return "", fmt.Errorf("failed to retrieve webhook: %w", err)
 	}
@@ -731,7 +731,7 @@ func (s *WebhookService) RotateWebhookSecret(ctx context.Context, webhookID stri
 	}
 	webhook.WebhookSecret = encSecret
 
-	if err := s.webhookRepo.UpdateWebhook(ctx, tenant.DefaultTenantID, webhook); err != nil {
+	if err := s.webhookRepo.UpdateWebhook(ctx, tenant.FromContext(ctx), webhook); err != nil {
 		return "", fmt.Errorf("failed to store rotated webhook secret: %w", err)
 	}
 	s.logger.InfoContext(ctx, "Rotated webhook signing secret", "webhook_id", webhookID, "consumer", consumer)

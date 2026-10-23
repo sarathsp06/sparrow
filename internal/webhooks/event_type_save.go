@@ -243,7 +243,7 @@ func (s *WebhookService) saveEventType(ctx context.Context, def EventTypeDefinit
 	if err := validateEventTypeName(def.Name); err != nil {
 		return nil, err
 	}
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	var res *EventTypeSaveResult
 	run := func() error {

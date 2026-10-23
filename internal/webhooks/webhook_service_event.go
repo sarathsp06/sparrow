@@ -48,7 +48,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, consumer string, event s
 		"event", event,
 	)
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	// Validate required fields
 	if consumer == "" {
@@ -255,7 +255,7 @@ func (s *WebhookService) RePushEvent(ctx context.Context, eventID string) (strin
 		"original_event_id", eventID,
 	)
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	// Parse and validate event ID
 	id, err := parseUUID(eventID, "event ID")
@@ -314,7 +314,7 @@ func (s *WebhookService) GetEventRecord(ctx context.Context, eventID string) (*s
 		attribute.String("event_id", eventID),
 	)
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	// Parse and validate event ID
 	id, err := parseUUID(eventID, "event ID")
@@ -404,7 +404,7 @@ func (s *WebhookService) ListEvents(ctx context.Context, activeOnly bool, consum
 	s.logger.InfoContext(ctx, "Processing list events request",
 		"active_only", activeOnly, "consumer", consumer, "limit", limit, "offset", offset)
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	// Event types are tenant-scoped
 
@@ -452,7 +452,7 @@ func (s *WebhookService) ListEventTypeVersions(ctx context.Context, name string)
 	if _, err := s.GetEvent(ctx, name); err != nil {
 		return nil, err
 	}
-	versions, err := s.webhookRepo.ListEventTypeVersions(ctx, tenant.DefaultTenantID, name)
+	versions, err := s.webhookRepo.ListEventTypeVersions(ctx, tenant.FromContext(ctx), name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list event type versions: %w", err)
 	}
@@ -464,7 +464,7 @@ func (s *WebhookService) GetEventTypeVersion(ctx context.Context, name string, v
 	if name == "" {
 		return nil, svcerrors.Error(svcerrors.InvalidArgument, "event name is required")
 	}
-	v, err := s.webhookRepo.GetEventTypeVersion(ctx, tenant.DefaultTenantID, name, version)
+	v, err := s.webhookRepo.GetEventTypeVersion(ctx, tenant.FromContext(ctx), name, version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get event type version: %w", err)
 	}
@@ -481,7 +481,7 @@ func (s *WebhookService) GetEvent(ctx context.Context, name string) (*store.Even
 		return nil, svcerrors.Error(svcerrors.InvalidArgument, "event name is required")
 	}
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	// Event types are tenant-scoped
 
@@ -578,7 +578,7 @@ func (s *WebhookService) ListEventReports(ctx context.Context, filter store.Even
 		"prepare_repush", filter.PrepareRepush,
 		"limit", filter.Limit)
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	filter.Limit, _ = normalizePagination(filter.Limit, 0)
 

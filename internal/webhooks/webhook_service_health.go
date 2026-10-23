@@ -74,7 +74,7 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 		return nil, svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
 	}
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	id, err := parseUUID(webhookID, "webhook ID")
 	if err != nil {
@@ -161,7 +161,7 @@ func (s *WebhookService) GetHealthSummary(ctx context.Context, consumer string) 
 
 	s.logger.InfoContext(ctx, "Processing get health summary request", "consumer", consumer)
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	// Get health summary from repository
 	summary, err := s.webhookRepo.GetHealthSummary(ctx, tenantID, consumer)
@@ -199,7 +199,7 @@ func (s *WebhookService) GetHealthSummary(ctx context.Context, consumer string) 
 func (s *WebhookService) GetConsumerStats(ctx context.Context, consumer string) (*ConsumerStatsData, error) {
 	s.logger.InfoContext(ctx, "Processing get consumer stats request", "consumer", consumer)
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	stats, err := s.webhookRepo.GetConsumerStats(ctx, tenantID, consumer)
 	if err != nil {
@@ -231,7 +231,7 @@ func (s *WebhookService) ListConsumers(ctx context.Context, query string, limit 
 	span := trace.SpanFromContext(ctx)
 
 	l, _ := normalizePagination(int(limit), 0)
-	names, err := s.webhookRepo.ListConsumers(ctx, tenant.DefaultTenantID, query, l)
+	names, err := s.webhookRepo.ListConsumers(ctx, tenant.FromContext(ctx), query, l)
 	if err != nil {
 		span.RecordError(err)
 		return nil, fmt.Errorf("failed to list consumers: %w", err)

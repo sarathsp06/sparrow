@@ -175,7 +175,7 @@ func (s *WebhookService) ExportEventTypes(ctx context.Context, sel EventTypeExpo
 	if selectors != 1 {
 		return nil, BundleStamp{}, svcerrors.Error(svcerrors.InvalidArgument, "choose exactly one of names, prefix or all")
 	}
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	var regs []*store.EventRegistration
 	if len(sel.Names) > 0 {
@@ -315,7 +315,7 @@ func (s *WebhookService) ImportEventTypes(ctx context.Context, items []EventType
 	// Lock rows in name order so overlapping imports cannot deadlock.
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Name < sorted[j].Name })
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 	result := &EventTypeImportResult{DryRun: opts.DryRun, Stamp: checkStamp(stamp, items)}
 	for _, w := range result.Stamp.Warnings {
 		if !slices.Contains(opts.Acknowledge, w) {

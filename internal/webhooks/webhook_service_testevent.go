@@ -87,7 +87,7 @@ func (s *WebhookService) SendTestEvent(ctx context.Context, consumer, subscripti
 	if err != nil {
 		return nil, err
 	}
-	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenant.DefaultTenantID, sub.WebhookID, consumer)
+	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenant.FromContext(ctx), sub.WebhookID, consumer)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (s *WebhookService) SendTestEvent(ctx context.Context, consumer, subscripti
 	if err != nil {
 		return nil, err
 	}
-	event, err := s.webhookRepo.GetEventByName(ctx, tenant.DefaultTenantID, name)
+	event, err := s.webhookRepo.GetEventByName(ctx, tenant.FromContext(ctx), name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve event type: %w", err)
 	}

@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jmoiron/sqlx"
 	slogotel "github.com/remychantenay/slog-otel"
@@ -386,6 +387,15 @@ func New(ctx context.Context, opts ...Option) (*Server, error) {
 	s.handler = r
 	built = true
 	return s, nil
+}
+
+// WithTenant returns a context whose requests Sparrow serves for tenantID.
+// An embedding program sets it in its own middleware, before calling
+// Handler, once it has decided which tenant a request belongs to. Requests
+// without it run against the default tenant, exactly as a self-hosted
+// Sparrow does.
+func WithTenant(ctx context.Context, tenantID uuid.UUID) context.Context {
+	return tenant.WithTenant(ctx, tenantID)
 }
 
 // Addr is the listen address Sparrow is configured for (SPARROW_HTTP_PORT),

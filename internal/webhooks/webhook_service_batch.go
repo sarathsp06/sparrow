@@ -41,7 +41,7 @@ func (s *WebhookService) loadAndValidateBatch(ctx context.Context, scope BatchSc
 		return nil, err
 	}
 
-	batch, err := s.webhookRepo.GetBatchJob(ctx, tenant.DefaultTenantID, batchUUID)
+	batch, err := s.webhookRepo.GetBatchJob(ctx, tenant.FromContext(ctx), batchUUID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get batch job: %w", err)
 	}
