@@ -14,7 +14,7 @@ build/
 *.dll
 *.so
 *.dylib
-server
+cmd/server/server
 migrate
 server-*
 

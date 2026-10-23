@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverdatabasesql"
@@ -108,6 +109,11 @@ type jobInserter struct {
 	// works jobs.
 	txClient *river.Client[*sql.Tx]
 	logger   *slog.Logger
+
+	// tenantLimits and extraQueues route a tenant's event fan-out and
+	// delivery jobs to its own queue (TenantLimits.Queue). Nil: no routing.
+	tenantLimits TenantLimiter
+	extraQueues  map[string]int
 }
 
 // NewJobInserter creates a new JobInserter. txClient may be nil when
@@ -145,7 +151,43 @@ func (j *jobInserter) InsertOpts(ctx context.Context, args river.JobArgs) *river
 		j.logger.ErrorContext(ctx, "Failed to marshal trace metadata", "error", err)
 	}
 	opts.Metadata = carrierJSON
+	if queue := j.tenantQueue(ctx, args); queue != "" {
+		opts.Queue = queue
+	}
 	return &opts
+}
+
+// tenantQueue returns the queue a tenant's event fan-out or delivery job
+// goes to, or "" for the job's default queue.
+func (j *jobInserter) tenantQueue(ctx context.Context, args river.JobArgs) string {
+	if j.tenantLimits == nil {
+		return ""
+	}
+	var tenantArg string
+	switch a := args.(type) {
+	case EventArgs:
+		tenantArg = a.TenantID
+	case *EventArgs:
+		tenantArg = a.TenantID
+	case WebhookArgs:
+		tenantArg = a.TenantID
+	case *WebhookArgs:
+		tenantArg = a.TenantID
+	default:
+		return ""
+	}
+	tenantID, err := uuid.Parse(tenantArg)
+	if err != nil {
+		return ""
+	}
+	queue := j.tenantLimits(ctx, tenantID).Queue
+	if _, declared := j.extraQueues[queue]; !declared {
+		if queue != "" {
+			j.logger.WarnContext(ctx, "Tenant queue is not declared, using the default queue", "queue", queue, "tenant_id", tenantID)
+		}
+		return ""
+	}
+	return queue
 }
 
 // BatchInsert inserts multiple jobs into the queue.

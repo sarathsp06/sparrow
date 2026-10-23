@@ -50,6 +50,7 @@ type HealthEvaluation struct {
 
 // HealthEvaluationRepository folds new delivery outcomes into webhook health.
 type HealthEvaluationRepository interface {
+	//sparrow:no-tenant one pass over every tenant behind a single global watermark; results carry their tenant
 	EvaluateHealth(ctx context.Context, upTo time.Time, maxEvents int) (*HealthEvaluation, error)
 }
 
@@ -314,7 +315,7 @@ type DeliveryAttempt struct {
 // RecordDeliveryAttempt writes a DeliveryAttempt in one transaction, so a
 // delivery costs one commit. Health state and labels are not touched here;
 // see EvaluateHealth.
-func (r *Repository) RecordDeliveryAttempt(ctx context.Context, a DeliveryAttempt) error {
+func (r *Repository) RecordDeliveryAttempt(ctx context.Context, tenantID uuid.UUID, a DeliveryAttempt) error {
 	return storage.WithTransaction(r.db, func(tx storage.DBTX) error {
 		rr := r.WithConn(tx)
 		if a.UpdateStatus {
@@ -327,11 +328,12 @@ func (r *Repository) RecordDeliveryAttempt(ctx context.Context, a DeliveryAttemp
 				SET status = $2, last_attempted_at = $3, response_code = $4, response_body = $5, error_message = $6,
 				    attempt_count = attempt_count + $7::integer, error_category = $8,
 				    request_body = COALESCE($9, request_body)
-				WHERE id = $1`,
-				a.DeliveryID, a.Status, time.Now(), a.ResponseCode, a.ResponseBody, a.ErrorMessage, attemptIncrement, a.ErrorCategory, a.RequestBody); err != nil {
+				WHERE id = $1
+				  AND EXISTS (SELECT 1 FROM webhook_registrations wr WHERE wr.id = webhook_deliveries.webhook_id AND wr.tenant_id = $10)`,
+				a.DeliveryID, a.Status, time.Now(), a.ResponseCode, a.ResponseBody, a.ErrorMessage, attemptIncrement, a.ErrorCategory, a.RequestBody, tenantID); err != nil {
 				return storage.Error(err)
 			}
 		}
-		return rr.RecordWebhookHealthEvent(ctx, a.WebhookID, a.DeliveryID, a.Success, a.ResponseTimeMs, a.ResponseCode, a.HealthErrorMessage, a.ErrorCategory)
+		return rr.RecordWebhookHealthEvent(ctx, tenantID, a.WebhookID, a.DeliveryID, a.Success, a.ResponseTimeMs, a.ResponseCode, a.HealthErrorMessage, a.ErrorCategory)
 	})
 }

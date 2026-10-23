@@ -3,14 +3,18 @@ package queue
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivertype"
 
 	"github.com/sarathsp06/sparrow/internal/crypto"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
@@ -24,6 +28,9 @@ type Manager struct {
 	workers  *river.Workers
 	dbPool   *pgxpool.Pool
 	logger   *slog.Logger
+
+	tenantLimits TenantLimiter
+	extraQueues  map[string]int
 }
 
 // WorkerPoolConfig sizes the River queues. Zero values take the defaults.
@@ -37,6 +44,14 @@ type WorkerPoolConfig struct {
 	EventWorkers   int
 	WebhookWorkers int
 	FetchCooldown  time.Duration
+
+	// ExtraQueues are additional queues, by name, with their worker counts.
+	// TenantLimits.Queue routes a tenant's jobs to one of them. Self-hosted
+	// Sparrow sets none.
+	ExtraQueues map[string]int
+	// TenantLimits, when set, caps each tenant's running jobs and routes its
+	// jobs to its queue. Nil means no per-tenant limits (self-hosted).
+	TenantLimits TenantLimiter
 }
 
 // Default worker pool sizing.
@@ -89,17 +104,30 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 		))
 	}
 
+	queues := map[string]river.QueueConfig{
+		QueueDefault:         {MaxWorkers: 5},
+		QueueEventProcessing: {MaxWorkers: pool.EventWorkers, FetchPollInterval: time.Second * 2},   // Event fan-out queue
+		QueueWebhookDelivery: {MaxWorkers: pool.WebhookWorkers, FetchPollInterval: time.Second * 2}, // Webhook delivery queue
+		QueueBatchJobs:       {MaxWorkers: 5, FetchPollInterval: time.Second * 5},                   // Batch job processing queue
+	}
+	for name, workers := range pool.ExtraQueues {
+		if _, exists := queues[name]; exists {
+			dbPool.Close()
+			return nil, fmt.Errorf("extra queue %q clashes with a built-in queue", name)
+		}
+		if workers <= 0 {
+			dbPool.Close()
+			return nil, fmt.Errorf("extra queue %q needs at least one worker", name)
+		}
+		queues[name] = river.QueueConfig{MaxWorkers: workers, FetchPollInterval: time.Second * 2}
+	}
+
 	// Create River client first (needed for workers)
 	riverClient, err := river.NewClient(riverpgxv5.New(dbPool), &river.Config{
 		PeriodicJobs:  periodicJobs,
 		FetchCooldown: pool.FetchCooldown,
-		Queues: map[string]river.QueueConfig{
-			QueueDefault:         {MaxWorkers: 5},
-			QueueEventProcessing: {MaxWorkers: pool.EventWorkers, FetchPollInterval: time.Second * 2},   // Event fan-out queue
-			QueueWebhookDelivery: {MaxWorkers: pool.WebhookWorkers, FetchPollInterval: time.Second * 2}, // Webhook delivery queue
-			QueueBatchJobs:       {MaxWorkers: 5, FetchPollInterval: time.Second * 5},                   // Batch job processing queue
-		},
-		Workers: riverWorkers,
+		Queues:        queues,
+		Workers:       riverWorkers,
 	})
 	if err != nil {
 		dbPool.Close()
@@ -113,18 +141,25 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 	}
 
 	manager := &Manager{
-		client:   riverClient,
-		txClient: txClient,
-		workers:  riverWorkers,
-		dbPool:   dbPool,
-		logger:   slog.Default().With("component", "queue-manager"),
+		client:       riverClient,
+		txClient:     txClient,
+		workers:      riverWorkers,
+		dbPool:       dbPool,
+		logger:       slog.Default().With("component", "queue-manager"),
+		tenantLimits: pool.TenantLimits,
+		extraQueues:  pool.ExtraQueues,
 	}
+	gate := newTenantGate(pool.TenantLimits)
 
 	// Add workers with explicit generic types.
 	// RepositoryInterface satisfies all narrow interfaces via embedding.
-	river.AddWorker(riverWorkers, NewWebhookWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter(), cryptoSvc, clientConfig))
+	webhookWorker := NewWebhookWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter(), cryptoSvc, clientConfig)
+	webhookWorker.gate = gate
+	river.AddWorker(riverWorkers, webhookWorker)
 	river.AddWorker(riverWorkers, NewHealthEvaluatorWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter(), autoDisable, health))
-	river.AddWorker(riverWorkers, NewEventProcessingWorker(webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter()))
+	eventWorker := NewEventProcessingWorker(webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter())
+	eventWorker.gate = gate
+	river.AddWorker(riverWorkers, eventWorker)
 	river.AddWorker(riverWorkers, NewBatchJobWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter()))
 	river.AddWorker(riverWorkers, NewRetentionWorker(webhookRepo, retentionDays))
 	river.AddWorker(riverWorkers, NewBatchCleanupWorker(webhookRepo))
@@ -181,6 +216,38 @@ func (m *Manager) Stop(ctx context.Context) error {
 	return err
 }
 
+// CancelTenantJobs cancels every unfinished job whose args belong to
+// tenantID (event fan-out, delivery and batch jobs carry a tenant_id) and
+// returns how many it cancelled. A job already running is cancelled through
+// its context. Used before erasing a tenant.
+func (m *Manager) CancelTenantJobs(ctx context.Context, tenantID uuid.UUID) (int, error) {
+	filter, err := json.Marshal(map[string]string{"tenant_id": tenantID.String()})
+	if err != nil {
+		return 0, err
+	}
+	// The containment form uses river_job's GIN index on args.
+	rows, err := m.dbPool.Query(ctx, `
+		SELECT id FROM river_job
+		WHERE args @> $1::jsonb
+		  AND state NOT IN ('completed', 'cancelled', 'discarded')`, filter)
+	if err != nil {
+		return 0, fmt.Errorf("list tenant jobs: %w", err)
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[int64])
+	if err != nil {
+		return 0, fmt.Errorf("list tenant jobs: %w", err)
+	}
+	for _, id := range ids {
+		if _, err := m.client.JobCancel(ctx, id); err != nil && !errors.Is(err, rivertype.ErrNotFound) {
+			return 0, fmt.Errorf("cancel job %d: %w", id, err)
+		}
+	}
+	return len(ids), nil
+}
+
 func (m *Manager) GetJobInserter() JobInserter {
-	return NewJobInserterWithTracing(NewJobInserter(m.client, m.txClient), "")
+	ji := NewJobInserter(m.client, m.txClient)
+	ji.tenantLimits = m.tenantLimits
+	ji.extraQueues = m.extraQueues
+	return NewJobInserterWithTracing(ji, "")
 }

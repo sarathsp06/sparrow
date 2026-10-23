@@ -20,6 +20,7 @@ type EventRepository interface {
 	GetEventByID(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) (*EventRecord, error)
 	GetEventDeliveryStats(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) (int32, int32, int32, int32, error)
 	DeleteEventByID(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) error
+	//sparrow:no-tenant server-wide retention: deletes old events for every tenant
 	DeleteEventsBefore(ctx context.Context, cutoff time.Time) (int64, error)
 
 	ListEventReportsFiltered(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) ([]*EventReportWithStats, bool, error)

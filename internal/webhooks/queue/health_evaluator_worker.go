@@ -139,7 +139,7 @@ func (w *HealthEvaluatorWorker) maybeAutoDisable(ctx context.Context, log *slog.
 	if f.Consumer == SystemEventConsumer || !w.autoDisable.enabled() || f.ConsecutiveFailures < w.autoDisable.MinFailures {
 		return
 	}
-	disabled, err := w.healthRepo.AutoDisableWebhook(ctx, f.WebhookID, w.autoDisable.MinFailures, w.autoDisable.After)
+	disabled, err := w.healthRepo.AutoDisableWebhook(ctx, f.TenantID, f.WebhookID, w.autoDisable.MinFailures, w.autoDisable.After)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to check webhook for auto-disable", "error", err, "webhook_id", f.WebhookID)
 		return

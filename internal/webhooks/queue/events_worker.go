@@ -20,6 +20,7 @@ import (
 // EventProcessingWorker processes events and triggers webhook deliveries
 type EventProcessingWorker struct {
 	river.WorkerDefaults[EventArgs]
+	gate             *tenantGate // per-tenant cap; nil when self-hosted
 	logger           *slog.Logger
 	subscriptionRepo store.SubscriptionRepository
 	eventRepo        store.EventRepository
@@ -67,6 +68,11 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 	if err != nil {
 		return river.JobCancel(fmt.Errorf("invalid tenant ID %q in job args: %w", args.TenantID, err))
 	}
+	release, admitted := w.gate.acquire(ctx, tenantID)
+	if !admitted {
+		return fairnessSnooze()
+	}
+	defer release()
 	eventID, err := uuid.Parse(args.EventID)
 	if err != nil {
 		return river.JobCancel(fmt.Errorf("invalid event ID %q in job args: %w", args.EventID, err))

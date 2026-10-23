@@ -40,7 +40,7 @@ func (s *WebhookService) CreateAlertConfig(ctx context.Context, consumer, webhoo
 		}
 	}
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 	cfg := &store.AlertConfig{
 		TenantID:   tenantID,
 		Consumer:   consumer,
@@ -61,7 +61,7 @@ func (s *WebhookService) CreateAlertConfig(ctx context.Context, consumer, webhoo
 		cfg.WebhookID = &id
 	}
 
-	if err := s.webhookRepo.CreateAlertConfig(ctx, cfg); err != nil {
+	if err := s.webhookRepo.CreateAlertConfig(ctx, tenantID, cfg); err != nil {
 		return nil, err
 	}
 	return cfg, nil
@@ -82,7 +82,7 @@ func (s *WebhookService) ListAlertConfigs(ctx context.Context, consumer string, 
 		}
 		whPtr = &id
 	}
-	return s.webhookRepo.ListAlertConfigs(ctx, tenant.DefaultTenantID, consumer, whPtr)
+	return s.webhookRepo.ListAlertConfigs(ctx, tenant.FromContext(ctx), consumer, whPtr)
 }
 
 // DeleteAlertConfig deletes an alert config by id, verifying it belongs to
@@ -95,7 +95,7 @@ func (s *WebhookService) DeleteAlertConfig(ctx context.Context, consumer, id str
 	if err != nil {
 		return err
 	}
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 	cfg, err := s.webhookRepo.GetAlertConfig(ctx, tenantID, parsedID)
 	if err != nil {
 		if storage.IsNotFound(err) {
@@ -114,7 +114,7 @@ func (s *WebhookService) DeleteAlertConfig(ctx context.Context, consumer, id str
 // to Sparrow's system events. Without one, alert configs are recorded but
 // nothing is sent.
 func (s *WebhookService) AlertDeliveryConfigured(ctx context.Context) (bool, error) {
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 	hooks, err := s.webhookRepo.ListWebhooks(ctx, tenantID, tenant.SystemConsumer, "", true)
 	if err != nil {
 		return false, err

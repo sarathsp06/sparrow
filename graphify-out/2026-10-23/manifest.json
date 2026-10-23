@@ -623,12 +623,6 @@
     "ast_hash": "8ef64cc61a2b31cc9f25c7c68a349793",
     "semantic_hash": ""
   },
-  "docs/scripts/gen-og.mjs": {
-    "mtime": 1791463164.313229,
-    "seen": 1792771200.40583,
-    "ast_hash": "e2846a15bfce92ae8e1cd8b8cd43a9d6",
-    "semantic_hash": ""
-  },
   "docs/src/assets/diagrams/sparrow-layered-architecture.archify.json": {
     "mtime": 1791463164.325692,
     "seen": 1792771200.40583,
@@ -702,9 +696,9 @@
     "semantic_hash": ""
   },
   "docs/src/layouts/BlogLayout.astro": {
-    "mtime": 1792473658.8126745,
-    "seen": 1792771200.405838,
-    "ast_hash": "4f79a6cff64bf91649cbc515e85cfeb6",
+    "mtime": 1792774812.9724424,
+    "seen": 1792774845.314564,
+    "ast_hash": "6e6048b53e9a30a8c467f870da3f5e6b",
     "semantic_hash": ""
   },
   "docs/src/lib/blog/posts.ts": {
@@ -810,9 +804,9 @@
     "semantic_hash": ""
   },
   "docs/src/pages/blog/rss.xml.ts": {
-    "mtime": 1791463164.3234534,
-    "seen": 1792771200.405848,
-    "ast_hash": "22a55e3f23d5fae39714bb4c9c3d9837",
+    "mtime": 1792774806.3165371,
+    "seen": 1792774845.314581,
+    "ast_hash": "569650b5b4dba810966a59d8dbb562ee",
     "semantic_hash": ""
   },
   "docs/src/pages/blog/tags/[tag].astro": {
@@ -822,9 +816,9 @@
     "semantic_hash": ""
   },
   "docs/src/pages/index.astro": {
-    "mtime": 1792771344.4800682,
-    "seen": 1792771371.2550101,
-    "ast_hash": "a6a66285e0fd5fd41514f5ffdd3776de",
+    "mtime": 1792774806.315387,
+    "seen": 1792774845.314582,
+    "ast_hash": "111a531746e6ec9190c3f39285ac8b7b",
     "semantic_hash": ""
   },
   "docs/src/pages/reference/api.astro": {
@@ -3105,12 +3099,6 @@
     "mtime": 1791463164.3239853,
     "seen": 1792771200.406206,
     "ast_hash": "d2ab914a1820906bd49451cb0a108119",
-    "semantic_hash": ""
-  },
-  "docs/public/og.png": {
-    "mtime": 1791463164.2880776,
-    "seen": 1792771200.406207,
-    "ast_hash": "ee5975f819e1f25f5e0d9c7f114692d6",
     "semantic_hash": ""
   },
   "docs/src/assets/favicon.svg": {
@@ -5436,9 +5424,9 @@
     "semantic_hash": ""
   },
   "docs/src/lib/social-card.mjs": {
-    "mtime": 1792774744.1877985,
-    "seen": 1792774776.488213,
-    "ast_hash": "ea6aea3a86592949408c5d934f139c0f",
+    "mtime": 1792774806.3149452,
+    "seen": 1792774845.3145769,
+    "ast_hash": "3fe30b9cf2d0c9f13738dccdf5d323b9",
     "semantic_hash": ""
   },
   "docs/public/favicon.svg": {
@@ -5448,9 +5436,9 @@
     "semantic_hash": ""
   },
   "docs/src/pages/og/[...route].ts": {
-    "mtime": 1792774743.8033257,
-    "seen": 1792774776.488217,
-    "ast_hash": "8ca4942478720291bfc36f0baee1c34c",
+    "mtime": 1792774806.314752,
+    "seen": 1792774845.314584,
+    "ast_hash": "103de2c03f97ec2854a2a86974069fb3",
     "semantic_hash": ""
   },
   "docs/src/route-data.ts": {

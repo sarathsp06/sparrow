@@ -25,7 +25,7 @@ func (s *WebhookService) GetDeliveryStatus(ctx context.Context, deliveryID strin
 		return nil, svcerrors.Error(svcerrors.InvalidArgument, "delivery ID is required")
 	}
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	id, err := parseUUID(deliveryID, "delivery ID")
 	if err != nil {
@@ -48,7 +48,7 @@ func (s *WebhookService) GetDeliveryStatus(ctx context.Context, deliveryID strin
 // When consumer is set, a delivery of another consumer answers not found;
 // when empty, it looks up by delivery ID alone.
 func (s *WebhookService) GetDeliveryAttempts(ctx context.Context, deliveryID string, consumer string) ([]*store.WebhookHealthEvent, error) {
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	s.logger.InfoContext(ctx, "Getting delivery attempts", "delivery_id", deliveryID, "tenant_id", tenantID.String())
 
@@ -94,7 +94,7 @@ func (s *WebhookService) ListDeliveries(ctx context.Context, filter store.Delive
 		"prepare_retry", filter.PrepareRetry,
 		"limit", filter.Limit)
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	filter.Limit, _ = normalizePagination(filter.Limit, 0)
 
@@ -162,7 +162,7 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, consumer string, del
 		"consumer", consumer,
 		"force", force)
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	// Validate required fields
 	if deliveryID == "" && webhookID == "" {
@@ -272,7 +272,7 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, consumer string, del
 	resubmittedIDs := make([]string, 0, len(ids))
 	for start := 0; start < len(ids); start += retryChunkSize {
 		end := min(start+retryChunkSize, len(ids))
-		reset, err := s.webhookRepo.ResetDeliveriesForRetry(ctx, ids[start:end], func(ctx context.Context, tx *sql.Tx, reset []uuid.UUID) error {
+		reset, err := s.webhookRepo.ResetDeliveriesForRetry(ctx, tenantID, ids[start:end], func(ctx context.Context, tx *sql.Tx, reset []uuid.UUID) error {
 			chunk := make([]river.JobArgs, len(reset))
 			for i, id := range reset {
 				chunk[i] = jobs[id]

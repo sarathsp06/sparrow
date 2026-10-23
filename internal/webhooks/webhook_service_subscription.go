@@ -19,7 +19,7 @@ import (
 // getSubscriptionInConsumer loads a subscription by ID and verifies it belongs to the
 // given consumer. Returns svcerrors.NotFoundError if the subscription is not in the consumer.
 func (s *WebhookService) getSubscriptionInConsumer(ctx context.Context, subscriptionID string, consumer string) (*store.EventSubscription, error) {
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	if consumer == "" {
 		return nil, svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
@@ -43,7 +43,7 @@ func (s *WebhookService) getSubscriptionInConsumer(ctx context.Context, subscrip
 // ListSubscriptionsByWebhookIDs batch-fetches subscriptions for multiple
 // webhooks in a single query, scoped to the default tenant.
 func (s *WebhookService) ListSubscriptionsByWebhookIDs(ctx context.Context, webhookIDs []uuid.UUID) ([]*store.EventSubscription, error) {
-	return s.webhookRepo.ListSubscriptionsByWebhookIDs(ctx, tenant.DefaultTenantID, webhookIDs)
+	return s.webhookRepo.ListSubscriptionsByWebhookIDs(ctx, tenant.FromContext(ctx), webhookIDs)
 }
 
 // SubscriptionTemplateSettings controls how a subscription's transform
@@ -117,7 +117,7 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, even
 		return "", time.Time{}, err
 	}
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	id, err := parseUUID(webhookID, "webhook ID")
 	if err != nil {
@@ -184,7 +184,7 @@ func (s *WebhookService) GetSubscription(ctx context.Context, subscriptionID str
 // webhook, or event name. An empty consumer lists across all consumers.
 func (s *WebhookService) ListSubscriptions(ctx context.Context, consumer string, webhookID string, eventName string, limit, offset int32) ([]*store.EventSubscription, int32, error) {
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	l, o := normalizePagination(int(limit), int(offset))
 	limit, offset = clampInt32(l), clampInt32(o)
@@ -284,21 +284,21 @@ func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID 
 	// The shared lock on the webhook keeps requires_transform from changing
 	// between the check and the update.
 	return s.webhookRepo.RunInTransaction(func(repo store.RepositoryInterface) error {
-		webhook, err := repo.LockWebhook(ctx, tenant.DefaultTenantID, sub.WebhookID, consumer, false)
+		webhook, err := repo.LockWebhook(ctx, tenant.FromContext(ctx), sub.WebhookID, consumer, false)
 		if err != nil {
 			return fmt.Errorf("failed to get webhook: %w", err)
 		}
 		if err := checkRequiredTransform(webhook, sub.EventName, transformEnabled, transformTemplate); err != nil {
 			return err
 		}
-		if err := repo.UpdateSubscription(ctx, tenant.DefaultTenantID, sub); err != nil {
+		if err := repo.UpdateSubscription(ctx, tenant.FromContext(ctx), sub); err != nil {
 			return err
 		}
 		if !templateChanged {
 			return nil
 		}
 		// A changed template is saved together with its history row.
-		return repo.InsertTemplateVersion(ctx, tenant.DefaultTenantID, &store.SubscriptionTemplateVersion{
+		return repo.InsertTemplateVersion(ctx, tenant.FromContext(ctx), &store.SubscriptionTemplateVersion{
 			SubscriptionID: sub.ID,
 			Template:       transformTemplate,
 			Source:         meta.Source,
@@ -315,7 +315,7 @@ func (s *WebhookService) ListSubscriptionTemplateVersions(ctx context.Context, s
 	if err != nil {
 		return nil, err
 	}
-	return s.webhookRepo.ListTemplateVersions(ctx, tenant.DefaultTenantID, sub.ID, limit)
+	return s.webhookRepo.ListTemplateVersions(ctx, tenant.FromContext(ctx), sub.ID, limit)
 }
 
 // RenderTemplatePreview renders a transform template against payload as a
@@ -355,11 +355,11 @@ func (s *WebhookService) PauseSubscription(ctx context.Context, subscriptionID, 
 	if err != nil {
 		return nil, err
 	}
-	if _, err := s.webhookRepo.SetSubscriptionPaused(ctx, tenant.DefaultTenantID, sub.ID, true, reason); err != nil {
+	if _, err := s.webhookRepo.SetSubscriptionPaused(ctx, tenant.FromContext(ctx), sub.ID, true, reason); err != nil {
 		return nil, fmt.Errorf("failed to pause subscription: %w", err)
 	}
 	s.logger.InfoContext(ctx, "Subscription paused", "subscription_id", sub.ID, "reason", reason)
-	return s.webhookRepo.GetSubscription(ctx, tenant.DefaultTenantID, sub.ID)
+	return s.webhookRepo.GetSubscription(ctx, tenant.FromContext(ctx), sub.ID)
 }
 
 // ResumeResult describes a resumed subscription.
@@ -380,12 +380,12 @@ func (s *WebhookService) ResumeSubscription(ctx context.Context, subscriptionID,
 	if err != nil {
 		return nil, err
 	}
-	pausedSince, err := s.webhookRepo.SetSubscriptionPaused(ctx, tenant.DefaultTenantID, sub.ID, false, "")
+	pausedSince, err := s.webhookRepo.SetSubscriptionPaused(ctx, tenant.FromContext(ctx), sub.ID, false, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to resume subscription: %w", err)
 	}
 	status := string(store.StatusPaused)
-	count, err := s.webhookRepo.CountDeliveries(ctx, tenant.DefaultTenantID, store.DeliveryFilter{
+	count, err := s.webhookRepo.CountDeliveries(ctx, tenant.FromContext(ctx), store.DeliveryFilter{
 		Consumer:       consumer,
 		SubscriptionID: &sub.ID,
 		Status:         &status,
@@ -393,7 +393,7 @@ func (s *WebhookService) ResumeSubscription(ctx context.Context, subscriptionID,
 	if err != nil {
 		return nil, fmt.Errorf("failed to count paused deliveries: %w", err)
 	}
-	updated, err := s.webhookRepo.GetSubscription(ctx, tenant.DefaultTenantID, sub.ID)
+	updated, err := s.webhookRepo.GetSubscription(ctx, tenant.FromContext(ctx), sub.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -406,7 +406,7 @@ func (s *WebhookService) DeleteSubscription(ctx context.Context, subscriptionID 
 	if err != nil {
 		return err
 	}
-	return s.webhookRepo.DeleteSubscription(ctx, tenant.DefaultTenantID, sub.ID)
+	return s.webhookRepo.DeleteSubscription(ctx, tenant.FromContext(ctx), sub.ID)
 }
 
 // TestSubscriptionTemplate renders transformTemplate against the event type's
@@ -422,7 +422,7 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 		return "", svcerrors.Error(svcerrors.InvalidArgument, "event name is required")
 	}
 
-	tenantID := tenant.DefaultTenantID
+	tenantID := tenant.FromContext(ctx)
 
 	event, err := s.webhookRepo.GetEventByName(ctx, tenantID, eventName)
 	if err != nil {

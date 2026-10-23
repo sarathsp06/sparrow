@@ -57,7 +57,7 @@ ARG TARGETARCH=amd64
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -ldflags="-w -s -X github.com/sarathsp06/sparrow.Version=${VERSION}" \
     -trimpath \
-    -o server ./cmd/server
+    -o sparrow-server ./cmd/server
 
 # Final stage - distroless for minimal attack surface
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
@@ -66,7 +66,7 @@ WORKDIR /app
 # distroless/static already ships ca-certificates and tzdata — do not re-copy.
 
 
-COPY --from=builder --chown=65532:65532 /build/server /app/server
+COPY --from=builder --chown=65532:65532 /build/sparrow-server /app/server
 
 EXPOSE 8080
 

@@ -13,6 +13,25 @@ import (
 
 var DefaultTenantID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
 
+type contextKey struct{}
+
+// WithTenant returns a context that scopes Sparrow's service layer to
+// tenantID. Sparrow itself never sets it: a self-hosted server has one
+// tenant, and only a program embedding Sparrow (server.WithTenant) runs
+// requests for others.
+func WithTenant(ctx context.Context, tenantID uuid.UUID) context.Context {
+	return context.WithValue(ctx, contextKey{}, tenantID)
+}
+
+// FromContext returns the tenant set by WithTenant, or DefaultTenantID when
+// none is set.
+func FromContext(ctx context.Context) uuid.UUID {
+	if id, ok := ctx.Value(contextKey{}).(uuid.UUID); ok && id != uuid.Nil {
+		return id
+	}
+	return DefaultTenantID
+}
+
 // SystemConsumer is the reserved consumer Sparrow's own sparrow.* system
 // events are scoped to. Only tenant-wide credentials may act on it.
 const SystemConsumer = "_sparrow"

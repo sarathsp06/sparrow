@@ -18,15 +18,15 @@ import (
 type DeliveryRepository interface {
 	CreateDelivery(ctx context.Context, tenantID uuid.UUID, delivery *WebhookDelivery) error
 	CreateFanOutDeliveries(ctx context.Context, tenantID uuid.UUID, deliveries []*WebhookDelivery, enqueue FanOutEnqueuer) ([]*WebhookDelivery, error)
-	UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage, errorCategory string) error
-	RecordDeliveryAttempt(ctx context.Context, attempt DeliveryAttempt) error
-	HoldDelivery(ctx context.Context, deliveryID uuid.UUID, reason string) error
+	UpdateDeliveryStatus(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage, errorCategory string) error
+	RecordDeliveryAttempt(ctx context.Context, tenantID uuid.UUID, attempt DeliveryAttempt) error
+	HoldDelivery(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, reason string) error
 	GetDeliveryByID(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, consumer string) (*WebhookDelivery, error)
 	ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]*WebhookDelivery, bool, error)
 	CountDeliveries(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) (int, error)
 	GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, force bool) ([]*WebhookDelivery, error)
-	ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uuid.UUID, enqueue RetryEnqueuer) ([]uuid.UUID, error)
-	UpdateDeliveryTemplateError(ctx context.Context, deliveryID uuid.UUID, msg string) error
+	ResetDeliveriesForRetry(ctx context.Context, tenantID uuid.UUID, deliveryIDs []uuid.UUID, enqueue RetryEnqueuer) ([]uuid.UUID, error)
+	UpdateDeliveryTemplateError(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, msg string) error
 	GetDeliveryAttempts(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID) ([]*WebhookHealthEvent, error)
 }
 
@@ -157,7 +157,7 @@ func (r *Repository) insertNewDeliveries(ctx context.Context, deliveries []*Webh
 }
 
 // UpdateDeliveryStatus records the outcome of a webhook delivery attempt.
-func (r *Repository) UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage, errorCategory string) error {
+func (r *Repository) UpdateDeliveryStatus(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage, errorCategory string) error {
 	now := time.Now()
 	// Each call that records an attempt outcome (success, terminal failure, or a
 	// failed attempt that will be retried) counts one attempt. Expiry is not an
@@ -171,20 +171,21 @@ func (r *Repository) UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.U
 		UPDATE webhook_deliveries
 		SET status = $2, last_attempted_at = $3, response_code = $4, response_body = $5, error_message = $6,
 		    attempt_count = attempt_count + $7::integer, error_category = $8
-		WHERE id = $1
+		WHERE id = $1 AND EXISTS (SELECT 1 FROM webhook_registrations wr WHERE wr.id = webhook_deliveries.webhook_id AND wr.tenant_id = $9)
 	`
 
-	_, err := r.conn.ExecContext(ctx, query, deliveryID, status, now, responseCode, responseBody, errorMessage, attemptIncrement, errorCategory)
+	_, err := r.conn.ExecContext(ctx, query, deliveryID, status, now, responseCode, responseBody, errorMessage, attemptIncrement, errorCategory, tenantID)
 	return storage.Error(err)
 }
 
 // HoldDelivery marks a delivery paused without recording an attempt: its
 // webhook or subscription was paused before it could be sent. Like a delivery
 // fanned out while paused, it waits to be retried.
-func (r *Repository) HoldDelivery(ctx context.Context, deliveryID uuid.UUID, reason string) error {
+func (r *Repository) HoldDelivery(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, reason string) error {
 	_, err := r.conn.ExecContext(ctx,
-		`UPDATE webhook_deliveries SET status = $2, error_message = $3 WHERE id = $1`,
-		deliveryID, StatusPaused, reason)
+		`UPDATE webhook_deliveries SET status = $2, error_message = $3
+		 WHERE id = $1 AND EXISTS (SELECT 1 FROM webhook_registrations wr WHERE wr.id = webhook_deliveries.webhook_id AND wr.tenant_id = $4)`,
+		deliveryID, StatusPaused, reason, tenantID)
 	return storage.Error(err)
 }
 
@@ -369,12 +370,15 @@ func (r *Repository) GetRetriableDeliveries(ctx context.Context, tenantID uuid.U
 
 // UpdateDeliveryTemplateError records the payload transform error for a
 // delivery, or clears it when msg is empty.
-func (r *Repository) UpdateDeliveryTemplateError(ctx context.Context, deliveryID uuid.UUID, msg string) error {
+func (r *Repository) UpdateDeliveryTemplateError(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, msg string) error {
 	var v any
 	if msg != "" {
 		v = msg
 	}
-	_, err := r.conn.ExecContext(ctx, `UPDATE webhook_deliveries SET template_error = $2 WHERE id = $1`, deliveryID, v)
+	_, err := r.conn.ExecContext(ctx,
+		`UPDATE webhook_deliveries SET template_error = $2
+		 WHERE id = $1 AND EXISTS (SELECT 1 FROM webhook_registrations wr WHERE wr.id = webhook_deliveries.webhook_id AND wr.tenant_id = $3)`,
+		deliveryID, v, tenantID)
 	return storage.Error(err)
 }
 
@@ -387,7 +391,7 @@ type RetryEnqueuer func(ctx context.Context, tx *sql.Tx, reset []uuid.UUID) erro
 // returns the ones it reset. Deliveries still in flight (pending, sending,
 // retrying) are skipped: they have a job already, and a second one would
 // send them twice.
-func (r *Repository) ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []uuid.UUID, enqueue RetryEnqueuer) ([]uuid.UUID, error) {
+func (r *Repository) ResetDeliveriesForRetry(ctx context.Context, tenantID uuid.UUID, deliveryIDs []uuid.UUID, enqueue RetryEnqueuer) ([]uuid.UUID, error) {
 	if len(deliveryIDs) == 0 {
 		return nil, nil
 	}
@@ -409,10 +413,11 @@ func (r *Repository) ResetDeliveriesForRetry(ctx context.Context, deliveryIDs []
 		    template_error = NULL
 		WHERE id = ANY($1)
 		  AND status IN ('success', 'failed', 'expired', 'paused')
+		  AND EXISTS (SELECT 1 FROM webhook_registrations wr WHERE wr.id = webhook_deliveries.webhook_id AND wr.tenant_id = $2)
 		RETURNING id
 	`
 	var reset []uuid.UUID
-	if err := tx.SelectContext(ctx, &reset, query, pq.Array(deliveryIDs)); err != nil {
+	if err := tx.SelectContext(ctx, &reset, query, pq.Array(deliveryIDs), tenantID); err != nil {
 		return nil, storage.Error(err)
 	}
 	if len(reset) > 0 {

@@ -24,6 +24,7 @@ type RepositoryInterface interface {
 	AlertConfigRepository
 	BatchRepository
 	RateLimitRepository
+	TenantRepository
 
 	// Composite operations that span multiple domains.
 	RegisterWebhookWithSubscriptions(ctx context.Context, tenantID uuid.UUID, registration *WebhookRegistration, subscriptions []*EventSubscription, firstVersion SubscriptionTemplateVersion) error
@@ -38,6 +39,7 @@ type RepositoryInterface interface {
 // The fn receives a full RepositoryInterface, enabling cross-domain operations
 // within a single transaction.
 type Transactor interface {
+	//sparrow:no-tenant runs fn in a transaction; fn makes its own tenant-scoped calls
 	RunInTransaction(fn func(RepositoryInterface) error) error
 }
 

@@ -41,7 +41,7 @@ func (s *WebhookService) loadAndValidateBatch(ctx context.Context, scope BatchSc
 		return nil, err
 	}
 
-	batch, err := s.webhookRepo.GetBatchJob(ctx, tenant.DefaultTenantID, batchUUID)
+	batch, err := s.webhookRepo.GetBatchJob(ctx, tenant.FromContext(ctx), batchUUID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get batch job: %w", err)
 	}
@@ -69,7 +69,7 @@ func (s *WebhookService) startBatch(ctx context.Context, scope BatchScope, batch
 	}
 
 	// CAS pending→processing: only one caller wins; a concurrent start loses the race.
-	if err := s.webhookRepo.UpdateBatchJobStatus(ctx, batch.ID, store.BatchStatusPending, store.BatchStatusProcessing); err != nil {
+	if err := s.webhookRepo.UpdateBatchJobStatus(ctx, batch.TenantID, batch.ID, store.BatchStatusPending, store.BatchStatusProcessing); err != nil {
 		if storage.IsNotFound(err) {
 			return svcerrors.Error(svcerrors.FailedPrecondition, "batch job is no longer in pending status")
 		}
@@ -77,12 +77,12 @@ func (s *WebhookService) startBatch(ctx context.Context, scope BatchScope, batch
 	}
 
 	_, err = s.jobInserter.Insert(ctx, &queue.BatchJobArgs{
-		TenantID: tenant.DefaultTenantID.String(),
+		TenantID: batch.TenantID.String(),
 		BatchID:  batchID,
 	})
 	if err != nil {
 		// Roll back status on enqueue failure
-		_ = s.webhookRepo.UpdateBatchJobStatus(ctx, batch.ID, store.BatchStatusProcessing, store.BatchStatusPending)
+		_ = s.webhookRepo.UpdateBatchJobStatus(ctx, batch.TenantID, batch.ID, store.BatchStatusProcessing, store.BatchStatusPending)
 		return fmt.Errorf("failed to enqueue batch job: %w", err)
 	}
 
@@ -102,7 +102,7 @@ func (s *WebhookService) cancelBatch(ctx context.Context, scope BatchScope, batc
 	}
 
 	// CAS from the observed status: if it changed concurrently (e.g. completed), fail rather than clobber.
-	if err := s.webhookRepo.UpdateBatchJobStatus(ctx, batch.ID, batch.Status, store.BatchStatusCancelled); err != nil {
+	if err := s.webhookRepo.UpdateBatchJobStatus(ctx, batch.TenantID, batch.ID, batch.Status, store.BatchStatusCancelled); err != nil {
 		if storage.IsNotFound(err) {
 			return svcerrors.Error(svcerrors.FailedPrecondition, "batch job status changed concurrently; retry cancel")
 		}

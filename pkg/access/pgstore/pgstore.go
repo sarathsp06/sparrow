@@ -181,6 +181,33 @@ func (s *Store) PurgeTokens(ctx context.Context, cutoff time.Time) (int64, error
 	return res.RowsAffected()
 }
 
+// PurgeRealm implements access.Store.
+func (s *Store) PurgeRealm(ctx context.Context, realm string) (tokens, invites int64, err error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, 0, fmt.Errorf("pgstore: purge realm: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	res, err := tx.ExecContext(ctx, `DELETE FROM access_invites WHERE realm = $1`, realm)
+	if err != nil {
+		return 0, 0, fmt.Errorf("pgstore: purge realm invites: %w", err)
+	}
+	if invites, err = res.RowsAffected(); err != nil {
+		return 0, 0, err
+	}
+	res, err = tx.ExecContext(ctx, `DELETE FROM access_tokens WHERE realm = $1`, realm)
+	if err != nil {
+		return 0, 0, fmt.Errorf("pgstore: purge realm tokens: %w", err)
+	}
+	if tokens, err = res.RowsAffected(); err != nil {
+		return 0, 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, 0, fmt.Errorf("pgstore: purge realm: %w", err)
+	}
+	return tokens, invites, nil
+}
+
 // CreateInvite implements access.Store.
 func (s *Store) CreateInvite(ctx context.Context, inv access.Invite, secretHash []byte) error {
 	var ttl *int64

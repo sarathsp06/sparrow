@@ -31,12 +31,13 @@
 
 ## Architecture
 
-- **Entrypoint**: `cmd/server/main.go` — wires chi router, Huma REST API, River queue, OTel, bootstraps default tenant.
+- **Entrypoint**: `server/` (public package) wires chi router, Huma REST API, River queue, OTel, bootstraps default tenant: `server.New` builds, `Start`/`Drain`/`Shutdown` run it, `Handler()` is the full HTTP handler, `Migrate` runs migrations only. `cmd/server/main.go` only adds flags, `.env`, the listener and signal handling, so another Go program can embed Sparrow the same way. Configuration stays env-only: never add a config struct or option for something an env var already covers.
 - **REST/OpenAPI**: single HTTP transport on `:8080`. [Huma](https://github.com/danielgtaylor/huma) generates the OpenAPI 3.1 spec from Go handler structs; served interactively at `/docs` (Scalar), spec at `/openapi.yaml`/`/openapi.json`.
 - **Queue**: River (Postgres-backed). Default 20 event fan-out workers + 20 webhook delivery workers + 5 default (`SPARROW_EVENT_WORKERS`, `SPARROW_WEBHOOK_WORKERS`); `SPARROW_QUEUE_FETCH_COOLDOWN` (default `20ms`) bounds each queue at `workers / cooldown` jobs/s — River's default `100ms` capped delivery at ~200/s, which is how `cmd/benchmark -mode e2e` found it.
+- **Per-tenant fairness (embedders only)**: `server.WithTenantLimits` declares extra queues and a per-tenant `TenantLimits{MaxInFlight, Queue}`. The job inserter routes a tenant's event and delivery jobs to its queue (`jobInserter.tenantQueue`), and both workers check an in-process gate (`queue/tenant_limits.go`) right after parsing the tenant: at the cap they return `river.JobSnooze`, which River does not count as an attempt and which records no health event. Without the option there is no gate and no routing; self-hosted Sparrow never sets it. `internal/integration/tenant_fairness_test.go` covers it.
 - **DB**: pgxpool (50 conns, 10 min) for River + sqlx (25 conns) for app queries.
 - **Config**: env vars via `kelseyhightower/envconfig` — see `internal/config/config.go`. A value of `""` or `-` means unset (`config.Load` unsets it before parsing, so defaults apply and the OTel exporters agree); never give an empty value its own meaning in a new variable.
-- **Logging**: `slog` JSON on stdout, bridged to OTel logs. `SPARROW_LOG_LEVEL` (`debug`/`info`/`warn`/`error`, default `info`) sets the level in `cmd/server/main.go` via `Config.SlogLevel`. `info` logs every event and delivery; keep per-request detail at `Debug` so busy instances can run at `warn`.
+- **Logging**: `slog` JSON on stdout, bridged to OTel logs. `SPARROW_LOG_LEVEL` (`debug`/`info`/`warn`/`error`, default `info`) sets the level in `server/server.go` via `Config.SlogLevel`. `info` logs every event and delivery; keep per-request detail at `Debug` so busy instances can run at `warn`.
 
 ## Philosophy
 
@@ -79,12 +80,14 @@ signal to stop and simplify. Docs say only what we have run or tested.
 5. **Implicit infrastructure, explicit actions** — Batch jobs are an implementation detail. Users see "re-push ID" and "retry ID", not "batch job IDs".
 6. **Postgres-only, no Redis** — All queuing, state, and caching uses PostgreSQL. Don't introduce Redis or other external dependencies without strong justification.
 7. **Self-hosted first** — Sparrow targets teams running it behind a VPN for internal webhook delivery, not multi-tenant SaaS.
+8. **Principle of least astonishment** — Software and interfaces should behave in a way that least surprises users and other developers. Names, endpoints, config and error messages follow existing conventions in the codebase. When a choice is between a clever behaviour and a predictable one, pick the predictable one and document the rest. A surprise a user has to discover in production is a defect even when the code is correct.
 
 ## Key packages
 
 | Path | Purpose |
 |------|---------|
-| `cmd/server/` | Server entrypoint + DI wiring |
+| `server/` | Public package: all server wiring (`New`, `Start`, `Handler`, `Shutdown`), embeddable |
+| `cmd/server/` | Binary: flags, `.env`, listener, signals around `server` |
 | `cmd/migrate/` | Standalone migration runner |
 | `internal/rest/` | Huma REST handler layer (thin, calls webhook service) — one file per resource (`webhook.go`, `event.go`, `subscription.go`, `delivery.go`, `health.go`, `ai.go`) |
 | `internal/webhooks/` | Business logic + store + queue workers |
@@ -128,9 +131,10 @@ Route-group middleware (API key auth) wraps only the `/v1/*` group (`r.Group` in
 
 - **Error order**: All `if err != nil { return ... }` before happy path.
 - **WithConn**: `repo.WithConn(tx)` inside `storage.WithTransaction()` for repo-level txns.
+- **Tenant is the second argument**: every method of every interface in `internal/webhooks/store` is `(ctx context.Context, tenantID uuid.UUID, ...)` and scopes its SQL by that tenant; tables without a `tenant_id` column (deliveries, health, rate limit state) scope through their webhook (`EXISTS (SELECT 1 FROM webhook_registrations wr WHERE wr.id = <table>.webhook_id AND wr.tenant_id = $n)`). A method that genuinely spans every tenant (retention, health evaluation, batch cleanup) carries `//sparrow:no-tenant <reason>` directly above it. `tenant_signature_test.go` enforces both in `go test`.
 - **No direct SQL in handlers** — all DB access through RepositoryInterface methods.
 - **REST errors**: use `mapError(ctx, err, msg)` from `internal/rest/errors.go`.
-- **Tenant scoping**: always filter by `tenant.DefaultTenantID` in queries.
+- **Tenant scoping**: service code takes the tenant from `tenant.FromContext(ctx)` (the default tenant unless an embedder set one with `server.WithTenant`) and passes it to every storage call; workers use the tenant in their job args. Never read `tenant.DefaultTenantID` in request paths: only bootstrap, `accessauth.Realm()` (Sparrow's own tokens) and the self-hosted state gauge use it. Sparrow never sets a tenant itself, so self-hosted behaviour is one tenant. `internal/integration/multi_tenant_test.go` runs two tenants through the public package and must stay green.
 - **Event type writes**: go through `saveEventType` (`internal/webhooks/event_type_save.go`). The only other writer is `store.RegisterEvent` for creation (auto-register, system events), which inserts the version-history row in the same statement. Never update `event_registrations` directly, or the history drifts. Event types are never deleted, so a new name must match `eventNamePattern` (lowercase dotted parts of `a-z0-9_-`, checked only on creation so older names keep working).
 - **Templates parse on save**: subscription create/update and webhook create reject a `transform_template` that does not parse (`validateTransformTemplate`, 400). Save never renders; render failures stay delivery-time `template_error`s.
 - **Naming**: files `snake_case.go`, packages lowercase single word, REST OperationIDs `camelCase` verb-first (e.g. `registerWebhook`, `listDeliveries`).
@@ -200,6 +204,7 @@ huma.Register(api, huma.Operation{
 - Also runnable standalone via `cmd/migrate`.
 - Location: `db/migrations/000001_...up.sql` etc.
 - Uses `golang-migrate` with PostgreSQL advisory locks (safe for concurrent instances).
+- **Every tenant-owned table must be erasable by `store.PurgeTenant`** (behind `server.PurgeTenant`): give it a `tenant_id` that cascades from `tenants`, or a `webhook_id` that cascades from `webhook_registrations`, or add an explicit delete there. `internal/integration/tenant_purge_test.go` finds tenant- and webhook-keyed tables from the schema and fails when a new table keeps a purged tenant's rows or is left empty by its setup.
 
 ## Test nuances
 

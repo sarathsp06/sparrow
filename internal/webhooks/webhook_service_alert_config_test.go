@@ -14,7 +14,7 @@ import (
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
-func (m *mockRepo) CreateAlertConfig(ctx context.Context, cfg *store.AlertConfig) error {
+func (m *mockRepo) CreateAlertConfig(ctx context.Context, _ uuid.UUID, cfg *store.AlertConfig) error {
 	args := m.Called(ctx, cfg)
 	return args.Error(0)
 }
