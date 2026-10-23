@@ -6,6 +6,7 @@ import mermaid from 'astro-mermaid';
 import starlightLlmsTxt from './src/lib/llms/starlight-llms-txt/index.mjs';
 import { llmsBasePrompt, llmsRootDetails } from './src/lib/llms/prompts.mjs';
 import { securityHead } from './src/lib/security-meta.mjs';
+import { socialCardHead } from './src/lib/social-card.mjs';
 import { readdirSync, readFileSync } from 'node:fs';
 import { parse as parseYaml } from 'yaml';
 
@@ -144,6 +145,7 @@ export default defineConfig({
       },
       head: [
         ...securityHead,
+        ...socialCardHead,
         { tag: 'script', attrs: { src: '/sparrow/diagram-viewer.js', defer: true } },
         {
           tag: 'link',
