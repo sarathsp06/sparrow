@@ -7,6 +7,7 @@ import faviconSrc from '../assets/favicon.svg';
 import '../styles/sparrow-tokens.css';
 import '../styles/blog.css';
 import { base } from '../lib/blog/posts';
+import { socialCard } from '../lib/social-card.mjs';
 
 interface Props {
   title: string;
@@ -28,7 +29,7 @@ interface Props {
 
 const { title, description, type = 'website', publishedTime, modifiedTime, author, noindex = false, bareTitle = false, tags = [], jsonLd, image } = Astro.props;
 const pageTitle = bareTitle ? title : `${title} | Sparrow field notes`;
-const ogImage = image ?? new URL(`${base}og.png`, Astro.site).href;
+const ogImage = image ?? socialCard.url;
 const favicon = faviconSrc.src;
 const canonical = new URL(Astro.url.pathname, Astro.site).href;
 const rss = new URL(`${base}blog/rss.xml`, Astro.site).href;

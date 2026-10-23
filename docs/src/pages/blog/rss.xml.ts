@@ -29,7 +29,7 @@ export const GET: APIRoute = async ({ site }) => {
     <description>Stories and engineering notes from the people building Sparrow.</description>
     <language>en</language>
     <image>
-      <url>${link(`${base}og.png`)}</url>
+      <url>${link(`${base}og/site.png`)}</url>
       <title>Sparrow field notes</title>
       <link>${link(`${base}blog/`)}</link>
     </image>${items}
