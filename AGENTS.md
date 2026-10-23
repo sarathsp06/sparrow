@@ -31,12 +31,12 @@
 
 ## Architecture
 
-- **Entrypoint**: `cmd/server/main.go` — wires chi router, Huma REST API, River queue, OTel, bootstraps default tenant.
+- **Entrypoint**: `server/` (public package) wires chi router, Huma REST API, River queue, OTel, bootstraps default tenant: `server.New` builds, `Start`/`Drain`/`Shutdown` run it, `Handler()` is the full HTTP handler, `Migrate` runs migrations only. `cmd/server/main.go` only adds flags, `.env`, the listener and signal handling, so another Go program can embed Sparrow the same way. Configuration stays env-only: never add a config struct or option for something an env var already covers.
 - **REST/OpenAPI**: single HTTP transport on `:8080`. [Huma](https://github.com/danielgtaylor/huma) generates the OpenAPI 3.1 spec from Go handler structs; served interactively at `/docs` (Scalar), spec at `/openapi.yaml`/`/openapi.json`.
 - **Queue**: River (Postgres-backed). Default 20 event fan-out workers + 20 webhook delivery workers + 5 default (`SPARROW_EVENT_WORKERS`, `SPARROW_WEBHOOK_WORKERS`); `SPARROW_QUEUE_FETCH_COOLDOWN` (default `20ms`) bounds each queue at `workers / cooldown` jobs/s — River's default `100ms` capped delivery at ~200/s, which is how `cmd/benchmark -mode e2e` found it.
 - **DB**: pgxpool (50 conns, 10 min) for River + sqlx (25 conns) for app queries.
 - **Config**: env vars via `kelseyhightower/envconfig` — see `internal/config/config.go`. A value of `""` or `-` means unset (`config.Load` unsets it before parsing, so defaults apply and the OTel exporters agree); never give an empty value its own meaning in a new variable.
-- **Logging**: `slog` JSON on stdout, bridged to OTel logs. `SPARROW_LOG_LEVEL` (`debug`/`info`/`warn`/`error`, default `info`) sets the level in `cmd/server/main.go` via `Config.SlogLevel`. `info` logs every event and delivery; keep per-request detail at `Debug` so busy instances can run at `warn`.
+- **Logging**: `slog` JSON on stdout, bridged to OTel logs. `SPARROW_LOG_LEVEL` (`debug`/`info`/`warn`/`error`, default `info`) sets the level in `server/server.go` via `Config.SlogLevel`. `info` logs every event and delivery; keep per-request detail at `Debug` so busy instances can run at `warn`.
 
 ## Philosophy
 
@@ -85,7 +85,8 @@ signal to stop and simplify. Docs say only what we have run or tested.
 
 | Path | Purpose |
 |------|---------|
-| `cmd/server/` | Server entrypoint + DI wiring |
+| `server/` | Public package: all server wiring (`New`, `Start`, `Handler`, `Shutdown`), embeddable |
+| `cmd/server/` | Binary: flags, `.env`, listener, signals around `server` |
 | `cmd/migrate/` | Standalone migration runner |
 | `internal/rest/` | Huma REST handler layer (thin, calls webhook service) — one file per resource (`webhook.go`, `event.go`, `subscription.go`, `delivery.go`, `health.go`, `ai.go`) |
 | `internal/webhooks/` | Business logic + store + queue workers |

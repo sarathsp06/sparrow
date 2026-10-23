@@ -1,7 +1,7 @@
 # Graph Report - nervous-hofstadter-f94811  (2026-10-23)
 
 ## Corpus Check
-- 871 files · ~659,893 words
+- 871 files · ~659,872 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 41 file(s) not represented in the graph (top: .spec 21, (none) 12, .css 3)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `2356e795`
+- Built from commit: `d99c1350`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
