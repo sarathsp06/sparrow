@@ -32628,7 +32628,7 @@
       "file_type": "document",
       "frontmatter": {
         "title": "Recipes",
-        "description": "Ready-made destinations for Sparrow deliveries (Slack, Discord, ntfy, PagerDuty, SendGrid, ClickHouse, CloudEvents, Twilio): what each one needs, what it sends, and what to watch out for."
+        "description": "Ready-made Sparrow destinations, from Slack, Discord and PagerDuty to ClickHouse and Twilio: what each one needs, what it sends, and what to watch out for."
       },
       "node_kind": "page",
       "norm_label": "recipes.mdx",
@@ -45045,7 +45045,7 @@
       "file_type": "document",
       "frontmatter": {
         "title": "Embedding the Consumer Portal",
-        "description": "Give external consumers a self-service webhook portal while Sparrow stays on a private network \u2014 full walkthrough of the proxy-the-slice topology with a tested Caddy config and Docker Compose stack, plus the security analysis."
+        "description": "Give consumers a self-service webhook portal while Sparrow stays private: the proxy-the-slice topology, a tested Caddy and Compose stack, and its security."
       },
       "node_kind": "page",
       "norm_label": "portal-embedding.mdx",
@@ -45415,7 +45415,7 @@
       "file_type": "document",
       "frontmatter": {
         "title": "Securing Sparrow",
-        "description": "Sparrow&#x27;s security model, the trust assumptions of the embedded dashboard, and how to add SSO (username/password, Microsoft Entra, Google) with an identity-aware proxy."
+        "description": "Sparrow&#x27;s security model, the embedded dashboard&#x27;s trust assumptions, and how to add SSO (password, Microsoft Entra, Google) with an identity-aware proxy."
       },
       "node_kind": "page",
       "norm_label": "deployment/security.mdx",
@@ -51506,7 +51506,7 @@
       "file_type": "document",
       "frontmatter": {
         "title": "Installation",
-        "description": "How to install and run Sparrow."
+        "description": "Install Sparrow with Docker Compose, the Docker image, a pre-built binary or from source. All it needs is PostgreSQL; migrations run on startup."
       },
       "node_kind": "page",
       "norm_label": "installation.mdx",
@@ -59462,7 +59462,7 @@
       "file_type": "document",
       "frontmatter": {
         "title": "Client Libraries",
-        "description": "Generate REST clients for any language from Sparrow&#x27;s OpenAPI spec."
+        "description": "Generate a REST client for any language from Sparrow&#x27;s OpenAPI spec, how clients authenticate, and the few pieces of hand-written code Sparrow ships."
       },
       "node_kind": "page",
       "norm_label": "client-libraries.mdx",
@@ -90673,7 +90673,7 @@
       "file_type": "document",
       "frontmatter": {
         "title": "Architecture",
-        "description": "System design, event pipeline, and internal architecture."
+        "description": "Sparrow&#x27;s system design: the event pipeline, the webhook health state machine, the HTTP client, envelope encryption and the package layout."
       },
       "node_kind": "page",
       "norm_label": "architecture.mdx",
@@ -400363,5 +400363,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "2356e795e8cbe086244f6ed5c994c3ec971a3f15"
+  "built_at_commit": "d99c13505741ca71fddba352b186f3ea5a7561ca"
 }
