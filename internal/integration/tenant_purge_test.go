@@ -112,6 +112,7 @@ func TestTenantCreateAndPurge(t *testing.T) {
 	victimWebhooks := webhookIDs(t, sp.db, victim.String())
 	require.Len(t, victimWebhooks, 2)
 	require.Positive(t, liveJobs(t, sp.db, victim.String()), "the victim should have a retrying job to cancel")
+	require.Positive(t, liveJobs(t, sp.db, control.String()), "the control tenant should have a retrying job to keep")
 
 	before := map[string]map[string]int{
 		defaultTenant:    tenantRowCounts(t, sp.db, defaultTenant, webhookIDs(t, sp.db, defaultTenant)),
@@ -136,6 +137,7 @@ func TestTenantCreateAndPurge(t *testing.T) {
 		require.Zero(t, n, "%s still has %d rows of the purged tenant", table, n)
 	}
 	require.Zero(t, liveJobs(t, sp.db, victim.String()), "the purged tenant still has runnable jobs")
+	require.Positive(t, liveJobs(t, sp.db, control.String()), "purging one tenant cancelled another tenant's jobs")
 	var tenants int
 	require.NoError(t, sp.db.Get(&tenants, `SELECT count(*) FROM tenants WHERE id = $1`, victim))
 	require.Zero(t, tenants)

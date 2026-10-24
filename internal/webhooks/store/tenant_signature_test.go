@@ -172,3 +172,53 @@ func exprString(e ast.Expr) string {
 		return fmt.Sprintf("%T", e)
 	}
 }
+
+// TestCheckTenantSignaturesEdgeCases covers the Go syntax the checker must
+// read correctly: grouped and unnamed parameters, variadic and func-typed
+// parameters, embedded interfaces, multi-line doc comments, generic and
+// non-interface types.
+func TestCheckTenantSignaturesEdgeCases(t *testing.T) {
+	src := `package x
+type Embedded interface{ Good(ctx context.Context, tenantID uuid.UUID) error }
+type Repo interface {
+	Embedded
+	GroupedAll(ctx context.Context, tenantID, a, b uuid.UUID) error
+	Variadic(ctx context.Context, tenantID uuid.UUID, ids ...uuid.UUID) error
+	FuncParam(ctx context.Context, tenantID uuid.UUID, fn func(int) error) error
+	PointerTenant(ctx context.Context, tenantID *uuid.UUID) error
+	Unnamed(context.Context, uuid.UUID) error
+	SwappedOrder(tenantID uuid.UUID, ctx context.Context) error
+	StringTenant(ctx context.Context, tenantID string) error
+	// Exempt is documented over several lines,
+	// and the directive is not on the first one.
+	//sparrow:no-tenant spans every tenant
+	Exempt(ctx context.Context) error
+}
+type NotAnInterface struct{ ctx context.Context }
+type Generic[T any] interface {
+	Get(ctx context.Context, tenantID uuid.UUID, v T) error
+	Bad(ctx context.Context, v T) error
+}
+`
+	file, err := parser.ParseFile(token.NewFileSet(), "x.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, v := range checkTenantSignatures(file) {
+		got[strings.SplitN(v, ":", 2)[0]] = true
+	}
+	for _, bad := range []string{"Repo.PointerTenant", "Repo.Unnamed", "Repo.SwappedOrder", "Repo.StringTenant", "Generic.Bad"} {
+		if !got[bad] {
+			t.Errorf("%s should be a violation; got %v", bad, got)
+		}
+	}
+	for _, ok := range []string{"Embedded.Good", "Repo.GroupedAll", "Repo.Variadic", "Repo.FuncParam", "Repo.Exempt", "Generic.Get", "Repo.Embedded"} {
+		if got[ok] {
+			t.Errorf("%s should not be a violation", ok)
+		}
+	}
+	if len(got) != 5 {
+		t.Errorf("want exactly 5 violations, got %v", got)
+	}
+}
