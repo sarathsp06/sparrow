@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"runtime"
+	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -96,5 +98,68 @@ func TestJobInserterRoutesTenantQueue(t *testing.T) {
 	self := &jobInserter{logger: slog.New(slog.DiscardHandler)}
 	if got := self.InsertOpts(ctx, EventArgs{TenantID: free.String()}).Queue; got != QueueEventProcessing {
 		t.Errorf("self-hosted inserter routed a job to %q", got)
+	}
+}
+
+// TestTenantGateUnderConcurrency hammers the gate from many goroutines and
+// checks that no tenant ever runs more than its cap at once, that tenants
+// without a cap are never refused, and (under -race) that the gate's
+// bookkeeping is safe.
+func TestTenantGateUnderConcurrency(t *testing.T) {
+	ctx := context.Background()
+	capOne, capThree, uncapped := uuid.New(), uuid.New(), uuid.New()
+	caps := map[uuid.UUID]int{capOne: 1, capThree: 3}
+	g := newTenantGate(func(_ context.Context, id uuid.UUID) TenantLimits {
+		return TenantLimits{MaxInFlight: caps[id]}
+	})
+
+	var mu sync.Mutex
+	running := map[uuid.UUID]int{}
+	peak := map[uuid.UUID]int{}
+	refusedUncapped := 0
+
+	var wg sync.WaitGroup
+	for i := range 60 {
+		id := []uuid.UUID{capOne, capThree, uncapped}[i%3]
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for range 200 {
+				release, ok := g.acquire(ctx, id)
+				if !ok {
+					if id == uncapped {
+						mu.Lock()
+						refusedUncapped++
+						mu.Unlock()
+					}
+					continue
+				}
+				mu.Lock()
+				running[id]++
+				peak[id] = max(peak[id], running[id])
+				mu.Unlock()
+				runtime.Gosched()
+				mu.Lock()
+				running[id]--
+				mu.Unlock()
+				release()
+			}
+		}()
+	}
+	wg.Wait()
+
+	if peak[capOne] > 1 || peak[capThree] > 3 {
+		t.Fatalf("cap exceeded: peak %d for cap 1, %d for cap 3", peak[capOne], peak[capThree])
+	}
+	if peak[capOne] != 1 || peak[capThree] < 2 {
+		t.Fatalf("gate admitted too little: peak %d for cap 1, %d for cap 3", peak[capOne], peak[capThree])
+	}
+	if refusedUncapped != 0 {
+		t.Fatalf("an uncapped tenant was refused %d times", refusedUncapped)
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if len(g.running) != 0 {
+		t.Fatalf("gate still counts running jobs after all released: %v", g.running)
 	}
 }
