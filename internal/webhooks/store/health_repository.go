@@ -180,11 +180,11 @@ func (r *Repository) GetWebhookHealthSummary(ctx context.Context, tenantID uuid.
 			COALESCE(MIN(response_time), 0) as min_response_time,
 			COALESCE(MAX(response_time), 0) as max_response_time,
 			COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY response_time), 0)::INTEGER as p95_response_time,
-			SUM(CASE WHEN error_category = 'client_error' THEN 1 ELSE 0 END) as client_errors,
-			SUM(CASE WHEN error_category = 'server_error' THEN 1 ELSE 0 END) as server_errors,
-			SUM(CASE WHEN error_category = 'timeout' THEN 1 ELSE 0 END) as timeout_errors,
-			SUM(CASE WHEN error_category IN ('network_error', 'dns_error', 'tls_error', 'connection_refused') THEN 1 ELSE 0 END) as network_errors,
-			SUM(CASE WHEN error_category = 'unexpected_status' THEN 1 ELSE 0 END) as unexpected_status_errors,
+			COALESCE(SUM(CASE WHEN error_category = 'client_error' THEN 1 ELSE 0 END), 0) as client_errors,
+			COALESCE(SUM(CASE WHEN error_category = 'server_error' THEN 1 ELSE 0 END), 0) as server_errors,
+			COALESCE(SUM(CASE WHEN error_category = 'timeout' THEN 1 ELSE 0 END), 0) as timeout_errors,
+			COALESCE(SUM(CASE WHEN error_category IN ('network_error', 'dns_error', 'tls_error', 'connection_refused') THEN 1 ELSE 0 END), 0) as network_errors,
+			COALESCE(SUM(CASE WHEN error_category = 'unexpected_status' THEN 1 ELSE 0 END), 0) as unexpected_status_errors,
 			NOW() as created_at,
 			NOW() as updated_at
 		FROM webhook_health_events
