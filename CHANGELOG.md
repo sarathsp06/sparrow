@@ -27,6 +27,7 @@ migrations run on startup.
 
 ### Fixed
 
+- A webhook with health state but no delivery attempts in the last 24 hours had its health summary dropped and logged an ERROR on every health request (the summary query scanned NULL error counts). Quiet webhooks now report a summary with zero counts.
 - Portal: adding or editing a subscription no longer leaves the portal for console pages. Behind a proxy that forwards only `/portal`, those pages failed to load deliveries, health and access (`Unexpected token '<'`). Subscription pages now live under `/portal/webhooks/...` and saving returns to the portal.
 - Web UI: stale async replies no longer overwrite newer state — template
   preview renders, portal webhook switches, and delivery-list live refresh
