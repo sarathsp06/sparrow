@@ -19,7 +19,6 @@ const sinksDocs = `${base}satellites/sinks/`;
 const whySparrow = `${base}getting-started/why-sparrow/#feature-comparison`;
 const portalDocs = `${base}guides/portal-embedding/`;
 const blog = `${base}blog/`;
-const wass = `${base}getting-started/webhooks-as-a-service/`;
 const githubURL = 'https://github.com/sarathsp06/sparrow';
 // Same links as the README badges.
 const releasesURL = `${githubURL}/releases`;
@@ -113,7 +112,7 @@ const licenseURL = `${githubURL}/blob/main/LICENSE`;
     <div class="sp-w">
       <h1>Webhook delivery<br/>you run yourself</h1>
       <p class="sp-hero-sub">
-        Sparrow is open-source <a href={wass}>webhooks as a service</a> that you host yourself:
+        Sparrow is open-source <a href={`${base}getting-started/why-sparrow/`}>webhooks as a service</a> that you host yourself:
         at-least-once delivery,
         retries with error classification, signed deliveries, and OpenTelemetry tracing.
         One Go binary. One PostgreSQL database.

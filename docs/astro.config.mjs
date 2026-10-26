@@ -69,7 +69,6 @@ export default defineConfig({
           label: 'Getting Started',
           items: [
             { slug: 'getting-started/why-sparrow' },
-            { slug: 'getting-started/webhooks-as-a-service' },
             { slug: 'getting-started/for-decision-makers' },
             { slug: 'getting-started/installation' },
             { slug: 'getting-started/quickstart' },

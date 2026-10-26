@@ -1,15 +1,105 @@
 ---
-title: Why Sparrow
-description: What makes Sparrow different from other webhook platforms, and how it compares to Svix, Convoy, Hookdeck, AWS SNS, and building your own.
+title: "Why Sparrow: self-hosted webhooks as a service"
+description: Sparrow is open-source webhooks as a service that you run yourself. What a webhook service does, managed vs self-hosted, and how Sparrow compares to Svix, Convoy, Hookdeck, AWS SNS, and building your own.
 sidebar:
   order: 0
+  label: Why Sparrow
+head:
+  - tag: script
+    attrs:
+      type: application/ld+json
+    content: |
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is webhooks as a service?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Webhooks as a service is infrastructure that sends webhooks on behalf of your application. Your code publishes an event once; the service fans it out to every subscribed endpoint, signs each request, retries failures with backoff, tracks endpoint health and keeps a delivery log your customers can inspect."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is there an open-source, self-hosted webhooks-as-a-service platform?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. Sparrow is an MIT-licensed webhook delivery platform you run yourself: one Go binary plus PostgreSQL, with no Redis or message broker. It provides fan-out, retries, Standard Webhooks signatures (HMAC-SHA256 or Ed25519), per-endpoint health, a dashboard and an embeddable consumer portal."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What is a self-hosted alternative to Svix?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Sparrow is a self-hosted, MIT-licensed alternative to Svix. Like the Svix App Portal, it ships an embeddable portal where your customers manage their own endpoints, and it signs deliveries with Standard Webhooks signatures. It needs only PostgreSQL, and has no per-message pricing."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Should I build webhook delivery myself or use a webhook service?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Sending one HTTP request is easy; the hard parts are retries with backoff, signing, idempotency, slow or failing receivers, replaying failed deliveries and giving customers visibility. A webhook service handles those. Choose a managed service if you want no infrastructure, or a self-hosted one like Sparrow if payloads must stay in your network or you want to avoid per-message pricing."
+            }
+          }
+        ]
+      }
 ---
 
 import { Card, CardGrid, Aside, Steps } from '@astrojs/starlight/components';
 
-Sparrow is a self-hosted webhook delivery platform built for teams that want full control over their webhook infrastructure. No per-message pricing, no vendor lock-in, no external dependencies beyond PostgreSQL.
+**Sparrow is open-source webhooks as a service that you host yourself.** Your
+application publishes an event once with one `POST`; Sparrow fans it out to
+every subscribed endpoint, signs each request, retries failures, tracks the
+health of each endpoint, and keeps a full delivery history. No per-message
+pricing, no vendor lock-in, no external dependencies beyond PostgreSQL.
 
 Sparrow is MIT-licensed, and all core features are available in the open-source codebase (including envelope encryption, webhook signing, retries, and health tracking).
+
+## What a webhook service does
+
+Sending one HTTP request is easy. Sending webhooks to customers reliably is
+not, which is why "webhooks as a service" exists as a product category. A
+webhook service takes over:
+
+- **Fan-out**: one event, delivered to every endpoint subscribed to its type.
+- **Retries**: exponential backoff, separating retryable failures (timeouts,
+  5xx, 429) from permanent ones.
+- **Signing**: a signature on every request so receivers can verify it came
+  from you ([Standard Webhooks](/sparrow/guides/verify-signatures/)).
+- **Endpoint health**: noticing a receiver that has been failing for hours and
+  pausing it without losing what was sent to it.
+- **Delivery log and replay**: what was sent, what the receiver answered, and
+  a way to retry it.
+- **Customer self-service**: a portal where your customers add endpoints,
+  choose events and inspect their own deliveries.
+
+Sparrow does all of these; [How it works](/sparrow/getting-started/how-it-works/)
+shows the pipeline.
+
+## Managed or self-hosted
+
+There are two ways to get webhooks as a service:
+
+<CardGrid>
+  <Card title="Managed (SaaS)" icon="external">
+    A vendor runs the delivery infrastructure. Nothing to operate; you pay per
+    message or per tier, and every payload passes through the vendor's network.
+  </Card>
+  <Card title="Self-hosted (Sparrow)" icon="laptop">
+    You run the service next to your application. Payloads never leave your
+    network, there is no per-message price, and the only dependency is a
+    PostgreSQL database you probably already operate.
+  </Card>
+</CardGrid>
+
+Pick self-hosted when payloads must stay inside your network (regulated data,
+internal systems), when message volume makes per-message pricing expensive, or
+when you would rather run one more container than add a vendor. Pick managed
+when you want no infrastructure at all.
 
 ## What Sparrow Gives You
 
