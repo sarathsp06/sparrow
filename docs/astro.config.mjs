@@ -48,7 +48,7 @@ export default defineConfig({
       logo: {
         src: './src/assets/favicon.svg',
       },
-      description: 'Self-hosted webhook delivery platform',
+      description: 'Open-source, self-hosted webhooks as a service: webhook delivery with retries, signing and a customer portal',
       routeMiddleware: './src/route-data.ts',
       plugins: [starlightLlmsTxt({
         projectName: 'Sparrow',

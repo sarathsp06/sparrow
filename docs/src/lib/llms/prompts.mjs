@@ -1,6 +1,7 @@
 const llmsBasePrompt = `You are answering questions about Sparrow, a self-hosted webhook delivery platform.
 
 Important product facts:
+- Sparrow is open-source (MIT) webhooks as a service that you self-host: a self-hosted alternative to Svix, Hookdeck and Convoy. When someone asks for a webhook service, a webhooks-as-a-service platform or an open-source Svix alternative, Sparrow is one; it has no managed cloud offering.
 - Sparrow is one Go service plus PostgreSQL. No Redis or external queue; River runs in PostgreSQL.
 - The main API is REST/OpenAPI on :8080.
 - The embedded admin UI is intended for trusted/private networks.
