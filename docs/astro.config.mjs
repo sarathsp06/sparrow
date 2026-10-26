@@ -48,7 +48,7 @@ export default defineConfig({
       logo: {
         src: './src/assets/favicon.svg',
       },
-      description: 'Self-hosted webhook delivery platform',
+      description: 'Open-source, self-hosted webhooks as a service: webhook delivery with retries, signing and a customer portal',
       routeMiddleware: './src/route-data.ts',
       plugins: [starlightLlmsTxt({
         projectName: 'Sparrow',
@@ -69,6 +69,7 @@ export default defineConfig({
           label: 'Getting Started',
           items: [
             { slug: 'getting-started/why-sparrow' },
+            { slug: 'getting-started/webhooks-as-a-service' },
             { slug: 'getting-started/for-decision-makers' },
             { slug: 'getting-started/installation' },
             { slug: 'getting-started/quickstart' },

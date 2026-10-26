@@ -20,7 +20,7 @@
 
 </div>
 
-Sparrow sends your webhooks so you don't have to build the boring, hard parts: async fan-out, retries with backoff, Standard Webhooks signatures, per-endpoint health, full delivery history, and a consumer portal where your customers manage their own endpoints.
+Sparrow is open-source webhooks as a service that you host yourself, a self-hosted alternative to Svix, Hookdeck and Convoy. It sends your webhooks so you don't have to build the boring, hard parts: async fan-out, retries with backoff, Standard Webhooks signatures, per-endpoint health, full delivery history, and a consumer portal where your customers manage their own endpoints.
 
 It is one Go binary with an embedded Svelte dashboard. No Redis, no broker, no sidecar workers. PostgreSQL holds the data and, through [River](https://riverqueue.com), the job queue too. Payloads never leave your network.
 
