@@ -1,7 +1,7 @@
 
 # Frontend build stage. Pinned to the build host: the output is static files,
 # so there is no reason to run Node under QEMU for the arm64 image.
-FROM --platform=$BUILDPLATFORM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS frontend
+FROM --platform=$BUILDPLATFORM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS frontend
 
 ARG SEMVER=dev
 

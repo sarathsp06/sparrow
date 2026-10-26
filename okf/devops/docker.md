@@ -12,7 +12,7 @@ timestamp: 2026-06-22T00:00:00Z
 
 | Stage | Base Image | Purpose |
 |-------|-----------|---------|
-| `frontend` | `node:22-alpine` | Build SvelteKit SPA (adapter-static → `internal/ui/dist`) |
+| `frontend` | `node:24-alpine` | Build SvelteKit SPA (adapter-static → `internal/ui/dist`) |
 | `builder` | `golang:1.27.3-alpine` | Compile `server` binary with `CGO_ENABLED=0`, embed UI |
 | **final** | `gcr.io/distroless/static-debian12:nonroot` | Minimal runtime, USER 65532, port 8080 |
 
