@@ -16,6 +16,8 @@ migrations run on startup.
 
 ## [Unreleased]
 
+## [v1.2.0] - 2026-10-26
+
 ### Added
 
 - `SPARROW_PORTAL_RETRY` (default `true`) controls whether consumers can retry their own deliveries from the portal. With `false` the portal API refuses retries (403), `GET /v1/capabilities` reports `portal.retry: false`, and the portal shows its Retry buttons disabled; consumers still see every delivery.
@@ -647,7 +649,8 @@ First release: webhook registration and subscriptions, signed delivery with
 retries, payload transforms, soft schema validation, bulk re-push and retry,
 and the embedded web UI.
 
-[Unreleased]: https://github.com/sarathsp06/sparrow/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/sarathsp06/sparrow/compare/v1.2.0...HEAD
+[v1.2.0]: https://github.com/sarathsp06/sparrow/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/sarathsp06/sparrow/compare/v1.0.1...v1.1.0
 [v1.0.1]: https://github.com/sarathsp06/sparrow/compare/v1.0.0...v1.0.1
 [v1.0.0]: https://github.com/sarathsp06/sparrow/compare/v0.14.0...v1.0.0
