@@ -1,0 +1,10 @@
+# Read by osv-scanner and by OpenSSF Scorecard's Vulnerabilities check.
+# Every entry says why it does not apply and how to check that it still doesn't.
+
+[[IgnoredVulns]]
+id = "GO-2026-5932"
+reason = """
+golang.org/x/crypto/openpgp is deprecated and the advisory has no fixed \
+version, so it matches every x/crypto release. Sparrow never imports \
+openpgp (x/crypto comes in for bcrypt, via sprig and gowrap). Check with: \
+go list -deps ./... | grep x/crypto/openpgp (must print nothing)."""
