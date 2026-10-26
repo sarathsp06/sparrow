@@ -1,8 +1,8 @@
 <script lang="ts">
-    import type { components } from '$lib/api-types';
-    import { api, unwrap } from '$lib/services';
-    import { getCategoryBadge, formatTimestamp } from '$lib/utils';
-    import favicon from '$lib/assets/favicon.svg';
+    import type { components } from '#lib/api-types.js';
+    import { api, unwrap } from '#lib/services.js';
+    import { getCategoryBadge, formatTimestamp } from '#lib/utils.js';
+    import favicon from '#lib/assets/favicon.svg';
 
     type AttemptItem = components["schemas"]["AttemptItem"];
 

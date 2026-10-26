@@ -3,10 +3,10 @@
   // subscriptions/{id}:sendTestEvent): the sample, or a payload the user edits. Shared by the admin webhook page and the portal;
   // the API client routes the same /v1 call through /portal/api/ there.
   import { JSONEditor, Mode, type Content } from "svelte-jsoneditor";
-  import { api, unwrap } from "$lib/services";
-  import { formatAPIError } from "$lib/utils";
-  import { VERIFY_SIGNATURES_GUIDE_URL } from "$lib/system";
-  import type { components } from "$lib/api-types";
+  import { api, unwrap } from "#lib/services.js";
+  import { formatAPIError } from "#lib/utils.js";
+  import { VERIFY_SIGNATURES_GUIDE_URL } from "#lib/system.js";
+  import type { components } from "#lib/api-types.js";
 
   type TestResult = components["schemas"]["SendTestEventOutputBody"];
 

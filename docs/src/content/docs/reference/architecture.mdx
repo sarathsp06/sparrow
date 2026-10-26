@@ -47,7 +47,7 @@ services, storage, and queue workers.
 - **Job Queue** -- [River](https://riverqueue.com/) (Postgres-based)
 - **API** -- REST/HTTP on `:8080` (Huma-based)
 - **API Spec** -- OpenAPI 3.1, committed at `api/openapi.yaml`
-- **Web UI** -- SvelteKit 2 + Svelte 5 (Runes) + TypeScript + Tailwind CSS 4 (embedded static build)
+- **Web UI** -- SvelteKit 3 + Svelte 5 (Runes) + TypeScript + Tailwind CSS 4 (embedded static build)
 - **Observability** -- OpenTelemetry (traces, metrics, logs via OTLP; metrics also scrapeable at `/metrics` in Prometheus format)
 - **DB Access** -- pgx/v5 + sqlx (OTel-instrumented)
 - **Container** -- Multi-stage Dockerfile (distroless nonroot)

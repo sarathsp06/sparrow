@@ -1,7 +1,7 @@
 <script lang="ts">
   // Newer/Older paging for a CursorPages list. Hidden while everything fits
   // on one page.
-  import type { CursorPages } from "$lib/cursor-pages.svelte";
+  import type { CursorPages } from "#lib/cursor-pages.svelte.js";
 
   interface Props {
     pages: CursorPages;

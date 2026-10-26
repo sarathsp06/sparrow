@@ -1,11 +1,11 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { api, unwrap } from '$lib/services';
-  import { getCategoryDisplay, formatAPIError, formatTimestamp } from '$lib/utils';
-  import StatusBadge from '$lib/components/StatusBadge.svelte';
-  import CopyableId from '$lib/components/CopyableId.svelte';
+  import { api, unwrap } from '#lib/services.js';
+  import { getCategoryDisplay, formatAPIError, formatTimestamp } from '#lib/utils.js';
+  import StatusBadge from '#lib/components/StatusBadge.svelte';
+  import CopyableId from '#lib/components/CopyableId.svelte';
   import { onMount } from 'svelte';
-  import type { components } from '$lib/api-types';
+  import type { components } from '#lib/api-types.js';
 
   type DeliveryItem = components["schemas"]["DeliveryItem"];
 

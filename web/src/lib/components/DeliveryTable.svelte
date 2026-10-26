@@ -1,9 +1,9 @@
 <script lang="ts">
-    import type { components } from '$lib/api-types';
-    import { api, unwrap } from '$lib/services';
-    import { getCategoryBadge, formatAPIError, timeAgo, formatTimestamp } from '$lib/utils';
-    import { consumerLabel } from '$lib/consumer.svelte';
-    import { isSystemConsumer } from '$lib/system';
+    import type { components } from '#lib/api-types.js';
+    import { api, unwrap } from '#lib/services.js';
+    import { getCategoryBadge, formatAPIError, timeAgo, formatTimestamp } from '#lib/utils.js';
+    import { consumerLabel } from '#lib/consumer.svelte.js';
+    import { isSystemConsumer } from '#lib/system.js';
     import StatusBadge from './StatusBadge.svelte';
     import CopyableId from './CopyableId.svelte';
     import WebhookLabel from './WebhookLabel.svelte';

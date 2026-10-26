@@ -1,17 +1,17 @@
 <script lang="ts">
     import { page } from '$app/state';
-    import { EventReportsTable } from '$lib';
-    import CursorPager from '$lib/components/CursorPager.svelte';
-    import { CursorPages } from '$lib/cursor-pages.svelte';
-    import { api, unwrap } from '$lib/services';
+    import { EventReportsTable } from '#lib';
+    import CursorPager from '#lib/components/CursorPager.svelte';
+    import { CursorPages } from '#lib/cursor-pages.svelte.js';
+    import { api, unwrap } from '#lib/services.js';
     import { onDestroy, untrack } from 'svelte';
-    import { consumerFilter } from '$lib/consumer.svelte';
-    import ConsumerPicker from '$lib/components/ConsumerPicker.svelte';
-    import type { components } from '$lib/api-types';
-    import { formatAPIError } from '$lib/utils';
-    import BatchProgress from '$lib/components/BatchProgress.svelte';
-    import { BatchJob } from '$lib/batch-job.svelte';
-    import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+    import { consumerFilter } from '#lib/consumer.svelte.js';
+    import ConsumerPicker from '#lib/components/ConsumerPicker.svelte';
+    import type { components } from '#lib/api-types.js';
+    import { formatAPIError } from '#lib/utils.js';
+    import BatchProgress from '#lib/components/BatchProgress.svelte';
+    import { BatchJob } from '#lib/batch-job.svelte.js';
+    import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
 
     type EventOccurrenceItem = components["schemas"]["EventOccurrenceItem"];
     type EventTypeItem = components["schemas"]["EventTypeItem"];

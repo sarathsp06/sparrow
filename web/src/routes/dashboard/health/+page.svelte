@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { api, unwrap } from "$lib/services";
-  import { formatAPIError } from "$lib/utils";
-  import type { components } from "$lib/api-types";
-  import HealthBadge from "$lib/components/HealthBadge.svelte";
-  import CopyableId from "$lib/components/CopyableId.svelte";
-  import ConsumerPicker from "$lib/components/ConsumerPicker.svelte";
-  import { consumerFilter, consumerLabel } from "$lib/consumer.svelte";
-  import { describeHealthRules, isSystemConsumer, successRateTone } from "$lib/system";
+  import { api, unwrap } from "#lib/services.js";
+  import { formatAPIError } from "#lib/utils.js";
+  import type { components } from "#lib/api-types.js";
+  import HealthBadge from "#lib/components/HealthBadge.svelte";
+  import CopyableId from "#lib/components/CopyableId.svelte";
+  import ConsumerPicker from "#lib/components/ConsumerPicker.svelte";
+  import { consumerFilter, consumerLabel } from "#lib/consumer.svelte.js";
+  import { describeHealthRules, isSystemConsumer, successRateTone } from "#lib/system.js";
 
   type HealthSummary = components["schemas"]["HealthSummaryOutputBody"];
   type ConsumerStats = components["schemas"]["ConsumerStatsOutputBody"];

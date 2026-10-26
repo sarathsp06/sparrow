@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api, unwrap } from "$lib/services";
-  import { formatAPIError, timeAgo } from "$lib/utils";
-  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
-  import EmptyState from "$lib/components/EmptyState.svelte";
-  import type { components } from "$lib/api-types";
+  import { api, unwrap } from "#lib/services.js";
+  import { formatAPIError, timeAgo } from "#lib/utils.js";
+  import ConfirmDialog from "#lib/components/ConfirmDialog.svelte";
+  import EmptyState from "#lib/components/EmptyState.svelte";
+  import type { components } from "#lib/api-types.js";
 
   type Token = components["schemas"]["TokenOut"];
   type Invite = components["schemas"]["InviteOut"];

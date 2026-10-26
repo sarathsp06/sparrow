@@ -1,11 +1,11 @@
 <script lang="ts">
-    import type { components } from '$lib/api-types';
-    import { api, unwrap } from '$lib/services';
-    import { timeAgo, formatTimestamp } from '$lib/utils';
+    import type { components } from '#lib/api-types.js';
+    import { api, unwrap } from '#lib/services.js';
+    import { timeAgo, formatTimestamp } from '#lib/utils.js';
     import CopyableId from './CopyableId.svelte';
     import EmptyState from './EmptyState.svelte';
     import DeliveryTable from './DeliveryTable.svelte';
-    import favicon from '$lib/assets/favicon.svg';
+    import favicon from '#lib/assets/favicon.svg';
 
     type EventOccurrenceItem = components["schemas"]["EventOccurrenceItem"];
     type DeliveryItem = components["schemas"]["DeliveryItem"];

@@ -1,17 +1,17 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { api, unwrap } from '$lib/services';
+	import { api, unwrap } from '#lib/services.js';
 	import { untrack } from 'svelte';
 	import { JSONEditor, Mode, type Content } from 'svelte-jsoneditor';
-	import type { components } from '$lib/api-types';
-	import EmptyState from '$lib/components/EmptyState.svelte';
-	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
-	import FloatingAction from '$lib/components/FloatingAction.svelte';
-	import EventTypeImport from '$lib/components/EventTypeImport.svelte';
-	import Pagination from '$lib/components/Pagination.svelte';
-	import { formatAPIError } from '$lib/utils';
-	import { consumerFilter, withConsumer } from '$lib/consumer.svelte';
-	import { ALERTS_GUIDE_URL, SYSTEM_CONSUMER, isSystemConsumer } from '$lib/system';
+	import type { components } from '#lib/api-types.js';
+	import EmptyState from '#lib/components/EmptyState.svelte';
+	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
+	import FloatingAction from '#lib/components/FloatingAction.svelte';
+	import EventTypeImport from '#lib/components/EventTypeImport.svelte';
+	import Pagination from '#lib/components/Pagination.svelte';
+	import { formatAPIError } from '#lib/utils.js';
+	import { consumerFilter, withConsumer } from '#lib/consumer.svelte.js';
+	import { ALERTS_GUIDE_URL, SYSTEM_CONSUMER, isSystemConsumer } from '#lib/system.js';
 
 	type EventTypeItem = components["schemas"]["EventTypeItem"];
 

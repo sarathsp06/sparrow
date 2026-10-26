@@ -1,17 +1,17 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { api, unwrap } from "$lib/services";
-  import { JSONSchemaMetaSchema, toJSONObject, formatAPIError, safeAjvValidator } from "$lib/utils";
+  import { api, unwrap } from "#lib/services.js";
+  import { JSONSchemaMetaSchema, toJSONObject, formatAPIError, safeAjvValidator } from "#lib/utils.js";
   import { onMount } from "svelte";
-  import ExpandableEditor from "$lib/components/ExpandableEditor.svelte";
-  import SchemaFromSamples from "$lib/components/SchemaFromSamples.svelte";
+  import ExpandableEditor from "#lib/components/ExpandableEditor.svelte";
+  import SchemaFromSamples from "#lib/components/SchemaFromSamples.svelte";
   import {
     type JSONContent,
     JSONEditor,
     type Validator
   } from "svelte-jsoneditor";
-  import type { components } from "$lib/api-types";
+  import type { components } from "#lib/api-types.js";
 
   type VersionItem = components["schemas"]["EventTypeVersionItem"];
   type ImportItem = components["schemas"]["ImportItemResult"];

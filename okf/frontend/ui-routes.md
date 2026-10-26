@@ -8,7 +8,7 @@ timestamp: 2026-10-08T00:00:00Z
 
 # SvelteKit Routes
 
-Built with SvelteKit 2, Svelte 5, Tailwind CSS v4, adapter-static (SPA mode).
+Built with SvelteKit 3, Svelte 5, Tailwind CSS v4, adapter-static (SPA mode).
 
 The dashboard covers the full webhook lifecycle plus an embeddable, token-scoped consumer portal. Route groups:
 
@@ -27,7 +27,7 @@ Route files live under `web/src/routes/`; browse there for the current, authorit
 
 | Layer | Tech |
 |-------|------|
-| Framework | SvelteKit 2 + Svelte 5 (runes) |
+| Framework | SvelteKit 3 + Svelte 5 (runes) |
 | CSS | Tailwind CSS v4 |
 | API Client | `openapi-fetch`, typed from `api-types.d.ts` (generated from `api/openapi.yaml`) |
 | Font | Fira Code |

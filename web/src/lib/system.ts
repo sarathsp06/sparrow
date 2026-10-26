@@ -2,8 +2,8 @@
 // (sparrow.*) are pushed under, where operators register the alert mailer.
 // It is listed and counted like any other consumer; these helpers only label
 // it where it shows up.
-import { api, unwrap } from "$lib/services";
-import type { components } from "$lib/api-types";
+import { api, unwrap } from "#lib/services.js";
+import type { components } from "#lib/api-types.js";
 
 type EventTypeItem = components["schemas"]["EventTypeItem"];
 export type HealthRules = components["schemas"]["HealthRules"];

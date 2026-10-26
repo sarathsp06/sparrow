@@ -1,6 +1,6 @@
-import { dev } from "$app/environment";
+import { dev } from "$app/env";
 import { replaceState } from "$app/navigation";
-import { env } from "$env/dynamic/public";
+import { PUBLIC_API_URL } from "$app/env/public";
 import createClient from "openapi-fetch";
 import type { paths } from "./api-types";
 import { apiLogMiddleware } from "./apiConsole.svelte";
@@ -22,7 +22,7 @@ class SameOriginRequest extends Request {
 }
 
 /** API base URL without trailing slash; "" means same origin as the UI. */
-export const apiBase = resolveApiBase(runtimeConfig.apiUrl, env.PUBLIC_API_URL, dev);
+export const apiBase = resolveApiBase(runtimeConfig.apiUrl, PUBLIC_API_URL, dev);
 
 /** Absolute link to a server-side page such as "/docs" (on the API host, which may differ from the UI's). */
 export const serverHref = (path: string) => apiHref(apiBase, path);

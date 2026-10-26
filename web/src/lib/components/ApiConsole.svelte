@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fade, fly } from "svelte/transition";
-  import { apiConsole, toCurl, type ApiLogEntry } from "$lib/apiConsole.svelte";
-  import { serverHref } from "$lib/services";
+  import { apiConsole, toCurl, type ApiLogEntry } from "#lib/apiConsole.svelte.js";
+  import { serverHref } from "#lib/services.js";
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
   let copiedId = $state<string | null>(null);

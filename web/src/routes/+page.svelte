@@ -3,6 +3,6 @@
   import { onMount } from "svelte";
 
   onMount(() => {
-    goto("/webhooks", { replaceState: true });
+    goto("/webhooks", { replace: true });
   });
 </script>

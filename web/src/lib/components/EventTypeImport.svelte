@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { api, unwrap } from "$lib/services";
-  import { formatAPIError } from "$lib/utils";
-  import type { components } from "$lib/api-types";
+  import { api, unwrap } from "#lib/services.js";
+  import { formatAPIError } from "#lib/utils.js";
+  import type { components } from "#lib/api-types.js";
 
   type ImportResult = components["schemas"]["ImportEventTypesOutputBody"];
   type ImportItem = components["schemas"]["ImportItemResult"];

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { apiBase, browserSignInName } from "$lib/services";
+  import { apiBase, browserSignInName } from "#lib/services.js";
   import { auth } from "./auth.svelte";
   import { exchangeKey, rejectMessage } from "./client";
 

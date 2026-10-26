@@ -1,7 +1,7 @@
 // Live telemetry backing the Pulse signature. The shell polls delivery stats
 // into this store; the Pulse renders it as colored blips on the wire and
 // speeds up while the pipeline is working (pending deliveries in flight).
-import { browser, dev } from "$app/environment";
+import { browser, dev } from "$app/env";
 
 type Telemetry = { ok: number; warn: number; bad: number; pending: number };
 

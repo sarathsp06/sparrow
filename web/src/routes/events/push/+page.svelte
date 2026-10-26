@@ -6,14 +6,14 @@
     type Validator
   } from "svelte-jsoneditor";
 
-  import { api, unwrap } from "$lib/services";
-  import { formatAPIError, safeAjvValidator } from '$lib/utils';
+  import { api, unwrap } from "#lib/services.js";
+  import { formatAPIError, safeAjvValidator } from '#lib/utils.js';
   import { page } from '$app/state';
-  import ConsumerPicker from '$lib/components/ConsumerPicker.svelte';
-  import { isSystemEvent, listAllEventTypes } from '$lib/system';
+  import ConsumerPicker from '#lib/components/ConsumerPicker.svelte';
+  import { isSystemEvent, listAllEventTypes } from '#lib/system.js';
   import { onMount } from "svelte";
-  import type { components } from "$lib/api-types";
-  import ExpandableEditor from "$lib/components/ExpandableEditor.svelte";
+  import type { components } from "#lib/api-types.js";
+  import ExpandableEditor from "#lib/components/ExpandableEditor.svelte";
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
 

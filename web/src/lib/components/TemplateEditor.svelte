@@ -3,10 +3,10 @@
   // with the AI drawer (draft or copy-prompt), the helper reference, the
   // Workbench link, and the subscription's saved template history. It edits a
   // copy and hands the result back through onSave; nothing is persisted here.
-  import { api, unwrap } from "$lib/services";
-  import { formatAPIError } from "$lib/utils";
-  import { loadCapabilities } from "$lib/capabilities.svelte";
-  import type { components } from "$lib/api-types";
+  import { api, unwrap } from "#lib/services.js";
+  import { formatAPIError } from "#lib/utils.js";
+  import { loadCapabilities } from "#lib/capabilities.svelte.js";
+  import type { components } from "#lib/api-types.js";
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
   type RecipeItem = components["schemas"]["Recipe"];

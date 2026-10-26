@@ -1,21 +1,21 @@
 <script lang="ts">
     import { page } from '$app/state';
-    import { api, unwrap } from '$lib/services';
-    import { ERROR_CATEGORIES, formatAPIError } from '$lib/utils';
-    import { consumerFilter, withConsumer } from '$lib/consumer.svelte';
-    import { SYSTEM_CONSUMER, isSystemConsumer } from '$lib/system';
-    import { pulseStore } from '$lib/pulse.svelte';
+    import { api, unwrap } from '#lib/services.js';
+    import { ERROR_CATEGORIES, formatAPIError } from '#lib/utils.js';
+    import { consumerFilter, withConsumer } from '#lib/consumer.svelte.js';
+    import { SYSTEM_CONSUMER, isSystemConsumer } from '#lib/system.js';
+    import { pulseStore } from '#lib/pulse.svelte.js';
     import { onDestroy, untrack } from 'svelte';
-    import type { components } from '$lib/api-types';
+    import type { components } from '#lib/api-types.js';
     type DeliveryStatus = components['schemas']['DeliveryItem']['status'];
-    import DeliveryTable from '$lib/components/DeliveryTable.svelte';
-    import CursorPager from '$lib/components/CursorPager.svelte';
-    import { CursorPages } from '$lib/cursor-pages.svelte';
-    import ConsumerPicker from '$lib/components/ConsumerPicker.svelte';
-    import EmptyState from '$lib/components/EmptyState.svelte';
-    import BatchProgress from '$lib/components/BatchProgress.svelte';
-    import { BatchJob } from '$lib/batch-job.svelte';
-    import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+    import DeliveryTable from '#lib/components/DeliveryTable.svelte';
+    import CursorPager from '#lib/components/CursorPager.svelte';
+    import { CursorPages } from '#lib/cursor-pages.svelte.js';
+    import ConsumerPicker from '#lib/components/ConsumerPicker.svelte';
+    import EmptyState from '#lib/components/EmptyState.svelte';
+    import BatchProgress from '#lib/components/BatchProgress.svelte';
+    import { BatchJob } from '#lib/batch-job.svelte.js';
+    import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
 
     type DeliveryItem = components["schemas"]["DeliveryItem"];
 

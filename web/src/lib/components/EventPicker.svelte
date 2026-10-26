@@ -5,8 +5,8 @@
   // (EventTypeDetails) under the row. Built for long lists: search covers
   // names and descriptions, and past GROUP_AT types the list is grouped by
   // name prefix (order.*, invoice.*) with per-group select-all.
-  import type { components } from "$lib/api-types";
-  import { groupByPrefix } from "$lib/schema-fields";
+  import type { components } from "#lib/api-types.js";
+  import { groupByPrefix } from "#lib/schema-fields.js";
   import EventTypeDetails from "./EventTypeDetails.svelte";
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];

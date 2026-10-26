@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { pulseStore } from "$lib/pulse.svelte";
+  import { pulseStore } from "#lib/pulse.svelte.js";
 
   // The Pulse — Sparrow's signature. A live oscilloscope wire across the top of
   // the console. Blips encode the real delivery mix (success / pending / failed);

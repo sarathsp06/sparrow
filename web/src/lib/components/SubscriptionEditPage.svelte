@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { api, unwrap, webhookHref, webhooksHref } from "$lib/services";
-  import { formatAPIError } from "$lib/utils";
+  import { api, unwrap, webhookHref, webhooksHref } from "#lib/services.js";
+  import { formatAPIError } from "#lib/utils.js";
   import { onMount } from "svelte";
   import SubscriptionForm from "./SubscriptionForm.svelte";
-  import type { components } from "$lib/api-types";
+  import type { components } from "#lib/api-types.js";
 
   type SubscriptionItem = components["schemas"]["SubscriptionItem"];
 

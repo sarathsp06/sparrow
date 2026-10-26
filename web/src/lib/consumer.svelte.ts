@@ -4,7 +4,7 @@
 // survives a reload. Empty means all consumers.
 import { goto } from "$app/navigation";
 import { page } from "$app/state";
-import { SYSTEM_CONSUMER, SYSTEM_CONSUMER_LABEL } from "$lib/system";
+import { SYSTEM_CONSUMER, SYSTEM_CONSUMER_LABEL } from "#lib/system.js";
 
 const PARAM = "consumer";
 
@@ -16,10 +16,10 @@ export const consumerFilter = {
   set value(v: string) {
     const next = v.trim();
     if (next === this.value) return;
-    const url = new URL(page.url);
+    const url = new URL(page.url.href);
     if (next) url.searchParams.set(PARAM, next);
     else url.searchParams.delete(PARAM);
-    goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+    goto(url, { replace: true, reset: false });
   },
   /** Human label for the current scope. */
   get label(): string {

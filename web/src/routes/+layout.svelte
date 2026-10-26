@@ -1,14 +1,14 @@
 <script lang="ts">
   import { page } from "$app/state";
   import { onMount, onDestroy } from "svelte";
-  import favicon from "$lib/assets/favicon.svg";
-  import Pulse from "$lib/components/Pulse.svelte";
-  import ApiConsole from "$lib/components/ApiConsole.svelte";
-  import AccountBadge from "$lib/access/AccountBadge.svelte";
-  import SignInPrompt from "$lib/access/SignInPrompt.svelte";
-  import { api, serverHref, unwrap } from "$lib/services";
-  import { pulseStore } from "$lib/pulse.svelte";
-  import { apiConsole } from "$lib/apiConsole.svelte";
+  import favicon from "#lib/assets/favicon.svg";
+  import Pulse from "#lib/components/Pulse.svelte";
+  import ApiConsole from "#lib/components/ApiConsole.svelte";
+  import AccountBadge from "#lib/access/AccountBadge.svelte";
+  import SignInPrompt from "#lib/access/SignInPrompt.svelte";
+  import { api, serverHref, unwrap } from "#lib/services.js";
+  import { pulseStore } from "#lib/pulse.svelte.js";
+  import { apiConsole } from "#lib/apiConsole.svelte.js";
   import "../app.css";
 
   let { children } = $props();

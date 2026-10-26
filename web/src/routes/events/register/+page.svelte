@@ -1,9 +1,9 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { api, unwrap } from '$lib/services';
-  import { JSONSchemaMetaSchema, jsonToJsonSchema } from '$lib';
-  import { formatAPIError, safeAjvValidator } from '$lib/utils';
-  import ExpandableEditor from '$lib/components/ExpandableEditor.svelte';
+  import { api, unwrap } from '#lib/services.js';
+  import { JSONSchemaMetaSchema, jsonToJsonSchema } from '#lib';
+  import { formatAPIError, safeAjvValidator } from '#lib/utils.js';
+  import ExpandableEditor from '#lib/components/ExpandableEditor.svelte';
   import {
     JSONEditor,
     Mode,

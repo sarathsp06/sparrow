@@ -2,12 +2,12 @@
   // Email alert recipients for one webhook: its own alert configs plus the
   // consumer-wide ones that also cover it. Sparrow only sends these emails
   // when an alert-delivery webhook exists under _sparrow (the capability).
-  import { api, unwrap } from "$lib/services";
-  import { formatAPIError } from "$lib/utils";
-  import { loadCapabilities } from "$lib/capabilities.svelte";
-  import type { components } from "$lib/api-types";
-  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
-  import { ALERT_EVENT_TYPES, ALERTS_GUIDE_URL, isEmail } from "$lib/system";
+  import { api, unwrap } from "#lib/services.js";
+  import { formatAPIError } from "#lib/utils.js";
+  import { loadCapabilities } from "#lib/capabilities.svelte.js";
+  import type { components } from "#lib/api-types.js";
+  import ConfirmDialog from "#lib/components/ConfirmDialog.svelte";
+  import { ALERT_EVENT_TYPES, ALERTS_GUIDE_URL, isEmail } from "#lib/system.js";
 
   type AlertConfigItem = components["schemas"]["AlertConfigItem"];
 

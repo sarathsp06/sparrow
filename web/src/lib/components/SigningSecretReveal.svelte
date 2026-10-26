@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { VERIFY_SIGNATURES_GUIDE_URL } from '$lib/system';
+  import { VERIFY_SIGNATURES_GUIDE_URL } from '#lib/system.js';
   // Shows a webhook signing secret the server returns in plaintext exactly
   // once (at registration or rotation). Every later read is masked, so this is
   // the user's only chance to copy it.

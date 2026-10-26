@@ -3,9 +3,9 @@
   // deliveries: they are never sent automatically, so offer to retry them
   // (snapshot status=paused with the given filter, then a batch retry) or
   // leave them.
-  import { api, unwrap } from "$lib/services";
-  import { formatAPIError } from "$lib/utils";
-  import { retryPolicy } from "$lib/capabilities.svelte";
+  import { api, unwrap } from "#lib/services.js";
+  import { formatAPIError } from "#lib/utils.js";
+  import { retryPolicy } from "#lib/capabilities.svelte.js";
 
   let {
     consumer,

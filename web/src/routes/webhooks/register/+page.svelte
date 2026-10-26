@@ -1,19 +1,19 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { api, unwrap } from '$lib/services';
-  import { formatAPIError } from '$lib/utils';
-  import { loadCapabilities } from '$lib/capabilities.svelte';
-  import ConsumerPicker from '$lib/components/ConsumerPicker.svelte';
+  import { api, unwrap } from '#lib/services.js';
+  import { formatAPIError } from '#lib/utils.js';
+  import { loadCapabilities } from '#lib/capabilities.svelte.js';
+  import ConsumerPicker from '#lib/components/ConsumerPicker.svelte';
   import { onMount } from 'svelte';
-  import type { components } from '$lib/api-types';
-  import { substituteParams, type Recipe, type RecipeParam } from '$lib/recipes';
-  import Disclosure from '$lib/components/Disclosure.svelte';
-  import EventPicker from '$lib/components/EventPicker.svelte';
-  import TransformSettings from '$lib/components/TransformSettings.svelte';
-  import type { TemplateSaveMeta } from '$lib/components/TemplateEditor.svelte';
-  import SigningSecretReveal from '$lib/components/SigningSecretReveal.svelte';
-  import { ALERT_EVENT_TYPES, ALERTS_GUIDE_URL, SYSTEM_CONSUMER, VERIFY_SIGNATURES_GUIDE_URL, isEmail, isSystemConsumer, listAllEventTypes } from '$lib/system';
+  import type { components } from '#lib/api-types.js';
+  import { substituteParams, type Recipe, type RecipeParam } from '#lib/recipes.js';
+  import Disclosure from '#lib/components/Disclosure.svelte';
+  import EventPicker from '#lib/components/EventPicker.svelte';
+  import TransformSettings from '#lib/components/TransformSettings.svelte';
+  import type { TemplateSaveMeta } from '#lib/components/TemplateEditor.svelte';
+  import SigningSecretReveal from '#lib/components/SigningSecretReveal.svelte';
+  import { ALERT_EVENT_TYPES, ALERTS_GUIDE_URL, SYSTEM_CONSUMER, VERIFY_SIGNATURES_GUIDE_URL, isEmail, isSystemConsumer, listAllEventTypes } from '#lib/system.js';
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
 

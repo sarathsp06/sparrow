@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { JSONEditor, Mode, type JSONContent } from 'svelte-jsoneditor';
-  import { api, unwrap } from '$lib/services';
-  import { analyzeSamples, formatAPIError, inferSchema, timeAgo } from '$lib/utils';
-  import type { components } from '$lib/api-types';
+  import { api, unwrap } from '#lib/services.js';
+  import { analyzeSamples, formatAPIError, inferSchema, timeAgo } from '#lib/utils.js';
+  import type { components } from '#lib/api-types.js';
 
   type EventOccurrenceItem = components['schemas']['EventOccurrenceItem'];
 

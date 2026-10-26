@@ -2,15 +2,15 @@
   // Create/edit a subscription on its own page. Everything about the
   // template lives behind "Edit template", which opens TemplateEditor.
   import { goto } from "$app/navigation";
-  import { api, unwrap, webhookHref } from "$lib/services";
-  import { formatAPIError } from "$lib/utils";
-  import { listAllEventTypes } from "$lib/system";
+  import { api, unwrap, webhookHref } from "#lib/services.js";
+  import { formatAPIError } from "#lib/utils.js";
+  import { listAllEventTypes } from "#lib/system.js";
   import { onMount } from "svelte";
   import Disclosure from "./Disclosure.svelte";
   import TransformSettings from "./TransformSettings.svelte";
   import EventPicker from "./EventPicker.svelte";
   import type { TemplateSaveMeta } from "./TemplateEditor.svelte";
-  import type { components } from "$lib/api-types";
+  import type { components } from "#lib/api-types.js";
 
   type SubscriptionItem = components["schemas"]["SubscriptionItem"];
   type EventTypeItem = components["schemas"]["EventTypeItem"];

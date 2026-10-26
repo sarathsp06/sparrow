@@ -3,8 +3,8 @@
   // consumers, so suggestions come from GET /v1/consumers?q= as you type
   // rather than from a preloaded list. Free text is allowed, because a new
   // consumer is created by registering a webhook or pushing an event under it.
-  import { api, unwrap } from "$lib/services";
-  import { SYSTEM_CONSUMER, SYSTEM_CONSUMER_LABEL } from "$lib/system";
+  import { api, unwrap } from "#lib/services.js";
+  import { SYSTEM_CONSUMER, SYSTEM_CONSUMER_LABEL } from "#lib/system.js";
 
   let {
     value = $bindable(""),

@@ -1,21 +1,21 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { replaceState } from "$app/navigation";
-  import { api, unwrap, portal, type WebhookTab } from "$lib/services";
-  import { portalInvite } from "$lib/access/portal-invite.svelte";
-  import { formatAPIError } from "$lib/utils";
-  import { loadCapabilities, retryPolicy } from "$lib/capabilities.svelte";
-  import HealthBadge from "$lib/components/HealthBadge.svelte";
-  import StatusBadge from "$lib/components/StatusBadge.svelte";
-  import EmptyState from "$lib/components/EmptyState.svelte";
-  import CopyableId from "$lib/components/CopyableId.svelte";
-  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
-  import HeldDeliveriesNotice from "$lib/components/HeldDeliveriesNotice.svelte";
-  import SubscriptionManager from "$lib/components/SubscriptionManager.svelte";
-  import EventPicker from "$lib/components/EventPicker.svelte";
-  import TestEventPanel from "$lib/components/TestEventPanel.svelte";
-  import type { components } from "$lib/api-types";
-  import { ALERT_EVENT_TYPES, ALERTS_GUIDE_URL, isEmail, listAllEventTypes } from "$lib/system";
+  import { api, unwrap, portal, type WebhookTab } from "#lib/services.js";
+  import { portalInvite } from "#lib/access/portal-invite.svelte.js";
+  import { formatAPIError } from "#lib/utils.js";
+  import { loadCapabilities, retryPolicy } from "#lib/capabilities.svelte.js";
+  import HealthBadge from "#lib/components/HealthBadge.svelte";
+  import StatusBadge from "#lib/components/StatusBadge.svelte";
+  import EmptyState from "#lib/components/EmptyState.svelte";
+  import CopyableId from "#lib/components/CopyableId.svelte";
+  import ConfirmDialog from "#lib/components/ConfirmDialog.svelte";
+  import HeldDeliveriesNotice from "#lib/components/HeldDeliveriesNotice.svelte";
+  import SubscriptionManager from "#lib/components/SubscriptionManager.svelte";
+  import EventPicker from "#lib/components/EventPicker.svelte";
+  import TestEventPanel from "#lib/components/TestEventPanel.svelte";
+  import type { components } from "#lib/api-types.js";
+  import { ALERT_EVENT_TYPES, ALERTS_GUIDE_URL, isEmail, listAllEventTypes } from "#lib/system.js";
 
   type WebhookOut = components["schemas"]["WebhookOut"];
   type DeliveryItem = components["schemas"]["DeliveryItem"];

@@ -78,7 +78,7 @@ Each setting is resolved in this order; the first match wins.
 
 ## Tech Stack
 
-- **SvelteKit 2** + **Svelte 5** (Runes)
+- **SvelteKit 3** + **Svelte 5** (Runes)
 - **Vite 7**
 - **Tailwind CSS 4** (via Vite plugin)
 - **openapi-fetch** (typed REST client, generated from `api/openapi.yaml`)

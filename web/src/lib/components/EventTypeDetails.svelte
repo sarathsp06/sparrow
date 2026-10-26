@@ -2,9 +2,9 @@
   // What one event type delivers: its description, payload fields (from the
   // registered JSON Schema), an example payload and the raw schema. Shown
   // next to every event picker so a subscriber knows what they sign up for.
-  import type { components } from "$lib/api-types";
-  import { hasSchema, schemaFields } from "$lib/schema-fields";
-  import { timeAgo } from "$lib/utils";
+  import type { components } from "#lib/api-types.js";
+  import { hasSchema, schemaFields } from "#lib/schema-fields.js";
+  import { timeAgo } from "#lib/utils.js";
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
 

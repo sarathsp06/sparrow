@@ -2,13 +2,13 @@
   // Subscriptions list for one webhook. Add and Edit navigate to the
   // subscription page; the template editor lives there.
   import { goto } from "$app/navigation";
-  import { api, unwrap, subscriptionPagesHref } from "$lib/services";
-  import { formatAPIError } from "$lib/utils";
+  import { api, unwrap, subscriptionPagesHref } from "#lib/services.js";
+  import { formatAPIError } from "#lib/utils.js";
   import EmptyState from "./EmptyState.svelte";
   import CopyableId from "./CopyableId.svelte";
   import ConfirmDialog from "./ConfirmDialog.svelte";
   import HeldDeliveriesNotice from "./HeldDeliveriesNotice.svelte";
-  import type { components } from "$lib/api-types";
+  import type { components } from "#lib/api-types.js";
 
   type SubscriptionItem = components["schemas"]["SubscriptionItem"];
 

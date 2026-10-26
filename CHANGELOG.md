@@ -16,6 +16,10 @@ migrations run on startup.
 
 ## [Unreleased]
 
+### Security
+
+- Web UI: built with SvelteKit 3.1, which fixes GHSA-27mw-82g8-phjj (XSS through a `cache-control` header on prerendered pages) and GHSA-pfhg-q3qv-9q6r (open redirect through enhanced form actions). Sparrow's UI uses neither feature, so it was not exposed; the upgrade clears the advisories for scanners.
+
 ## [v1.2.0] - 2026-10-26
 
 ### Added

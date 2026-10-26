@@ -1,15 +1,15 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { api, unwrap } from '$lib/services';
-  import { formatAPIError, formatTimestamp } from '$lib/utils';
-  import CopyableId from '$lib/components/CopyableId.svelte';
-  import DeliveryTable from '$lib/components/DeliveryTable.svelte';
-  import CursorPager from '$lib/components/CursorPager.svelte';
-  import { CursorPages } from '$lib/cursor-pages.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import favicon from '$lib/assets/favicon.svg';
+  import { api, unwrap } from '#lib/services.js';
+  import { formatAPIError, formatTimestamp } from '#lib/utils.js';
+  import CopyableId from '#lib/components/CopyableId.svelte';
+  import DeliveryTable from '#lib/components/DeliveryTable.svelte';
+  import CursorPager from '#lib/components/CursorPager.svelte';
+  import { CursorPages } from '#lib/cursor-pages.svelte.js';
+  import EmptyState from '#lib/components/EmptyState.svelte';
+  import favicon from '#lib/assets/favicon.svg';
   import { onMount } from 'svelte';
-  import type { components } from '$lib/api-types';
+  import type { components } from '#lib/api-types.js';
 
   type EventOccurrenceItem = components["schemas"]["EventOccurrenceItem"];
   type DeliveryItem = components["schemas"]["DeliveryItem"];

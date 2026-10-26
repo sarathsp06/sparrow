@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api, signOut } from "$lib/services";
+  import { api, signOut } from "#lib/services.js";
   import { auth } from "./auth.svelte";
 
   // "Signed in as …" in the sidebar, from GET /v1/whoami.

@@ -1,18 +1,18 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { api, unwrap } from '$lib/services';
-  import type { components } from '$lib/api-types';
-  import HealthBadge from '$lib/components/HealthBadge.svelte';
-  import CopyableId from '$lib/components/CopyableId.svelte';
-  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
-  import HeldDeliveriesNotice from '$lib/components/HeldDeliveriesNotice.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import FloatingAction from '$lib/components/FloatingAction.svelte';
-  import Pagination from '$lib/components/Pagination.svelte';
-  import ConsumerPicker from '$lib/components/ConsumerPicker.svelte';
-  import { formatAPIError } from '$lib/utils';
-  import { consumerFilter, consumerLabel, withConsumer } from '$lib/consumer.svelte';
-  import { ALERT_SETUP_HREF, ALERTS_GUIDE_URL, SYSTEM_CONSUMER, isSystemConsumer } from '$lib/system';
+  import { api, unwrap } from '#lib/services.js';
+  import type { components } from '#lib/api-types.js';
+  import HealthBadge from '#lib/components/HealthBadge.svelte';
+  import CopyableId from '#lib/components/CopyableId.svelte';
+  import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
+  import HeldDeliveriesNotice from '#lib/components/HeldDeliveriesNotice.svelte';
+  import EmptyState from '#lib/components/EmptyState.svelte';
+  import FloatingAction from '#lib/components/FloatingAction.svelte';
+  import Pagination from '#lib/components/Pagination.svelte';
+  import ConsumerPicker from '#lib/components/ConsumerPicker.svelte';
+  import { formatAPIError } from '#lib/utils.js';
+  import { consumerFilter, consumerLabel, withConsumer } from '#lib/consumer.svelte.js';
+  import { ALERT_SETUP_HREF, ALERTS_GUIDE_URL, SYSTEM_CONSUMER, isSystemConsumer } from '#lib/system.js';
 
   type WebhookOut = components["schemas"]["WebhookOut"];
 
