@@ -72,6 +72,24 @@ func startCountingTarget(t *testing.T) (*httptest.Server, *atomic.Int32) {
 	return srv, &counter
 }
 
+// waitForRequestCount polls counter until it reaches n or the deadline passes.
+func waitForRequestCount(t *testing.T, counter *atomic.Int32, n int32, what string) {
+	t.Helper()
+	deadline := time.After(30 * time.Second)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-deadline:
+			t.Fatalf("timed out waiting for %s: want >= %d requests, got %d", what, n, counter.Load())
+		case <-ticker.C:
+			if counter.Load() >= n {
+				return
+			}
+		}
+	}
+}
+
 // registerEventType registers an event type via REST, ignoring 409 (already
 // registered by an earlier test in the same package run).
 func registerEventType(t *testing.T, c *restClient, ctx context.Context, name string) {
@@ -619,20 +637,7 @@ func TestE2E_BatchRePushEvents(t *testing.T) {
 		pushTestEvent(t, c, ctx, consumer, eventName)
 	}
 
-	deadline := time.After(30 * time.Second)
-	ticker := time.NewTicker(500 * time.Millisecond)
-waitInitial:
-	for {
-		select {
-		case <-deadline:
-			t.Fatalf("timed out waiting for initial deliveries, got %d", requestCount.Load())
-		case <-ticker.C:
-			if requestCount.Load() >= 3 {
-				break waitInitial
-			}
-		}
-	}
-	ticker.Stop()
+	waitForRequestCount(t, requestCount, 3, "initial deliveries")
 
 	var listOut struct {
 		RepushID string `json:"repush_id"`
@@ -654,9 +659,7 @@ waitInitial:
 	defer cancel()
 	pollBatchJob(t, c, pollCtx, "/v1/consumers/"+consumer+"/repush-jobs/"+jobOut.ID)
 
-	time.Sleep(3 * time.Second)
-	assert.GreaterOrEqual(t, int(requestCount.Load()), 6,
-		"expected at least 6 deliveries (3 original + 3 re-push), got %d", requestCount.Load())
+	waitForRequestCount(t, requestCount, 6, "re-push deliveries (3 original + 3 re-push)")
 }
 
 // TestE2E_TimeoutRetry verifies that a slow target causes timeout errors that
