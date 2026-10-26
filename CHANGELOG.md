@@ -34,6 +34,7 @@ migrations run on startup.
   each ignore out-of-date responses; background pollers no longer overlap,
   pause while the tab is hidden, and surface poll failures instead of
   freezing the progress bar.
+- Web UI: the bundled `fast-uri` (used by the JSON editor's schema validation) is updated to 3.1.9 for GHSA-w74x-v6f9-j3xg, GHSA-xhq7-xmqj-769h, GHSA-wjr9-j795-jxcr and GHSA-333x-w4r6-6crp (URI scheme, host and path spoofing).
 - Docs: the portal guide's Caddy example answered 404 to every request (Caddy runs `respond` before `reverse_proxy`); it now uses `handle` blocks and forwards `POST /invite/redeem` so consumer invite links work through the proxy. The untested nginx and Express examples were removed; the Caddy example is the one `deploy/portal/` runs.
 
 ### Upgrading
