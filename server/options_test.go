@@ -43,3 +43,10 @@ func TestWithTenantLimitsOption(t *testing.T) {
 		t.Fatalf("limits for a paid tenant = %+v", got)
 	}
 }
+
+func TestNewRejectsQueuesWithoutLimits(t *testing.T) {
+	_, err := New(context.Background(), WithTenantLimits(map[string]int{"free": 2}, nil))
+	if err == nil {
+		t.Fatal("New must reject declared queues without a limits function (silent no-op otherwise)")
+	}
+}

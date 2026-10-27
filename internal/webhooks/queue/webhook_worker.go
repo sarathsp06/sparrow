@@ -2,7 +2,6 @@ package queue
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -16,7 +15,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
 	sparrowerrors "github.com/sarathsp06/sparrow/internal/errors"
@@ -172,12 +170,8 @@ func statusForFailure(attempt, maxAttempts int) store.WebhookDeliveryStatus {
 func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) error {
 	args := job.Args
 
-	// get trace id and set that as metadata
-	carrier := make(propagation.MapCarrier)
-	if unmarshallErr := json.Unmarshal(job.Metadata, &carrier); unmarshallErr != nil {
-		w.logger.ErrorContext(ctx, "Failed to unmarshal job metadata", "error", unmarshallErr, "event_id", args.EventID)
-	}
-	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
+	// Restore trace context from job metadata.
+	ctx = otel.GetTextMapPropagator().Extract(ctx, traceCarrier(job.Metadata))
 
 	// Parse job-arg IDs up front. Malformed args are permanent — cancel
 	// instead of burning retries.

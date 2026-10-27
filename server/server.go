@@ -85,8 +85,11 @@ type TenantLimits struct {
 // declares extra work queues by name with their worker counts (for example
 // a small queue for free tenants); limits returns each tenant's limits and
 // is called for every event fan-out and delivery job, so it must be fast.
-// Without this option every tenant shares the default queues with no cap,
-// as in a self-hosted Sparrow.
+// Every process of a deployment must declare the same queues: jobs routed
+// to a queue only run in processes that declare it. Batch jobs (bulk retry
+// and re-push orchestration) are not limited; the deliveries they create
+// are. Without this option every tenant shares the default queues with no
+// cap, as in a self-hosted Sparrow.
 func WithTenantLimits(queues map[string]int, limits func(ctx context.Context, tenantID uuid.UUID) TenantLimits) Option {
 	return func(o *options) {
 		o.queues = queues
@@ -135,6 +138,9 @@ func New(ctx context.Context, opts ...Option) (*Server, error) {
 	for _, opt := range opts {
 		opt(o)
 	}
+	if o.queues != nil && o.limits == nil {
+		return nil, errors.New("WithTenantLimits: a limits function is required when queues are declared")
+	}
 
 	cfg, err := loadConfig()
 	if err != nil {
@@ -146,6 +152,13 @@ func New(ctx context.Context, opts ...Option) (*Server, error) {
 
 	otelShutdown, otelConfig := setupObservability(ctx, cfg)
 	s.otelShutdown = otelShutdown
+	// Anything that fails from here on releases what was started above.
+	built := false
+	defer func() {
+		if !built {
+			shutdownObservability(otelShutdown)
+		}
+	}()
 	if otelShutdown != nil {
 		s.otlpEndpoint = otelConfig.OTLPEndpoint
 	}
@@ -188,8 +201,7 @@ func New(ctx context.Context, opts ...Option) (*Server, error) {
 	sqlxDB.SetConnMaxLifetime(5 * time.Minute)
 	sqlxDB.SetConnMaxIdleTime(5 * time.Minute)
 
-	// Anything that fails from here on releases what was opened above.
-	built := false
+	// Failures from here on also release the database handles.
 	defer func() {
 		if !built {
 			dbPool.Close()
@@ -488,13 +500,19 @@ func (s *Server) ShutdownTimeout() time.Duration { return s.cfg.ShutdownTimeoutO
 func (s *Server) Handler() http.Handler { return s.handler }
 
 // Start starts the queue workers, periodic jobs and the CRL refresh listener.
+// The context only scopes startup: the background work it starts runs until
+// Shutdown, so cancelling ctx later neither stops the server nor interrupts
+// in-flight deliveries.
 func (s *Server) Start(ctx context.Context) error {
-	if err := s.queue.Start(ctx); err != nil {
+	// Detach the queue from ctx: River treats cancellation of its start
+	// context as a hard stop that kills running jobs mid-delivery, bypassing
+	// the graceful drain in Shutdown.
+	if err := s.queue.Start(context.WithoutCancel(ctx)); err != nil {
 		return fmt.Errorf("failed to start queue manager: %w", err)
 	}
 	fmt.Println("🚀 River queue started successfully")
 
-	if s.revocation != nil {
+	if s.revocation != nil && s.stopRevocation == nil {
 		listenCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 		s.stopRevocation = cancel
 		go s.revocation.Listen(listenCtx)
