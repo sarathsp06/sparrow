@@ -30,5 +30,17 @@ func TestJobInserter_InsertOpts_Merge(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+// River merges a numeric "snoozes" counter into job metadata on every
+// snooze; the trace carrier must tolerate it (a fairness-capped tenant
+// snoozes on every run, and this used to log an ERROR each time).
+func TestTraceCarrierToleratesRiverMetadata(t *testing.T) {
+	carrier := traceCarrier([]byte(`{"traceparent":"00-abc-def-01","snoozes":3}`))
+	assert.Equal(t, "00-abc-def-01", carrier["traceparent"])
+	_, hasSnoozes := carrier["snoozes"]
+	assert.False(t, hasSnoozes)
+
+	assert.Empty(t, traceCarrier([]byte(`not json`)))
+}
+
 // Mocking River client is hard, so let's focus on the logic in InsertOpts first.
 // If we fix InsertOpts to merge, the problem is solved.

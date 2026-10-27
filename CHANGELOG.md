@@ -20,6 +20,11 @@ migrations run on startup.
 
 - Web UI: built with SvelteKit 3.1, which fixes GHSA-27mw-82g8-phjj (XSS through a `cache-control` header on prerendered pages) and GHSA-pfhg-q3qv-9q6r (open redirect through enhanced form actions). Sparrow's UI uses neither feature, so it was not exposed; the upgrade clears the advisories for scanners.
 
+### Fixed
+
+- Queue workers no longer log an ERROR per job run for tenants held at their `WithTenantLimits` fan-out/delivery cap: River adds a numeric `snoozes` counter to job metadata on every snooze, which broke the trace-context read. Tracing was unaffected; the logs were pure noise.
+- Embedded Sparrow (`server` package): cancelling the context passed to `Start` no longer hard-stops River mid-delivery (which could double-send on restart) — stopping is `Shutdown`'s job, which drains gracefully. `New` now releases its OpenTelemetry providers when a later setup step fails, errors when `WithTenantLimits` declares queues without a limits function (previously a silent no-op), and a repeated `Start` no longer leaks a second CRL refresh listener.
+
 ## [v1.2.0] - 2026-10-26
 
 ### Added

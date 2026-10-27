@@ -3,7 +3,6 @@ package queue
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"time"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/riverqueue/river"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/propagation"
 
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
@@ -54,13 +52,8 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 	args := job.Args
 	w.logger.InfoContext(ctx, "Processing event", "event_id", args.EventID, "consumer", args.Consumer, "event", args.Event)
 
-	// get trace id and set that as metadata
-	carrier := make(propagation.MapCarrier)
-	err := json.Unmarshal(job.Metadata, &carrier)
-	if err != nil {
-		w.logger.ErrorContext(ctx, "Failed to unmarshal job metadata", "error", err, "event_id", args.EventID)
-	}
-	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
+	// Restore trace context from job metadata.
+	ctx = otel.GetTextMapPropagator().Extract(ctx, traceCarrier(job.Metadata))
 
 	// Parse job-arg IDs up front. Malformed args are permanent — cancel
 	// instead of burning retries.

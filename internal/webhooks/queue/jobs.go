@@ -157,6 +157,25 @@ func (j *jobInserter) InsertOpts(ctx context.Context, args river.JobArgs) *river
 	return &opts
 }
 
+// traceCarrier extracts the string values of job metadata into a trace
+// carrier. River writes non-string values of its own into metadata (a
+// "snoozes" counter on every snoozed job), so the metadata cannot be
+// unmarshalled into the carrier's map[string]string directly.
+func traceCarrier(metadata []byte) propagation.MapCarrier {
+	carrier := make(propagation.MapCarrier)
+	var raw map[string]json.RawMessage
+	if json.Unmarshal(metadata, &raw) != nil {
+		return carrier
+	}
+	for k, v := range raw {
+		var s string
+		if json.Unmarshal(v, &s) == nil {
+			carrier[k] = s
+		}
+	}
+	return carrier
+}
+
 // tenantQueue returns the queue a tenant's event fan-out or delivery job
 // goes to, or "" for the job's default queue.
 func (j *jobInserter) tenantQueue(ctx context.Context, args river.JobArgs) string {

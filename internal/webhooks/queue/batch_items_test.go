@@ -287,8 +287,10 @@ func TestRetentionWorker(t *testing.T) {
 	if err := NewRetentionWorker(repo, 7).Work(context.Background(), nil); err != nil {
 		t.Fatalf("Work: %v", err)
 	}
-	if d := time.Since(repo.cutoff); d < 7*24*time.Hour-time.Minute || d > 7*24*time.Hour+time.Minute {
-		t.Fatalf("cutoff %v ago, want 7 days", d)
+	// Compare calendar days like the worker (AddDate), not wall hours:
+	// 7 days spanning a DST change is not 168h.
+	if d := repo.cutoff.Sub(time.Now().AddDate(0, 0, -7)); d < -time.Minute || d > time.Minute {
+		t.Fatalf("cutoff %v, want 7 calendar days ago", repo.cutoff)
 	}
 
 	repo.purgeErr = errFake
