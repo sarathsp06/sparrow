@@ -30,13 +30,20 @@ const maxEventNameLength = 255
 
 const eventNameTooLong = "event name must be at most 255 characters"
 
+// maxScheduleAhead caps how far in the future an event can be scheduled.
+// Far-future events would sit in the queue indefinitely and outlive any
+// reasonable retention window.
+const maxScheduleAhead = 365 * 24 * time.Hour
+
 // PushEvent pushes an event.
 // When idempotencyKey is non-nil and non-empty, duplicate detection is
 // performed: if an event with the same key already exists within the
 // (tenant, consumer), the existing event_id is returned with
 // isDuplicate=true and no new event or deliveries are created.
 // Re-push/re-enqueue flows pass nil, so they are never deduplicated.
-func (s *WebhookService) PushEvent(ctx context.Context, consumer string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string, idempotencyKey *string) (string, bool, bool, []string, error) {
+// A non-nil scheduledAt delays the fan-out (and so all deliveries) until
+// that time; a past or zero value means immediate.
+func (s *WebhookService) PushEvent(ctx context.Context, consumer string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string, idempotencyKey *string, scheduledAt *time.Time) (string, bool, bool, []string, error) {
 	span := trace.SpanFromContext(ctx)
 	span.SetAttributes(
 		attribute.String("consumer", consumer),
@@ -79,6 +86,18 @@ func (s *WebhookService) PushEvent(ctx context.Context, consumer string, event s
 		err := reservedEventNameError(event)
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "reserved event name")
+		return "", false, false, nil, err
+	}
+
+	// Normalize scheduling: past or zero means immediate; cap the horizon.
+	now := time.Now()
+	if scheduledAt != nil && !scheduledAt.After(now) {
+		scheduledAt = nil
+	}
+	if scheduledAt != nil && scheduledAt.After(now.Add(maxScheduleAhead)) {
+		err := svcerrors.Error(svcerrors.InvalidArgument, "scheduled_at must be within one year from now")
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "scheduled_at too far in the future")
 		return "", false, false, nil, err
 	}
 
@@ -188,6 +207,13 @@ func (s *WebhookService) PushEvent(ctx context.Context, consumer string, event s
 		EventVersion:   eventReg.Version,
 		IdempotencyKey: idempotencyKey,
 		CreatedAt:      time.Now(),
+		ScheduledAt:    scheduledAt,
+	}
+	if scheduledAt != nil && ttl > 0 {
+		// TTL counts from fan-out, which for a scheduled event is the
+		// scheduled time, not the push. Without this the event row (and
+		// retention) would expire it before it ever fires.
+		eventRecord.ExpiresAt = scheduledAt.Add(time.Duration(ttl) * time.Second)
 	}
 
 	eventArgs := queue.EventArgs{
@@ -199,6 +225,9 @@ func (s *WebhookService) PushEvent(ctx context.Context, consumer string, event s
 		Labels:     labels,
 		CreatedAt:  eventRecord.CreatedAt,
 		TenantID:   tenantID.String(),
+	}
+	if scheduledAt != nil {
+		eventArgs.ScheduledAt = *scheduledAt
 	}
 
 	// The event row and its processing job commit together: an event is
@@ -286,7 +315,7 @@ func (s *WebhookService) RePushEvent(ctx context.Context, eventID string) (strin
 	// Re-push through the standard PushEvent pipeline with nil idempotency key.
 	// This ensures re-pushes always create new events and are never deduplicated.
 	// This gives us: current schema validation, new event_id, fan-out to matching subscriptions.
-	newEventID, _, _, warnings, err := s.PushEvent(ctx, original.Consumer, original.Event, original.Payload, original.TTL, original.Metadata, original.Labels, nil)
+	newEventID, _, _, warnings, err := s.PushEvent(ctx, original.Consumer, original.Event, original.Payload, original.TTL, original.Metadata, original.Labels, nil, nil)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "re-push failed")

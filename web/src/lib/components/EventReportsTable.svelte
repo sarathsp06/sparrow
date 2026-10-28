@@ -117,7 +117,9 @@
                                     {#if report.pending_deliveries > 0}
                                         <span class="font-medium" style="color:var(--color-warn)">{report.pending_deliveries} pending</span>
                                     {/if}
-                                    {#if report.webhook_count === 0 && report.successful_deliveries === 0 && report.failed_deliveries === 0 && report.pending_deliveries === 0}
+                                    {#if report.scheduled_at && new Date(report.scheduled_at) > new Date()}
+                                        <span class="chip" style="color:var(--color-warn);border-color:color-mix(in srgb,var(--color-warn) 35%,transparent);background:color-mix(in srgb,var(--color-warn) 12%,var(--color-panel-2))" title={formatTimestamp(report.scheduled_at)}>Scheduled</span>
+                                    {:else if report.webhook_count === 0 && report.successful_deliveries === 0 && report.failed_deliveries === 0 && report.pending_deliveries === 0}
                                         <span class="text-faint">None</span>
                                     {/if}
                                 </div>

@@ -19,6 +19,7 @@ import (
 
 	cryptosvc "github.com/sarathsp06/sparrow/internal/crypto"
 	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
+	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
@@ -404,7 +405,7 @@ func TestWebhookService_PushEvent_AutoRegister(t *testing.T) {
 	repo.On("StoreEventAndEnqueue", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	inserter.On("BatchInsertTx", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	eventID, _, _, _, err := service.PushEvent(ctx, consumer, eventName, payload, 0, nil, nil, nil)
+	eventID, _, _, _, err := service.PushEvent(ctx, consumer, eventName, payload, 0, nil, nil, nil, nil)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, eventID)
@@ -430,7 +431,7 @@ func TestWebhookService_PushEvent_ExistingEvent(t *testing.T) {
 	repo.On("StoreEventAndEnqueue", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	inserter.On("BatchInsertTx", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	eventID, _, _, _, err := service.PushEvent(ctx, consumer, eventName, payload, 0, nil, nil, nil)
+	eventID, _, _, _, err := service.PushEvent(ctx, consumer, eventName, payload, 0, nil, nil, nil, nil)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, eventID)
@@ -438,6 +439,55 @@ func TestWebhookService_PushEvent_ExistingEvent(t *testing.T) {
 	repo.AssertNotCalled(t, "RegisterEvent", mock.Anything, mock.Anything, mock.Anything)
 	repo.AssertExpectations(t)
 	inserter.AssertExpectations(t)
+}
+
+func TestWebhookService_PushEvent_Scheduled(t *testing.T) {
+	repo := new(mockRepo)
+	inserter := new(mockJobInserter)
+	service := NewWebhookService(inserter, repo, nil)
+	ctx := testContext()
+
+	repo.On("GetEventByName", mock.Anything, mock.Anything, "user.created").Return(&store.EventRegistration{
+		Name:   "user.created",
+		Active: true,
+	}, nil)
+	var rec *store.EventRecord
+	repo.On("StoreEventAndEnqueue", mock.Anything, mock.Anything, mock.MatchedBy(func(e *store.EventRecord) bool {
+		rec = e
+		return true
+	})).Return(nil)
+	var jobArgs []river.JobArgs
+	inserter.On("BatchInsertTx", mock.Anything, mock.Anything, mock.MatchedBy(func(a []river.JobArgs) bool {
+		jobArgs = a
+		return true
+	})).Return(nil)
+
+	// Future scheduled_at lands on the record, the job args and the
+	// River insert opts; TTL counts from the scheduled time.
+	when := time.Now().Add(2 * time.Hour).Truncate(time.Second)
+	_, _, _, _, err := service.PushEvent(ctx, "default", "user.created", nil, 600, nil, nil, nil, &when)
+	require.NoError(t, err)
+	require.NotNil(t, rec.ScheduledAt)
+	assert.True(t, rec.ScheduledAt.Equal(when))
+	assert.True(t, rec.ExpiresAt.Equal(when.Add(600*time.Second)), "expiry anchors at the scheduled time, not the push")
+	ea := jobArgs[0].(queue.EventArgs)
+	assert.True(t, ea.ScheduledAt.Equal(when))
+	assert.True(t, ea.InsertOpts().ScheduledAt.Equal(when))
+
+	// A past scheduled_at means immediate: nothing scheduled anywhere.
+	past := time.Now().Add(-time.Minute)
+	_, _, _, _, err = service.PushEvent(ctx, "default", "user.created", nil, 0, nil, nil, nil, &past)
+	require.NoError(t, err)
+	assert.Nil(t, rec.ScheduledAt)
+	assert.True(t, jobArgs[0].(queue.EventArgs).ScheduledAt.IsZero())
+
+	// Beyond the one-year cap is rejected before anything is stored.
+	far := time.Now().Add(maxScheduleAhead + time.Hour)
+	_, _, _, _, err = service.PushEvent(ctx, "default", "user.created", nil, 0, nil, nil, nil, &far)
+	require.Error(t, err)
+	var svcErr *svcerrors.ServiceError
+	require.ErrorAs(t, err, &svcErr)
+	assert.Equal(t, svcerrors.InvalidArgument, svcErr.Status)
 }
 
 func TestWebhookService_PushEvent_InactiveEvent(t *testing.T) {
@@ -453,7 +503,7 @@ func TestWebhookService_PushEvent_InactiveEvent(t *testing.T) {
 		Active: false,
 	}, nil)
 
-	_, _, _, _, err := service.PushEvent(ctx, "default", "user.deleted", nil, 0, nil, nil, nil)
+	_, _, _, _, err := service.PushEvent(ctx, "default", "user.deleted", nil, 0, nil, nil, nil, nil)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "inactive")

@@ -9,10 +9,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 
 	_codes "go.opentelemetry.io/otel/codes"
 )
@@ -881,7 +882,7 @@ func (_d WebhookServiceInterfaceWithTracing) PauseWebhook(ctx context.Context, w
 }
 
 // PushEvent implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) PushEvent(ctx context.Context, consumer string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string, idempotencyKey *string) (eventID string, isDuplicate bool, schemaValid bool, warnings []string, err error) {
+func (_d WebhookServiceInterfaceWithTracing) PushEvent(ctx context.Context, consumer string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string, idempotencyKey *string, scheduledAt *time.Time) (eventID string, isDuplicate bool, schemaValid bool, warnings []string, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.PushEvent")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -893,7 +894,8 @@ func (_d WebhookServiceInterfaceWithTracing) PushEvent(ctx context.Context, cons
 				"ttlSeconds":     ttlSeconds,
 				"metadata":       metadata,
 				"labels":         labels,
-				"idempotencyKey": idempotencyKey}, map[string]interface{}{
+				"idempotencyKey": idempotencyKey,
+				"scheduledAt":    scheduledAt}, map[string]interface{}{
 				"eventID":     eventID,
 				"isDuplicate": isDuplicate,
 				"schemaValid": schemaValid,
@@ -910,7 +912,7 @@ func (_d WebhookServiceInterfaceWithTracing) PushEvent(ctx context.Context, cons
 
 		_span.End()
 	}()
-	return _d.WebhookServiceInterface.PushEvent(ctx, consumer, event, payload, ttlSeconds, metadata, labels, idempotencyKey)
+	return _d.WebhookServiceInterface.PushEvent(ctx, consumer, event, payload, ttlSeconds, metadata, labels, idempotencyKey, scheduledAt)
 }
 
 // RePushEvent implements WebhookServiceInterface

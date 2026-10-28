@@ -36,13 +36,17 @@ type EventArgs struct {
 	Metadata   map[string]string `json:"metadata"`
 	Labels     map[string]string `json:"labels"`
 	CreatedAt  time.Time         `json:"created_at"`
+	// ScheduledAt delays the fan-out: River holds the job until then.
+	// Zero means run immediately.
+	ScheduledAt time.Time `json:"scheduled_at,omitzero"`
 }
 
 var _ river.JobArgsWithInsertOpts = (*EventArgs)(nil)
 
-func (EventArgs) InsertOpts() river.InsertOpts {
+func (a EventArgs) InsertOpts() river.InsertOpts {
 	return river.InsertOpts{
-		Queue: QueueEventProcessing,
+		Queue:       QueueEventProcessing,
+		ScheduledAt: a.ScheduledAt,
 	}
 }
 

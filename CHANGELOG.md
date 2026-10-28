@@ -16,6 +16,10 @@ migrations run on startup.
 
 ## [Unreleased]
 
+### Added
+
+- Scheduled events: `POST /v1/consumers/{consumer}/events` accepts an optional `scheduled_at` (RFC 3339). The occurrence is stored immediately but fans out to subscriptions only at that time; `ttl_seconds` counts from then, times more than one year ahead are refused (400), and a past time delivers immediately. Occurrence responses and the UI show the scheduled time, and event retention never deletes an event before it has fired.
+
 ### Security
 
 - Web UI: built with SvelteKit 3.1, which fixes GHSA-27mw-82g8-phjj (XSS through a `cache-control` header on prerendered pages) and GHSA-pfhg-q3qv-9q6r (open redirect through enhanced form actions). Sparrow's UI uses neither feature, so it was not exposed; the upgrade clears the advisories for scanners.

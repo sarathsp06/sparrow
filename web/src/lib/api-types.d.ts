@@ -263,7 +263,9 @@ export interface paths {
          *
          *     Idempotency: with idempotency_key, a repeat push with the same key in the same consumer returns 201 with duplicate: true and the original event_id, and creates nothing. Without a key every call creates a new event.
          *
-         *     Failures: 404 for an unregistered event type (unless SPARROW_AUTO_REGISTER_EVENTS=true), 409 for an inactive one, 400 for a reserved sparrow.* name, a name over 255 characters or invalid labels, 413 for a body over SPARROW_MAX_BODY_BYTES.
+         *     Scheduling: with scheduled_at, the occurrence is stored immediately but fans out only at that time; until then it lists with no deliveries. A past time means immediate; more than one year ahead is 400.
+         *
+         *     Failures: 404 for an unregistered event type (unless SPARROW_AUTO_REGISTER_EVENTS=true), 409 for an inactive one, 400 for a reserved sparrow.* name, a name over 255 characters, invalid labels or a scheduled_at over a year ahead, 413 for a body over SPARROW_MAX_BODY_BYTES.
          *
          *     Portal tokens: not allowed (pushing is the producer's job).
          */
@@ -2030,6 +2032,11 @@ export interface components {
              * @description Deliveries not finished yet: pending, sending or retrying.
              */
             pending_deliveries: number;
+            /**
+             * Format: date-time
+             * @description When this occurrence fans out to subscriptions, RFC3339. Absent for immediate pushes. Deliveries exist only from this time on.
+             */
+            scheduled_at?: string;
             /** @description Whether the payload validated against the event type's JSON Schema at push time. */
             schema_valid: boolean;
             /**
@@ -2722,6 +2729,11 @@ export interface components {
             payload: {
                 [key: string]: unknown;
             };
+            /**
+             * Format: date-time
+             * @description RFC 3339 time to deliver the event at. Omitted or in the past means immediate. The event is stored right away but fans out to subscriptions only at this time; ttl_seconds counts from then. At most one year ahead (400 beyond that). Replays of a scheduled occurrence are immediate.
+             */
+            scheduled_at?: string;
             /**
              * Format: int64
              * @description Time-to-live in seconds, counted from fan-out. A delivery attempt that would start after it expires is not made and the delivery fails as expired. 0 or omitted means no expiry. Manual retries ignore it.

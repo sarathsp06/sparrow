@@ -99,10 +99,11 @@ type EventRecord struct {
 	SchemaValid bool          `json:"schema_valid" db:"schema_valid"`
 	// EventVersion is the event type version the occurrence was accepted
 	// under. Occurrences stored before versioning read back as 1.
-	EventVersion   int       `json:"event_version" db:"event_version"`
-	IdempotencyKey *string   `json:"idempotency_key,omitempty" db:"idempotency_key"`
-	CreatedAt      time.Time `json:"created_at" db:"created_at"`
-	ExpiresAt      time.Time `json:"expires_at" db:"expires_at"`
+	EventVersion   int        `json:"event_version" db:"event_version"`
+	IdempotencyKey *string    `json:"idempotency_key,omitempty" db:"idempotency_key"`
+	CreatedAt      time.Time  `json:"created_at" db:"created_at"`
+	ExpiresAt      time.Time  `json:"expires_at" db:"expires_at"`
+	ScheduledAt    *time.Time `json:"scheduled_at,omitempty" db:"scheduled_at"`
 }
 
 // WebhookDelivery represents a webhook delivery attempt

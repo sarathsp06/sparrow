@@ -77,7 +77,7 @@ func TestPushEvent_AutoRegisterRejectsInvalidNames(t *testing.T) {
 	repo := newFakeEventTypeRepo()
 	svc := NewWebhookService(new(mockJobInserter), repo, nil, WithAutoRegisterEvents(true))
 
-	_, _, _, _, err := svc.PushEvent(testContext(), "default", "Bad Name!", map[string]any{}, 0, nil, nil, nil)
+	_, _, _, _, err := svc.PushEvent(testContext(), "default", "Bad Name!", map[string]any{}, 0, nil, nil, nil, nil)
 	assertStatus(t, err, svcerrors.InvalidArgument)
 	assert.Empty(t, repo.heads, "no event type is registered")
 }

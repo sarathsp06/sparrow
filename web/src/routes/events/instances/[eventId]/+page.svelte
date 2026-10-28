@@ -198,6 +198,12 @@
           <p class="eyebrow mb-1">Created At</p>
           <span class="text-sm mono tnum text-text">{formatTimestamp(event.created_at)}</span>
         </div>
+      {#if event.scheduled_at}
+        <div class="px-6 py-4">
+          <p class="eyebrow mb-1">Scheduled For</p>
+          <span class="text-sm mono tnum text-text">{formatTimestamp(event.scheduled_at)}</span>
+        </div>
+      {/if}
       </div>
 
       <div class="px-6 py-4">

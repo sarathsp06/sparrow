@@ -115,9 +115,13 @@ def sync_detailed(
     with duplicate: true and the original event_id, and creates nothing. Without a key every call
     creates a new event.
 
+    Scheduling: with scheduled_at, the occurrence is stored immediately but fans out only at that time;
+    until then it lists with no deliveries. A past time means immediate; more than one year ahead is
+    400.
+
     Failures: 404 for an unregistered event type (unless SPARROW_AUTO_REGISTER_EVENTS=true), 409 for an
-    inactive one, 400 for a reserved sparrow.* name, a name over 255 characters or invalid labels, 413
-    for a body over SPARROW_MAX_BODY_BYTES.
+    inactive one, 400 for a reserved sparrow.* name, a name over 255 characters, invalid labels or a
+    scheduled_at over a year ahead, 413 for a body over SPARROW_MAX_BODY_BYTES.
 
     Portal tokens: not allowed (pushing is the producer's job).
 
@@ -168,9 +172,13 @@ def sync(
     with duplicate: true and the original event_id, and creates nothing. Without a key every call
     creates a new event.
 
+    Scheduling: with scheduled_at, the occurrence is stored immediately but fans out only at that time;
+    until then it lists with no deliveries. A past time means immediate; more than one year ahead is
+    400.
+
     Failures: 404 for an unregistered event type (unless SPARROW_AUTO_REGISTER_EVENTS=true), 409 for an
-    inactive one, 400 for a reserved sparrow.* name, a name over 255 characters or invalid labels, 413
-    for a body over SPARROW_MAX_BODY_BYTES.
+    inactive one, 400 for a reserved sparrow.* name, a name over 255 characters, invalid labels or a
+    scheduled_at over a year ahead, 413 for a body over SPARROW_MAX_BODY_BYTES.
 
     Portal tokens: not allowed (pushing is the producer's job).
 
@@ -216,9 +224,13 @@ async def asyncio_detailed(
     with duplicate: true and the original event_id, and creates nothing. Without a key every call
     creates a new event.
 
+    Scheduling: with scheduled_at, the occurrence is stored immediately but fans out only at that time;
+    until then it lists with no deliveries. A past time means immediate; more than one year ahead is
+    400.
+
     Failures: 404 for an unregistered event type (unless SPARROW_AUTO_REGISTER_EVENTS=true), 409 for an
-    inactive one, 400 for a reserved sparrow.* name, a name over 255 characters or invalid labels, 413
-    for a body over SPARROW_MAX_BODY_BYTES.
+    inactive one, 400 for a reserved sparrow.* name, a name over 255 characters, invalid labels or a
+    scheduled_at over a year ahead, 413 for a body over SPARROW_MAX_BODY_BYTES.
 
     Portal tokens: not allowed (pushing is the producer's job).
 
@@ -267,9 +279,13 @@ async def asyncio(
     with duplicate: true and the original event_id, and creates nothing. Without a key every call
     creates a new event.
 
+    Scheduling: with scheduled_at, the occurrence is stored immediately but fans out only at that time;
+    until then it lists with no deliveries. A past time means immediate; more than one year ahead is
+    400.
+
     Failures: 404 for an unregistered event type (unless SPARROW_AUTO_REGISTER_EVENTS=true), 409 for an
-    inactive one, 400 for a reserved sparrow.* name, a name over 255 characters or invalid labels, 413
-    for a body over SPARROW_MAX_BODY_BYTES.
+    inactive one, 400 for a reserved sparrow.* name, a name over 255 characters, invalid labels or a
+    scheduled_at over a year ahead, 413 for a body over SPARROW_MAX_BODY_BYTES.
 
     Portal tokens: not allowed (pushing is the producer's job).
 

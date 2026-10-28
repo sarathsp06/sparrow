@@ -887,6 +887,10 @@ components:
           description: "Deliveries not finished yet: pending, sending or retrying."
           format: int32
           type: integer
+        scheduled_at:
+          description: When this occurrence fans out to subscriptions, RFC3339. Absent for immediate pushes. Deliveries exist only from this time on.
+          format: date-time
+          type: string
         schema_valid:
           description: Whether the payload validated against the event type's JSON Schema at push time.
           type: boolean
@@ -1913,6 +1917,10 @@ components:
           additionalProperties: {}
           description: Event payload, a JSON object. Validated softly against the event type's JSON Schema if one is registered. The whole request body is limited by SPARROW_MAX_BODY_BYTES (default 5 MiB).
           type: object
+        scheduled_at:
+          description: RFC 3339 time to deliver the event at. Omitted or in the past means immediate. The event is stored right away but fans out to subscriptions only at this time; ttl_seconds counts from then. At most one year ahead (400 beyond that). Replays of a scheduled occurrence are immediate.
+          format: date-time
+          type: string
         ttl_seconds:
           description: Time-to-live in seconds, counted from fan-out. A delivery attempt that would start after it expires is not made and the delivery fails as expired. 0 or omitted means no expiry. Manual retries ignore it.
           format: int64
@@ -3902,7 +3910,9 @@ paths:
 
         Idempotency: with idempotency_key, a repeat push with the same key in the same consumer returns 201 with duplicate: true and the original event_id, and creates nothing. Without a key every call creates a new event.
 
-        Failures: 404 for an unregistered event type (unless SPARROW_AUTO_REGISTER_EVENTS=true), 409 for an inactive one, 400 for a reserved sparrow.* name, a name over 255 characters or invalid labels, 413 for a body over SPARROW_MAX_BODY_BYTES.
+        Scheduling: with scheduled_at, the occurrence is stored immediately but fans out only at that time; until then it lists with no deliveries. A past time means immediate; more than one year ahead is 400.
+
+        Failures: 404 for an unregistered event type (unless SPARROW_AUTO_REGISTER_EVENTS=true), 409 for an inactive one, 400 for a reserved sparrow.* name, a name over 255 characters, invalid labels or a scheduled_at over a year ahead, 413 for a body over SPARROW_MAX_BODY_BYTES.
 
         Portal tokens: not allowed (pushing is the producer's job).
       operationId: pushEvent

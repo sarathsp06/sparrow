@@ -68,8 +68,8 @@ func (r *Repository) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *
 
 	query := `
 		INSERT INTO event_records (
-			id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at, event_version
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+			id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at, event_version, scheduled_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 	`
 
 	metadataJSON, err := json.Marshal(event.Metadata)
@@ -96,6 +96,7 @@ func (r *Repository) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *
 		event.CreatedAt,
 		event.ExpiresAt,
 		eventVersionOrDefault(event.EventVersion),
+		event.ScheduledAt,
 	)
 	return storage.Error(err)
 }
@@ -112,7 +113,7 @@ func eventVersionOrDefault(v int) int {
 // GetEventByID gets an event record by ID within a tenant
 func (r *Repository) GetEventByID(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) (*EventRecord, error) {
 	query := `
-		SELECT id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, COALESCE(event_version, 1) AS event_version, idempotency_key, created_at, expires_at
+		SELECT id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, COALESCE(event_version, 1) AS event_version, idempotency_key, created_at, expires_at, scheduled_at
 		FROM event_records
 		WHERE id = $1 AND tenant_id = $2
 	`
@@ -133,7 +134,7 @@ func (r *Repository) GetEventByID(ctx context.Context, tenantID uuid.UUID, event
 // Returns nil, nil when no matching record exists.
 func (r *Repository) GetEventByIdempotencyKey(ctx context.Context, tenantID uuid.UUID, consumer, idempotencyKey string) (*EventRecord, error) {
 	query := `
-		SELECT id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, COALESCE(event_version, 1) AS event_version, idempotency_key, created_at, expires_at
+		SELECT id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, COALESCE(event_version, 1) AS event_version, idempotency_key, created_at, expires_at, scheduled_at
 		FROM event_records
 		WHERE tenant_id = $1 AND consumer = $2 AND idempotency_key = $3
 	`
@@ -150,14 +151,16 @@ func (r *Repository) GetEventByIdempotencyKey(ctx context.Context, tenantID uuid
 }
 
 // DeleteEventsBefore purges event records created before cutoff, in batches
-// of 10k to keep transactions and lock windows small. Deliveries cascade via
-// FK; webhook_health_events rows older than cutoff are purged too (they have
-// no FK to deliveries). Server-wide by design: retention is an operator
-// policy, not a tenant-scoped API operation. Returns events deleted.
+// of 10k to keep transactions and lock windows small. Events still scheduled
+// at or past the cutoff are kept so retention cannot outrun a pending
+// scheduled fan-out. Deliveries cascade via FK; webhook_health_events rows
+// older than cutoff are purged too (they have no FK to deliveries).
+// Server-wide by design: retention is an operator policy, not a
+// tenant-scoped API operation. Returns events deleted.
 func (r *Repository) DeleteEventsBefore(ctx context.Context, cutoff time.Time) (int64, error) {
 	const batch = `
 		DELETE FROM event_records
-		WHERE id IN (SELECT id FROM event_records WHERE created_at < $1 LIMIT 10000)
+		WHERE id IN (SELECT id FROM event_records WHERE created_at < $1 AND (scheduled_at IS NULL OR scheduled_at < $1) LIMIT 10000)
 	`
 	var total int64
 	for {
@@ -226,7 +229,7 @@ func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid
 	query := `
 		SELECT
 			page.id, page.tenant_id, page.consumer, page.event, page.payload, page.ttl,
-			page.metadata, page.labels, page.schema_valid, page.event_version, page.created_at, page.expires_at,
+			page.metadata, page.labels, page.schema_valid, page.event_version, page.created_at, page.expires_at, page.scheduled_at,
 			COALESCE(ds.webhook_count, 0) AS webhook_count,
 			COALESCE(ds.successful_deliveries, 0) AS successful_deliveries,
 			COALESCE(ds.failed_deliveries, 0) AS failed_deliveries,
@@ -234,7 +237,7 @@ func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid
 		FROM (
 			SELECT er.id, er.tenant_id, er.consumer, er.event, er.payload, er.ttl,
 			       er.metadata, er.labels, er.schema_valid, COALESCE(er.event_version, 1) AS event_version,
-			       er.created_at, er.expires_at
+			       er.created_at, er.expires_at, er.scheduled_at
 			FROM event_records er
 			` + eventReportFilterWhere + `
 			  AND er.created_at <= $8 AND (er.created_at < $8 OR er.id < $9)
