@@ -22,6 +22,7 @@ migrations run on startup.
 
 ### Fixed
 
+- After a crash (OOM, `SIGKILL`, lost node), deliveries and fan-outs that were running are retried after 7 minutes instead of River's default of an hour. Set the window with `SPARROW_QUEUE_RESCUE_AFTER`; it must be longer than the 5 minute longest delivery request.
 - Queue workers no longer log an ERROR per job run for tenants held at their `WithTenantLimits` fan-out/delivery cap: River adds a numeric `snoozes` counter to job metadata on every snooze, which broke the trace-context read. Tracing was unaffected; the logs were pure noise.
 - Embedded Sparrow (`server` package): cancelling the context passed to `Start` no longer hard-stops River mid-delivery (which could double-send on restart) — stopping is `Shutdown`'s job, which drains gracefully. `New` now releases its OpenTelemetry providers when a later setup step fails, errors when `WithTenantLimits` declares queues without a limits function (previously a silent no-op), and a repeated `Start` no longer leaks a second CRL refresh listener.
 

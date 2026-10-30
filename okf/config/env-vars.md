@@ -73,6 +73,7 @@ An all-zeros key (the published development key) anywhere in the keyring stops s
 | `SPARROW_WEBHOOK_WORKERS` | River `MaxWorkers` for the webhook delivery queue | `20` |
 | `SPARROW_HEALTH_EVAL_INTERVAL` | Period of the River `health_evaluate` job that folds `webhook_health_events` into state, buckets and labels (`queue.HealthEvaluatorConfig`) | `1m` |
 | `SPARROW_QUEUE_FETCH_COOLDOWN` | River `FetchCooldown`; `workers / cooldown` bounds a queue's throughput (20 workers at 20ms is about 1,000 jobs/s) | `20ms` |
+| `SPARROW_QUEUE_RESCUE_AFTER` | River `RescueStuckJobsAfter` (`queue.WorkerPoolConfig.RescueAfter`): a job running this long is retried as abandoned by a crashed instance. River skips jobs still inside their own timeout. Must exceed `client.MaxRequestTimeout` (5m) | `7m` |
 | `SPARROW_AUTO_REGISTER_EVENTS` | Push to an unregistered event name creates a schema-less event type instead of returning 404; development only | `false` |
 
 ## Template history

@@ -310,7 +310,7 @@ func New(ctx context.Context, opts ...Option) (*Server, error) {
 
 	// Initialize queue manager
 	autoDisable := queue.AutoDisablePolicy{After: cfg.AutoDisableAfter, MinFailures: cfg.AutoDisableMinFailuresOrDefault()}
-	pool := queue.WorkerPoolConfig{EventWorkers: cfg.EventWorkers, WebhookWorkers: cfg.WebhookWorkers, FetchCooldown: cfg.QueueFetchCooldown}
+	pool := queue.WorkerPoolConfig{EventWorkers: cfg.EventWorkers, WebhookWorkers: cfg.WebhookWorkers, FetchCooldown: cfg.QueueFetchCooldown, RescueAfter: cfg.QueueRescueAfter}
 	if o.limits != nil {
 		pool.ExtraQueues = o.queues
 		pool.TenantLimits = func(ctx context.Context, tenantID uuid.UUID) queue.TenantLimits {
