@@ -3,9 +3,12 @@ import starlight from '@astrojs/starlight';
 import sitemap from '@astrojs/sitemap';
 import svelte from '@astrojs/svelte';
 import mermaid from 'astro-mermaid';
+import { pluginCollapsibleSections } from '@expressive-code/plugin-collapsible-sections';
+import { satteri } from '@astrojs/markdown-satteri';
 import starlightLlmsTxt from './src/lib/llms/starlight-llms-txt/index.mjs';
 import { llmsBasePrompt, llmsRootDetails } from './src/lib/llms/prompts.mjs';
 import { securityHead } from './src/lib/security-meta.mjs';
+import { blogAlerts } from './src/lib/blog/alerts.mjs';
 import { readdirSync, readFileSync } from 'node:fs';
 import { parse as parseYaml } from 'yaml';
 
@@ -13,10 +16,10 @@ import { parse as parseYaml } from 'yaml';
 // for /blog/<slug>/ (the pages themselves are built from the same files).
 const blogLastmod = Object.fromEntries(
   readdirSync('./src/blog')
-    .filter((f) => f.endsWith('.md'))
+    .filter((f) => /\.mdx?$/.test(f))
     .map((f) => {
       const fm = parseYaml(readFileSync(`./src/blog/${f}`, 'utf8').split(/^---$/m)[1] ?? '') ?? {};
-      return [f.replace(/\.md$/, ''), new Date(fm.updated ?? fm.pubDate)];
+      return [f.replace(/\.mdx?$/, ''), new Date(fm.updated ?? fm.pubDate)];
     }),
 );
 
@@ -26,6 +29,10 @@ export default defineConfig({
   redirects: {
     '/tools': '/sparrow/tools/recipe-workbench/',
     '/tools/email-studio': '/sparrow/tools/recipe-workbench/',
+  },
+  markdown: {
+    // Astro's default processor; Starlight, Expressive Code and Mermaid add their own plugins to it.
+    processor: satteri({ mdastPlugins: [blogAlerts] }),
   },
   vite: {
     // The workbench imports the recipe catalog straight from satellites/recipes/*.yaml.
@@ -159,6 +166,8 @@ export default defineConfig({
       expressiveCode: {
         themes: ['github-light', 'github-dark'],
         useStarlightDarkModeSwitch: true,
+        // Fold long output with `collapse={1-20}` on the opening fence.
+        plugins: [pluginCollapsibleSections()],
         styleOverrides: {
           borderColor: 'var(--sp-outline-variant, #e4e2dd)',
           borderRadius: '0.5rem',

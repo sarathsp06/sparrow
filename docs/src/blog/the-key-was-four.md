@@ -11,6 +11,7 @@ On 17 October 2026 a researcher reported that eight intermediate certificates is
 
 Six of the eight issue TLS certificates. Whoever holds those keys can mint a certificate for any hostname, and it will verify.
 
+> [!NOTE]
 > **TLS trust in one minute.** When your code connects to `hooks.slack.com`, the server sends a short chain of certificates. The **leaf** says "this key belongs to hooks.slack.com". It is signed by an **intermediate**, which is signed by a **root** your machine already trusts. Intermediates do the day-to-day signing, so whoever holds an intermediate's private key can vouch for any website.
 >
 > When a key leaks, the CA **revokes** the certificate by publishing it on a **CRL**, a small signed list of certificates that should no longer be trusted. Browsers check those lists. Go doesn't.
@@ -19,9 +20,30 @@ Six of the eight issue TLS certificates. Whoever holds those keys can mint a cer
 
 An ECDSA public key is *Q = d·G*: a secret number *d* times a fixed, public point *G*. It is safe only because *d* is picked from about 2^384 values on P-384. eMudhra's keys were 47 zero bytes and one meaningful byte. To recover one, compute *1·G*, *2·G*, *3·G*… and compare with the certificate. For `G3C` you stop at four.
 
+```text title="Two P-384 private keys, 48 bytes each" {7}
+a random key   3ae5170635529129d8adb99f19dd36fb
+               299b95442d648084423db6630e7f0c81
+               f5f83da433d250af5d746cd45bdfad5d
+
+G3C's key      00000000000000000000000000000000
+               00000000000000000000000000000000
+               00000000000000000000000000000004
+```
+
 The cause, in eMudhra's account: during an April 2025 key ceremony, a script added to test key wrapping created a second, weak set of keys. Their labels looked like the real ones, and the weak keys were used for the certificate requests. eMudhra's root signed them, and Sectigo cross-signed them.
 
 Nothing downstream could notice. Validation checks signatures, and the signatures were valid. A public key of *4·G* looks as random as any other point.
+
+```mermaid
+flowchart TD
+  accTitle: Who vouched for the weak keys
+  accDescr: eMudhra's root signed the weak intermediates, such as EM OV TLS CA - G3C, and Sectigo cross-signed the same keys. Whoever computes such a key can sign a certificate for any hostname, and it verifies through either root.
+  emroot["eMudhra root"] -- signed --> g3c["EM OV TLS CA - G3C<br/>private key: 4"]
+  sectigo["Sectigo root"] -- "cross-signed the same key" --> g3c
+  g3c -. "anyone who computes the key" .-> leaf["A certificate for any hostname<br/>that verifies"]
+  classDef weak stroke:#d9534f,stroke-width:2px
+  class g3c,leaf weak
+```
 
 ## Browsers were safe within hours. Go never was.
 
@@ -38,6 +60,19 @@ That is not specific to Go: most server software built on OpenSSL or Java is in 
 ## What Sparrow does now
 
 Two checks run after Go's normal verification, on every outbound connection that verifies TLS.
+
+```mermaid
+flowchart TD
+  accTitle: Sparrow's two checks on an outbound TLS connection
+  accDescr: After Go's normal verification passes, Sparrow refuses a chain containing a known weak key. Then, from the root down, it checks each intermediate against its issuer's CRL. A revoked intermediate is refused; a CRL that cannot be downloaded is allowed in soft mode and refused in hard mode. A refused delivery fails with tls_error and is not retried.
+  go["Go's normal verification passes"] --> weak["1. Weak keys: is any key in the chain k·G, k up to 255?"]
+  weak -- yes --> refuse["Refused: tls_error, not retried"]
+  weak -- no --> crl["2. Revocation, root down: is an intermediate on its CRL?<br/>(skipped when SPARROW_TLS_REVOCATION=off)"]
+  crl -- "revoked, or no CRL in hard mode" --> refuse
+  crl -- "not revoked, or no CRL in soft mode" --> ok["Delivered"]
+  classDef bad stroke:#d9534f,stroke-width:2px
+  class refuse bad
+```
 
 **1. Refuse the weak keys.** On first use, Sparrow computes *k·G* for *k* from 1 to 255 on P-256, P-384 and P-521, and refuses any chain containing one of those keys. It matches on the x-coordinate, so the equally trivial *(n − k)·G* is caught too, and it matches keys, not certificates, so Sectigo's cross-signs are caught as well. It needs no network, costs about 80 ms once and about 1.4 µs per handshake, and cannot reject a properly generated key: the odds are about 2^-376. It targets this incident, not weak keys in general.
 
@@ -101,10 +136,12 @@ The second is how rarely you pay even that. A CRL is downloaded once per instanc
 
 Lined up against the alternative, the trade is not close. Without the check, a stolen CA key works against Sparrow until a Debian package update reaches your image, and through the cross-signed copies for as long as they stay valid. With it, a revocation that browsers act on within hours reaches every Sparrow instance within six hours, or within seconds if someone calls `POST /v1/tls/crls:refresh`. All of that for a few kilobytes and a few tens of milliseconds, a handful of times a day.
 
-The one case where it costs more is a CRL server that is down or unreachable, as it will be on installs with no internet access. Then the first connection that needs that CRL waits up to five seconds, once, and carries on in soft mode. If that is your setup, `SPARROW_TLS_REVOCATION=off` skips the wait, and the weak-key check keeps working without any network at all.
+> [!TIP]
+> The one case where it costs more is a CRL server that is down or unreachable, as it will be on installs with no internet access. Then the first connection that needs that CRL waits up to five seconds, once, and carries on in soft mode. If that is your setup, `SPARROW_TLS_REVOCATION=off` skips the wait, and the weak-key check keeps working without any network at all.
 
 *Measured on 21 October 2026 from a laptop in Europe; a server in a data center will usually be faster.*
 
 ---
 
-Both checks ship in the next Sparrow release; nothing needs configuring. CRL checks need outbound access to the CAs' CRL servers. Receivers whose chains go through a revoked intermediate, including these keys, will fail with `tls_error` until they get a new certificate. Details are in the [changelog](https://github.com/sarathsp06/sparrow/blob/main/CHANGELOG.md) and the [security reference](/sparrow/reference/security/#certificate-revocation).
+> [!IMPORTANT]
+> Both checks ship in the next Sparrow release; nothing needs configuring. CRL checks need outbound access to the CAs' CRL servers. Receivers whose chains go through a revoked intermediate, including these keys, will fail with `tls_error` until they get a new certificate. Details are in the [changelog](https://github.com/sarathsp06/sparrow/blob/main/CHANGELOG.md) and the [security reference](/sparrow/reference/security/#certificate-revocation).

@@ -1,22 +1,34 @@
 ---
 import type { Post } from '../lib/blog/posts';
-import { formatDate, tagUrl } from '../lib/blog/posts';
+import { base, formatDate, tagUrl } from '../lib/blog/posts';
 
-interface Props { post: Post }
-const { post } = Astro.props;
+interface Props {
+  post: Post;
+  /** Lead card of a list: full width, with the post's social card beside it. */
+  featured?: boolean;
+}
+const { post, featured = false } = Astro.props;
 const { title, kicker, description, author } = post.frontmatter;
 ---
 
-<article class="fn-card">
-  <div class="fn-meta fn-meta--plain">
-    {kicker && <span class="fn-kicker-sm">{kicker}</span>}
-    <time datetime={post.date.toISOString()}>{formatDate(post.date, 'short')}</time>
-    <span>{post.minutes} min read</span>
-    {author && <span class="fn-card-author">@{author}</span>}
+<article class:list={['fn-card', { 'fn-card--featured': featured }]}>
+  {/* The post's social card (src/pages/blog/og), decorative: the title link follows. */}
+  {featured && (
+    <a class="fn-card-cover" href={post.url} tabindex="-1" aria-hidden="true">
+      <img src={`${base}blog/og/${post.slug}.png`} alt="" width="1200" height="630" decoding="async" />
+    </a>
+  )}
+  <div class="fn-card-body">
+    <div class="fn-meta fn-meta--plain">
+      {kicker && <span class="fn-kicker-sm">{kicker}</span>}
+      <time datetime={post.date.toISOString()}>{formatDate(post.date, 'short')}</time>
+      <span>{post.minutes} min read</span>
+      {author && <span class="fn-card-author">@{author}</span>}
+    </div>
+    <h2 class="fn-card-title" style={`view-transition-name: fn-title-${post.slug}`}><a href={post.url}>{title}</a></h2>
+    {description && <p>{description}</p>}
+    <ul class="fn-tags" aria-label="Tags">
+      {post.tags.map((t) => <li><a href={tagUrl(t)}>{t}</a></li>)}
+    </ul>
   </div>
-  <h2 class="fn-card-title"><a href={post.url}>{title}</a></h2>
-  {description && <p>{description}</p>}
-  <ul class="fn-tags" aria-label="Tags">
-    {post.tags.map((t) => <li><a href={tagUrl(t)}>{t}</a></li>)}
-  </ul>
 </article>

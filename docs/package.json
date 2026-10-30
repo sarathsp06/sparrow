@@ -10,9 +10,11 @@
     "astro": "astro"
   },
   "dependencies": {
+    "@astrojs/markdown-satteri": "0.4.4",
     "@astrojs/sitemap": "^3.7.4",
     "@astrojs/starlight": "^0.42.6",
     "@astrojs/svelte": "^9.1.0",
+    "@expressive-code/plugin-collapsible-sections": "0.44.2",
     "@scalar/astro": "^0.4.30",
     "astro": "^7.4.1",
     "astro-mermaid": "^2.1.0",

@@ -5,7 +5,8 @@ import TableOfContents from '../../components/blog/TableOfContents.astro';
 import ReadingProgress from '../../components/blog/ReadingProgress.astro';
 import HeadingAnchors from '../../components/blog/HeadingAnchors.astro';
 import PostCta from '../../components/blog/PostCta.astro';
-import { base, formatDate, getPosts, tagUrl } from '../../lib/blog/posts';
+import BlogPost from '../../components/BlogPost.astro';
+import { base, formatDate, getPosts, relatedPosts, tagUrl } from '../../lib/blog/posts';
 
 export async function getStaticPaths() {
   return (await getPosts()).map((post) => ({ params: { slug: post.slug } }));
@@ -17,6 +18,7 @@ const post = posts[index];
 const { frontmatter, Content } = post;
 const newer = index > 0 ? posts[index - 1] : undefined;
 const older = index < posts.length - 1 ? posts[index + 1] : undefined;
+const related = relatedPosts(post, posts);
 const iso = post.date.toISOString();
 const description = frontmatter.description ?? '';
 const permalink = new URL(Astro.url.pathname, Astro.site).href;
@@ -61,7 +63,7 @@ const jsonLd = [{
       <header class="fn-article-head">
         <a class="fn-eyebrow" href={`${base}blog/`}>← Field notes</a>
         {frontmatter.kicker && <p class="fn-kicker">{frontmatter.kicker}</p>}
-        <h1>{frontmatter.title}</h1>
+        <h1 style={`view-transition-name: fn-title-${post.slug}`}>{frontmatter.title}</h1>
         {description && <p class="fn-standfirst">{description}</p>}
         <div class="fn-meta">
           <time datetime={iso}>{formatDate(post.date)}</time>
@@ -78,6 +80,12 @@ const jsonLd = [{
           {post.tags.map((t) => <li><a href={tagUrl(t)}>{t}</a></li>)}
         </ul>
         <PostCta />
+        {related.length > 0 && (
+          <section class="fn-related" aria-labelledby="fn-related-title">
+            <h2 id="fn-related-title" class="fn-eyebrow">Related notes</h2>
+            <div class="fn-list">{related.map((p) => <BlogPost post={p} />)}</div>
+          </section>
+        )}
         {(older || newer) && (
           <nav class="fn-pager" aria-label="More field notes">
             {older ? <a href={older.url} rel="prev"><span>Earlier</span>{older.frontmatter.title}</a> : <span />}
