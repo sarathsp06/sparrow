@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -30,6 +31,9 @@ class PushEventBody:
             which subscriptions receive this occurrence. At most 20 pairs; keys up to 64 characters of letters, digits, '.',
             '_' and '-'; values up to 256 characters.
         metadata (PushEventBodyMetadata | Unset): Arbitrary key/value metadata stored with the occurrence.
+        scheduled_at (datetime.datetime | Unset): RFC 3339 time to deliver the event at. Omitted or in the past means
+            immediate. The event is stored right away but fans out to subscriptions only at this time; ttl_seconds counts
+            from then. At most one year ahead (400 beyond that). Replays of a scheduled occurrence are immediate.
         ttl_seconds (int | Unset): Time-to-live in seconds, counted from fan-out. A delivery attempt that would start
             after it expires is not made and the delivery fails as expired. 0 or omitted means no expiry. Manual retries
             ignore it.
@@ -40,6 +44,7 @@ class PushEventBody:
     idempotency_key: str | Unset = UNSET
     labels: PushEventBodyLabels | Unset = UNSET
     metadata: PushEventBodyMetadata | Unset = UNSET
+    scheduled_at: datetime.datetime | Unset = UNSET
     ttl_seconds: int | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
@@ -56,6 +61,10 @@ class PushEventBody:
         metadata: dict[str, Any] | Unset = UNSET
         if not isinstance(self.metadata, Unset):
             metadata = self.metadata.to_dict()
+
+        scheduled_at: str | Unset = UNSET
+        if not isinstance(self.scheduled_at, Unset):
+            scheduled_at = self.scheduled_at.isoformat()
 
         ttl_seconds = self.ttl_seconds
 
@@ -74,6 +83,8 @@ class PushEventBody:
             field_dict["labels"] = labels
         if metadata is not UNSET:
             field_dict["metadata"] = metadata
+        if scheduled_at is not UNSET:
+            field_dict["scheduled_at"] = scheduled_at
         if ttl_seconds is not UNSET:
             field_dict["ttl_seconds"] = ttl_seconds
 
@@ -106,6 +117,13 @@ class PushEventBody:
         else:
             metadata = PushEventBodyMetadata.from_dict(_metadata)
 
+        _scheduled_at = d.pop("scheduled_at", UNSET)
+        scheduled_at: datetime.datetime | Unset
+        if isinstance(_scheduled_at, Unset):
+            scheduled_at = UNSET
+        else:
+            scheduled_at = datetime.datetime.fromisoformat(_scheduled_at)
+
         ttl_seconds = d.pop("ttl_seconds", UNSET)
 
         push_event_body = cls(
@@ -114,6 +132,7 @@ class PushEventBody:
             idempotency_key=idempotency_key,
             labels=labels,
             metadata=metadata,
+            scheduled_at=scheduled_at,
             ttl_seconds=ttl_seconds,
         )
 

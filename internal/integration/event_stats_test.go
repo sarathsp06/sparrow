@@ -38,7 +38,7 @@ func TestE2E_EventDeliveryStats_NoDeliveries(t *testing.T) {
 	eventID, isDuplicate, _, _, err := env.webhookSvc.PushEvent(
 		ctx, "orphan-ns", "orphan.event",
 		map[string]any{"hello": "world"},
-		0, nil, nil, nil,
+		0, nil, nil, nil, nil,
 	)
 	require.NoError(t, err, "push event")
 	require.False(t, isDuplicate)

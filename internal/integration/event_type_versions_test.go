@@ -63,7 +63,7 @@ func TestEventTypeVersions_Lifecycle(t *testing.T) {
 	assert.Equal(t, http.StatusConflict, resp.StatusCode)
 
 	// Push under v1 before any schema exists.
-	earlyID, _, _, _, err := env.webhookSvc.PushEvent(ctx, "shop", name, map[string]any{"total": 1}, 0, nil, nil, nil)
+	earlyID, _, _, _, err := env.webhookSvc.PushEvent(ctx, "shop", name, map[string]any{"total": 1}, 0, nil, nil, nil, nil)
 	require.NoError(t, err)
 
 	// First schema fills in v1.
@@ -113,7 +113,7 @@ func TestEventTypeVersions_Lifecycle(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 
 	// Events are pinned to the version they were accepted under.
-	lateID, _, _, _, err := env.webhookSvc.PushEvent(ctx, "shop", name, map[string]any{"total": "9.50"}, 0, nil, nil, nil)
+	lateID, _, _, _, err := env.webhookSvc.PushEvent(ctx, "shop", name, map[string]any{"total": "9.50"}, 0, nil, nil, nil, nil)
 	require.NoError(t, err)
 	var early, late struct {
 		EventVersion int `json:"event_version"`
@@ -219,7 +219,7 @@ func TestEventTypeVersions_AutoRegisterThenFillIn(t *testing.T) {
 	ctx := context.Background()
 	c := newRESTClient(t, env)
 
-	_, _, _, _, err := env.webhookSvc.PushEvent(ctx, "shop", "cart.abandoned", map[string]any{"total": 3}, 0, nil, nil, nil)
+	_, _, _, _, err := env.webhookSvc.PushEvent(ctx, "shop", "cart.abandoned", map[string]any{"total": 3}, 0, nil, nil, nil, nil)
 	require.NoError(t, err)
 
 	var patched eventTypeResp

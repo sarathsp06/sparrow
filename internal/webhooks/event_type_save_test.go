@@ -381,7 +381,7 @@ func TestPushEvent_UnknownEventTypeIsRejectedByDefault(t *testing.T) {
 
 	repo.On("GetEventByName", mock.Anything, mock.Anything, "user.signup").Return(nil, nil)
 
-	_, _, _, _, err := svc.PushEvent(testContext(), "default", "user.signup", map[string]any{}, 0, nil, nil, nil)
+	_, _, _, _, err := svc.PushEvent(testContext(), "default", "user.signup", map[string]any{}, 0, nil, nil, nil, nil)
 	assertStatus(t, err, svcerrors.NotFound)
 	assert.Contains(t, err.Error(), "not registered")
 	repo.AssertNotCalled(t, "RegisterEvent", mock.Anything, mock.Anything, mock.Anything)
@@ -393,7 +393,7 @@ func TestPushEvent_ReservedNameIsRejected(t *testing.T) {
 	svc := NewWebhookService(new(mockJobInserter), repo, nil, WithAutoRegisterEvents(true))
 
 	for _, name := range []string{"sparrow.webhook.health_changed", "SPARROW.fake"} {
-		_, _, _, _, err := svc.PushEvent(testContext(), "default", name, map[string]any{}, 0, nil, nil, nil)
+		_, _, _, _, err := svc.PushEvent(testContext(), "default", name, map[string]any{}, 0, nil, nil, nil, nil)
 		assertStatus(t, err, svcerrors.InvalidArgument)
 	}
 	repo.AssertNotCalled(t, "GetEventByName", mock.Anything, mock.Anything, mock.Anything)
@@ -411,7 +411,7 @@ func TestPushEvent_PinsTheCurrentVersion(t *testing.T) {
 	})).Return(nil)
 	inserter.On("BatchInsertTx", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	_, _, _, _, err := svc.PushEvent(testContext(), "default", "order.created", map[string]any{}, 0, nil, nil, nil)
+	_, _, _, _, err := svc.PushEvent(testContext(), "default", "order.created", map[string]any{}, 0, nil, nil, nil, nil)
 	require.NoError(t, err)
 	repo.AssertExpectations(t)
 }

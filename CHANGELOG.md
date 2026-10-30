@@ -16,6 +16,10 @@ migrations run on startup.
 
 ## [Unreleased]
 
+### Added
+
+- Scheduled events: `POST /v1/consumers/{consumer}/events` accepts an optional `scheduled_at` (RFC 3339). The occurrence is stored immediately but fans out to subscriptions only at that time; `ttl_seconds` counts from then, times more than one year ahead are refused (400), and a past time delivers immediately. Occurrence responses and the UI show the scheduled time, and event retention never deletes an event before it has fired.
+
 ### Security
 
 - `golang.org/x/net` v0.62.0 fixes GO-2026-6860 (quadratic time parsing HTML with many text nodes). Sparrow parses HTML only when AI template drafting turns a fetched documentation page into text.

@@ -190,6 +190,7 @@ type pushEventBody struct {
 	Metadata       map[string]string `json:"metadata,omitempty" doc:"Arbitrary key/value metadata stored with the occurrence."`
 	Labels         map[string]string `json:"labels,omitempty" doc:"Key/value labels a subscription's label_filters match against to decide which subscriptions receive this occurrence. At most 20 pairs; keys up to 64 characters of letters, digits, '.', '_' and '-'; values up to 256 characters."`
 	IdempotencyKey *string           `json:"idempotency_key,omitempty" doc:"Client-supplied deduplication key, unique per consumer. A push whose key matches an earlier event in the same consumer still returns 201, with duplicate: true and the original event_id, and creates no event or deliveries. The key is kept as long as the event (see SPARROW_EVENT_RETENTION_DAYS)."`
+	ScheduledAt    *time.Time        `json:"scheduled_at,omitempty" doc:"RFC 3339 time to deliver the event at. Omitted or in the past means immediate. The event is stored right away but fans out to subscriptions only at this time; ttl_seconds counts from then. At most one year ahead (400 beyond that). Replays of a scheduled occurrence are immediate."`
 }
 
 type pushEventInput struct {
@@ -227,6 +228,16 @@ type eventOccurrenceItem struct {
 	FailedDeliveries     int32             `json:"failed_deliveries" doc:"Failed delivery attempts for this occurrence. Counts attempts, not deliveries: a delivery that failed twice and then succeeded adds 2 here and 1 to successful_deliveries."`
 	PendingDeliveries    int32             `json:"pending_deliveries" doc:"Deliveries not finished yet: pending, sending or retrying."`
 	CreatedAt            string            `json:"created_at" format:"date-time" doc:"When this occurrence was pushed, RFC3339."`
+	ScheduledAt          *string           `json:"scheduled_at,omitempty" format:"date-time" doc:"When this occurrence fans out to subscriptions, RFC3339. Absent for immediate pushes. Deliveries exist only from this time on."`
+}
+
+// formatTimePtr renders an optional timestamp as RFC3339, nil in nil out.
+func formatTimePtr(t *time.Time) *string {
+	if t == nil {
+		return nil
+	}
+	s := t.Format(time.RFC3339Nano)
+	return &s
 }
 
 type eventOccurrenceOutput struct {
@@ -505,13 +516,14 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		Summary:     "Push an event occurrence for asynchronous delivery",
 		Description: "Records one occurrence of a registered event type and asynchronously fans it out to every subscription whose event name and label filters match. Returns 201 as soon as the event is stored and queued; delivery happens in the background, so check Deliveries for outcomes. A payload that fails the event type's JSON Schema is still accepted (schema_valid: false, with warnings).\n\n" +
 			"Idempotency: with idempotency_key, a repeat push with the same key in the same consumer returns 201 with duplicate: true and the original event_id, and creates nothing. Without a key every call creates a new event.\n\n" +
-			"Failures: 404 for an unregistered event type (unless SPARROW_AUTO_REGISTER_EVENTS=true), 409 for an inactive one, 400 for a reserved sparrow.* name, a name over 255 characters or invalid labels, 413 for a body over SPARROW_MAX_BODY_BYTES.\n\n" +
+			"Scheduling: with scheduled_at, the occurrence is stored immediately but fans out only at that time; until then it lists with no deliveries. A past time means immediate; more than one year ahead is 400.\n\n" +
+			"Failures: 404 for an unregistered event type (unless SPARROW_AUTO_REGISTER_EVENTS=true), 409 for an inactive one, 400 for a reserved sparrow.* name, a name over 255 characters, invalid labels or a scheduled_at over a year ahead, 413 for a body over SPARROW_MAX_BODY_BYTES.\n\n" +
 			"Portal tokens: not allowed (pushing is the producer's job).",
 		Errors:        []int{400, 404, 409, 413},
 		Tags:          []string{"Events"},
 		DefaultStatus: http.StatusCreated,
 	}, func(ctx context.Context, in *pushEventInput) (*pushEventOutput, error) {
-		eventID, isDuplicate, schemaValid, warnings, err := svc.PushEvent(ctx, in.Consumer, in.Event, in.Body.Payload, in.Body.TTLSeconds, in.Body.Metadata, in.Body.Labels, in.Body.IdempotencyKey)
+		eventID, isDuplicate, schemaValid, warnings, err := svc.PushEvent(ctx, in.Consumer, in.Event, in.Body.Payload, in.Body.TTLSeconds, in.Body.Metadata, in.Body.Labels, in.Body.IdempotencyKey, in.Body.ScheduledAt)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to push event")
 		}
@@ -576,6 +588,7 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		out.Body.FailedDeliveries = failedCount
 		out.Body.PendingDeliveries = pendingCount
 		out.Body.CreatedAt = rec.CreatedAt.Format(time.RFC3339Nano)
+		out.Body.ScheduledAt = formatTimePtr(rec.ScheduledAt)
 		return out, nil
 	})
 
@@ -720,6 +733,7 @@ func listEventOccurrencesImpl(ctx context.Context, svc eventRouteService, consum
 		o.Body.FailedDeliveries = r.FailedDeliveries
 		o.Body.PendingDeliveries = r.PendingDeliveries
 		o.Body.CreatedAt = r.CreatedAt.Format(time.RFC3339Nano)
+		o.Body.ScheduledAt = formatTimePtr(r.ScheduledAt)
 		out.Body.Items = append(out.Body.Items, o.Body)
 	}
 	if n := len(page.Items); n > 0 {

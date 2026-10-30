@@ -36,6 +36,8 @@ class EventOccurrenceItem:
         schema (str | Unset): A URL to the JSON Schema for this object.
         labels (EventOccurrenceItemLabels | Unset): Key/value labels used to match against subscription label filters.
         metadata (EventOccurrenceItemMetadata | Unset): Arbitrary key/value metadata stored with the occurrence.
+        scheduled_at (datetime.datetime | Unset): When this occurrence fans out to subscriptions, RFC3339. Absent for
+            immediate pushes. Deliveries exist only from this time on.
     """
 
     consumer: str
@@ -52,6 +54,7 @@ class EventOccurrenceItem:
     schema: str | Unset = UNSET
     labels: EventOccurrenceItemLabels | Unset = UNSET
     metadata: EventOccurrenceItemMetadata | Unset = UNSET
+    scheduled_at: datetime.datetime | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         consumer = self.consumer
@@ -86,6 +89,10 @@ class EventOccurrenceItem:
         if not isinstance(self.metadata, Unset):
             metadata = self.metadata.to_dict()
 
+        scheduled_at: str | Unset = UNSET
+        if not isinstance(self.scheduled_at, Unset):
+            scheduled_at = self.scheduled_at.isoformat()
+
         field_dict: dict[str, Any] = {}
 
         field_dict.update(
@@ -109,6 +116,8 @@ class EventOccurrenceItem:
             field_dict["labels"] = labels
         if metadata is not UNSET:
             field_dict["metadata"] = metadata
+        if scheduled_at is not UNSET:
+            field_dict["scheduled_at"] = scheduled_at
 
         return field_dict
 
@@ -157,6 +166,13 @@ class EventOccurrenceItem:
         else:
             metadata = EventOccurrenceItemMetadata.from_dict(_metadata)
 
+        _scheduled_at = d.pop("scheduled_at", UNSET)
+        scheduled_at: datetime.datetime | Unset
+        if isinstance(_scheduled_at, Unset):
+            scheduled_at = UNSET
+        else:
+            scheduled_at = datetime.datetime.fromisoformat(_scheduled_at)
+
         event_occurrence_item = cls(
             consumer=consumer,
             created_at=created_at,
@@ -172,6 +188,7 @@ class EventOccurrenceItem:
             schema=schema,
             labels=labels,
             metadata=metadata,
+            scheduled_at=scheduled_at,
         )
 
         return event_occurrence_item

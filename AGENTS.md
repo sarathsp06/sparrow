@@ -223,7 +223,6 @@ huma.Register(api, huma.Operation{
 
 ## Known Gaps
 
-- No scheduled/delayed webhooks (not in Svix OSS either)
 - No published client SDKs, by design: clients are generated from `api/openapi.yaml` (also served at `/openapi.yaml` and attached to each release). Only `pkg/signature` and the `client/verify/` samples are hand-written; `e2e/client/` is generated and checked in only because the e2e suite imports it
 - **No inbound API rate limiting.** Sparrow does not throttle its own `/v1/*` API — put a reverse proxy in front of it if the API is reachable from untrusted networks. (Outbound *delivery* rate limiting per webhook — `rate_limit_rps` / `webhook_rate_limit_state` — is unrelated and unaffected; it protects receivers from being hammered, not Sparrow's inbound API.)
 

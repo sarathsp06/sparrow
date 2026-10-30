@@ -32,6 +32,8 @@ easiest way to try them out.
       }'
     ```
 
+    Add `"scheduled_at": "2026-12-01T09:00:00Z"` to deliver later: the event is stored right away but fans out only at that time (`ttl_seconds` counts from then; at most one year ahead).
+
 4. **Sparrow fans out** — the event worker finds all active subscriptions matching the event name, consumer, and **label filters**, and creates a delivery for each.
 
 5. **Webhook delivery** — the webhook worker renders the subscription's payload transform, if it has one, and sends an HTTP POST to the URL with the body, **Standard Webhooks signatures** (HMAC and/or Ed25519), and Sparrow headers. Failed deliveries are retried with exponential backoff.

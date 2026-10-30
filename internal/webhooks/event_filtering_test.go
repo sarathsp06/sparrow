@@ -169,7 +169,7 @@ func TestPushEvent_WithValidLabels(t *testing.T) {
 	})).Return(nil)
 	inserter.On("BatchInsertTx", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	eventID, _, _, _, err := service.PushEvent(ctx, consumer, eventName, payload, 0, nil, labels, nil)
+	eventID, _, _, _, err := service.PushEvent(ctx, consumer, eventName, payload, 0, nil, labels, nil, nil)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, eventID)
 	repo.AssertExpectations(t)
@@ -190,7 +190,7 @@ func TestPushEvent_WithNilLabels(t *testing.T) {
 	repo.On("StoreEventAndEnqueue", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	inserter.On("BatchInsertTx", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	eventID, _, _, _, err := service.PushEvent(ctx, "default", "test.event", nil, 0, nil, nil, nil)
+	eventID, _, _, _, err := service.PushEvent(ctx, "default", "test.event", nil, 0, nil, nil, nil, nil)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, eventID)
 	repo.AssertExpectations(t)
@@ -227,7 +227,7 @@ func TestPushEvent_WithInvalidLabels(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, _, _, err := service.PushEvent(ctx, "default", "some.event", nil, 0, nil, tt.labels, nil)
+			_, _, _, _, err := service.PushEvent(ctx, "default", "some.event", nil, 0, nil, tt.labels, nil, nil)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.errMsg)
 			// Ensure no repo calls were made — validation should short-circuit.
@@ -489,11 +489,11 @@ func TestPushEvent_EventNameLengthCountsCharacters(t *testing.T) {
 	repo.On("GetEventByName", mock.Anything, mock.Anything, fits).Return(&store.EventRegistration{Name: fits, Active: true}, nil)
 	repo.On("StoreEventAndEnqueue", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	inserter.On("BatchInsertTx", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	_, _, _, _, err := service.PushEvent(ctx, "default", fits, nil, 0, nil, nil, nil)
+	_, _, _, _, err := service.PushEvent(ctx, "default", fits, nil, 0, nil, nil, nil, nil)
 	require.NoError(t, err)
 
 	for _, tooLong := range []string{strings.Repeat("x", maxEventNameLength+1), strings.Repeat("é", maxEventNameLength+1)} {
-		_, _, _, _, err := service.PushEvent(ctx, "default", tooLong, nil, 0, nil, nil, nil)
+		_, _, _, _, err := service.PushEvent(ctx, "default", tooLong, nil, 0, nil, nil, nil, nil)
 		require.Error(t, err)
 		var svcErr *svcerrors.ServiceError
 		require.ErrorAs(t, err, &svcErr)
