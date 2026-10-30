@@ -17,7 +17,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PG_NAME=sparrow-ui-pg
-PG_PORT=${PG_PORT:-55432}
+# Fixed host ports stay below 32768: Linux hands out 32768-60999 to outgoing
+# connections, and one of those can hold the port when docker tries to bind it.
+PG_PORT=${PG_PORT:-25432}
 HTTP_PORT=${SPARROW_HTTP_PORT:-18080}
 SPLIT_API_PORT=${SPLIT_API_PORT:-18081}
 SPLIT_UI_PORT=${SPLIT_UI_PORT:-14173}
