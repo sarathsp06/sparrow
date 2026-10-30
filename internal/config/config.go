@@ -188,6 +188,13 @@ type Config struct {
 	// Env: SPARROW_QUEUE_FETCH_COOLDOWN (Go duration, default "20ms")
 	QueueFetchCooldown time.Duration `envconfig:"SPARROW_QUEUE_FETCH_COOLDOWN" default:"20ms"`
 
+	// QueueRescueAfter is how long a job may stay running before it is
+	// treated as abandoned by a crashed instance and retried. It must exceed
+	// the longest delivery request (client.MaxRequestTimeout), or a slow
+	// delivery could be sent twice. 0 means the default.
+	// Env: SPARROW_QUEUE_RESCUE_AFTER (Go duration, default "7m")
+	QueueRescueAfter time.Duration `envconfig:"SPARROW_QUEUE_RESCUE_AFTER" default:"7m"`
+
 	// QueueDBMaxConns caps the queue's Postgres pool (pgxpool). Each running
 	// queue worker holds one connection.
 	// Env: SPARROW_QUEUE_DB_MAX_CONNS (default 50)
@@ -420,6 +427,9 @@ func (c *Config) Validate() error {
 	}
 	if c.EventRetentionDays < 0 {
 		return fmt.Errorf("SPARROW_EVENT_RETENTION_DAYS: must be >= 0, got %d", c.EventRetentionDays)
+	}
+	if c.QueueRescueAfter != 0 && c.QueueRescueAfter <= client.MaxRequestTimeout {
+		return fmt.Errorf("SPARROW_QUEUE_RESCUE_AFTER: %s must be longer than the %s longest delivery request", c.QueueRescueAfter, client.MaxRequestTimeout)
 	}
 	if c.QueueDBMaxConns < 1 {
 		return fmt.Errorf("SPARROW_QUEUE_DB_MAX_CONNS: must be >= 1, got %d", c.QueueDBMaxConns)

@@ -3,10 +3,13 @@ package config
 import (
 	"log/slog"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 )
 
 func validConfig() *Config {
@@ -41,6 +44,9 @@ func TestValidate(t *testing.T) {
 		{"hard TLS revocation mode", func(c *Config) { c.TLSRevocation = "HARD" }, ""},
 		{"CRL max age below minimum", func(c *Config) { c.CRLMaxAge = time.Minute }, "SPARROW_CRL_MAX_AGE"},
 		{"valid allowed networks", func(c *Config) { c.AllowedNetworks = []string{"10.0.0.0/8", "fd00::1"} }, ""},
+		{"rescue window within a delivery request", func(c *Config) { c.QueueRescueAfter = 5 * time.Minute }, "SPARROW_QUEUE_RESCUE_AFTER"},
+		{"negative rescue window", func(c *Config) { c.QueueRescueAfter = -time.Minute }, "SPARROW_QUEUE_RESCUE_AFTER"},
+		{"rescue window above a delivery request", func(c *Config) { c.QueueRescueAfter = 7 * time.Minute }, ""},
 		{"zero queue pool", func(c *Config) { c.QueueDBMaxConns = 0 }, "SPARROW_QUEUE_DB_MAX_CONNS"},
 		{"zero app pool", func(c *Config) { c.DBMaxConns = 0 }, "SPARROW_DB_MAX_CONNS"},
 		{"missing encryption keyring", func(c *Config) { c.EncryptionKeys = nil }, "SPARROW_ENCRYPTION_KEYS"},
@@ -313,5 +319,18 @@ func TestWarnsOnProductionLookalikesAndRenamedVars(t *testing.T) {
 	t.Setenv("SPARROW_ENVIRONMENT", "production")
 	if warned(c, "ENVIRONMENT is set but no longer read") {
 		t.Error("no warning once the new name is set too")
+	}
+}
+
+// The env default and the queue's own default must agree, so an embedder who
+// leaves WorkerPoolConfig.RescueAfter unset gets what the binary documents.
+func TestQueueRescueAfterDefaultMatchesQueue(t *testing.T) {
+	field, _ := reflect.TypeOf(Config{}).FieldByName("QueueRescueAfter")
+	got, err := time.ParseDuration(field.Tag.Get("default"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != queue.DefaultRescueAfter {
+		t.Errorf("SPARROW_QUEUE_RESCUE_AFTER default = %s, queue.DefaultRescueAfter = %s", got, queue.DefaultRescueAfter)
 	}
 }

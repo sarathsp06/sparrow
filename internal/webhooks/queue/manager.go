@@ -44,6 +44,12 @@ type WorkerPoolConfig struct {
 	EventWorkers   int
 	WebhookWorkers int
 	FetchCooldown  time.Duration
+	// RescueAfter is how long a job may stay running before River treats its
+	// worker as dead and retries it (River's RescueStuckJobsAfter). After a
+	// crash, jobs that were running wait this long. River never rescues a job
+	// still inside its own timeout, so a 30 minute batch job is safe with a
+	// shorter value.
+	RescueAfter time.Duration
 
 	// ExtraQueues are additional queues, by name, with their worker counts.
 	// TenantLimits.Queue routes a tenant's jobs to one of them. Self-hosted
@@ -59,6 +65,10 @@ const (
 	DefaultEventWorkers   = 20
 	DefaultWebhookWorkers = 20
 	DefaultFetchCooldown  = 20 * time.Millisecond
+	// DefaultRescueAfter is just above the delivery job timeout. River's own
+	// default is an hour, which held deliveries that were running when the
+	// process died for that long.
+	DefaultRescueAfter = deliveryJobTimeout + time.Minute
 )
 
 func (c WorkerPoolConfig) withDefaults() WorkerPoolConfig {
@@ -70,6 +80,9 @@ func (c WorkerPoolConfig) withDefaults() WorkerPoolConfig {
 	}
 	if c.FetchCooldown <= 0 {
 		c.FetchCooldown = DefaultFetchCooldown
+	}
+	if c.RescueAfter <= 0 {
+		c.RescueAfter = DefaultRescueAfter
 	}
 	return c
 }
@@ -124,10 +137,11 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 
 	// Create River client first (needed for workers)
 	riverClient, err := river.NewClient(riverpgxv5.New(dbPool), &river.Config{
-		PeriodicJobs:  periodicJobs,
-		FetchCooldown: pool.FetchCooldown,
-		Queues:        queues,
-		Workers:       riverWorkers,
+		PeriodicJobs:         periodicJobs,
+		FetchCooldown:        pool.FetchCooldown,
+		RescueStuckJobsAfter: pool.RescueAfter,
+		Queues:               queues,
+		Workers:              riverWorkers,
 	})
 	if err != nil {
 		dbPool.Close()
