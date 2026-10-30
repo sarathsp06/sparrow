@@ -112,6 +112,7 @@ addresses unless you allow them.
 | `SPARROW_QUEUE_DB_MAX_CONNS` | `50` | Postgres connections for the queue workers. Keep it at or above the total worker count. |
 | `SPARROW_DB_MAX_CONNS` | `25` | Postgres connections for API requests and other application queries. |
 | `SPARROW_QUEUE_FETCH_COOLDOWN` | `20ms` | Minimum gap between two job fetches on a queue. `workers / cooldown` caps each queue: 20 workers at `20ms` is about 1,000 jobs/s. Lower values query Postgres more often, under load only. |
+| `SPARROW_QUEUE_RESCUE_AFTER` | `7m` | How long a job may stay running before Sparrow treats its instance as crashed and retries it. After a crash, deliveries that were in flight wait this long, and the receiver may get them twice (same `X-Sparrow-Delivery-ID`). Must be longer than `5m`, the longest delivery request. |
 
 ### Observability
 
