@@ -15,5 +15,5 @@ const tags = allTags(await getPosts());
   ))}
 </nav>
 <section class="fn-list" aria-label="Notes">
-  {posts.map((post) => <BlogPost post={post} />)}
+  {posts.map((post, i) => <BlogPost post={post} featured={i === 0} />)}
 </section>

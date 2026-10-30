@@ -8,6 +8,15 @@ updated: 2026-10-16
 tags: [performance, benchmark, architecture, river, postgres]
 ---
 
+import Tldr from '../components/blog/content/Tldr.svelte';
+import BarChart from '../components/blog/content/BarChart.svelte';
+
+<Tldr>
+- Our load benchmark had not run in months, and when it did it printed zeros: the tool swallowed every error.
+- Behind it were four throughput ceilings: a new connection per delivery, River's 100 ms fetch cooldown, Go's ten connections per host, and per-delivery writes to one webhook's health rows.
+- With all four gone, one busy webhook went from 193 to 881 deliveries a second, about 4.5x. Every workload improved two to four and a half times.
+</Tldr>
+
 Every project has a benchmark that someone wrote with great care and nobody has run since. Ours is `cmd/benchmark`. It has a token-bucket pacer, reservoir sampling for latencies, a resource monitor, and a closing section that extrapolates how many CPU cores you would need at 50,000 requests per second.
 
 Last week we ran it. It printed this:
@@ -178,6 +187,18 @@ Three builds of the server, five workloads, run back to back on the same machine
 | Burst of 20,000 events to 600 webhooks (40,000 deliveries) | 195/s · 46 s · never drained | 757/s · 29 s · 48 s | 817/s · 25 s · 42 s |
 
 Rates are deliveries per second while publishing (over the whole run for the burst); "never drained" means the 90-second drain limit expired with events still queued, so that median is a lower bound.
+
+<BarChart
+  title="One busy webhook at 1,000 events/s: deliveries per second"
+  unit="/s"
+  max={1000}
+  bars={[
+    { label: 'main', value: 193 },
+    { label: 'walls 1–3 fixed', value: 395 },
+    { label: 'final', value: 881, highlight: true },
+  ]}
+  caption="First row of the table above; the bar's full width is the 1,000 events/s being published. One run per build."
+/>
 
 A caveat before reading it. Every cell is one run. We said above that identical runs on this machine differed by up to 45%, and the right way to present numbers with that much noise is the median of several runs with the range alongside; we did not do that, and the table is weaker for it. What the table can support is the big moves: main to the final build is two to four and a half times in every row, which is well outside the noise. What it cannot support is the small ones. The final build's 899 against the middle build's 872, or 817 against 757, are within a single run's variance, and we do not claim them as improvements.
 

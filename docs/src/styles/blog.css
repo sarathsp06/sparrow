@@ -65,6 +65,13 @@ a.fn-eyebrow:hover { text-decoration: underline; }
 
 .fn-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); gap: 0 2.5rem; }
 .fn-card { display: flex; flex-direction: column; gap: 0.5rem; padding-block: 1.5rem 1.75rem; border-bottom: 1px solid var(--sp-outline-variant); min-width: 0; }
+.fn-card-body { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
+.fn-card--featured { grid-column: 1 / -1; display: grid; gap: 1.25rem 2.5rem; align-items: center; }
+@media (min-width: 48rem) { .fn-card--featured { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); } }
+.fn-card--featured .fn-card-title { font-size: clamp(1.5rem, 3vw, 2rem); }
+.fn-card-cover { display: block; border-radius: var(--sp-radius); overflow: hidden; border: 1px solid var(--sp-outline-variant); }
+.fn-card-cover img { display: block; width: 100%; height: auto; transition: transform 200ms ease; }
+.fn-card:hover .fn-card-cover img { transform: scale(1.02); }
 .fn-card-title { font-size: 1.4rem; line-height: 1.2; margin: 0.1rem 0 0; }
 .fn-card-title a { text-decoration: none; }
 .fn-card-title a:hover { color: var(--sp-primary); }
@@ -88,6 +95,8 @@ a.fn-eyebrow:hover { text-decoration: underline; }
 .fn-prose .expressive-code { margin: 1.6em 0; }
 .fn-prose blockquote { border-left: 3px solid var(--sp-primary); margin: 1.8em 0; padding-left: 1.1rem; color: var(--sp-on-surface-variant); }
 
+.fn-related .fn-eyebrow { font-family: var(--sp-font-mono); letter-spacing: 0.1em; }
+.fn-related .fn-card { border-bottom: 0; padding-bottom: 0; }
 .fn-article-foot { display: flex; flex-direction: column; gap: 1.75rem; margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--sp-outline-variant); }
 .fn-pager { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .fn-pager a { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.9rem 1rem; border: 1px solid var(--sp-outline-variant); border-radius: var(--sp-radius); background: var(--sp-surface-container-lowest); font: 600 1rem/1.3 var(--sp-font-display); text-decoration: none; }
@@ -159,8 +168,46 @@ a.fn-eyebrow:hover { text-decoration: underline; }
 .fn-prose kbd { font: 0.85em var(--sp-font-mono); border: 1px solid var(--sp-outline-variant); border-bottom-width: 2px; border-radius: var(--sp-radius-sm); padding: 0.05em 0.4em; background: var(--sp-surface-container-lowest); }
 .fn-prose ul ul, .fn-prose ol ol, .fn-prose ul ol, .fn-prose ol ul { margin: 0.3em 0 0; }
 .fn-prose blockquote p:last-child { margin-bottom: 0; }
+
+/* GitHub-style callouts: `> [!NOTE]` etc. (remark-github-blockquote-alert). */
+.fn-prose .markdown-alert { --fn-alert: var(--sp-primary); border-left: 3px solid var(--fn-alert); background: var(--sp-surface-container-low); border-radius: 0 var(--sp-radius) var(--sp-radius) 0; margin: 1.8em 0; padding: 0.9rem 1.1rem; }
+.fn-prose .markdown-alert > :last-child { margin-bottom: 0; }
+.fn-prose .markdown-alert-title { display: flex; align-items: center; gap: 0.5rem; color: var(--fn-alert); font: 500 0.75rem/1.2 var(--sp-font-mono); letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 0.6rem; }
+.fn-prose .markdown-alert-title svg { fill: currentColor; flex: none; }
+.fn-prose .markdown-alert-tip { --fn-alert: var(--sp-success-text); }
+.fn-prose .markdown-alert-important { --fn-alert: var(--sp-tertiary); }
+.fn-prose .markdown-alert-caution { --fn-alert: var(--sp-error); }
 .fn-prose sup a { text-decoration: none; }
 .fn-prose .footnotes { font-size: 0.9em; color: var(--sp-on-surface-variant); border-top: 1px solid var(--sp-outline-variant); margin-top: 3em; padding-top: 1em; }
+
+/* MDX components (src/components/blog/content). */
+.fn-tldr { border: 1px solid var(--sp-badge-border); background: var(--sp-badge-bg); border-radius: var(--sp-radius); padding: 1rem 1.25rem; margin: 0 0 2em; }
+.fn-tldr-title { color: var(--sp-primary); font: 500 0.75rem/1.2 var(--sp-font-mono); letter-spacing: 0.1em; margin: 0 0 0.6rem !important; }
+.fn-tldr ul { margin: 0; padding-left: 1.2rem; }
+.fn-tldr li { margin: 0.35em 0; }
+
+.fn-chart { margin: 2em 0; padding: 1rem 1.25rem; border: 1px solid var(--sp-outline-variant); border-radius: var(--sp-radius); background: var(--sp-surface-container-lowest); }
+.fn-chart-title { font: 600 0.95rem/1.3 var(--sp-font-display); margin: 0 0 0.9rem !important; }
+.fn-chart ul { list-style: none; margin: 0 !important; padding: 0; display: grid; gap: 0.55rem; }
+.fn-chart li { display: grid; grid-template-columns: minmax(5rem, 9rem) 1fr 4.5rem; align-items: center; gap: 0.75rem; margin: 0; font-size: 0.875rem; }
+.fn-chart-label { color: var(--sp-on-surface-variant); overflow-wrap: anywhere; line-height: 1.3; }
+.fn-chart-track { height: 0.75rem; background: var(--sp-surface-container); border-radius: 999px; overflow: hidden; }
+.fn-chart-bar { display: block; height: 100%; background: var(--sp-outline); border-radius: inherit; }
+.fn-chart-value { font: 500 0.82rem var(--sp-font-mono); text-align: right; }
+.fn-chart-hl .fn-chart-bar { background: var(--sp-primary); }
+.fn-chart-hl .fn-chart-label, .fn-chart-hl .fn-chart-value { color: var(--sp-on-surface); font-weight: 600; }
+.fn-chart figcaption { text-align: left; margin-top: 0.9rem; }
+@media (max-width: 40rem) { .fn-chart li { grid-template-columns: 5rem 1fr 4rem; gap: 0.5rem; } }
+
+/* Cross-page transitions between same-origin blog pages: the card title and
+   the article title share a name, so the heading moves into place. Browsers
+   without support load pages as before. */
+@view-transition { navigation: auto; }
+::view-transition-group(*) { animation-duration: 220ms; }
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+  .fn-card-cover img { transition: none; }
+}
 
 /* Wide screens: table of contents and share tools in a sticky side rail. */
 @media (min-width: 70rem) {
