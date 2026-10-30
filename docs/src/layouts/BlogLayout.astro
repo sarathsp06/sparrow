@@ -82,6 +82,7 @@ const docsHome = `${base}getting-started/installation/`;
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
     {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
+    <script is:inline src={`${base}diagram-viewer.js`} defer></script>
   </head>
   <body class="fn">
     <a class="fn-skip" href="#main">Skip to content</a>

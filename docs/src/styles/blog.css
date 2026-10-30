@@ -199,6 +199,24 @@ a.fn-eyebrow:hover { text-decoration: underline; }
 .fn-chart figcaption { text-align: left; margin-top: 0.9rem; }
 @media (max-width: 40rem) { .fn-chart li { grid-template-columns: 5rem 1fr 4rem; gap: 0.5rem; } }
 
+/* Mermaid diagrams and the click-to-zoom viewer (public/diagram-viewer.js);
+   the blog's copy of the rules in custom.css, on the field-notes tokens. */
+.fn-prose pre.mermaid { margin: 2em 0; padding: 1rem; background: var(--sp-surface-container-lowest); border: 1px solid var(--sp-outline-variant); border-radius: var(--sp-radius); overflow-x: auto; text-align: center; }
+.fn-prose pre.mermaid[data-processed] { cursor: zoom-in; position: relative; }
+.fn-prose pre.mermaid[data-processed]::after { content: 'Click to enlarge'; position: absolute; top: 0.5rem; right: 0.6rem; font: 500 0.7rem/1 var(--sp-font-body); color: var(--sp-outline); opacity: 0; transition: opacity 150ms; }
+.fn-prose pre.mermaid[data-processed]:hover::after, .fn-prose pre.mermaid[data-processed]:focus-visible::after { opacity: 1; }
+.diagram-viewer { position: fixed; inset: 0; margin: auto; width: min(96vw, 1600px); height: min(92vh, 1100px); max-width: none; max-height: none; padding: 0; border: 1px solid var(--sp-outline-variant); border-radius: var(--sp-radius); background: var(--sp-surface); color: var(--sp-on-surface); overflow: hidden; }
+.diagram-viewer[open] { display: flex; flex-direction: column; }
+.diagram-viewer::backdrop { background: rgb(0 0 0 / 0.55); }
+.diagram-viewer-bar { display: flex; align-items: center; justify-content: flex-end; gap: 0.4rem; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--sp-outline-variant); }
+.diagram-viewer-bar button { min-width: 2.2rem; height: 2rem; padding: 0 0.6rem; border: 1px solid var(--sp-outline-variant); border-radius: var(--sp-radius-sm); background: var(--sp-surface-container-lowest); color: var(--sp-on-surface); font: 500 0.85rem/1 var(--sp-font-body); cursor: pointer; }
+.diagram-viewer-bar button:hover { border-color: var(--sp-primary); }
+.diagram-viewer-zoom { min-width: 3.2rem; text-align: center; font: 500 0.8rem/1 var(--sp-font-mono); font-variant-numeric: tabular-nums; color: var(--sp-on-surface-variant); }
+.diagram-viewer-stage { position: relative; flex: 1; min-height: 0; overflow: hidden; cursor: grab; touch-action: none; }
+.diagram-viewer-stage:active { cursor: grabbing; }
+.diagram-viewer-canvas { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+.diagram-viewer-canvas svg { display: block; max-width: none; }
+
 /* Cross-page transitions between same-origin blog pages: the card title and
    the article title share a name, so the heading moves into place. Browsers
    without support load pages as before. */
@@ -206,7 +224,7 @@ a.fn-eyebrow:hover { text-decoration: underline; }
 ::view-transition-group(*) { animation-duration: 220ms; }
 @media (prefers-reduced-motion: reduce) {
   @view-transition { navigation: none; }
-  .fn-card-cover img { transition: none; }
+  .fn-card-cover img, .fn-prose pre.mermaid[data-processed]::after { transition: none; }
 }
 
 /* Wide screens: table of contents and share tools in a sticky side rail. */

@@ -696,9 +696,9 @@
     "semantic_hash": ""
   },
   "docs/src/layouts/BlogLayout.astro": {
-    "mtime": 1793402450.6105382,
-    "seen": 1793403025.139852,
-    "ast_hash": "6e6048b53e9a30a8c467f870da3f5e6b",
+    "mtime": 1793403478.2572384,
+    "seen": 1793403655.3881721,
+    "ast_hash": "71fad9008d90a438d0f909f71711abe7",
     "semantic_hash": ""
   },
   "docs/src/lib/blog/posts.ts": {
@@ -2826,9 +2826,9 @@
     "semantic_hash": ""
   },
   "docs/src/blog/introducing-sparrow.md": {
-    "mtime": 1793402450.674065,
-    "seen": 1793403025.140299,
-    "ast_hash": "1d9b469cbd59f3c70310f820272e6bcb",
+    "mtime": 1793403485.4451697,
+    "seen": 1793403655.388619,
+    "ast_hash": "3d9d08946285dee3fcf9c7bffcc427b3",
     "semantic_hash": ""
   },
   "docs/src/content/docs/deployment/access.md": {
@@ -5328,9 +5328,9 @@
     "semantic_hash": ""
   },
   "docs/src/blog/the-key-was-four.md": {
-    "mtime": 1793402663.357399,
-    "seen": 1793403025.1403,
-    "ast_hash": "9d51c951761bf6ab740f2a102a1d5261",
+    "mtime": 1793403607.9999983,
+    "seen": 1793403655.388619,
+    "ast_hash": "d2b0ec5e1f1c7eafeac19c1e0caaf2ba",
     "semantic_hash": ""
   },
   "web/src/routes/portal/webhooks/[webhookId]/subscriptions/[subscriptionId]/edit/+page.svelte": {
@@ -5652,9 +5652,9 @@
     "semantic_hash": ""
   },
   "docs/src/blog/benchmark-four-walls.mdx": {
-    "mtime": 1793402788.9590309,
-    "seen": 1793403025.140298,
-    "ast_hash": "b3f2bd19bdafc541309a58a0508974a6",
+    "mtime": 1793403582.453402,
+    "seen": 1793403655.388618,
+    "ast_hash": "4aa85ce011a37a5642bf28ff3efcadd3",
     "semantic_hash": ""
   }
 }

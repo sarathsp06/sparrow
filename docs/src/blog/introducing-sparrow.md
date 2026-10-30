@@ -20,8 +20,17 @@ Sparrow is two boxes.
 
 That is the entire operational surface. One thing to back up. One thing to monitor. One place to look at 2 a.m. when a partner asks what they missed.
 
-```text
-your services ──▶ Sparrow ──▶ PostgreSQL ──▶ signed deliveries to subscribers
+```mermaid
+flowchart LR
+  accTitle: Sparrow's two boxes
+  accDescr: Your services post events to Sparrow, a single Go binary holding the API, delivery workers and dashboard. Sparrow keeps everything in one PostgreSQL database, including its job queue, and sends signed deliveries to each subscriber.
+  services["Your services"] -- "POST event" --> sparrow
+  subgraph sparrow["Sparrow: one Go binary"]
+    direction TB
+    api["API"] ~~~ workers["Delivery workers"] ~~~ ui["Dashboard"]
+  end
+  sparrow <--> pg[("PostgreSQL<br/>events, deliveries, health,<br/>River job queue")]
+  sparrow -- "signed, retried" --> subs["Subscribers"]
 ```
 
 The simplicity is not a stage I plan to grow out of. It is the design. A tool you can understand completely is a tool you can run with confidence, fix when it breaks, and fork if you ever need to.
@@ -56,14 +65,14 @@ I chose MIT because infrastructure you depend on should not come with a catch. T
 
 Run it locally with Docker Compose:
 
-```bash
+```bash title="Start Sparrow"
 curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml
 docker compose up -d
 ```
 
 Install the CLI and send your first event:
 
-```bash
+```bash title="Terminal 1: listen"
 curl -fsSL https://raw.githubusercontent.com/sarathsp06/sparrow/main/scripts/install.sh | sh
 sparrow init --url http://localhost:8080
 sparrow listen --event order.created
@@ -71,13 +80,13 @@ sparrow listen --event order.created
 
 In another terminal:
 
-```bash
+```bash title="Terminal 2: push"
 sparrow push order.created -d '{"order_id":"ord_1","amount":42}'
 ```
 
 The delivery arrives in the first terminal with its signature verified. Routing that same event to Slack is one more command:
 
-```bash
+```bash title="Route it to Slack"
 sparrow use slack --param webhook_url=https://hooks.slack.com/services/T00/B00/xxx --event order.created
 ```
 
