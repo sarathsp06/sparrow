@@ -137,7 +137,12 @@ succeed. Sparrow pauses such a webhook itself once its receiver has failed
 **every attempt for `SPARROW_AUTO_DISABLE_AFTER`** (default `120h`, 5 days)
 **and at least `SPARROW_AUTO_DISABLE_MIN_FAILURES` attempts in a row**
 (default `10`). Any successful attempt resets the clock. Set
-`SPARROW_AUTO_DISABLE_AFTER=0` to turn this off.
+`SPARROW_AUTO_DISABLE_AFTER=0` (or `SPARROW_AUTO_DISABLE_MIN_FAILURES=0`) to
+turn this off. The check runs with each health evaluation, on a webhook's
+attempts, so the pause comes with the first failed attempt after the window and
+within a minute of it; the
+[health state machine](/sparrow/reference/architecture/#automatic-disabling)
+has the details.
 
 When it happens:
 

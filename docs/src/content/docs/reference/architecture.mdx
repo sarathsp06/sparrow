@@ -112,7 +112,78 @@ stateDiagram-v2
 2. `HealthEvaluatorWorker` runs every `SPARROW_HEALTH_EVAL_INTERVAL` (default `1m`) and folds the events since its last run into per-minute buckets, the running 24-hour counters and `webhook_health_state` (consecutive failures, `failing_since`).
 3. When a webhook's label changes, the same pass rewrites `webhook_registrations.health` and Sparrow emits `sparrow.webhook.health_changed`. The label therefore lags by up to the evaluation interval.
 4. The health endpoint computes its summary (attempt counts, error category breakdown, average response time) from the buckets on request.
-5. In the same evaluator pass, a webhook in a failure run is auto-disabled (paused, with `auto_disabled_at`/`auto_disabled_reason`, and a `sparrow.webhook.disabled` system event) if `webhook_health_state.failing_since` is older than `SPARROW_AUTO_DISABLE_AFTER` and the run is at least `SPARROW_AUTO_DISABLE_MIN_FAILURES` attempts long. Check and pause are one `UPDATE`, so concurrent workers disable a webhook once. See [Automatic disabling](/sparrow/guides/webhook-health-alerts/#automatic-disabling).
+5. In the same evaluator pass, a webhook in a long enough failure run is auto-disabled. See [Automatic disabling](#automatic-disabling) below.
+
+### Automatic disabling
+
+Health labels only describe a receiver; automatic disabling acts on it. It is a
+separate rule from the labels above, fed by the same failure run.
+
+```mermaid
+stateDiagram-v2
+    accTitle: Automatic disabling of a webhook
+    accDescr: An active webhook enters a failure run on a failed attempt and leaves it on a success. An evaluator pass pauses a webhook whose run is long enough in both time and attempts. Resuming it restarts the run's clock.
+    [*] --> active
+    active --> failing : failed attempt\n(failing_since = its time)
+    failing --> active : any successful attempt
+    failing --> failing : failed attempt\n(consecutive_failures + 1)
+    failing --> auto_disabled : evaluator pass, when\nrun >= AUTO_DISABLE_AFTER\nAND >= AUTO_DISABLE_MIN_FAILURES
+    auto_disabled --> active : Resume\n(failing_since cleared)
+```
+
+**The failure run.** Each evaluator pass derives two columns of
+`webhook_health_state` from the attempts it folds in, in order:
+`consecutive_failures` (failed attempts since the last success) and
+`failing_since` (the time of the first of them). Any successful attempt ends
+the run and resets both. Only receiver outcomes are attempts: a delivery held
+as `paused`, or failed on Sparrow's side (such as a `template_error`), records
+no health event and neither starts nor ends a run.
+
+**The check.** After folding, the pass checks every webhook that recorded an
+attempt in that pass and is in a failure run. It pauses the webhook when all of
+these hold:
+
+- automatic disabling is on: both `SPARROW_AUTO_DISABLE_AFTER` (default `120h`)
+  and `SPARROW_AUTO_DISABLE_MIN_FAILURES` (default `10`) are greater than `0`;
+  setting either to `0` turns it off;
+- the webhook is active (a paused webhook is never disabled again) and its
+  consumer is not `_sparrow`, whose webhooks carry the alerts that would report
+  it;
+- `consecutive_failures >= SPARROW_AUTO_DISABLE_MIN_FAILURES`;
+- `failing_since` is at least `SPARROW_AUTO_DISABLE_AFTER` ago.
+
+Both conditions must hold: ten failures in a minute do not disable a webhook,
+and neither does one failure a day for a week.
+
+**Timing.** Because only webhooks with a new attempt in the pass are checked, a
+webhook is disabled on its first failed attempt after the window has passed,
+not at the moment the window ends. A receiver that gets no traffic stays
+active, failing, until its next attempt. The pause lands within one
+`SPARROW_HEALTH_EVAL_INTERVAL` (default `1m`) of that attempt, plus the
+evaluator's few seconds of lag.
+
+**The pause.** Check and pause are one `UPDATE` on `webhook_registrations`
+(`HealthRepository.AutoDisableWebhook`), so evaluator runs on several instances
+disable a webhook once. It sets `active = false`, `auto_disabled_at`, and
+`auto_disabled_reason` (`auto-disabled: <n> failed attempts in a row since
+<failing_since> with no success`). The evaluator then logs a warning, increments
+`sparrow_webhooks_auto_disabled_total`, and emits `sparrow.webhook.disabled`.
+From then on the webhook's deliveries are held as described under
+[Pausing](#pausing).
+
+**Resume.** Saving an auto-disabled webhook as active clears `auto_disabled_at`,
+`auto_disabled_reason` and `failing_since` in the same statement. The next
+failed attempt starts a new `failing_since`, so the webhook gets a full
+`SPARROW_AUTO_DISABLE_AFTER` before it can be disabled again.
+`consecutive_failures` is not reset: only a successful attempt resets it, so
+after a resume the minimum-failures condition is usually already met and the
+time window is what counts. A webhook paused and resumed by hand keeps its
+`failing_since`: if its run is already older than the window, the next failed
+attempt after resuming disables it.
+
+For the operator's view (UI, alerts, retrying held deliveries) see
+[Automatic disabling](/sparrow/guides/webhook-health-alerts/#automatic-disabling)
+in the health alerts guide.
 
 ### Pausing
 
