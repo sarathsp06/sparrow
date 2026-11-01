@@ -11,6 +11,7 @@ import (
 	"text/template"
 	"time"
 	"unicode"
+	"unicode/utf8"
 )
 
 // Func represents a template utility function with enhanced documentation
@@ -111,9 +112,7 @@ func Functions() []Func {
 		},
 		{
 			Name: "trim",
-			Func: func(cutset, s string) string {
-				return strings.Trim(s, cutset)
-			},
+			Func: trim,
 			Description: "# trim\n\nTrims specified characters from both ends of string.\n\n## Usage\n```\n{{ trim \" \" .text }}\n{{ trim \".\" \"...hello...\" }}\n```\n\n## Example\n```\nInput: \" \", \"  hello world  \"\nOutput: \"hello world\"\n\nInput: \".\", \"...hello world...\"\nOutput: \"hello world\"\n```",
 		},
 		{
@@ -447,6 +446,30 @@ func FuncMap() template.FuncMap {
 // toNumber coerces a template value to float64 for the arithmetic helpers.
 // JSON payloads unmarshal numbers as float64, so that is the common case;
 // numeric strings are also accepted for convenience.
+// trim is strings.Trim without its worst case: for a cutset with non-ASCII
+// characters strings.Trim scans the whole cutset for every character it
+// trims, so a long cutset and a long string ran for minutes, past the render
+// timeout. Looking each character up in the sorted cutset keeps it fast.
+func trim(cutset, s string) string {
+	ascii := true
+	for i := 0; i < len(cutset); i++ {
+		if cutset[i] >= utf8.RuneSelf {
+			ascii = false
+			break
+		}
+	}
+	if ascii {
+		return strings.Trim(s, cutset) // already linear for an ASCII cutset
+	}
+	set := []rune(cutset)
+	slices.Sort(set)
+	set = slices.Compact(set)
+	return strings.TrimFunc(s, func(r rune) bool {
+		_, ok := slices.BinarySearch(set, r)
+		return ok
+	})
+}
+
 func toNumber(v any) (float64, error) {
 	switch n := v.(type) {
 	case float64:
