@@ -341,8 +341,11 @@ func New(ctx context.Context, opts ...Option) (*Server, error) {
 	// verified through the same dry-run the editor's preview uses. The
 	// prompt endpoint and its docs_url fetch work without a provider, so an
 	// install with no AI still gets a copy-and-paste prompt.
-	// docs_url fetches obey the delivery network policy (SSRF guard).
-	fetch := ai.NewDocFetcher(client.NetworkPolicy{AllowPrivate: cfg.AllowPrivateNetworks, AllowedNetworks: cfg.AllowedNetworkList()})
+	// docs_url fetches reach public addresses only, whatever the delivery
+	// policy allows: the prompt endpoint returns the page text to the
+	// caller, so a private network allowance would let anyone with API
+	// access read internal pages through it.
+	fetch := ai.NewDocFetcher(client.NetworkPolicy{})
 	aiDeps := rest.AIDeps{Fetch: fetch, Timeout: cfg.AITimeout}
 	if cfg.AIEnabled() {
 		aiDeps.ConfigErr = cfg.AIConfigError()

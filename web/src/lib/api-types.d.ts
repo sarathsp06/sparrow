@@ -1221,7 +1221,7 @@ export interface paths {
         put?: never;
         /**
          * Build the AI drafting prompt without calling a model
-         * @description Returns the same prompt POST /v1/subscriptions:draftTemplate would send, as one self-contained text to paste into any chat assistant (ChatGPT, Claude, a local model). Works whether or not the server has an AI provider configured, so installs without SPARROW_AI_* still get a one-click prompt. The user pastes the assistant's template back into the subscription editor and checks it with Run Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched under the delivery network policy to include an excerpt. No side effects.
+         * @description Returns the same prompt POST /v1/subscriptions:draftTemplate would send, as one self-contained text to paste into any chat assistant (ChatGPT, Claude, a local model). Works whether or not the server has an AI provider configured, so installs without SPARROW_AI_* still get a one-click prompt. The user pastes the assistant's template back into the subscription editor and checks it with Run Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched from a public address only to include an excerpt. No side effects.
          *
          *     Portal tokens: not allowed.
          */
@@ -1883,7 +1883,7 @@ export interface components {
             current_template?: string;
             /**
              * Format: uri
-             * @description Optional http(s) page documenting the receiver's payload. Sparrow fetches it (subject to the same network policy as webhook deliveries, so private and cloud-metadata addresses are refused unless allowed) and gives the model an excerpt of its text.
+             * @description Optional http(s) page documenting the receiver's payload. Sparrow fetches it from a public address only (loopback, private and cloud-metadata addresses are always refused, even when SPARROW_ALLOW_PRIVATE_NETWORKS lets deliveries reach them) and gives the model an excerpt of its text.
              */
             docs_url?: string;
             /** @description Registered event type whose schema and sample payload ground the draft, and against which it is verified. */
