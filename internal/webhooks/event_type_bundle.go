@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	jsonschema "github.com/kaptinlin/jsonschema"
 
 	"github.com/sarathsp06/sparrow"
 	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
@@ -291,7 +290,7 @@ func compileSchema(schema map[string]any) error {
 	if err != nil {
 		return err
 	}
-	_, err = jsonschema.NewCompiler().Compile(b)
+	_, err = newSchemaCompiler().Compile(b)
 	return err
 }
 

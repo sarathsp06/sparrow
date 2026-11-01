@@ -565,6 +565,16 @@ func (e *SchemaValidationError) Warnings() []string {
 	return warnings
 }
 
+// newSchemaCompiler returns a compiler that never fetches a remote $ref. The
+// library registers plain http/https loaders by default, which would let
+// anyone who can save a schema make the server GET any URL, outside the
+// delivery network policy and without a size limit.
+func newSchemaCompiler() *jsonschema.Compiler {
+	c := jsonschema.NewCompiler()
+	clear(c.Loaders)
+	return c
+}
+
 // ValidateJSONSchema validates a payload against a JSON schema string.
 // Returns a SchemaValidationError with detailed per-field errors on failure.
 func ValidateJSONSchema(schema map[string]any, payload map[string]any) error {
@@ -572,8 +582,7 @@ func ValidateJSONSchema(schema map[string]any, payload map[string]any) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal schema: %w", err)
 	}
-	compiler := jsonschema.NewCompiler()
-	sch, err := compiler.Compile(schemaJSON)
+	sch, err := newSchemaCompiler().Compile(schemaJSON)
 	if err != nil {
 		return fmt.Errorf("invalid event schema: %w", err)
 	}
