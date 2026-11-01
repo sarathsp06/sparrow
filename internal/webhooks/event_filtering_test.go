@@ -512,3 +512,26 @@ func TestRegisterEvent_RejectsNamesOver255Characters(t *testing.T) {
 	assert.Equal(t, svcerrors.InvalidArgument, svcErr.Status)
 	repo.AssertNotCalled(t, "GetEventByName", mock.Anything, mock.Anything, mock.Anything)
 }
+
+// consumer and idempotency_key are VARCHAR(255) too: a longer value used to
+// fail the INSERT with a 500.
+func TestPushEvent_LongConsumerOrIdempotencyKeyIsAClientError(t *testing.T) {
+	service := NewWebhookService(nil, new(mockRepo), nil)
+	long := strings.Repeat("é", maxEventNameLength+1)
+	for name, push := range map[string]func() error{
+		"consumer": func() error {
+			_, _, _, _, err := service.PushEvent(testContext(), long, "order.created", nil, 0, nil, nil, nil, nil)
+			return err
+		},
+		"idempotency_key": func() error {
+			_, _, _, _, err := service.PushEvent(testContext(), "default", "order.created", nil, 0, nil, nil, &long, nil)
+			return err
+		},
+	} {
+		err := push()
+		var svcErr *svcerrors.ServiceError
+		require.ErrorAs(t, err, &svcErr, name)
+		assert.Equal(t, svcerrors.InvalidArgument, svcErr.Status, name)
+		assert.Equal(t, name+" must be at most 255 characters, got 256", svcErr.ClientMessage())
+	}
+}

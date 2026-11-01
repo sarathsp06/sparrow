@@ -117,7 +117,7 @@ func TestSQLBench(t *testing.T) {
 	})
 	bench("retry snapshot: consumer hot, failed", func() (string, error) {
 		ids, err := r.SnapshotDeliveryIDs(ctx, tid, DeliveryFilter{Consumer: hot, Status: &failed})
-		if err != nil && strings.Contains(err.Error(), "narrow your filter") {
+		if err != nil && strings.Contains(err.Error(), "narrow the filter") {
 			return "rejected: over the batch limit (expected at scale 1)", nil
 		}
 		return fmt.Sprintf("%d ids", len(ids)), err

@@ -76,6 +76,19 @@ func (s *WebhookService) PushEvent(ctx context.Context, consumer string, event s
 		span.SetStatus(otelcodes.Error, "event name too long")
 		return "", false, false, nil, err
 	}
+	// Both are VARCHAR(255): a longer value failed the INSERT with a 500.
+	if utf8.RuneCountInString(consumer) > maxEventNameLength {
+		err := svcerrors.Errorf(svcerrors.InvalidArgument, "consumer must be at most %d characters, got %d", maxEventNameLength, utf8.RuneCountInString(consumer))
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "consumer too long")
+		return "", false, false, nil, err
+	}
+	if idempotencyKey != nil && utf8.RuneCountInString(*idempotencyKey) > maxEventNameLength {
+		err := svcerrors.Errorf(svcerrors.InvalidArgument, "idempotency_key must be at most %d characters, got %d", maxEventNameLength, utf8.RuneCountInString(*idempotencyKey))
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "idempotency_key too long")
+		return "", false, false, nil, err
+	}
 	if err := validateLabels(labels, "labels"); err != nil {
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "invalid labels")
