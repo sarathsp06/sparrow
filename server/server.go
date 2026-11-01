@@ -377,7 +377,7 @@ func New(ctx context.Context, opts ...Option) (*Server, error) {
 	// Global middleware: body size cap, security headers, then CORS
 	r.Use(middleware.MaxBodyBytes(cfg.MaxBodyBytes))
 	r.Use(middleware.SecurityHeaders(ui.InlineScriptHashes()))
-	corsMiddleware, corsMode := middleware.CORS(cfg.CORSAllowedOrigins, cfg.IsProduction())
+	corsMiddleware, corsMode := middleware.CORS(cfg.CORSAllowedOrigins, cfg.IsProduction(), cfg.APIKey != "")
 	logCORSMode(corsMode, cfg.CORSAllowedOrigins)
 	r.Use(corsMiddleware)
 	r.Use(otelhttp.NewMiddleware("sparrow"))
@@ -670,6 +670,8 @@ func logCORSMode(mode middleware.CORSMode, origins []string) {
 		fmt.Println("   If the UI is hosted separately, set SPARROW_CORS_ALLOWED_ORIGINS to the UI origin")
 	case middleware.CORSAllowAll:
 		fmt.Println("⚠️  SPARROW_CORS_ALLOWED_ORIGINS not set — allowing all origins (development mode, not for production)")
+	case middleware.CORSLoopbackOnly:
+		fmt.Println("⚠️  SPARROW_API_KEY not set — CORS allows only localhost origins (set SPARROW_CORS_ALLOWED_ORIGINS for a UI hosted elsewhere)")
 	}
 }
 
