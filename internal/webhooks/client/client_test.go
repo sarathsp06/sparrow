@@ -183,6 +183,8 @@ func TestSendRedirectToAnotherHostDropsCustomHeaders(t *testing.T) {
 		case "/final":
 			got <- r.Header.Clone()
 			w.WriteHeader(http.StatusOK)
+		case "/port":
+			http.Redirect(w, r, other.URL+"/hook", http.StatusTemporaryRedirect)
 		default:
 			http.Redirect(w, r, otherURL+"/hook", http.StatusTemporaryRedirect)
 		}
@@ -220,6 +222,11 @@ func TestSendRedirectToAnotherHostDropsCustomHeaders(t *testing.T) {
 	}
 	if h.Get("X-Sparrow-Event-Type") != "test.event" || h.Get("Webhook-Signature") == "" {
 		t.Errorf("Sparrow headers missing after redirect: %v", h)
+	}
+
+	// Same host name, another port: possibly another service.
+	if h = send("/port"); h.Get("X-Api-Key") != "" || h.Get("Authorization") != "" {
+		t.Errorf("custom headers reached another port: %v", h)
 	}
 
 	if h = send("/same"); h.Get("X-Api-Key") != "secret" {
@@ -611,5 +618,24 @@ func TestSendRefusesHugeResponseHeaders(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "exceeded") {
 		t.Fatalf("err = %v, want the response header limit", err)
+	}
+}
+
+func TestSameOrigin(t *testing.T) {
+	for _, c := range []struct {
+		a, b string
+		want bool
+	}{
+		{"https://h/x", "https://H:443/y", true},
+		{"http://h/x", "http://h:80/y", true},
+		{"https://h/x", "http://h/x", false},
+		{"https://h/x", "https://h:8443/x", false},
+		{"https://h/x", "https://g/x", false},
+	} {
+		a, _ := url.Parse(c.a)
+		b, _ := url.Parse(c.b)
+		if got := sameOrigin(a, b); got != c.want {
+			t.Errorf("sameOrigin(%s, %s) = %v, want %v", c.a, c.b, got, c.want)
+		}
 	}
 }

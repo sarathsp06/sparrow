@@ -2849,7 +2849,7 @@ components:
             type: integer
           type: array
         follow_redirects:
-          description: "Whether to follow HTTP redirects returned by the endpoint. Each redirect target passes the same SSRF checks, and a redirect to another host gets only Sparrow's own headers: headers and secret_headers are dropped. Defaults to true."
+          description: "Whether to follow HTTP redirects returned by the endpoint. Each redirect target passes the same SSRF checks, and a redirect that changes the scheme, host or port gets only Sparrow's own headers: headers and secret_headers are dropped. Defaults to true."
           type: boolean
         max_retries:
           description: Retries after the first attempt before a delivery is marked failed, so a delivery gets up to max_retries + 1 attempts. 0 means no retries. Between 0 and 10; defaults to 3.
