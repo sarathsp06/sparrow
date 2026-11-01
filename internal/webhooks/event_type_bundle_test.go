@@ -133,3 +133,27 @@ func TestBundleItemJSONShape(t *testing.T) {
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"name":"a.b","active":true}`, string(b))
 }
+
+// The import renders template checks before its transaction and reuses them
+// inside it, unless the subscriptions changed in between.
+func TestPrecheckReuse(t *testing.T) {
+	def := EventTypeDefinition{Name: "order.paid", Schema: map[string]any{
+		"type": "object", "required": []any{"total"},
+		"properties": map[string]any{"total": map[string]any{"type": "integer"}},
+	}}
+	sub := &store.EventSubscription{ID: uuid.New(), EventName: "order.paid", TransformEnabled: true, TransformTemplate: `{{ .payload.missing }}`}
+	subs := []*store.EventSubscription{sub}
+	pre := precheck{key: subscriptionsKey(subs), check: checkTemplates(def, subs)}
+	require.Len(t, pre.check.Failures, 1)
+
+	got := pre.reuse(def, subs)
+	require.Len(t, got.Failures, 1)
+	got.Paused = append(got.Paused, "x")
+	assert.Empty(t, pre.check.Paused, "reuse must hand out a copy")
+
+	fixed := *sub
+	fixed.TransformTemplate = `{{ .payload.total }}`
+	got = pre.reuse(def, []*store.EventSubscription{&fixed})
+	assert.Empty(t, got.Failures, "a changed template is checked again")
+	assert.Equal(t, 1, got.Passed)
+}

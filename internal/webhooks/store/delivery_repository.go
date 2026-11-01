@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -98,9 +99,26 @@ func (r *Repository) CreateFanOutDeliveries(ctx context.Context, tenantID uuid.U
 	return inserted, nil
 }
 
-// insertNewDeliveries inserts deliveries in a single multi-row INSERT,
-// skipping IDs that already exist, and returns the ones it inserted.
+// maxDeliveriesPerInsert keeps one INSERT under Postgres's limit of 65535
+// bind parameters (12 per delivery), so an event matching thousands of
+// subscriptions still fans out.
+const maxDeliveriesPerInsert = 1000
+
+// insertNewDeliveries inserts deliveries with multi-row INSERTs of up to
+// maxDeliveriesPerInsert rows, skipping IDs that already exist, and returns
+// the ones it inserted.
 func (r *Repository) insertNewDeliveries(ctx context.Context, deliveries []*WebhookDelivery) ([]*WebhookDelivery, error) {
+	if len(deliveries) > maxDeliveriesPerInsert {
+		var inserted []*WebhookDelivery
+		for chunk := range slices.Chunk(deliveries, maxDeliveriesPerInsert) {
+			got, err := r.insertNewDeliveries(ctx, chunk)
+			if err != nil {
+				return nil, err
+			}
+			inserted = append(inserted, got...)
+		}
+		return inserted, nil
+	}
 	// INSERT INTO webhook_deliveries (id, webhook_id, ..., request_body)
 	//   VALUES ($1,...,$12), ($13,...,$24), ... ON CONFLICT (id) DO NOTHING RETURNING id
 	const cols = 12

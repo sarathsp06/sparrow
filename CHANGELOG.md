@@ -16,17 +16,38 @@ migrations run on startup.
 
 ## [Unreleased]
 
+### Upgrading
+
+- Moving a webhook to another host with `PATCH ... {"url": ...}` returns 400 while it has secret headers, unless the same request sends `secret_headers` with a value (or `""`) for each of them.
+- A separately hosted UI calling a server without `SPARROW_API_KEY` from a non-localhost origin must now be listed in `SPARROW_CORS_ALLOWED_ORIGINS`.
+- A delivery whose receiver answers with more than 64 KB of response headers now fails with `server response headers exceeded 65536 bytes` (Go's default allowed 10 MB).
+- A push whose payload breaks the event schema in many places returns at most 100 `warnings`, then `... and N more schema warnings`.
+
 ### Added
 
 - Scheduled events: `POST /v1/consumers/{consumer}/events` accepts an optional `scheduled_at` (RFC 3339). The occurrence is stored immediately but fans out to subscriptions only at that time; `ttl_seconds` counts from then, times more than one year ahead are refused (400), and a past time delivers immediately. Occurrence responses and the UI show the scheduled time, and event retention never deletes an event before it has fired.
 
 ### Security
 
+- Event type schemas no longer fetch a remote `$ref`. The JSON Schema library fetched `http(s)` references by default, outside the delivery network policy and without a size limit, so saving, importing or validating a schema could make Sparrow request any URL, including cloud metadata, and report the result. Local references (`#/$defs/...`) still work.
+- Generating an event type's sample payload is bounded: `minLength`/`minItems` and the other size keywords are capped (4096 characters, 100 items), and generation stops after 10,000 values. A schema such as `{"minLength": 100000000000}` used to crash the server out of memory.
+- Changing a webhook's `url` to another origin (scheme, host or port) now requires every existing secret header to be set again or removed in the same request. Before, anyone allowed to edit the URL, portal consumers included, could send a webhook's secret headers to their own server.
+- A delivery redirected to another scheme, host or port no longer carries the webhook's `headers` and `secret_headers`, only Sparrow's own headers and the signature. Go removes only `Authorization` and `Cookie` on such redirects.
+- `docs_url` (AI template drafting) is fetched from public addresses only, even with `SPARROW_ALLOW_PRIVATE_NETWORKS=true`. The prompt endpoint returns the page text, so it could read internal pages.
+- Without `SPARROW_API_KEY`, and with `SPARROW_CORS_ALLOWED_ORIGINS` unset outside production, CORS now allows only `localhost` and loopback origins instead of every origin. Any website a browser on the network visited could otherwise use the open API, for example to create a token.
+- Importing event types renders the subscription template pre-checks before its transaction, so slow templates no longer hold database locks for the length of the import.
+- A template could crash the server: `append` wrote into a list another list already shared, so `{{$x := append (list 1 2) 3}}{{$y := append $x $x}}{{$z := append $x $y}}{{print $y}}` built a list containing itself, and printing it overflowed the stack, which Go cannot recover from. A template test, or one saved template on every delivery, took the process down.
+- `trim` with a long non-ASCII cutset kept a CPU core busy for tens of seconds after the 5 second render timeout, holding a render slot; it now runs in linear time with the same results.
+- A receiver's status line and headers are limited to 64 KB, and error text from a receiver is stored up to 1 KB on the delivery, its health event and `delivery_failed`. A receiver could write a 10 MB status line into each of them on every retry.
 - `golang.org/x/net` v0.62.0 fixes GO-2026-6860 (quadratic time parsing HTML with many text nodes). Sparrow parses HTML only when AI template drafting turns a fetched documentation page into text.
 - Web UI: built with SvelteKit 3.1, which fixes GHSA-27mw-82g8-phjj (XSS through a `cache-control` header on prerendered pages) and GHSA-pfhg-q3qv-9q6r (open redirect through enhanced form actions). Sparrow's UI uses neither feature, so it was not exposed; the upgrade clears the advisories for scanners.
 
 ### Fixed
 
+- An event matching more than 5,461 subscriptions fanned out to none: the deliveries went into one statement over Postgres's 65,535 parameter limit, so the fan-out failed on every attempt after the push had returned 201. Deliveries are now inserted 1,000 at a time in the same transaction.
+- When every template render slot was busy, deliveries returned an error and used up a retry attempt. They now wait one to two seconds and try again without spending an attempt.
+- A `consumer` or `idempotency_key` over 255 characters on push, and a re-push or retry filter matching more than 10,000 items, return a 400 that names the limit instead of a 500.
+- The push and API docs now say request bodies are limited to 1 MiB (5 MiB for event-type import); `SPARROW_MAX_BODY_BYTES` does not raise it.
 - After a crash (OOM, `SIGKILL`, lost node), deliveries and fan-outs that were running are retried after 7 minutes instead of River's default of an hour. Set the window with `SPARROW_QUEUE_RESCUE_AFTER`; it must be longer than the 5 minute longest delivery request.
 - Queue workers no longer log an ERROR per job run for tenants held at their `WithTenantLimits` fan-out/delivery cap: River adds a numeric `snoozes` counter to job metadata on every snooze, which broke the trace-context read. Tracing was unaffected; the logs were pure noise.
 - Embedded Sparrow (`server` package): cancelling the context passed to `Start` no longer hard-stops River mid-delivery (which could double-send on restart) — stopping is `Shutdown`'s job, which drains gracefully. `New` now releases its OpenTelemetry providers when a later setup step fails, errors when `WithTenantLimits` declares queues without a limits function (previously a silent no-op), and a repeated `Start` no longer leaks a second CRL refresh listener.

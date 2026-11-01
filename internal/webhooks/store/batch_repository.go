@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
 	"github.com/sarathsp06/sparrow/internal/storage"
 )
 
@@ -173,7 +174,7 @@ func (r *Repository) SnapshotEventIDs(ctx context.Context, tenantID uuid.UUID, f
 	}
 
 	if len(ids) > MaxBatchSize {
-		return nil, fmt.Errorf("filter matches more than %d events; narrow your filter criteria", MaxBatchSize)
+		return nil, svcerrors.Errorf(svcerrors.InvalidArgument, "filter matches more than %d events, the most one batch can act on; narrow the filter (for example by event name or time range) and try again", MaxBatchSize)
 	}
 
 	return ids, nil
@@ -197,7 +198,7 @@ func (r *Repository) SnapshotDeliveryIDs(ctx context.Context, tenantID uuid.UUID
 	}
 
 	if len(ids) > MaxBatchSize {
-		return nil, fmt.Errorf("filter matches more than %d deliveries; narrow your filter criteria", MaxBatchSize)
+		return nil, svcerrors.Errorf(svcerrors.InvalidArgument, "filter matches more than %d deliveries, the most one batch can act on; narrow the filter (for example by status or time range) and try again", MaxBatchSize)
 	}
 
 	return ids, nil

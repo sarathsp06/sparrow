@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -74,6 +75,19 @@ func (s *WebhookService) PushEvent(ctx context.Context, consumer string, event s
 		err := svcerrors.Error(svcerrors.InvalidArgument, eventNameTooLong)
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event name too long")
+		return "", false, false, nil, err
+	}
+	// Both are VARCHAR(255): a longer value failed the INSERT with a 500.
+	if utf8.RuneCountInString(consumer) > maxEventNameLength {
+		err := svcerrors.Errorf(svcerrors.InvalidArgument, "consumer must be at most %d characters, got %d", maxEventNameLength, utf8.RuneCountInString(consumer))
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "consumer too long")
+		return "", false, false, nil, err
+	}
+	if idempotencyKey != nil && utf8.RuneCountInString(*idempotencyKey) > maxEventNameLength {
+		err := svcerrors.Errorf(svcerrors.InvalidArgument, "idempotency_key must be at most %d characters, got %d", maxEventNameLength, utf8.RuneCountInString(*idempotencyKey))
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "idempotency_key too long")
 		return "", false, false, nil, err
 	}
 	if err := validateLabels(labels, "labels"); err != nil {
@@ -545,7 +559,23 @@ func (e *SchemaValidationError) Error() string {
 			parts = append(parts, fmt.Sprintf("%s: %s", field, msg))
 		}
 	}
-	return fmt.Sprintf("%s: %s", e.Message, strings.Join(parts, "; "))
+	return fmt.Sprintf("%s: %s", e.Message, strings.Join(capWarnings(parts), "; "))
+}
+
+// maxSchemaWarnings bounds the messages reported for one payload. A large
+// array of wrongly typed items gets one per item, which made a 1 MiB push
+// answer with a response about 20 times larger.
+const maxSchemaWarnings = 100
+
+// capWarnings sorts warnings, so the ones kept do not change from push to
+// push, and replaces those past maxSchemaWarnings with a count.
+func capWarnings(warnings []string) []string {
+	if len(warnings) <= maxSchemaWarnings {
+		return warnings
+	}
+	slices.Sort(warnings)
+	more := len(warnings) - maxSchemaWarnings
+	return append(warnings[:maxSchemaWarnings:maxSchemaWarnings], fmt.Sprintf("... and %d more schema warnings", more))
 }
 
 // Warnings returns per-field validation messages suitable for API responses.
@@ -562,7 +592,17 @@ func (e *SchemaValidationError) Warnings() []string {
 	if len(warnings) == 0 {
 		warnings = append(warnings, e.Message)
 	}
-	return warnings
+	return capWarnings(warnings)
+}
+
+// newSchemaCompiler returns a compiler that never fetches a remote $ref. The
+// library registers plain http/https loaders by default, which would let
+// anyone who can save a schema make the server GET any URL, outside the
+// delivery network policy and without a size limit.
+func newSchemaCompiler() *jsonschema.Compiler {
+	c := jsonschema.NewCompiler()
+	clear(c.Loaders)
+	return c
 }
 
 // ValidateJSONSchema validates a payload against a JSON schema string.
@@ -572,8 +612,7 @@ func ValidateJSONSchema(schema map[string]any, payload map[string]any) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal schema: %w", err)
 	}
-	compiler := jsonschema.NewCompiler()
-	sch, err := compiler.Compile(schemaJSON)
+	sch, err := newSchemaCompiler().Compile(schemaJSON)
 	if err != nil {
 		return fmt.Errorf("invalid event schema: %w", err)
 	}

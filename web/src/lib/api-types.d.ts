@@ -1221,7 +1221,7 @@ export interface paths {
         put?: never;
         /**
          * Build the AI drafting prompt without calling a model
-         * @description Returns the same prompt POST /v1/subscriptions:draftTemplate would send, as one self-contained text to paste into any chat assistant (ChatGPT, Claude, a local model). Works whether or not the server has an AI provider configured, so installs without SPARROW_AI_* still get a one-click prompt. The user pastes the assistant's template back into the subscription editor and checks it with Run Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched under the delivery network policy to include an excerpt. No side effects.
+         * @description Returns the same prompt POST /v1/subscriptions:draftTemplate would send, as one self-contained text to paste into any chat assistant (ChatGPT, Claude, a local model). Works whether or not the server has an AI provider configured, so installs without SPARROW_AI_* still get a one-click prompt. The user pastes the assistant's template back into the subscription editor and checks it with Run Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched from a public address only to include an excerpt. No side effects.
          *
          *     Portal tokens: not allowed.
          */
@@ -1883,7 +1883,7 @@ export interface components {
             current_template?: string;
             /**
              * Format: uri
-             * @description Optional http(s) page documenting the receiver's payload. Sparrow fetches it (subject to the same network policy as webhook deliveries, so private and cloud-metadata addresses are refused unless allowed) and gives the model an excerpt of its text.
+             * @description Optional http(s) page documenting the receiver's payload. Sparrow fetches it from a public address only (loopback, private and cloud-metadata addresses are always refused, even when SPARROW_ALLOW_PRIVATE_NETWORKS lets deliveries reach them) and gives the model an excerpt of its text.
              */
             docs_url?: string;
             /** @description Registered event type whose schema and sample payload ground the draft, and against which it is verified. */
@@ -2679,7 +2679,7 @@ export interface components {
             http_config?: components["schemas"]["WebhookHTTPConfig"];
             /** @description Require (or stop requiring) a payload transform on every subscription. Turning it on fails with 409 while any subscription has no enabled transform_template. While on, events cannot be replaced in bulk (409): add or delete subscriptions individually. */
             requires_transform?: boolean;
-            /** @description Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it. An empty object removes them all. */
+            /** @description Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it. An empty object removes them all. Changing url to another origin (scheme, host or port) is refused unless this sets every existing secret header again (a new value, or an empty string to remove it), so moving a webhook never carries its secrets to a new server. */
             secret_headers?: {
                 [key: string]: string;
             };
@@ -2725,7 +2725,7 @@ export interface components {
             metadata?: {
                 [key: string]: string;
             };
-            /** @description Event payload, a JSON object. Validated softly against the event type's JSON Schema if one is registered. The whole request body is limited by SPARROW_MAX_BODY_BYTES (default 5 MiB). */
+            /** @description Event payload, a JSON object. Validated softly against the event type's JSON Schema if one is registered. The whole request body is limited to 1 MiB (413 above that). */
             payload: {
                 [key: string]: unknown;
             };
@@ -3352,7 +3352,7 @@ export interface components {
             content_type?: string;
             /** @description HTTP status codes treated as a successful delivery, each between 100 and 599. Defaults to 200, 201, 202 and 204. */
             expected_status_codes?: number[];
-            /** @description Whether to follow HTTP redirects returned by the endpoint. Each redirect target passes the same SSRF checks. Defaults to true. */
+            /** @description Whether to follow HTTP redirects returned by the endpoint. Each redirect target passes the same SSRF checks, and a redirect that changes the scheme, host or port gets only Sparrow's own headers: headers and secret_headers are dropped. Defaults to true. */
             follow_redirects?: boolean;
             /**
              * Format: int64

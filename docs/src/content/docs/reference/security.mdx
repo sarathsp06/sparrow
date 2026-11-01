@@ -216,7 +216,8 @@ Two more request-level controls:
 - **Body size cap**: every request body is capped at
   `SPARROW_MAX_BODY_BYTES` (default 5 MiB) -- bounds memory use against
   oversized payloads before they're read. Values below 1 MiB are rejected
-  at startup.
+  at startup. API requests are also limited to 1 MiB each (event-type
+  import: 5 MiB).
 - **Per-webhook rate limiting**: optional leaky-bucket `http_config.rate_limit_rps` per
   webhook throttles *outbound* delivery -- protects the receiver from being
   hammered. (It does not protect Sparrow's own inbound API; see the note

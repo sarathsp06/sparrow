@@ -3,6 +3,8 @@ package webhooks
 import (
 	"context"
 	"fmt"
+	neturl "net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -452,6 +454,9 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		return fmt.Errorf("failed to retrieve webhook: %w", err)
 	}
 
+	oldURL := webhook.URL
+	oldSecretHeaders := webhook.SecretHeaders
+
 	// Build a set for O(1) lookup. When empty, all non-zero fields are applied (legacy).
 	mask := make(map[string]bool, len(updateMask))
 	for _, p := range updateMask {
@@ -612,6 +617,9 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 			webhook.SecretHeaders = encrypted
 		}
 	}
+	if err := s.checkSecretHeadersFollowURL(oldURL, webhook.URL, oldSecretHeaders, secretHeaders, shouldUpdate("secret_headers")); err != nil {
+		return err
+	}
 	// Update signature_type if in mask (or legacy non-empty)
 	if shouldUpdate("signature_type") && signatureType != "" {
 		newSigType := store.SignatureType(signatureType)
@@ -736,4 +744,46 @@ func (s *WebhookService) RotateWebhookSecret(ctx context.Context, webhookID stri
 	}
 	s.logger.InfoContext(ctx, "Rotated webhook signing secret", "webhook_id", webhookID, "consumer", consumer)
 	return secret, nil
+}
+
+// checkSecretHeadersFollowURL refuses to point a webhook at another origin
+// while it keeps secret headers this request did not set. Secret header
+// values are never returned by the API, so without this anyone who may edit
+// the URL (a portal consumer, say) could read them by moving the webhook to
+// a server they control. Each existing header must be given a new value, or
+// "" to remove it; an empty secret_headers object removes them all.
+func (s *WebhookService) checkSecretHeadersFollowURL(oldURL, newURL string, oldEncrypted []byte, set map[string]string, updated bool) error {
+	if len(oldEncrypted) == 0 || sameOrigin(oldURL, newURL) {
+		return nil
+	}
+	if updated && len(set) == 0 {
+		return nil // all removed
+	}
+	old, err := s.DecryptSecretHeaders(oldEncrypted)
+	if err != nil {
+		return fmt.Errorf("failed to decrypt existing secret headers: %w", err)
+	}
+	var missing []string
+	for name := range old {
+		if _, ok := set[name]; !ok || !updated {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	slices.Sort(missing)
+	return svcerrors.Errorf(svcerrors.InvalidArgument,
+		"changing the URL to another origin requires secret_headers to be set again: give %s a new value, or \"\" to remove it",
+		strings.Join(missing, ", "))
+}
+
+// sameOrigin reports whether two URLs share scheme, host and port.
+func sameOrigin(a, b string) bool {
+	ua, errA := neturl.Parse(a)
+	ub, errB := neturl.Parse(b)
+	if errA != nil || errB != nil {
+		return false
+	}
+	return strings.EqualFold(ua.Scheme, ub.Scheme) && strings.EqualFold(ua.Host, ub.Host)
 }

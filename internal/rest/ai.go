@@ -71,7 +71,7 @@ type draftTemplateBody struct {
 	Instructions    string         `json:"instructions" required:"true" minLength:"1" maxLength:"4000" doc:"Plain-language description of the body the receiver should get, e.g. \"a short Slack message with the order id and total, flagged when refunded\"."`
 	Recipe          string         `json:"recipe,omitempty" doc:"Name of a shipped recipe (see GET /v1/recipes) whose destination format the draft should follow, e.g. \"slack\". Omit for a custom receiver."`
 	TargetExample   string         `json:"target_example,omitempty" maxLength:"20000" doc:"Optional: what the receiver expects, either an example body (the draft maps event fields onto that exact structure) or a plain-language description of its shape."`
-	DocsURL         string         `json:"docs_url,omitempty" format:"uri" maxLength:"2048" doc:"Optional http(s) page documenting the receiver's payload. Sparrow fetches it (subject to the same network policy as webhook deliveries, so private and cloud-metadata addresses are refused unless allowed) and gives the model an excerpt of its text."`
+	DocsURL         string         `json:"docs_url,omitempty" format:"uri" maxLength:"2048" doc:"Optional http(s) page documenting the receiver's payload. Sparrow fetches it from a public address only (loopback, private and cloud-metadata addresses are always refused, even when SPARROW_ALLOW_PRIVATE_NETWORKS lets deliveries reach them) and gives the model an excerpt of its text."`
 	SamplePayload   map[string]any `json:"sample_payload,omitempty" doc:"Optional payload to ground and verify the draft against instead of the event type's registered sample. Does not change the event type."`
 	CurrentTemplate string         `json:"current_template,omitempty" maxLength:"20000" doc:"Optional existing template to refine instead of drafting from scratch."`
 }
@@ -184,7 +184,7 @@ func registerPromptRoute(api huma.API, svc webhooks.WebhookServiceInterface, dep
 		Method:      http.MethodPost,
 		Path:        "/v1/subscriptions:draftTemplatePrompt",
 		Summary:     "Build the AI drafting prompt without calling a model",
-		Description: "Returns the same prompt POST /v1/subscriptions:draftTemplate would send, as one self-contained text to paste into any chat assistant (ChatGPT, Claude, a local model). Works whether or not the server has an AI provider configured, so installs without SPARROW_AI_* still get a one-click prompt. The user pastes the assistant's template back into the subscription editor and checks it with Run Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched under the delivery network policy to include an excerpt. No side effects.\n\nPortal tokens: not allowed.",
+		Description: "Returns the same prompt POST /v1/subscriptions:draftTemplate would send, as one self-contained text to paste into any chat assistant (ChatGPT, Claude, a local model). Works whether or not the server has an AI provider configured, so installs without SPARROW_AI_* still get a one-click prompt. The user pastes the assistant's template back into the subscription editor and checks it with Run Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched from a public address only to include an excerpt. No side effects.\n\nPortal tokens: not allowed.",
 		Errors:      []int{400, 404},
 		Tags:        []string{"Subscriptions"},
 	}, func(ctx context.Context, in *draftTemplateInput) (*draftTemplatePromptOutput, error) {

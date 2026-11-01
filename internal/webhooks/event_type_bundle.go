@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	jsonschema "github.com/kaptinlin/jsonschema"
 
 	"github.com/sarathsp06/sparrow"
 	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
@@ -291,7 +290,7 @@ func compileSchema(schema map[string]any) error {
 	if err != nil {
 		return err
 	}
-	_, err = jsonschema.NewCompiler().Compile(b)
+	_, err = newSchemaCompiler().Compile(b)
 	return err
 }
 
@@ -323,6 +322,19 @@ func (s *WebhookService) ImportEventTypes(ctx context.Context, items []EventType
 		}
 	}
 
+	// Render template checks before the transaction: a slow template can
+	// take seconds per render, which must not hold row locks and a
+	// connection. The transaction reuses a check when it sees the same
+	// subscriptions, and renders again only if they changed in between.
+	prechecked := make(map[string]precheck, len(sorted))
+	for _, def := range sorted {
+		subs, err := s.webhookRepo.ListSubscriptionsTargetingEvent(ctx, tenantID, def.Name)
+		if err != nil {
+			return nil, fmt.Errorf("%s: failed to list affected subscriptions: %w", def.Name, err)
+		}
+		prechecked[def.Name] = precheck{key: subscriptionsKey(subs), check: checkTemplates(def, subs)}
+	}
+
 	run := func() error {
 		result.Items = result.Items[:0]
 		result.BlockedBy = slices.DeleteFunc(result.BlockedBy, func(b string) bool { return b == BlockedByBreaking })
@@ -335,7 +347,7 @@ func (s *WebhookService) ImportEventTypes(ctx context.Context, items []EventType
 				}
 				item := EventTypeImportItem{EventTypeSaveResult: res}
 				if res.Action == EventTypeNewVersion {
-					item.Templates = checkTemplates(def, res.AffectedSubscriptions)
+					item.Templates = prechecked[def.Name].reuse(def, res.AffectedSubscriptions)
 					if opts.PauseFailing && !res.Blocked {
 						if err := pauseFailing(ctx, tx, tenantID, res, item.Templates); err != nil {
 							return err
@@ -370,6 +382,35 @@ func (s *WebhookService) ImportEventTypes(ctx context.Context, items []EventType
 	result.ImportedAt = time.Now().UTC()
 	s.logger.InfoContext(ctx, "Imported event types", "count", len(result.Items))
 	return result, nil
+}
+
+// precheck is a template check computed before the import transaction, for
+// the subscriptions identified by key.
+type precheck struct {
+	key   string
+	check *TemplateCheck
+}
+
+// reuse returns a copy of the precomputed check when subs are the ones it
+// was computed for, and checks subs afresh otherwise.
+func (p precheck) reuse(def EventTypeDefinition, subs []*store.EventSubscription) *TemplateCheck {
+	if p.check == nil || p.key != subscriptionsKey(subs) {
+		return checkTemplates(def, subs)
+	}
+	c := *p.check
+	c.Failures = slices.Clone(p.check.Failures)
+	c.Paused = nil
+	return &c
+}
+
+// subscriptionsKey identifies what a template check depends on: each
+// subscription, its event and its transform.
+func subscriptionsKey(subs []*store.EventSubscription) string {
+	h := sha256.New()
+	for _, sub := range subs {
+		_, _ = fmt.Fprintf(h, "%s\x00%s\x00%t\x00%d:%s\x00", sub.ID, sub.EventName, sub.TransformEnabled, len(sub.TransformTemplate), sub.TransformTemplate)
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // pauseFailing pauses each subscription that failed the template check,

@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -48,8 +49,19 @@ func NewWebhookClient(config *Config) *WebhookClient {
 	// every mode: even AllowPrivateNetworks keeps cloud metadata blocked.
 	dialer.Control = policy.dialControl
 
-	checkRedirect := policy.checkRedirect // SEC-001: validate redirect targets against the policy
+	// SEC-001: validate redirect targets against the policy, and never
+	// forward a webhook's own headers to another host.
+	checkRedirect := func(req *http.Request, via []*http.Request) error {
+		if err := policy.checkRedirect(req, via); err != nil {
+			return err
+		}
+		if !sameOrigin(req.URL, via[0].URL) {
+			keepSparrowHeaders(req.Header)
+		}
+		return nil
+	}
 
+	const maxResponseHeaderBytes = 64 << 10
 	transport := &http.Transport{
 		MaxIdleConns:    config.MaxIdleConns,
 		MaxConnsPerHost: config.MaxConnsPerHost,
@@ -58,8 +70,11 @@ func NewWebhookClient(config *Config) *WebhookClient {
 		MaxIdleConnsPerHost: config.MaxConnsPerHost,
 		IdleConnTimeout:     config.IdleConnTimeout,
 		TLSHandshakeTimeout: 10 * time.Second,
-		DialContext:         dialer.DialContext,
-		TLSClientConfig:     config.Revocation.TLSConfig(),
+		// Go's default is 10 MB; a receiver's status line and headers end
+		// up in delivery errors, so keep them to what a real one sends.
+		MaxResponseHeaderBytes: maxResponseHeaderBytes,
+		DialContext:            dialer.DialContext,
+		TLSClientConfig:        config.Revocation.TLSConfig(),
 	}
 	insecureTransport := transport.Clone()
 	// #nosec G402 -- explicit per-webhook verify_ssl=false opt-in for
@@ -245,4 +260,23 @@ func ReadBody(resp *http.Response, limit int64) ([]byte, error) {
 	result := make([]byte, buf.Len())
 	copy(result, buf.Bytes())
 	return result, nil
+}
+
+// sameOrigin reports whether a and b have the same scheme, host and port. A
+// redirect that changes any of them may reach another service, or send the
+// headers over plain HTTP, so it keeps only Sparrow's own headers.
+func sameOrigin(a, b *url.URL) bool {
+	return strings.EqualFold(a.Scheme, b.Scheme) &&
+		strings.EqualFold(a.Hostname(), b.Hostname()) &&
+		portOrDefault(a) == portOrDefault(b)
+}
+
+func portOrDefault(u *url.URL) string {
+	if p := u.Port(); p != "" {
+		return p
+	}
+	if strings.EqualFold(u.Scheme, "https") {
+		return "443"
+	}
+	return "80"
 }

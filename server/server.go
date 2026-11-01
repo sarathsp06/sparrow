@@ -341,8 +341,11 @@ func New(ctx context.Context, opts ...Option) (*Server, error) {
 	// verified through the same dry-run the editor's preview uses. The
 	// prompt endpoint and its docs_url fetch work without a provider, so an
 	// install with no AI still gets a copy-and-paste prompt.
-	// docs_url fetches obey the delivery network policy (SSRF guard).
-	fetch := ai.NewDocFetcher(client.NetworkPolicy{AllowPrivate: cfg.AllowPrivateNetworks, AllowedNetworks: cfg.AllowedNetworkList()})
+	// docs_url fetches reach public addresses only, whatever the delivery
+	// policy allows: the prompt endpoint returns the page text to the
+	// caller, so a private network allowance would let anyone with API
+	// access read internal pages through it.
+	fetch := ai.NewDocFetcher(client.NetworkPolicy{})
 	aiDeps := rest.AIDeps{Fetch: fetch, Timeout: cfg.AITimeout}
 	if cfg.AIEnabled() {
 		aiDeps.ConfigErr = cfg.AIConfigError()
@@ -374,7 +377,7 @@ func New(ctx context.Context, opts ...Option) (*Server, error) {
 	// Global middleware: body size cap, security headers, then CORS
 	r.Use(middleware.MaxBodyBytes(cfg.MaxBodyBytes))
 	r.Use(middleware.SecurityHeaders(ui.InlineScriptHashes()))
-	corsMiddleware, corsMode := middleware.CORS(cfg.CORSAllowedOrigins, cfg.IsProduction())
+	corsMiddleware, corsMode := middleware.CORS(cfg.CORSAllowedOrigins, cfg.IsProduction(), cfg.APIKey != "")
 	logCORSMode(corsMode, cfg.CORSAllowedOrigins)
 	r.Use(corsMiddleware)
 	r.Use(otelhttp.NewMiddleware("sparrow"))
@@ -667,6 +670,8 @@ func logCORSMode(mode middleware.CORSMode, origins []string) {
 		fmt.Println("   If the UI is hosted separately, set SPARROW_CORS_ALLOWED_ORIGINS to the UI origin")
 	case middleware.CORSAllowAll:
 		fmt.Println("⚠️  SPARROW_CORS_ALLOWED_ORIGINS not set — allowing all origins (development mode, not for production)")
+	case middleware.CORSLoopbackOnly:
+		fmt.Println("⚠️  SPARROW_API_KEY not set — CORS allows only localhost origins (set SPARROW_CORS_ALLOWED_ORIGINS for a UI hosted elsewhere)")
 	}
 }
 
