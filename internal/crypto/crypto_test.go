@@ -7,9 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// testBinding is the binding test values are encrypted with.
-var testBinding = []byte("test.column:row-1")
-
 func testKey() []byte {
 	// 32 bytes of deterministic test key
 	return []byte("01234567890123456789012345678901")
@@ -59,14 +56,14 @@ func TestEncryptDecrypt(t *testing.T) {
 	require.NoError(t, err)
 
 	plaintext := []byte("hello, secret headers!")
-	ciphertext, err := svc.EnvelopeEncrypt(plaintext, testBinding)
+	ciphertext, err := svc.EnvelopeEncrypt(plaintext)
 	require.NoError(t, err)
 
 	// Ciphertext should be different from plaintext
 	assert.NotEqual(t, plaintext, ciphertext)
 
 	// Decrypt should recover original
-	decrypted, err := svc.EnvelopeDecrypt(ciphertext, testBinding)
+	decrypted, err := svc.EnvelopeDecrypt(ciphertext)
 	require.NoError(t, err)
 	assert.Equal(t, plaintext, decrypted)
 }
@@ -76,18 +73,18 @@ func TestEncryptDecrypt_DifferentNonces(t *testing.T) {
 	require.NoError(t, err)
 
 	plaintext := []byte("same input")
-	ct1, err := svc.EnvelopeEncrypt(plaintext, testBinding)
+	ct1, err := svc.EnvelopeEncrypt(plaintext)
 	require.NoError(t, err)
-	ct2, err := svc.EnvelopeEncrypt(plaintext, testBinding)
+	ct2, err := svc.EnvelopeEncrypt(plaintext)
 	require.NoError(t, err)
 
 	// Two encryptions of the same plaintext should produce different ciphertext
 	assert.NotEqual(t, ct1, ct2)
 
 	// Both should decrypt correctly
-	d1, err := svc.EnvelopeDecrypt(ct1, testBinding)
+	d1, err := svc.EnvelopeDecrypt(ct1)
 	require.NoError(t, err)
-	d2, err := svc.EnvelopeDecrypt(ct2, testBinding)
+	d2, err := svc.EnvelopeDecrypt(ct2)
 	require.NoError(t, err)
 	assert.Equal(t, d1, d2)
 }
@@ -96,13 +93,13 @@ func TestDecrypt_TamperedData(t *testing.T) {
 	svc, err := NewService(testKey())
 	require.NoError(t, err)
 
-	ciphertext, err := svc.EnvelopeEncrypt([]byte("sensitive"), testBinding)
+	ciphertext, err := svc.EnvelopeEncrypt([]byte("sensitive"))
 	require.NoError(t, err)
 
 	// Tamper with last byte
 	ciphertext[len(ciphertext)-1] ^= 0xFF
 
-	_, err = svc.EnvelopeDecrypt(ciphertext, testBinding)
+	_, err = svc.EnvelopeDecrypt(ciphertext)
 	assert.Error(t, err)
 }
 
@@ -110,7 +107,7 @@ func TestDecrypt_TooShort(t *testing.T) {
 	svc, err := NewService(testKey())
 	require.NoError(t, err)
 
-	_, err = svc.EnvelopeDecrypt([]byte{envelopeVersionWithKeyID}, testBinding)
+	_, err = svc.EnvelopeDecrypt([]byte{envelopeVersionWithKeyID})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "too short")
 }
@@ -119,10 +116,10 @@ func TestNoEncryptionKey(t *testing.T) {
 	svc, err := NewService(nil)
 	require.NoError(t, err)
 
-	_, err = svc.EnvelopeEncrypt([]byte("data"), testBinding)
+	_, err = svc.EnvelopeEncrypt([]byte("data"))
 	assert.ErrorIs(t, err, ErrNoEncryptionKey)
 
-	_, err = svc.EnvelopeDecrypt([]byte("data"), testBinding)
+	_, err = svc.EnvelopeDecrypt([]byte("data"))
 	assert.ErrorIs(t, err, ErrNoEncryptionKey)
 }
 
@@ -135,11 +132,11 @@ func TestEncryptDecryptJSON(t *testing.T) {
 		"X-Api-Key":     "key-12345",
 	}
 
-	ciphertext, err := svc.EncryptJSON(original, testBinding)
+	ciphertext, err := svc.EncryptJSON(original)
 	require.NoError(t, err)
 
 	var decrypted map[string]string
-	err = svc.DecryptJSON(ciphertext, &decrypted, testBinding)
+	err = svc.DecryptJSON(ciphertext, &decrypted)
 	require.NoError(t, err)
 
 	assert.Equal(t, original, decrypted)
@@ -182,11 +179,11 @@ func TestDecrypt_WrongKey(t *testing.T) {
 	svc2, err := NewService([]byte("different-key-0123456789abcdefgh"))
 	require.NoError(t, err)
 
-	ciphertext, err := svc1.EnvelopeEncrypt([]byte("secret"), testBinding)
+	ciphertext, err := svc1.EnvelopeEncrypt([]byte("secret"))
 	require.NoError(t, err)
 
 	// Decrypting with a different key should fail
-	_, err = svc2.EnvelopeDecrypt(ciphertext, testBinding)
+	_, err = svc2.EnvelopeDecrypt(ciphertext)
 	assert.Error(t, err)
 }
 
@@ -195,20 +192,20 @@ func TestEncryptString_DecryptString(t *testing.T) {
 	require.NoError(t, err)
 
 	// Normal string
-	ct, err := svc.EncryptString("whsec_abc123", testBinding)
+	ct, err := svc.EncryptString("whsec_abc123")
 	require.NoError(t, err)
 	assert.NotNil(t, ct)
 
-	decrypted, err := svc.DecryptString(ct, testBinding)
+	decrypted, err := svc.DecryptString(ct)
 	require.NoError(t, err)
 	assert.Equal(t, "whsec_abc123", decrypted)
 
 	// Empty string returns nil
-	ct, err = svc.EncryptString("", testBinding)
+	ct, err = svc.EncryptString("")
 	require.NoError(t, err)
 	assert.Nil(t, ct)
 
-	decrypted, err = svc.DecryptString(nil, testBinding)
+	decrypted, err = svc.DecryptString(nil)
 	require.NoError(t, err)
 	assert.Equal(t, "", decrypted)
 }

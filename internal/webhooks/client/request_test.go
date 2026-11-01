@@ -206,7 +206,7 @@ func TestPrepareDeliveryRequest(t *testing.T) {
 	}
 
 	// Encrypt the webhook secret (simulates what the service layer does on register)
-	encryptedSecret, err := cryptoSvc.EncryptString("secret123", store.WebhookSecretBinding(webhookID, store.ColumnWebhookSecret))
+	encryptedSecret, err := cryptoSvc.EncryptString("secret123")
 	if err != nil {
 		t.Fatalf("Failed to encrypt secret: %v", err)
 	}
@@ -393,7 +393,7 @@ func TestPrepareDeliveryRequestFailsClosedOnDecryptError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new service A: %v", err)
 	}
-	encrypted, err := svcA.EncryptString("secret123", store.WebhookSecretBinding(uuid.New(), store.ColumnWebhookSecret))
+	encrypted, err := svcA.EncryptString("secret123")
 	if err != nil {
 		t.Fatalf("encrypt: %v", err)
 	}
@@ -421,38 +421,5 @@ func TestPrepareDeliveryRequestFailsClosedOnDecryptError(t *testing.T) {
 	}
 	if dr != nil {
 		t.Errorf("expected nil DeliveryRequest on error, got %+v", dr)
-	}
-}
-
-// A signing secret copied from another webhook's row must not be used: it
-// is bound to the webhook it was encrypted for, so delivery fails closed.
-func TestPrepareDeliveryRequestRefusesSecretOfAnotherWebhook(t *testing.T) {
-	_, key, err := crypto.GenerateKey()
-	if err != nil {
-		t.Fatal(err)
-	}
-	svc, err := crypto.NewService(key)
-	if err != nil {
-		t.Fatal(err)
-	}
-	victim := uuid.New()
-	stolen, err := svc.EncryptString("whsec_victim", store.WebhookSecretBinding(victim, store.ColumnWebhookSecret))
-	if err != nil {
-		t.Fatal(err)
-	}
-	headers, err := svc.EncryptJSON(map[string]string{"X-Api-Key": "k"}, store.WebhookSecretBinding(victim, store.ColumnSecretHeaders))
-	if err != nil {
-		t.Fatal(err)
-	}
-	event := &store.EventRecord{ID: uuid.New(), Event: "user.created", Consumer: "default"}
-
-	for name, wh := range map[string]*store.WebhookRegistration{
-		"secret on another webhook":    {ID: uuid.New(), URL: "https://example.com/", WebhookSecret: stolen},
-		"headers on another webhook":   {ID: uuid.New(), URL: "https://example.com/", SecretHeaders: headers},
-		"secret in the headers column": {ID: victim, URL: "https://example.com/", SecretHeaders: stolen},
-	} {
-		if _, err := PrepareDeliveryRequest(wh, nil, event, "d-1", []byte(`{}`), svc); err == nil {
-			t.Errorf("%s: expected a decrypt error", name)
-		}
 	}
 }

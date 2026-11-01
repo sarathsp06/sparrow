@@ -111,10 +111,6 @@ type Server struct {
 	revocation     *tlsrevocation.Refresher
 	stopRevocation context.CancelFunc
 	otelShutdown   func(context.Context) error
-	// rewrapSecrets re-encrypts stored webhook secrets in the background;
-	// Start runs it once and Shutdown cancels it.
-	rewrapSecrets func(context.Context)
-	stopRewrap    context.CancelFunc
 
 	// Shown in the startup summary printed by Start.
 	authEnabled  bool
@@ -271,16 +267,6 @@ func New(ctx context.Context, opts ...Option) (*Server, error) {
 	// Create webhook repository
 	webhookRepo := store.NewRepositoryInterfaceWithTracing(store.NewRepository(sqlxDB), "")
 	s.repo = webhookRepo
-	rewrapRepo := store.NewRepository(sqlxDB)
-	s.rewrapSecrets = func(ctx context.Context) {
-		res, err := webhooks.RewrapWebhookSecrets(ctx, rewrapRepo, cryptoSvc, slog.Default())
-		switch {
-		case err != nil:
-			slog.ErrorContext(ctx, "Re-encrypting stored webhook secrets stopped; it runs again on the next start", "error", err, "rewrapped", res.Rewrapped)
-		case res.Rewrapped > 0 || res.Failed > 0:
-			slog.InfoContext(ctx, "Re-encrypted stored webhook secrets", "rewrapped", res.Rewrapped, "undecryptable", res.Failed)
-		}
-	}
 
 	if err := registerSystemEventTypes(ctx, webhookRepo); err != nil {
 		log.Printf("⚠️  %v", err)
@@ -529,15 +515,6 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 	fmt.Println("🚀 River queue started successfully")
 
-	if s.rewrapSecrets != nil {
-		// Values written before bindings existed, or under a key that is no
-		// longer primary, are encrypted again (see RewrapWebhookSecrets).
-		rewrapCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
-		s.stopRewrap = cancel
-		go s.rewrapSecrets(rewrapCtx)
-		s.rewrapSecrets = nil
-	}
-
 	if s.revocation != nil && s.stopRevocation == nil {
 		listenCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 		s.stopRevocation = cancel
@@ -557,9 +534,6 @@ func (s *Server) Drain() { s.health.SetDraining() }
 // pool), then closes the remaining database pool and flushes telemetry. Shut
 // the HTTP server down first so no request is still using Sparrow.
 func (s *Server) Shutdown(ctx context.Context) error {
-	if s.stopRewrap != nil {
-		s.stopRewrap()
-	}
 	if s.stopRevocation != nil {
 		// Release the CRL refresh listener's dedicated database connection.
 		s.stopRevocation()

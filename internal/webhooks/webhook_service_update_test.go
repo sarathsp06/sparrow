@@ -95,7 +95,7 @@ func TestUpdateWebhookConfig_LegacyAppliesEveryField(t *testing.T) {
 	assert.False(t, saved.VerifySSL)
 	require.NotNil(t, saved.RateLimitRPS)
 	assert.InDelta(t, 5.0, *saved.RateLimitRPS, 0)
-	secret, err := svc.DecryptWebhookSecret(id, saved.WebhookSecret)
+	secret, err := svc.DecryptWebhookSecret(saved.WebhookSecret)
 	require.NoError(t, err)
 	assert.Equal(t, "whsec_new", secret)
 	repo.AssertExpectations(t)
@@ -155,7 +155,7 @@ func TestUpdateWebhookConfig_SignatureTypeSwitch(t *testing.T) {
 		svc, saved := setup(t, store.SignatureTypeHMAC)
 		require.NoError(t, svc.UpdateWebhookConfig(context.Background(), id.String(), "default", nil, "", nil, true, "", nil, nil, "ed25519", false, []string{"signature_type"}))
 		assert.Equal(t, store.SignatureTypeEd25519, (*saved).SignatureType)
-		assert.Len(t, svc.WebhookSigningPublicKeyHex(id, (*saved).Ed25519PrivateKey), 64)
+		assert.Len(t, svc.WebhookSigningPublicKeyHex((*saved).Ed25519PrivateKey), 64)
 	})
 	t.Run("back to hmac drops the key", func(t *testing.T) {
 		svc, saved := setup(t, store.SignatureTypeEd25519)
@@ -175,7 +175,7 @@ func TestUpdateWebhookConfig_SecretHeadersCleared(t *testing.T) {
 	svc := newCryptoService(t, repo)
 	id := uuid.New()
 	wh := storedWebhook(id)
-	enc, err := svc.EncryptSecretHeaders(id, map[string]string{"Authorization": "Bearer x"})
+	enc, err := svc.EncryptSecretHeaders(map[string]string{"Authorization": "Bearer x"})
 	require.NoError(t, err)
 	wh.SecretHeaders = enc
 	repo.On("GetWebhookByID", mock.Anything, mock.Anything, id, "default").Return(wh, nil)
@@ -197,7 +197,7 @@ func TestUpdateWebhookConfig_SecretHeadersFollowURL(t *testing.T) {
 		repo := new(mockRepo)
 		svc := newCryptoService(t, repo)
 		wh := storedWebhook(id)
-		enc, err := svc.EncryptSecretHeaders(id, map[string]string{"X-Api-Key": "k", "X-Other": "o"})
+		enc, err := svc.EncryptSecretHeaders(map[string]string{"X-Api-Key": "k", "X-Other": "o"})
 		require.NoError(t, err)
 		wh.SecretHeaders = enc
 		repo.On("GetWebhookByID", mock.Anything, mock.Anything, id, "default").Return(wh, nil)
@@ -227,7 +227,7 @@ func TestUpdateWebhookConfig_SecretHeadersFollowURL(t *testing.T) {
 	t.Run("every header set or removed is allowed", func(t *testing.T) {
 		svc, saved := setup(t)
 		require.NoError(t, update(svc, "https://example.org/", map[string]string{"X-Api-Key": "k2", "X-Other": ""}, "url", "secret_headers"))
-		got, err := svc.DecryptSecretHeaders(id, (*saved).SecretHeaders)
+		got, err := svc.DecryptSecretHeaders((*saved).SecretHeaders)
 		require.NoError(t, err)
 		assert.Equal(t, map[string]string{"X-Api-Key": "k2"}, got)
 	})
@@ -372,34 +372,33 @@ func TestSchemaValidationErrorText(t *testing.T) {
 
 func TestSecretHelpersWithoutEncryption(t *testing.T) {
 	svc := NewWebhookService(nil, new(mockRepo), nil)
-	id := uuid.New()
 
 	for _, f := range []func() (any, error){
-		func() (any, error) { return svc.EncryptSecretHeaders(id, nil) },
-		func() (any, error) { return svc.DecryptSecretHeaders(id, nil) },
-		func() (any, error) { return svc.EncryptWebhookSecret(id, "") },
-		func() (any, error) { return svc.DecryptWebhookSecret(id, nil) },
-		func() (any, error) { return svc.generateEncryptedEd25519Key(id) },
+		func() (any, error) { return svc.EncryptSecretHeaders(nil) },
+		func() (any, error) { return svc.DecryptSecretHeaders(nil) },
+		func() (any, error) { return svc.EncryptWebhookSecret("") },
+		func() (any, error) { return svc.DecryptWebhookSecret(nil) },
+		func() (any, error) { return svc.generateEncryptedEd25519Key() },
 	} {
 		_, err := f()
 		require.NoError(t, err, "empty input or no encryption needs no key")
 	}
 
-	_, err := svc.EncryptSecretHeaders(id, map[string]string{"a": "b"})
+	_, err := svc.EncryptSecretHeaders(map[string]string{"a": "b"})
 	requireStatus(t, err, svcerrors.FailedPrecondition)
-	_, err = svc.DecryptSecretHeaders(id, []byte("x"))
+	_, err = svc.DecryptSecretHeaders([]byte("x"))
 	requireStatus(t, err, svcerrors.FailedPrecondition)
-	_, err = svc.EncryptWebhookSecret(id, "s")
+	_, err = svc.EncryptWebhookSecret("s")
 	requireStatus(t, err, svcerrors.FailedPrecondition)
-	_, err = svc.DecryptWebhookSecret(id, []byte("x"))
+	_, err = svc.DecryptWebhookSecret([]byte("x"))
 	requireStatus(t, err, svcerrors.FailedPrecondition)
-	assert.Empty(t, svc.WebhookSigningPublicKeyHex(id, []byte("x")))
+	assert.Empty(t, svc.WebhookSigningPublicKeyHex([]byte("x")))
 
 	withKey := newCryptoService(t, new(mockRepo))
-	_, err = withKey.DecryptSecretHeaders(id, []byte("not ciphertext"))
+	_, err = withKey.DecryptSecretHeaders([]byte("not ciphertext"))
 	require.Error(t, err)
-	assert.Empty(t, withKey.WebhookSigningPublicKeyHex(id, []byte("not ciphertext")))
-	short, err := withKey.EncryptWebhookSecret(id, "too-short-for-a-key")
+	assert.Empty(t, withKey.WebhookSigningPublicKeyHex([]byte("not ciphertext")))
+	short, err := withKey.EncryptWebhookSecret("too-short-for-a-key")
 	require.NoError(t, err)
-	assert.Empty(t, withKey.WebhookSigningPublicKeyHex(id, short), "a value that is not an Ed25519 key yields no public key")
+	assert.Empty(t, withKey.WebhookSigningPublicKeyHex(short), "a value that is not an Ed25519 key yields no public key")
 }

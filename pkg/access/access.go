@@ -29,7 +29,6 @@ package access
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"time"
 )
 
@@ -68,18 +67,10 @@ type Token struct {
 
 // SecretSealer encrypts the stored secrets of tokens with an external id, so
 // they can be returned again without being kept in plaintext. Open must reject data it
-// did not seal (e.g. after the sealing key was removed), and data sealed with
-// another binding: the binding names the token's realm and external id, so a
-// sealed secret copied to another token's row does not open there.
+// did not seal (e.g. after the sealing key was removed).
 type SecretSealer interface {
-	Seal(plaintext, binding []byte) ([]byte, error)
-	Open(sealed, binding []byte) ([]byte, error)
-}
-
-// SealBinding is the binding a Service passes to its SecretSealer for the
-// token of realm and externalID.
-func SealBinding(realm, externalID string) []byte {
-	return []byte("access_tokens.sealed_secret:" + strconv.Quote(realm) + ":" + strconv.Quote(externalID))
+	Seal(plaintext []byte) ([]byte, error)
+	Open(sealed []byte) ([]byte, error)
 }
 
 // Status is a token's or invite's state at a point in time.

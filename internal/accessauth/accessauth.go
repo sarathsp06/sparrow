@@ -137,10 +137,5 @@ func Sealer(svc *crypto.Service) access.SecretSealer { return cryptoSealer{svc} 
 
 type cryptoSealer struct{ svc *crypto.Service }
 
-func (c cryptoSealer) Seal(p, binding []byte) ([]byte, error) {
-	return c.svc.EnvelopeEncrypt(p, binding)
-}
-
-func (c cryptoSealer) Open(s, binding []byte) ([]byte, error) {
-	return c.svc.EnvelopeDecrypt(s, binding)
-}
+func (c cryptoSealer) Seal(p []byte) ([]byte, error) { return c.svc.EnvelopeEncrypt(p) }
+func (c cryptoSealer) Open(s []byte) ([]byte, error) { return c.svc.EnvelopeDecrypt(s) }

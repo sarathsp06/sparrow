@@ -118,9 +118,9 @@ type AlertConfigManager interface {
 // SecretRevealer decrypts stored webhook secrets for masking and exposes the
 // Ed25519 signing public key. Used by response conversion, never for delivery.
 type SecretRevealer interface {
-	DecryptSecretHeaders(webhookID uuid.UUID, encrypted []byte) (map[string]string, error)
-	DecryptWebhookSecret(webhookID uuid.UUID, encrypted []byte) (string, error)
-	WebhookSigningPublicKeyHex(webhookID uuid.UUID, encryptedPrivKey []byte) string
+	DecryptSecretHeaders(encrypted []byte) (map[string]string, error)
+	DecryptWebhookSecret(encrypted []byte) (string, error)
+	WebhookSigningPublicKeyHex(encryptedPrivKey []byte) string
 }
 
 //go:generate go tool gowrap gen -g -i WebhookServiceInterface -t ../../templates/opentelemetry.tmpl -o WebhookServiceInterface_otel.go

@@ -180,7 +180,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 
 	// Encrypt webhook secret if provided, or generate one if missing
 	if webhookReg.HTTPConfig.WebhookSecret != "" {
-		encSecret, err := s.EncryptWebhookSecret(storeWebhook.ID, webhookReg.HTTPConfig.WebhookSecret)
+		encSecret, err := s.EncryptWebhookSecret(webhookReg.HTTPConfig.WebhookSecret)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to encrypt webhook secret: %w", err)
 		}
@@ -191,7 +191,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to generate webhook secret: %w", err)
 		}
-		encSecret, err := s.EncryptWebhookSecret(storeWebhook.ID, secret)
+		encSecret, err := s.EncryptWebhookSecret(secret)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to encrypt generated webhook secret: %w", err)
 		}
@@ -202,7 +202,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	// Generate Ed25519 keypair only when signature_type is "ed25519".
 	// The private key is envelope-encrypted and stored; the public key is derived at runtime.
 	if sigType == store.SignatureTypeEd25519 {
-		encPrivKey, err := s.generateEncryptedEd25519Key(storeWebhook.ID)
+		encPrivKey, err := s.generateEncryptedEd25519Key()
 		if err != nil {
 			return nil, "", err
 		}
@@ -211,7 +211,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 
 	// Encrypt secret headers if provided
 	if len(req.SecretHeaders) > 0 {
-		encrypted, err := s.EncryptSecretHeaders(storeWebhook.ID, req.SecretHeaders)
+		encrypted, err := s.EncryptSecretHeaders(req.SecretHeaders)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to encrypt secret headers: %w", err)
 		}
@@ -536,7 +536,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 			updateSecret = httpConfig.WebhookSecret != ""
 		}
 		if updateSecret && httpConfig.WebhookSecret != "" {
-			encSecret, err := s.EncryptWebhookSecret(webhook.ID, httpConfig.WebhookSecret)
+			encSecret, err := s.EncryptWebhookSecret(httpConfig.WebhookSecret)
 			if err != nil {
 				return fmt.Errorf("failed to encrypt webhook secret: %w", err)
 			}
@@ -593,7 +593,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		if err := validateHeaders("secret_headers", secretHeaders); err != nil {
 			return err
 		}
-		mergedSecretHeaders, err := s.DecryptSecretHeaders(webhook.ID, webhook.SecretHeaders)
+		mergedSecretHeaders, err := s.DecryptSecretHeaders(webhook.SecretHeaders)
 		if err != nil {
 			return fmt.Errorf("failed to decrypt existing secret headers: %w", err)
 		}
@@ -610,14 +610,14 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 				}
 				mergedSecretHeaders[key] = value
 			}
-			encrypted, err := s.EncryptSecretHeaders(webhook.ID, mergedSecretHeaders)
+			encrypted, err := s.EncryptSecretHeaders(mergedSecretHeaders)
 			if err != nil {
 				return fmt.Errorf("failed to encrypt secret headers: %w", err)
 			}
 			webhook.SecretHeaders = encrypted
 		}
 	}
-	if err := s.checkSecretHeadersFollowURL(webhook.ID, oldURL, webhook.URL, oldSecretHeaders, secretHeaders, shouldUpdate("secret_headers")); err != nil {
+	if err := s.checkSecretHeadersFollowURL(oldURL, webhook.URL, oldSecretHeaders, secretHeaders, shouldUpdate("secret_headers")); err != nil {
 		return err
 	}
 	// Update signature_type if in mask (or legacy non-empty)
@@ -630,7 +630,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		webhook.SignatureType = newSigType
 		// Generate Ed25519 keypair when switching to ed25519
 		if newSigType == store.SignatureTypeEd25519 && oldSigType != store.SignatureTypeEd25519 {
-			encPrivKey, err := s.generateEncryptedEd25519Key(webhook.ID)
+			encPrivKey, err := s.generateEncryptedEd25519Key()
 			if err != nil {
 				return err
 			}
@@ -733,7 +733,7 @@ func (s *WebhookService) RotateWebhookSecret(ctx context.Context, webhookID stri
 	if err != nil {
 		return "", fmt.Errorf("failed to generate webhook secret: %w", err)
 	}
-	encSecret, err := s.EncryptWebhookSecret(webhook.ID, secret)
+	encSecret, err := s.EncryptWebhookSecret(secret)
 	if err != nil {
 		return "", fmt.Errorf("failed to encrypt webhook secret: %w", err)
 	}
@@ -752,14 +752,14 @@ func (s *WebhookService) RotateWebhookSecret(ctx context.Context, webhookID stri
 // the URL (a portal consumer, say) could read them by moving the webhook to
 // a server they control. Each existing header must be given a new value, or
 // "" to remove it; an empty secret_headers object removes them all.
-func (s *WebhookService) checkSecretHeadersFollowURL(webhookID uuid.UUID, oldURL, newURL string, oldEncrypted []byte, set map[string]string, updated bool) error {
+func (s *WebhookService) checkSecretHeadersFollowURL(oldURL, newURL string, oldEncrypted []byte, set map[string]string, updated bool) error {
 	if len(oldEncrypted) == 0 || sameOrigin(oldURL, newURL) {
 		return nil
 	}
 	if updated && len(set) == 0 {
 		return nil // all removed
 	}
-	old, err := s.DecryptSecretHeaders(webhookID, oldEncrypted)
+	old, err := s.DecryptSecretHeaders(oldEncrypted)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt existing secret headers: %w", err)
 	}
