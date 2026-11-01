@@ -408,7 +408,7 @@ func (p precheck) reuse(def EventTypeDefinition, subs []*store.EventSubscription
 func subscriptionsKey(subs []*store.EventSubscription) string {
 	h := sha256.New()
 	for _, sub := range subs {
-		fmt.Fprintf(h, "%s\x00%s\x00%t\x00%d:%s\x00", sub.ID, sub.EventName, sub.TransformEnabled, len(sub.TransformTemplate), sub.TransformTemplate)
+		_, _ = fmt.Fprintf(h, "%s\x00%s\x00%t\x00%d:%s\x00", sub.ID, sub.EventName, sub.TransformEnabled, len(sub.TransformTemplate), sub.TransformTemplate)
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
