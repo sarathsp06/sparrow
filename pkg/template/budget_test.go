@@ -146,3 +146,30 @@ func TestExecuteTimeoutStartsWithTheSlot(t *testing.T) {
 		t.Fatalf("out %q, err %v: want the render to get its own timeout after the wait", out, err)
 	}
 }
+
+// append used to write into the spare capacity of a list another list
+// already shared, so a list could end up containing itself; printing it
+// overflowed the stack and killed the process.
+func TestAppendNeverMakesAListContainItself(t *testing.T) {
+	tmpl := `{{$x := append (list 1 2) 3}}{{$y := append $x $x}}{{$z := append $x $y}}{{print $y}} {{print $z}}`
+	out, err := New().ExecuteWith(tmpl, nil, ExecOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "[1 2 3 [1 2 3]] [1 2 3 [1 2 3 [1 2 3]]]"; string(out) != want {
+		t.Fatalf("got %q, want %q", out, want)
+	}
+}
+
+// Accumulating with append in a loop still works, and older lists keep
+// their elements.
+func TestAppendAccumulates(t *testing.T) {
+	tmpl := `{{$a := list}}{{range .items}}{{$a = append $a .}}{{end}}{{$b := append $a "x"}}{{$c := append $a "y"}}{{json $a}} {{json $b}} {{json $c}}`
+	out, err := New().ExecuteWith(tmpl, map[string]any{"items": []any{1, 2, 3}}, ExecOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `[1,2,3] [1,2,3,"x"] [1,2,3,"y"]`; string(out) != want {
+		t.Fatalf("got %q, want %q", out, want)
+	}
+}

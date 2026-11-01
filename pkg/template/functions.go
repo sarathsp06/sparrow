@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"text/template"
@@ -271,7 +272,9 @@ func Functions() []Func {
 		{
 			Name: "append",
 			Func: func(list []any, items ...any) []any {
-				return append(list, items...)
+				// Never write into list's spare capacity: another list may
+				// already hold that element (see budget.newest).
+				return append(slices.Clip(list), items...)
 			},
 			Description: "# append\n\nAppends items to a slice, returning the new slice. Use with `=` reassignment inside `range` to accumulate an array.\n\n## Usage\n```\n{{ $out := list }}\n{{ range .payload.items }}{{ $out = append $out .id }}{{ end }}\n{{ $out | json }}\n```",
 		},
