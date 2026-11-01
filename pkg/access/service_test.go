@@ -1,6 +1,7 @@
 package access_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"strings"
@@ -327,23 +328,32 @@ func TestConcurrentAuthenticate(t *testing.T) {
 	}
 }
 
-// xorSealer is a test SecretSealer; broken makes Open fail, as after the
+// xorSealer is a test SecretSealer that keeps the binding in front of the
+// data and refuses another one; broken makes Open fail, as after the
 // sealing key is removed.
 type xorSealer struct{ broken bool }
 
-func (xorSealer) Seal(p []byte) ([]byte, error) {
-	out := make([]byte, len(p))
-	for i, b := range p {
-		out[i] = b ^ 0x5a
+func (xorSealer) Seal(p, binding []byte) ([]byte, error) {
+	out := append(append([]byte(nil), binding...), 0)
+	for _, b := range p {
+		out = append(out, b^0x5a)
 	}
 	return out, nil
 }
 
-func (x *xorSealer) Open(s []byte) ([]byte, error) {
+func (x *xorSealer) Open(s, binding []byte) ([]byte, error) {
 	if x.broken {
 		return nil, errors.New("unknown key")
 	}
-	return xorSealer{}.Seal(s)
+	prefix := append(append([]byte(nil), binding...), 0)
+	if !bytes.HasPrefix(s, prefix) {
+		return nil, errors.New("sealed for another token")
+	}
+	out := make([]byte, 0, len(s)-len(prefix))
+	for _, b := range s[len(prefix):] {
+		out = append(out, b^0x5a)
+	}
+	return out, nil
 }
 
 func newSealedService(t *testing.T, c *clock, sealer access.SecretSealer) *access.Service {

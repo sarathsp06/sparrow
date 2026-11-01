@@ -70,11 +70,12 @@ func testEventSetup(t *testing.T, status int) (*WebhookService, *readOnlyRepo, c
 	if err != nil {
 		t.Fatal(err)
 	}
-	secret, err := cryptoSvc.EncryptString("whsec_dGVzdC1zZWNyZXQtZm9yLXRlc3QtZXZlbnRz")
+	webhookID := uuid.New()
+	secret, err := cryptoSvc.EncryptString("whsec_dGVzdC1zZWNyZXQtZm9yLXRlc3QtZXZlbnRz", store.WebhookSecretBinding(webhookID, store.ColumnWebhookSecret))
 	if err != nil {
 		t.Fatal(err)
 	}
-	webhook := &store.WebhookRegistration{ID: uuid.New(), Consumer: "acme", URL: srv.URL + "/hook?token=x",
+	webhook := &store.WebhookRegistration{ID: webhookID, Consumer: "acme", URL: srv.URL + "/hook?token=x",
 		WebhookSecret: secret, VerifySSL: true, RequestTimeoutSeconds: 5,
 		Headers: map[string]string{"X-Sparrow-Test": "spoofed"}}
 	repo := &readOnlyRepo{

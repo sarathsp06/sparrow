@@ -263,7 +263,7 @@ func PrepareDeliveryRequest(
 	// Decrypt and merge secret headers (override regular + subscription headers).
 	if cryptoSvc != nil && len(webhook.SecretHeaders) > 0 {
 		var secretHeaders map[string]string
-		if err := cryptoSvc.DecryptJSON(webhook.SecretHeaders, &secretHeaders); err != nil {
+		if err := cryptoSvc.DecryptJSON(webhook.SecretHeaders, &secretHeaders, store.WebhookSecretBinding(webhook.ID, store.ColumnSecretHeaders)); err != nil {
 			PutHeaderMap(headers)
 			return nil, fmt.Errorf("decrypt secret headers for webhook %s: %w", webhook.ID, err)
 		}
@@ -299,7 +299,7 @@ func PrepareDeliveryRequest(
 	// secret is a hard error (fail-closed) so we never deliver unsigned.
 	var webhookSecret string
 	if cryptoSvc != nil && len(webhook.WebhookSecret) > 0 {
-		decrypted, err := cryptoSvc.DecryptString(webhook.WebhookSecret)
+		decrypted, err := cryptoSvc.DecryptString(webhook.WebhookSecret, store.WebhookSecretBinding(webhook.ID, store.ColumnWebhookSecret))
 		if err != nil {
 			PutHeaderMap(headers)
 			return nil, fmt.Errorf("decrypt HMAC signing secret for webhook %s: %w", webhook.ID, err)
@@ -310,7 +310,7 @@ func PrepareDeliveryRequest(
 	// Decrypt Ed25519 private key for asymmetric signing (fail-closed, as above).
 	var ed25519PrivateKey []byte
 	if cryptoSvc != nil && len(webhook.Ed25519PrivateKey) > 0 {
-		decrypted, err := cryptoSvc.DecryptString(webhook.Ed25519PrivateKey)
+		decrypted, err := cryptoSvc.DecryptString(webhook.Ed25519PrivateKey, store.WebhookSecretBinding(webhook.ID, store.ColumnEd25519PrivateKey))
 		if err != nil {
 			PutHeaderMap(headers)
 			return nil, fmt.Errorf("decrypt Ed25519 signing key for webhook %s: %w", webhook.ID, err)

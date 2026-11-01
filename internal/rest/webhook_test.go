@@ -25,13 +25,15 @@ func (s createOnlyService) CreateWebhook(context.Context, webhooks.WebhookRegist
 	return s.reg, s.secret, nil
 }
 
-func (s createOnlyService) DecryptSecretHeaders([]byte) (map[string]string, error) {
+func (s createOnlyService) DecryptSecretHeaders(uuid.UUID, []byte) (map[string]string, error) {
 	return map[string]string{"Authorization": "Bearer upstream"}, nil
 }
 
-func (s createOnlyService) DecryptWebhookSecret([]byte) (string, error) { return s.secret, nil }
+func (s createOnlyService) DecryptWebhookSecret(uuid.UUID, []byte) (string, error) {
+	return s.secret, nil
+}
 
-func (s createOnlyService) WebhookSigningPublicKeyHex([]byte) string { return "" }
+func (s createOnlyService) WebhookSigningPublicKeyHex(uuid.UUID, []byte) string { return "" }
 
 // The create response must describe the stored webhook like every later read
 // does (headers, masked secret headers), plus the plaintext secret once.

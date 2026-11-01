@@ -34,11 +34,11 @@ func maskSecret(secret string) string {
 
 // maskEncryptedSecret decrypts an encrypted webhook secret and masks it for
 // safe display in API responses.
-func maskEncryptedSecret(encrypted []byte, svc webhooks.SecretRevealer) string {
+func maskEncryptedSecret(webhookID uuid.UUID, encrypted []byte, svc webhooks.SecretRevealer) string {
 	if len(encrypted) == 0 {
 		return ""
 	}
-	plaintext, err := svc.DecryptWebhookSecret(encrypted)
+	plaintext, err := svc.DecryptWebhookSecret(webhookID, encrypted)
 	if err != nil || plaintext == "" {
 		return "••••••"
 	}
@@ -46,11 +46,11 @@ func maskEncryptedSecret(encrypted []byte, svc webhooks.SecretRevealer) string {
 }
 
 // maskSecretHeaders decrypts encrypted secret headers and masks every value.
-func maskSecretHeaders(encrypted []byte, svc webhooks.SecretRevealer) map[string]string {
+func maskSecretHeaders(webhookID uuid.UUID, encrypted []byte, svc webhooks.SecretRevealer) map[string]string {
 	if len(encrypted) == 0 {
 		return nil
 	}
-	decrypted, err := svc.DecryptSecretHeaders(encrypted)
+	decrypted, err := svc.DecryptSecretHeaders(webhookID, encrypted)
 	if err != nil || len(decrypted) == 0 {
 		return nil
 	}
@@ -137,8 +137,8 @@ func toWebhookOut(reg *store.WebhookRegistration, events []string, svc webhooks.
 		Active:            reg.Active,
 		Description:       reg.Description,
 		Health:            string(reg.Health),
-		SecretHeaders:     maskSecretHeaders(reg.SecretHeaders, svc),
-		SigningPublicKey:  svc.WebhookSigningPublicKeyHex(reg.Ed25519PrivateKey),
+		SecretHeaders:     maskSecretHeaders(reg.ID, reg.SecretHeaders, svc),
+		SigningPublicKey:  svc.WebhookSigningPublicKeyHex(reg.ID, reg.Ed25519PrivateKey),
 		SignatureType:     string(reg.SignatureType),
 		RequiresTransform: reg.RequiresTransform,
 		HTTPConfig: WebhookHTTPConfigOut{
@@ -149,7 +149,7 @@ func toWebhookOut(reg *store.WebhookRegistration, events []string, svc webhooks.
 			VerifySSL:             reg.VerifySSL,
 			RequestTimeoutSeconds: reg.RequestTimeoutSeconds,
 			ExpectedStatusCodes:   codes,
-			WebhookSecret:         maskEncryptedSecret(reg.WebhookSecret, svc),
+			WebhookSecret:         maskEncryptedSecret(reg.ID, reg.WebhookSecret, svc),
 			UserAgent:             reg.UserAgent,
 			ContentType:           reg.ContentType,
 			RateLimitRPS:          reg.RateLimitRPS,

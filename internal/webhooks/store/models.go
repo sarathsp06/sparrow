@@ -38,6 +38,20 @@ const (
 	SignatureTypeEd25519 SignatureType = "ed25519" // Ed25519 only (v1a, prefix)
 )
 
+// Encrypted columns of webhook_registrations, as named in their bindings.
+const (
+	ColumnWebhookSecret     = "webhook_secret"
+	ColumnSecretHeaders     = "secret_headers"
+	ColumnEd25519PrivateKey = "ed25519_private_key"
+)
+
+// WebhookSecretBinding is the encryption binding of one of a webhook's
+// encrypted columns: a value encrypted for one webhook and column does not
+// decrypt as another's. Webhook ids are unique across tenants.
+func WebhookSecretBinding(webhookID uuid.UUID, column string) []byte {
+	return []byte("webhook_registrations." + column + ":" + webhookID.String())
+}
+
 // WebhookRegistration represents a registered webhook
 type WebhookRegistration struct {
 	ID       uuid.UUID `json:"id" db:"id"`

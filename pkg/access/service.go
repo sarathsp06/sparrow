@@ -168,7 +168,8 @@ func (s *Service) GetOrCreateToken(ctx context.Context, req CreateTokenRequest, 
 			return Token{}, "", false, err
 		}
 		t.ExternalID = externalID
-		sealed, err := s.sealer.Seal([]byte(secret))
+		binding := SealBinding(req.Realm, externalID)
+		sealed, err := s.sealer.Seal([]byte(secret), binding)
 		if err != nil {
 			return Token{}, "", false, fmt.Errorf("access: seal secret: %w", err)
 		}
@@ -179,7 +180,7 @@ func (s *Service) GetOrCreateToken(ctx context.Context, req CreateTokenRequest, 
 		if created {
 			return got, secret, true, nil
 		}
-		if plain, err := s.sealer.Open(gotSealed); err == nil {
+		if plain, err := s.sealer.Open(gotSealed, binding); err == nil {
 			return got, string(plain), false, nil
 		}
 		if err := s.RevokeToken(ctx, got.Realm, got.ID); err != nil {

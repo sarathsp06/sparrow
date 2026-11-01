@@ -547,7 +547,7 @@ func TestWebhookService_UpdateWebhookConfig_MergesSecretHeaderChanges(t *testing
 		"X-Trace":       "keep-me",
 		"X-Remove":      "drop-me",
 	}
-	encryptedHeaders, err := service.EncryptSecretHeaders(existingHeaders)
+	encryptedHeaders, err := service.EncryptSecretHeaders(webhookID, existingHeaders)
 	require.NoError(t, err)
 
 	repo.On("GetWebhookByID", mock.Anything, mock.Anything, webhookID, consumer).Return(&store.WebhookRegistration{
@@ -558,7 +558,7 @@ func TestWebhookService_UpdateWebhookConfig_MergesSecretHeaderChanges(t *testing
 		SecretHeaders: encryptedHeaders,
 	}, nil)
 	repo.On("UpdateWebhook", mock.Anything, mock.Anything, mock.MatchedBy(func(webhook *store.WebhookRegistration) bool {
-		decrypted, err := service.DecryptSecretHeaders(webhook.SecretHeaders)
+		decrypted, err := service.DecryptSecretHeaders(webhookID, webhook.SecretHeaders)
 		require.NoError(t, err)
 		return assert.Equal(t, map[string]string{
 			"Authorization": "Bearer new",
@@ -678,7 +678,7 @@ func TestWebhookService_RotateWebhookSecret(t *testing.T) {
 	ctx := testContext()
 	consumer := "default"
 	webhookID := uuid.New()
-	oldSecret, err := service.EncryptWebhookSecret("whsec_old")
+	oldSecret, err := service.EncryptWebhookSecret(webhookID, "whsec_old")
 	require.NoError(t, err)
 
 	repo.On("GetWebhookByID", mock.Anything, mock.Anything, webhookID, consumer).Return(&store.WebhookRegistration{
@@ -699,7 +699,7 @@ func TestWebhookService_RotateWebhookSecret(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, strings.HasPrefix(secret, "whsec_"), "secret %q is not in Standard Webhooks format", secret)
 	assert.NotEqual(t, "whsec_old", secret)
-	decrypted, err := service.DecryptWebhookSecret(stored)
+	decrypted, err := service.DecryptWebhookSecret(webhookID, stored)
 	require.NoError(t, err)
 	assert.Equal(t, secret, decrypted, "the returned secret must be the one stored")
 	repo.AssertExpectations(t)
