@@ -2679,7 +2679,7 @@ export interface components {
             http_config?: components["schemas"]["WebhookHTTPConfig"];
             /** @description Require (or stop requiring) a payload transform on every subscription. Turning it on fails with 409 while any subscription has no enabled transform_template. While on, events cannot be replaced in bulk (409): add or delete subscriptions individually. */
             requires_transform?: boolean;
-            /** @description Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it. An empty object removes them all. */
+            /** @description Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it. An empty object removes them all. Changing url to another origin (scheme, host or port) is refused unless this sets every existing secret header again (a new value, or an empty string to remove it), so moving a webhook never carries its secrets to a new server. */
             secret_headers?: {
                 [key: string]: string;
             };

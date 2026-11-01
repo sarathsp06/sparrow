@@ -188,6 +188,65 @@ func TestUpdateWebhookConfig_SecretHeadersCleared(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
+// Secret header values are never returned, so moving the webhook to another
+// origin must not carry them along unless the request sets them again.
+func TestUpdateWebhookConfig_SecretHeadersFollowURL(t *testing.T) {
+	id := uuid.New()
+	ctx := context.Background()
+	setup := func(t *testing.T) (*WebhookService, **store.WebhookRegistration) {
+		repo := new(mockRepo)
+		svc := newCryptoService(t, repo)
+		wh := storedWebhook(id)
+		enc, err := svc.EncryptSecretHeaders(map[string]string{"X-Api-Key": "k", "X-Other": "o"})
+		require.NoError(t, err)
+		wh.SecretHeaders = enc
+		repo.On("GetWebhookByID", mock.Anything, mock.Anything, id, "default").Return(wh, nil)
+		var saved *store.WebhookRegistration
+		repo.On("UpdateWebhook", mock.Anything, mock.Anything, mock.Anything).Run(func(a mock.Arguments) {
+			saved = a.Get(2).(*store.WebhookRegistration)
+		}).Return(nil)
+		repo.On("DeleteRateLimitState", mock.Anything, id).Return(nil)
+		return svc, &saved
+	}
+	update := func(svc *WebhookService, url string, secret map[string]string, mask ...string) error {
+		return svc.UpdateWebhookConfig(ctx, id.String(), "default", nil, url, nil, true, "", nil, secret, "", false, mask)
+	}
+
+	t.Run("another origin without secret_headers is refused", func(t *testing.T) {
+		svc, _ := setup(t)
+		err := update(svc, "https://example.net/", nil, "url")
+		requireStatus(t, err, svcerrors.InvalidArgument)
+		assert.Contains(t, err.Error(), "X-Api-Key, X-Other")
+	})
+	t.Run("a header left out is refused", func(t *testing.T) {
+		svc, _ := setup(t)
+		err := update(svc, "https://example.org/", map[string]string{"X-Api-Key": "k2"}, "url", "secret_headers")
+		requireStatus(t, err, svcerrors.InvalidArgument)
+		assert.Contains(t, err.Error(), "X-Other")
+	})
+	t.Run("every header set or removed is allowed", func(t *testing.T) {
+		svc, saved := setup(t)
+		require.NoError(t, update(svc, "https://example.org/", map[string]string{"X-Api-Key": "k2", "X-Other": ""}, "url", "secret_headers"))
+		got, err := svc.DecryptSecretHeaders((*saved).SecretHeaders)
+		require.NoError(t, err)
+		assert.Equal(t, map[string]string{"X-Api-Key": "k2"}, got)
+	})
+	t.Run("an empty object removes them all", func(t *testing.T) {
+		svc, saved := setup(t)
+		require.NoError(t, update(svc, "https://example.org/", map[string]string{}, "url", "secret_headers"))
+		assert.Nil(t, (*saved).SecretHeaders)
+	})
+	t.Run("same origin keeps them", func(t *testing.T) {
+		svc, saved := setup(t)
+		require.NoError(t, update(svc, "https://example.com/v2/hook", nil, "url"))
+		assert.NotNil(t, (*saved).SecretHeaders)
+	})
+	t.Run("scheme change is another origin", func(t *testing.T) {
+		svc, _ := setup(t)
+		requireStatus(t, update(svc, "http://example.com/hook", nil, "url"), svcerrors.InvalidArgument)
+	})
+}
+
 func TestUpdateWebhookConfig_Rejections(t *testing.T) {
 	id := uuid.New()
 	ctx := context.Background()

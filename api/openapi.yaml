@@ -1852,7 +1852,7 @@ components:
         secret_headers:
           additionalProperties:
             type: string
-          description: Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it. An empty object removes them all.
+          description: Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it. An empty object removes them all. Changing url to another origin (scheme, host or port) is refused unless this sets every existing secret header again (a new value, or an empty string to remove it), so moving a webhook never carries its secrets to a new server.
           type: object
         signature_type:
           description: "Change the signing scheme: hmac or ed25519. Switching to ed25519 generates a signing keypair; HMAC signing continues either way."
