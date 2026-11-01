@@ -583,9 +583,12 @@ func (w *WebhookWorker) renderPayload(ctx context.Context, log *slog.Logger, job
 		return body, false, nil
 	}
 	if errors.Is(renderErr, template.ErrBusy) {
-		// Load, not a fault in the template: leave the delivery for River
-		// to retry.
-		return nil, false, fmt.Errorf("render transform: %w", renderErr)
+		// Load, not a fault in the template or the receiver: put the job
+		// back without spending an attempt, as at a tenant's cap. Returning
+		// the error used up a retry of every delivery that met a busy
+		// engine, so a burst of slow renders could exhaust them.
+		log.InfoContext(ctx, "Template engine busy, snoozing delivery", "subscription_id", args.SubscriptionID)
+		return nil, false, fairnessSnooze()
 	}
 
 	msg := renderErr.Error()
