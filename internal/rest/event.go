@@ -185,7 +185,7 @@ type listEventTypesOutput struct {
 // --- Event occurrences (pushed instances) ---
 
 type pushEventBody struct {
-	Payload        map[string]any    `json:"payload" required:"true" doc:"Event payload, a JSON object. Validated softly against the event type's JSON Schema if one is registered. The whole request body is limited by SPARROW_MAX_BODY_BYTES (default 5 MiB)."`
+	Payload        map[string]any    `json:"payload" required:"true" doc:"Event payload, a JSON object. Validated softly against the event type's JSON Schema if one is registered. The whole request body is limited to 1 MiB (413 above that)."`
 	TTLSeconds     int64             `json:"ttl_seconds,omitempty" doc:"Time-to-live in seconds, counted from fan-out. A delivery attempt that would start after it expires is not made and the delivery fails as expired. 0 or omitted means no expiry. Manual retries ignore it."`
 	Metadata       map[string]string `json:"metadata,omitempty" doc:"Arbitrary key/value metadata stored with the occurrence."`
 	Labels         map[string]string `json:"labels,omitempty" doc:"Key/value labels a subscription's label_filters match against to decide which subscriptions receive this occurrence. At most 20 pairs; keys up to 64 characters of letters, digits, '.', '_' and '-'; values up to 256 characters."`

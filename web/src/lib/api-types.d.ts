@@ -2725,7 +2725,7 @@ export interface components {
             metadata?: {
                 [key: string]: string;
             };
-            /** @description Event payload, a JSON object. Validated softly against the event type's JSON Schema if one is registered. The whole request body is limited by SPARROW_MAX_BODY_BYTES (default 5 MiB). */
+            /** @description Event payload, a JSON object. Validated softly against the event type's JSON Schema if one is registered. The whole request body is limited to 1 MiB (413 above that). */
             payload: {
                 [key: string]: unknown;
             };

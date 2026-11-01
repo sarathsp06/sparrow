@@ -84,7 +84,7 @@ A client that handles both shapes can read `detail` from problem details and
 | `403` | The credential cannot use this path (see above). |
 | `404` | The resource does not exist in this consumer, or the event type is not registered. |
 | `409` | Conflict or wrong state: a duplicate (webhook URL, subscription, event type name), an inactive event type, pausing a paused webhook, a batch job that is not pending, a breaking schema change without `allow_breaking`. |
-| `413` | Request body over `SPARROW_MAX_BODY_BYTES` (default 5 MiB). |
+| `413` | Request body over 1 MiB for an API request (5 MiB for event-type import), or over `SPARROW_MAX_BODY_BYTES` (default 5 MiB). |
 | `429` | Rate limited (the AI provider, for template drafting). |
 | `500` | Internal error; details are in the server log. |
 | `503` | Temporarily unavailable: the token store, the template engine at capacity, or AI drafting not configured. Retry later. |
