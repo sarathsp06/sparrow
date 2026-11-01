@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -48,7 +49,17 @@ func NewWebhookClient(config *Config) *WebhookClient {
 	// every mode: even AllowPrivateNetworks keeps cloud metadata blocked.
 	dialer.Control = policy.dialControl
 
-	checkRedirect := policy.checkRedirect // SEC-001: validate redirect targets against the policy
+	// SEC-001: validate redirect targets against the policy, and never
+	// forward a webhook's own headers to another host.
+	checkRedirect := func(req *http.Request, via []*http.Request) error {
+		if err := policy.checkRedirect(req, via); err != nil {
+			return err
+		}
+		if !strings.EqualFold(req.URL.Hostname(), via[0].URL.Hostname()) {
+			keepSparrowHeaders(req.Header)
+		}
+		return nil
+	}
 
 	transport := &http.Transport{
 		MaxIdleConns:    config.MaxIdleConns,

@@ -3352,7 +3352,7 @@ export interface components {
             content_type?: string;
             /** @description HTTP status codes treated as a successful delivery, each between 100 and 599. Defaults to 200, 201, 202 and 204. */
             expected_status_codes?: number[];
-            /** @description Whether to follow HTTP redirects returned by the endpoint. Each redirect target passes the same SSRF checks. Defaults to true. */
+            /** @description Whether to follow HTTP redirects returned by the endpoint. Each redirect target passes the same SSRF checks, and a redirect to another host gets only Sparrow's own headers: headers and secret_headers are dropped. Defaults to true. */
             follow_redirects?: boolean;
             /**
              * Format: int64

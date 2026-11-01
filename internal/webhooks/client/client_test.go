@@ -164,6 +164,69 @@ func TestSendFollowRedirects(t *testing.T) {
 	}
 }
 
+// A redirect to another host must not carry the webhook's custom or secret
+// headers; Sparrow's own headers and the signature still go along.
+func TestSendRedirectToAnotherHostDropsCustomHeaders(t *testing.T) {
+	got := make(chan http.Header, 2)
+	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got <- r.Header.Clone()
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer other.Close()
+	// httptest binds to 127.0.0.1; "localhost" is the same machine under
+	// another host name.
+	otherURL := strings.Replace(other.URL, "127.0.0.1", "localhost", 1)
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/same":
+			http.Redirect(w, r, "/final", http.StatusTemporaryRedirect)
+		case "/final":
+			got <- r.Header.Clone()
+			w.WriteHeader(http.StatusOK)
+		default:
+			http.Redirect(w, r, otherURL+"/hook", http.StatusTemporaryRedirect)
+		}
+	}))
+	defer origin.Close()
+
+	client := NewWebhookClient(&Config{Timeout: 5 * time.Second, AllowPrivateNetworks: true})
+	send := func(path string) http.Header {
+		t.Helper()
+		resp, _, err := client.Send(context.Background(), &DeliveryRequest{
+			WebhookID:       uuid.New(),
+			DeliveryID:      "delivery-123",
+			URL:             origin.URL + path,
+			Method:          "POST",
+			Headers:         map[string]string{"X-Api-Key": "secret", "Authorization": "Bearer t"},
+			Payload:         []byte(`{}`),
+			Secret:          "whsec_test",
+			EventID:         uuid.New(),
+			EventName:       "test.event",
+			FollowRedirects: true,
+		})
+		if err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("%s: status %d", path, resp.StatusCode)
+		}
+		return <-got
+	}
+
+	h := send("/cross")
+	if h.Get("X-Api-Key") != "" || h.Get("Authorization") != "" {
+		t.Errorf("custom headers reached the other host: %v", h)
+	}
+	if h.Get("X-Sparrow-Event-Type") != "test.event" || h.Get("Webhook-Signature") == "" {
+		t.Errorf("Sparrow headers missing after redirect: %v", h)
+	}
+
+	if h = send("/same"); h.Get("X-Api-Key") != "secret" {
+		t.Errorf("same-host redirect dropped X-Api-Key: %v", h)
+	}
+}
+
 func TestSendSkipTLSVerify(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
