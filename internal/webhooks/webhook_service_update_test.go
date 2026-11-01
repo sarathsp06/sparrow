@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -368,6 +369,20 @@ func TestSchemaValidationErrorText(t *testing.T) {
 	assert.Contains(t, msg, "missing properties: id")
 	assert.Contains(t, msg, "/total: expected number")
 	assert.ElementsMatch(t, []string{"missing properties: id", "field '/total': expected number"}, detailed.Warnings())
+}
+
+// A payload with an error per array item reported every one of them.
+func TestSchemaValidationWarningsAreCapped(t *testing.T) {
+	details := map[string]string{}
+	for i := range 1000 {
+		details[fmt.Sprintf("/items/%d", i)] = "expected string"
+	}
+	e := &SchemaValidationError{Message: "payload does not match", Details: details}
+	w := e.Warnings()
+	require.Len(t, w, maxSchemaWarnings+1)
+	assert.Equal(t, "... and 900 more schema warnings", w[maxSchemaWarnings])
+	assert.Equal(t, w, e.Warnings(), "the kept warnings change between calls")
+	assert.Contains(t, e.Error(), "... and 900 more schema warnings")
 }
 
 func TestSecretHelpersWithoutEncryption(t *testing.T) {
