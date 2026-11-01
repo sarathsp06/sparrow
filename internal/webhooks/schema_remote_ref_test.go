@@ -26,3 +26,15 @@ func TestSchemaCompile_RemoteRefIsNotFetched(t *testing.T) {
 	require.Error(t, ValidateJSONSchema(schema, map[string]any{"a": 1}))
 	assert.Zero(t, hits.Load(), "remote $ref was fetched")
 }
+
+// Local references inside the schema keep working without any loader.
+func TestSchemaCompile_LocalRefStillWorks(t *testing.T) {
+	schema := map[string]any{
+		"$defs":      map[string]any{"id": map[string]any{"type": "string"}},
+		"type":       "object",
+		"properties": map[string]any{"a": map[string]any{"$ref": "#/$defs/id"}},
+	}
+	require.NoError(t, compileSchema(schema))
+	require.NoError(t, ValidateJSONSchema(schema, map[string]any{"a": "x"}))
+	require.Error(t, ValidateJSONSchema(schema, map[string]any{"a": 1}))
+}
