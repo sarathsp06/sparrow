@@ -1,7 +1,9 @@
 package queue
 
 import (
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/riverqueue/river"
 
@@ -42,5 +44,16 @@ func TestWebhookWorkerTimeoutCoversMaxRequestTimeout(t *testing.T) {
 	w := &WebhookWorker{}
 	if got := w.Timeout(&river.Job[WebhookArgs]{}); got <= client.MaxRequestTimeout {
 		t.Fatalf("Timeout() = %v, want more than the %v request timeout cap", got, client.MaxRequestTimeout)
+	}
+}
+
+func TestLimitErrorText(t *testing.T) {
+	if got := limitErrorText("HTTP 500: 500 Internal Server Error"); got != "HTTP 500: 500 Internal Server Error" {
+		t.Fatalf("short text changed: %q", got)
+	}
+	long := strings.Repeat("ü", 2000) // 4000 bytes
+	got := limitErrorText(long)
+	if len(got) > maxErrorTextBytes+64 || !utf8.ValidString(got) || !strings.HasSuffix(got, "(truncated, 4000 bytes in all)") {
+		t.Fatalf("got %d bytes, valid=%v, suffix %q", len(got), utf8.ValidString(got), got[len(got)-40:])
 	}
 }

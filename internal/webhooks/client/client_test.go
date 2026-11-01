@@ -594,3 +594,22 @@ func TestSendRequestTimeoutOverridesClientDefault(t *testing.T) {
 		t.Fatal("request without a timeout should use the 50ms client default and time out")
 	}
 }
+
+// A receiver's status line and headers end up in delivery errors; Go's
+// default allowed 10 MB of them.
+func TestSendRefusesHugeResponseHeaders(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Big", strings.Repeat("x", 100<<10))
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	client := NewWebhookClient(&Config{Timeout: 5 * time.Second, AllowPrivateNetworks: true})
+	_, _, err := client.Send(context.Background(), &DeliveryRequest{
+		WebhookID: uuid.New(), DeliveryID: "delivery-123", URL: srv.URL, Method: "POST",
+		Payload: []byte(`{}`), EventID: uuid.New(), EventName: "test.event",
+	})
+	if err == nil || !strings.Contains(err.Error(), "exceeded") {
+		t.Fatalf("err = %v, want the response header limit", err)
+	}
+}

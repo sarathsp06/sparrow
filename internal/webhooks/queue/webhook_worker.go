@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
@@ -374,8 +375,8 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		}
 		if recordErr := w.finishAttempt(ctx, log, tenantID, store.DeliveryAttempt{
 			DeliveryID: deliveryID, WebhookID: webhookID, UpdateStatus: true,
-			Status: status, ErrorMessage: fmt.Sprintf("Request failed: %v", err), ErrorCategory: string(errorCategory),
-			RequestBody: &requestBody, Success: false, ResponseTimeMs: int(duration.Milliseconds()), HealthErrorMessage: err.Error(),
+			Status: status, ErrorMessage: limitErrorText(fmt.Sprintf("Request failed: %v", err)), ErrorCategory: string(errorCategory),
+			RequestBody: &requestBody, Success: false, ResponseTimeMs: int(duration.Milliseconds()), HealthErrorMessage: limitErrorText(err.Error()),
 		}); recordErr != nil {
 			return recordErr
 		}
@@ -480,7 +481,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	} else {
 		errorCategory = httpCategory
 	}
-	errorMessage := fmt.Sprintf("HTTP %d: %s", resp.StatusCode, resp.Status)
+	errorMessage := limitErrorText(fmt.Sprintf("HTTP %d: %s", resp.StatusCode, resp.Status))
 	span.SetStatus(otelcodes.Error, "webhook delivery failed")
 	span.SetAttributes(attribute.String("error_category", string(errorCategory)))
 
@@ -693,4 +694,20 @@ func parseRetryAfter(header string) time.Duration {
 	}
 
 	return defaultRetryAfter
+}
+
+// maxErrorTextBytes bounds error text that comes from a receiver (its status
+// line, or a transport error quoting its response) before it is stored on
+// the delivery row and health event and sent in delivery_failed.
+const maxErrorTextBytes = 1024
+
+func limitErrorText(s string) string {
+	if len(s) <= maxErrorTextBytes {
+		return s
+	}
+	cut := maxErrorTextBytes
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut] + fmt.Sprintf(" ... (truncated, %d bytes in all)", len(s))
 }

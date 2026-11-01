@@ -61,6 +61,7 @@ func NewWebhookClient(config *Config) *WebhookClient {
 		return nil
 	}
 
+	const maxResponseHeaderBytes = 64 << 10
 	transport := &http.Transport{
 		MaxIdleConns:    config.MaxIdleConns,
 		MaxConnsPerHost: config.MaxConnsPerHost,
@@ -69,7 +70,10 @@ func NewWebhookClient(config *Config) *WebhookClient {
 		MaxIdleConnsPerHost: config.MaxConnsPerHost,
 		IdleConnTimeout:     config.IdleConnTimeout,
 		TLSHandshakeTimeout: 10 * time.Second,
-		DialContext:         dialer.DialContext,
+		// Go's default is 10 MB; a receiver's status line and headers end
+		// up in delivery errors, so keep them to what a real one sends.
+		MaxResponseHeaderBytes: maxResponseHeaderBytes,
+		DialContext:            dialer.DialContext,
 		TLSClientConfig:     config.Revocation.TLSConfig(),
 	}
 	insecureTransport := transport.Clone()
