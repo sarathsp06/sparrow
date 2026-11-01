@@ -44,7 +44,7 @@ func (r *Repository) ListWebhookSecrets(ctx context.Context, after uuid.UUID, li
 
 // replaceSecretQueries holds one statement per encrypted column, so the
 // column name never comes from a caller.
-var replaceSecretQueries = map[string]string{
+var replaceSecretQueries = map[string]string{ //nolint:gosec // G101: SQL statements naming secret columns, not credentials
 	ColumnWebhookSecret:     `UPDATE webhook_registrations SET webhook_secret = $3 WHERE id = $1 AND webhook_secret = $2`,
 	ColumnSecretHeaders:     `UPDATE webhook_registrations SET secret_headers = $3 WHERE id = $1 AND secret_headers = $2`,
 	ColumnEd25519PrivateKey: `UPDATE webhook_registrations SET ed25519_private_key = $3 WHERE id = $1 AND ed25519_private_key = $2`,
