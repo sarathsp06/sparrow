@@ -170,7 +170,15 @@ export SPARROW_ENCRYPTION_KEYS="old=$(openssl rand -hex 32),new=$(openssl rand -
 export SPARROW_ENCRYPTION_PRIMARY_KEY_ID=new
 ```
 
-New writes use the primary key ID while decryption accepts all configured keys in the ring. That lets you rotate by adding a new key and switching the primary. Keep the old key in the ring: existing secrets stay encrypted under it, and nothing rewraps them yet. See [Upgrading to 1.0](/sparrow/deployment/upgrading-to-1-0/#encryption-keyring-never-remove-an-old-key).
+New writes use the primary key ID while decryption accepts all configured keys in the ring. To rotate, add a new key and make it primary. On every start, Sparrow re-encrypts in the background each stored webhook secret, signing key and secret-header set that is still under another key, and logs `Re-encrypted stored webhook secrets` with how many it moved (`rewrapped`) and how many did not decrypt (`undecryptable`).
+
+To retire the old key:
+
+1. Add the new key and make it primary, then restart every instance.
+2. Restart once more. If no `Re-encrypted stored webhook secrets` line is logged, nothing is left under the old key.
+3. Remove the old key from `SPARROW_ENCRYPTION_KEYS`. Consumer tokens created with an `external_id` (`POST /v1/tokens`) are not re-encrypted: one still sealed under the removed key is revoked and replaced the next time it is requested. They expire within 30 days anyway.
+
+Every encrypted value is bound to where it is stored (the webhook and column, or the token's `external_id`), so a value copied into another row does not decrypt there. Values written before Sparrow bound them are bound to their current row by the same startup pass.
 
 ### What Gets Encrypted
 
@@ -178,6 +186,8 @@ New writes use the primary key ID while decryption accepts all configured keys i
 |-------|-----------|-----------|
 | `webhook_secret` | BYTEA | Yes (envelope) |
 | `secret_headers` | BYTEA | Yes (envelope) |
+| `ed25519_private_key` | BYTEA | Yes (envelope) |
+| Token secret kept for an `external_id` | BYTEA | Yes (envelope) |
 | Event payloads | JSONB | No (plaintext) |
 | Delivery responses | TEXT | No (plaintext) |
 

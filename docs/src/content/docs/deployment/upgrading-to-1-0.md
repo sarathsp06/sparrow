@@ -69,15 +69,15 @@ Plan for `75 × (replicas + maxSurge)`, plus the migrate Job and whatever else c
 
 ## Encryption keyring: never remove an old key
 
-`SPARROW_ENCRYPTION_KEYS` can hold several keys, and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` picks the one that encrypts new data. Every webhook secret and secret header stays encrypted under the key that was primary when it was written. Nothing re-encrypts existing rows yet.
+`SPARROW_ENCRYPTION_KEYS` can hold several keys, and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` picks the one that encrypts new data. In 1.0, every webhook secret and secret header stays encrypted under the key that was primary when it was written.
 
-So **don't remove a key from the ring**, even after switching the primary. Any webhook secret or secret header still encrypted under it becomes unreadable, and deliveries to that webhook fail. Rotating is safe:
+So on 1.x releases up to and including v1.2.0, **don't remove a key from the ring**, even after switching the primary. Any webhook secret or secret header still encrypted under it becomes unreadable, and deliveries to that webhook fail. Rotating is safe:
 
 1. Add the new key: `SPARROW_ENCRYPTION_KEYS="old=…,new=…"`.
 2. Make it primary: `SPARROW_ENCRYPTION_PRIMARY_KEY_ID=new`.
 3. Keep `old` in the ring.
 
-Retiring a key will become safe once Sparrow ships a tool that rewraps existing data under the primary key; its release notes will say so. Until then, treat every key that has ever been primary as permanent, and back up the whole keyring: lose it and the encrypted secrets are gone for good.
+Later releases re-encrypt stored secrets under the primary key on startup, which makes retiring a key safe; see [Configuration](/sparrow/getting-started/configuration/) for the steps. Whatever the version, back up the whole keyring: lose it and the encrypted secrets are gone for good.
 
 ## The all-zeros encryption key is refused in production
 

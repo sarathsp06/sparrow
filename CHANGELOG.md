@@ -18,11 +18,13 @@ migrations run on startup.
 
 ### Upgrading
 
+- On start, Sparrow re-encrypts stored webhook secrets in the background: values written by earlier versions get their new binding, and values under a key that is no longer primary move to the primary key. Older versions cannot read the re-encrypted values, so roll back only with a database backup taken before the upgrade. Once a restart logs no `Re-encrypted stored webhook secrets` line, a rotated-out key can be removed from `SPARROW_ENCRYPTION_KEYS`; see [Configuration](https://sarathsp06.github.io/sparrow/getting-started/configuration/).
 - Moving a webhook to another host with `PATCH ... {"url": ...}` returns 400 while it has secret headers, unless the same request sends `secret_headers` with a value (or `""`) for each of them.
 - A separately hosted UI calling a server without `SPARROW_API_KEY` from a non-localhost origin must now be listed in `SPARROW_CORS_ALLOWED_ORIGINS`.
 
 ### Added
 
+- Retiring an encryption key is now possible: after switching `SPARROW_ENCRYPTION_PRIMARY_KEY_ID`, the startup pass re-encrypts stored webhook secrets under the new primary key.
 - Scheduled events: `POST /v1/consumers/{consumer}/events` accepts an optional `scheduled_at` (RFC 3339). The occurrence is stored immediately but fans out to subscriptions only at that time; `ttl_seconds` counts from then, times more than one year ahead are refused (400), and a past time delivers immediately. Occurrence responses and the UI show the scheduled time, and event retention never deletes an event before it has fired.
 
 ### Security
@@ -33,6 +35,7 @@ migrations run on startup.
 - A delivery redirected to another host no longer carries the webhook's `headers` and `secret_headers`, only Sparrow's own headers and the signature. Go removes only `Authorization` and `Cookie` on such redirects.
 - `docs_url` (AI template drafting) is fetched from public addresses only, even with `SPARROW_ALLOW_PRIVATE_NETWORKS=true`. The prompt endpoint returns the page text, so it could read internal pages.
 - Without `SPARROW_API_KEY`, and with `SPARROW_CORS_ALLOWED_ORIGINS` unset outside production, CORS now allows only `localhost` and loopback origins instead of every origin. Any website a browser on the network visited could otherwise use the open API, for example to create a token.
+- Every encrypted value (webhook signing secret and key, secret headers, the token secret kept for an `external_id`) is now bound to where it is stored. A value copied into another row, column or tenant, by someone with write access to the database but not the keys, no longer decrypts there.
 - Importing event types renders the subscription template pre-checks before its transaction, so slow templates no longer hold database locks for the length of the import.
 - `golang.org/x/net` v0.62.0 fixes GO-2026-6860 (quadratic time parsing HTML with many text nodes). Sparrow parses HTML only when AI template drafting turns a fetched documentation page into text.
 - Web UI: built with SvelteKit 3.1, which fixes GHSA-27mw-82g8-phjj (XSS through a `cache-control` header on prerendered pages) and GHSA-pfhg-q3qv-9q6r (open redirect through enhanced form actions). Sparrow's UI uses neither feature, so it was not exposed; the upgrade clears the advisories for scanners.

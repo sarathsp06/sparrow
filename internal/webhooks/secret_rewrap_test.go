@@ -17,7 +17,9 @@ import (
 )
 
 // fakeSecretRepo is a SecretRewrapRepository over a map, ordered by id.
-type fakeSecretRepo struct{ rows map[uuid.UUID]*store.WebhookSecrets }
+type fakeSecretRepo struct {
+	rows map[uuid.UUID]*store.WebhookSecrets
+}
 
 func (f *fakeSecretRepo) ListWebhookSecrets(_ context.Context, after uuid.UUID, limit int) ([]store.WebhookSecrets, error) {
 	var out []store.WebhookSecrets
