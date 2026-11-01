@@ -74,7 +74,7 @@ func NewWebhookClient(config *Config) *WebhookClient {
 		// up in delivery errors, so keep them to what a real one sends.
 		MaxResponseHeaderBytes: maxResponseHeaderBytes,
 		DialContext:            dialer.DialContext,
-		TLSClientConfig:     config.Revocation.TLSConfig(),
+		TLSClientConfig:        config.Revocation.TLSConfig(),
 	}
 	insecureTransport := transport.Clone()
 	// #nosec G402 -- explicit per-webhook verify_ssl=false opt-in for
