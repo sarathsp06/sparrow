@@ -1350,15 +1350,15 @@
     "semantic_hash": ""
   },
   "internal/webhooks/client/client.go": {
-    "mtime": 1793574083.2691875,
-    "seen": 1793574729.0742168,
-    "ast_hash": "866ff3c7aa1cadce3739be6be310b47a",
+    "mtime": 1793612909.8053017,
+    "seen": 1793613115.965609,
+    "ast_hash": "e62fdf558475a1fb330f8698c8081319",
     "semantic_hash": ""
   },
   "internal/webhooks/client/client_test.go": {
-    "mtime": 1793573936.0262017,
-    "seen": 1793574729.074218,
-    "ast_hash": "7c7856400d1f153c475578810ca4213b",
+    "mtime": 1793612909.8056445,
+    "seen": 1793613115.96561,
+    "ast_hash": "0649d04a314d4e33e6275d9f5d9335f2",
     "semantic_hash": ""
   },
   "internal/webhooks/client/config.go": {
@@ -1398,15 +1398,15 @@
     "semantic_hash": ""
   },
   "internal/webhooks/client/request.go": {
-    "mtime": 1793573402.8750486,
-    "seen": 1793573436.6695108,
-    "ast_hash": "ad0793d778410edd974f5c567ba2f73c",
+    "mtime": 1793612941.3581498,
+    "seen": 1793613115.965614,
+    "ast_hash": "f91336f677008cbabe4584345019f158",
     "semantic_hash": ""
   },
   "internal/webhooks/client/request_test.go": {
-    "mtime": 1793573402.8752506,
-    "seen": 1793573436.6695108,
-    "ast_hash": "5b6ff8f9602fe9049bb6a74939b67011",
+    "mtime": 1793612986.1660469,
+    "seen": 1793613115.965614,
+    "ast_hash": "ee8292cadf1b7529e719f1394410f953",
     "semantic_hash": ""
   },
   "internal/webhooks/client/request_verify_test.go": {
@@ -1440,15 +1440,15 @@
     "semantic_hash": ""
   },
   "internal/webhooks/event_type_bundle.go": {
-    "mtime": 1793561703.4758987,
-    "seen": 1793561727.0549052,
-    "ast_hash": "8d24264c8af2354a090f881eb3f11447",
+    "mtime": 1793612894.0408425,
+    "seen": 1793613115.9656188,
+    "ast_hash": "1036b3acf0ece11501b7f76a6ab84c54",
     "semantic_hash": ""
   },
   "internal/webhooks/event_type_bundle_test.go": {
-    "mtime": 1793561641.867977,
-    "seen": 1793561727.0549061,
-    "ast_hash": "2177a6b41f7d73af4b588994f76084cf",
+    "mtime": 1793612882.401327,
+    "seen": 1793613115.9656188,
+    "ast_hash": "68f018abd3cdb57de8d6c4f77601e460",
     "semantic_hash": ""
   },
   "internal/webhooks/event_type_save.go": {
@@ -1458,9 +1458,9 @@
     "semantic_hash": ""
   },
   "internal/webhooks/event_type_save_test.go": {
-    "mtime": 1793400949.8033383,
-    "seen": 1793561727.0549068,
-    "ast_hash": "4059d50a553eeeb237578f936ec0c004",
+    "mtime": 1793612872.9487906,
+    "seen": 1793613115.96562,
+    "ast_hash": "1f5154a106a87207eb8de9fa3f9fb23b",
     "semantic_hash": ""
   },
   "internal/webhooks/models.go": {
@@ -1704,15 +1704,15 @@
     "semantic_hash": ""
   },
   "internal/webhooks/urlvalidation.go": {
-    "mtime": 1791992656.0868769,
-    "seen": 1793561727.0549362,
-    "ast_hash": "1b1826e8d40b415dc9c399c4492eb0f0",
+    "mtime": 1793612922.5361187,
+    "seen": 1793613115.965653,
+    "ast_hash": "50f371f1092c93f26c3b027b1f013ced",
     "semantic_hash": ""
   },
   "internal/webhooks/urlvalidation_test.go": {
-    "mtime": 1791321899.8333595,
-    "seen": 1793561727.0549371,
-    "ast_hash": "440b62f6c452359ccd9fc92699080c3c",
+    "mtime": 1793612986.1654825,
+    "seen": 1793613115.965653,
+    "ast_hash": "df0efde363a81fa2cf270fda5a970383",
     "semantic_hash": ""
   },
   "internal/webhooks/webhook_service.go": {
@@ -1764,9 +1764,9 @@
     "semantic_hash": ""
   },
   "internal/webhooks/webhook_service_registration.go": {
-    "mtime": 1793573402.8762755,
-    "seen": 1793573436.669552,
-    "ast_hash": "6a76caa838332440bd6796270fc54c73",
+    "mtime": 1793612909.80598,
+    "seen": 1793613115.9656582,
+    "ast_hash": "91ffd66ec68f656decf586f8ee9e977a",
     "semantic_hash": ""
   },
   "internal/webhooks/webhook_service_subscription.go": {
@@ -1902,9 +1902,9 @@
     "semantic_hash": ""
   },
   "pkg/template/functions.go": {
-    "mtime": 1793573731.8227594,
-    "seen": 1793574729.0743968,
-    "ast_hash": "4ab09c8eb785c702a8d4cbef1fac6c53",
+    "mtime": 1793613104.0580394,
+    "seen": 1793613115.965678,
+    "ast_hash": "9052964ff256d2588fab8e2cbcfe11ec",
     "semantic_hash": ""
   },
   "pkg/template/functions_test.go": {
@@ -5082,9 +5082,9 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793608743.5136168,
-    "seen": 1793608767.595405,
-    "ast_hash": "972bfb1a98b43fd99bffb950baaf58e2",
+    "mtime": 1793613036.7395115,
+    "seen": 1793613115.965785,
+    "ast_hash": "5616f26d00eb457a8433253b72d43d2d",
     "semantic_hash": ""
   },
   "internal/integration/api_surface_test.go": {
@@ -5574,9 +5574,9 @@
     "semantic_hash": ""
   },
   "internal/webhooks/webhook_service_update_test.go": {
-    "mtime": 1793574083.317309,
-    "seen": 1793574729.074353,
-    "ast_hash": "9d0267eae912b0da2a91fa7065e241ec",
+    "mtime": 1793612986.1658661,
+    "seen": 1793613115.9656608,
+    "ast_hash": "7e4b9fdca4dbc06a4899902680bf1834",
     "semantic_hash": ""
   },
   "server/options_test.go": {
@@ -5664,9 +5664,9 @@
     "semantic_hash": ""
   },
   "internal/webhooks/store/sample_payload_limits_test.go": {
-    "mtime": 1793561140.9311054,
-    "seen": 1793561727.0549319,
-    "ast_hash": "0c457e236e79337c1ed0b6f31e8c58d0",
+    "mtime": 1793613011.5841289,
+    "seen": 1793613115.965648,
+    "ast_hash": "7afd9e52b42368befab3e5ecf8b814dc",
     "semantic_hash": ""
   },
   "docs/src/blog/hmac-is-not-enough.md": {

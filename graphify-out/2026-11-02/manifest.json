@@ -2874,9 +2874,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/how-it-works.mdx": {
-    "mtime": 1793400949.7549806,
-    "seen": 1793561727.055074,
-    "ast_hash": "0a0a76b10daae24c9aa197514e01bb88",
+    "mtime": 1793608752.0931313,
+    "seen": 1793608767.595423,
+    "ast_hash": "762e64ddefab2a632a03bf2163294adf",
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/installation.mdx": {
@@ -5082,9 +5082,9 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793574171.1276753,
-    "seen": 1793574729.074684,
-    "ast_hash": "9f2384397c3e697ea0c1df973ebc4d3b",
+    "mtime": 1793608743.5136168,
+    "seen": 1793608767.595405,
+    "ast_hash": "972bfb1a98b43fd99bffb950baaf58e2",
     "semantic_hash": ""
   },
   "internal/integration/api_surface_test.go": {
