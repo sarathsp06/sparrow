@@ -115,3 +115,7 @@ make test            # all modules
 ## License
 
 [MIT](LICENSE)
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/chart?repos=sarathsp06/sparrow&type=date&legend=top-left)](https://www.star-history.com/?repos=sarathsp06%2Fsparrow&type=date&legend=top-left)
