@@ -111,8 +111,8 @@ func Functions() []Func {
 			Description: "# title\n\nCapitalizes the first letter of each word; other characters are left unchanged.\n\n## Usage\n```\n{{ .name | title }}\n{{ title \"hello world\" }}\n```\n\n## Example\n```\nInput: \"hello world\"\nOutput: \"Hello World\"\n```",
 		},
 		{
-			Name: "trim",
-			Func: trim,
+			Name:        "trim",
+			Func:        trim,
 			Description: "# trim\n\nTrims specified characters from both ends of string.\n\n## Usage\n```\n{{ trim \" \" .text }}\n{{ trim \".\" \"...hello...\" }}\n```\n\n## Example\n```\nInput: \" \", \"  hello world  \"\nOutput: \"hello world\"\n\nInput: \".\", \"...hello world...\"\nOutput: \"hello world\"\n```",
 		},
 		{
