@@ -2,6 +2,7 @@ package store
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,4 +35,27 @@ func TestSamplePayload_NestedArraysHitNodeBudget(t *testing.T) {
 	schema := map[string]any{"type": "object", "required": []any{"x"}, "properties": map[string]any{"x": leaf}}
 	_, err := SamplePayload(schema, true, 1)
 	require.ErrorIs(t, err, errSampleTooLarge)
+}
+
+// The node budget counts schemagen's ctx.Done calls, which is how schemagen
+// works today, not its API. If an upgrade checks Done less often, nested
+// minItems at the cap (100^4 values here) runs away; fail fast, naming the
+// cause, instead of hanging until the test timeout.
+func TestSamplePayload_NodeBudgetStillCountsSchemagen(t *testing.T) {
+	var leaf any = map[string]any{"type": "integer"}
+	for range 4 {
+		leaf = map[string]any{"type": "array", "items": leaf, "minItems": 100}
+	}
+	schema := map[string]any{"type": "object", "required": []any{"x"}, "properties": map[string]any{"x": leaf}}
+	errc := make(chan error, 1)
+	go func() {
+		_, err := SamplePayload(schema, true, 1)
+		errc <- err
+	}()
+	select {
+	case err := <-errc:
+		require.ErrorIs(t, err, errSampleTooLarge)
+	case <-time.After(10 * time.Second):
+		t.Fatal("node budget did not stop generation: schemagen no longer calls ctx.Done once per generated value; see nodeBudget")
+	}
 }
