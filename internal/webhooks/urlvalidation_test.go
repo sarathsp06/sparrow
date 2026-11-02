@@ -45,6 +45,10 @@ func TestCanonicalHeaders(t *testing.T) {
 	if len(got) != 2 || got["X-Api-Key"] != "k" || got["Authorization"] != "" {
 		t.Errorf("canonicalHeaders = %v, want X-Api-Key and Authorization", got)
 	}
+	in := map[string]string{"X-Api-Key": "k", "Authorization": "a"}
+	if got, _ := canonicalHeaders("secret_headers", in); len(got) != 2 || got["X-Api-Key"] != "k" || got["Authorization"] != "a" {
+		t.Errorf("names already canonical are kept as they are, got %v", got)
+	}
 	if got, _ := canonicalHeaders("secret_headers", nil); got != nil {
 		t.Errorf("nil stays nil, got %v", got)
 	}

@@ -1,6 +1,7 @@
 package webhooks
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -186,4 +187,46 @@ func TestImportPrechecksOnlyNewVersions(t *testing.T) {
 	assert.Equal(t, EventTypeNewVersion, res.Items[1].Action)
 	require.NotNil(t, res.Items[1].Templates)
 	assert.Equal(t, 1, res.Items[1].Templates.Passed)
+}
+
+// staleReadRepo answers the import's unlocked read with an older head, as
+// if another writer changed the type between that read and the transaction.
+type staleReadRepo struct {
+	*fakeEventTypeRepo
+	stale map[string]*store.EventRegistration
+}
+
+func (r staleReadRepo) GetEventByName(_ context.Context, _ uuid.UUID, name string) (*store.EventRegistration, error) {
+	return r.stale[name], nil
+}
+
+// A type the precheck guessed unchanged but that gets a new version inside
+// the transaction is still checked: the result is the same as before the
+// precheck was narrowed.
+func TestImportChecksTypesThePrecheckSkipped(t *testing.T) {
+	fake := newFakeEventTypeRepo()
+	repo := staleReadRepo{fakeEventTypeRepo: fake, stale: map[string]*store.EventRegistration{}}
+	svc := NewWebhookService(nil, repo, nil)
+	ctx := testContext()
+	def := EventTypeDefinition{Name: "order.paid", Active: true, Schema: orderSchema("number")}
+	_, err := svc.saveEventType(ctx, def, saveUpsert, saveEventTypeOptions{})
+	require.NoError(t, err)
+	fake.subs = []*store.EventSubscription{
+		{ID: uuid.New(), EventName: "order.paid", TransformEnabled: true, TransformTemplate: `{{ .payload.order_id }}`},
+		{ID: uuid.New(), EventName: "order.paid", TransformEnabled: true, TransformTemplate: `{{ .payload.missing }}`},
+	}
+
+	def.Schema = orderSchema("integer")
+	stale := *fake.heads["order.paid"]
+	stale.Schema = def.Schema // the unlocked read sees the bundle's schema already
+	repo.stale["order.paid"] = &stale
+	fake.listed = nil
+
+	res, err := svc.ImportEventTypes(ctx, []EventTypeDefinition{def}, nil, EventTypeImportOptions{DryRun: true, AllowBreaking: true})
+	require.NoError(t, err)
+	require.Len(t, res.Items, 1)
+	assert.Equal(t, EventTypeNewVersion, res.Items[0].Action)
+	require.NotNil(t, res.Items[0].Templates, "the transaction checks what the precheck skipped")
+	assert.Equal(t, 1, res.Items[0].Templates.Passed)
+	assert.Len(t, res.Items[0].Templates.Failures, 1)
 }
