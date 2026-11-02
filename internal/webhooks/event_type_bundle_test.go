@@ -157,3 +157,33 @@ func TestPrecheckReuse(t *testing.T) {
 	assert.Empty(t, got.Failures, "a changed template is checked again")
 	assert.Equal(t, 1, got.Passed)
 }
+
+// Only types whose schema changes are checked before the transaction, so
+// re-importing unchanged types renders no templates.
+func TestImportPrechecksOnlyNewVersions(t *testing.T) {
+	repo := newFakeEventTypeRepo()
+	svc := NewWebhookService(nil, repo, nil)
+	ctx := testContext()
+	unchanged := EventTypeDefinition{Name: "order.created", Active: true, Schema: orderSchema("number")}
+	changed := EventTypeDefinition{Name: "order.paid", Active: true, Schema: orderSchema("number")}
+	for _, def := range []EventTypeDefinition{unchanged, changed} {
+		_, err := svc.saveEventType(ctx, def, saveUpsert, saveEventTypeOptions{})
+		require.NoError(t, err)
+	}
+	repo.subs = []*store.EventSubscription{
+		{ID: uuid.New(), EventName: "order.created", TransformEnabled: true, TransformTemplate: `{{ .payload.order_id }}`},
+		{ID: uuid.New(), EventName: "order.paid", TransformEnabled: true, TransformTemplate: `{{ .payload.order_id }}`},
+	}
+	repo.listed = nil
+
+	changed.Schema = orderSchema("integer")
+	res, err := svc.ImportEventTypes(ctx, []EventTypeDefinition{unchanged, changed}, nil, EventTypeImportOptions{DryRun: true})
+	require.NoError(t, err)
+	assert.NotContains(t, repo.listed, "order.created", "an unchanged type is not prechecked")
+	assert.Contains(t, repo.listed, "order.paid")
+	require.Len(t, res.Items, 2)
+	assert.Equal(t, EventTypeUnchanged, res.Items[0].Action)
+	assert.Equal(t, EventTypeNewVersion, res.Items[1].Action)
+	require.NotNil(t, res.Items[1].Templates)
+	assert.Equal(t, 1, res.Items[1].Templates.Passed)
+}

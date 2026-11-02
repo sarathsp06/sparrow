@@ -22,6 +22,7 @@ type fakeEventTypeRepo struct {
 	heads    map[string]*store.EventRegistration
 	versions map[string][]*store.EventRegistrationVersion
 	subs     []*store.EventSubscription
+	listed   []string // events ListSubscriptionsTargetingEvent was called for
 }
 
 func newFakeEventTypeRepo() *fakeEventTypeRepo {
@@ -86,6 +87,7 @@ func (f *fakeEventTypeRepo) AddEventTypeVersion(_ context.Context, _ uuid.UUID, 
 }
 
 func (f *fakeEventTypeRepo) ListSubscriptionsTargetingEvent(_ context.Context, _ uuid.UUID, event string) ([]*store.EventSubscription, error) {
+	f.listed = append(f.listed, event)
 	var out []*store.EventSubscription
 	for _, sub := range f.subs {
 		if sub.EventName == event || sub.EventName == store.CatchAllEventName {

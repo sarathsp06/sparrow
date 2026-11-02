@@ -326,8 +326,18 @@ func (s *WebhookService) ImportEventTypes(ctx context.Context, items []EventType
 	// take seconds per render, which must not hold row locks and a
 	// connection. The transaction reuses a check when it sees the same
 	// subscriptions, and renders again only if they changed in between.
+	// Only types whose schema changes get a check, so an import of mostly
+	// unchanged types renders nothing; a type that turns out to need a new
+	// version after all (changed in between) is checked inside.
 	prechecked := make(map[string]precheck, len(sorted))
 	for _, def := range sorted {
+		current, err := s.webhookRepo.GetEventByName(ctx, tenantID, def.Name)
+		if err != nil {
+			return nil, fmt.Errorf("%s: failed to load event type: %w", def.Name, err)
+		}
+		if current == nil || planEventTypeSave(current, def).Action != EventTypeNewVersion {
+			continue
+		}
 		subs, err := s.webhookRepo.ListSubscriptionsTargetingEvent(ctx, tenantID, def.Name)
 		if err != nil {
 			return nil, fmt.Errorf("%s: failed to list affected subscriptions: %w", def.Name, err)
