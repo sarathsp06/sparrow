@@ -55,7 +55,7 @@ func NewWebhookClient(config *Config) *WebhookClient {
 		if err := policy.checkRedirect(req, via); err != nil {
 			return err
 		}
-		if !sameOrigin(req.URL, via[0].URL) {
+		if !SameOrigin(req.URL, via[0].URL) {
 			keepSparrowHeaders(req.Header)
 		}
 		return nil
@@ -262,10 +262,11 @@ func ReadBody(resp *http.Response, limit int64) ([]byte, error) {
 	return result, nil
 }
 
-// sameOrigin reports whether a and b have the same scheme, host and port. A
-// redirect that changes any of them may reach another service, or send the
-// headers over plain HTTP, so it keeps only Sparrow's own headers.
-func sameOrigin(a, b *url.URL) bool {
+// SameOrigin reports whether a and b have the same scheme, host and port,
+// with default ports filled in (https://a.com is https://a.com:443). Secret
+// headers never follow a change of any of them: a redirect that changes one
+// keeps only Sparrow's own headers, and so does moving a webhook's URL.
+func SameOrigin(a, b *url.URL) bool {
 	return strings.EqualFold(a.Scheme, b.Scheme) &&
 		strings.EqualFold(a.Hostname(), b.Hostname()) &&
 		portOrDefault(a) == portOrDefault(b)

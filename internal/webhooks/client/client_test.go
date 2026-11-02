@@ -634,8 +634,8 @@ func TestSameOrigin(t *testing.T) {
 	} {
 		a, _ := url.Parse(c.a)
 		b, _ := url.Parse(c.b)
-		if got := sameOrigin(a, b); got != c.want {
-			t.Errorf("sameOrigin(%s, %s) = %v, want %v", c.a, c.b, got, c.want)
+		if got := SameOrigin(a, b); got != c.want {
+			t.Errorf("SameOrigin(%s, %s) = %v, want %v", c.a, c.b, got, c.want)
 		}
 	}
 }

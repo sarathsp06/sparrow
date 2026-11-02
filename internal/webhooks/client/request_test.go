@@ -423,3 +423,38 @@ func TestPrepareDeliveryRequestFailsClosedOnDecryptError(t *testing.T) {
 		t.Errorf("expected nil DeliveryRequest on error, got %+v", dr)
 	}
 }
+
+// Each layer overrides the one before it however the names are cased:
+// subscription over webhook headers, secret headers over both.
+func TestPrepareDeliveryRequestOverridesIgnoreCase(t *testing.T) {
+	_, key, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cryptoSvc, err := crypto.NewService(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secret, err := cryptoSvc.EncryptJSON(map[string]string{"authorization": "Bearer secret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	webhook := &store.WebhookRegistration{
+		ID:            uuid.New(),
+		URL:           "https://example.com/webhook",
+		Headers:       map[string]string{"AUTHORIZATION": "Bearer plain", "x-team": "a"},
+		SecretHeaders: secret,
+	}
+	sub := &store.EventSubscription{ID: uuid.New(), Headers: map[string]string{"X-Team": "b"}}
+	event := &store.EventRecord{ID: uuid.New(), Event: "user.created", Consumer: "default"}
+
+	for range 20 { // map order is random; a case-sensitive merge fails some runs
+		dr, err := PrepareDeliveryRequest(webhook, sub, event, "delivery-1", []byte(`{}`), cryptoSvc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(dr.Headers) != 2 || dr.Headers["Authorization"] != "Bearer secret" || dr.Headers["X-Team"] != "b" {
+			t.Fatalf("headers = %v, want Authorization from secret headers and X-Team from the subscription", dr.Headers)
+		}
+	}
+}

@@ -99,9 +99,14 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	if err := validateHeaders("headers", stringHeaders(req.Headers)); err != nil {
 		return nil, "", err
 	}
-	if err := validateHeaders("secret_headers", req.SecretHeaders); err != nil {
+	secretHeaders, err := canonicalHeaders("secret_headers", req.SecretHeaders)
+	if err != nil {
 		return nil, "", err
 	}
+	if err := validateHeaders("secret_headers", secretHeaders); err != nil {
+		return nil, "", err
+	}
+	req.SecretHeaders = secretHeaders
 
 	if err := req.TemplateSettings.validate(); err != nil {
 		return nil, "", err
@@ -590,6 +595,9 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	// Merge secret header updates into the existing encrypted map.
 	// Empty-string values remove a header; omitted keys stay untouched.
 	if shouldUpdate("secret_headers") {
+		if secretHeaders, err = canonicalHeaders("secret_headers", secretHeaders); err != nil {
+			return err
+		}
 		if err := validateHeaders("secret_headers", secretHeaders); err != nil {
 			return err
 		}
@@ -597,6 +605,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		if err != nil {
 			return fmt.Errorf("failed to decrypt existing secret headers: %w", err)
 		}
+		mergedSecretHeaders = canonicalNames(mergedSecretHeaders)
 		if len(secretHeaders) == 0 {
 			webhook.SecretHeaders = nil
 		} else {
@@ -764,7 +773,7 @@ func (s *WebhookService) checkSecretHeadersFollowURL(oldURL, newURL string, oldE
 		return fmt.Errorf("failed to decrypt existing secret headers: %w", err)
 	}
 	var missing []string
-	for name := range old {
+	for name := range canonicalNames(old) {
 		if _, ok := set[name]; !ok || !updated {
 			missing = append(missing, name)
 		}
@@ -778,12 +787,13 @@ func (s *WebhookService) checkSecretHeadersFollowURL(oldURL, newURL string, oldE
 		strings.Join(missing, ", "))
 }
 
-// sameOrigin reports whether two URLs share scheme, host and port.
+// sameOrigin is client.SameOrigin for URL strings; one that does not parse
+// is another origin.
 func sameOrigin(a, b string) bool {
 	ua, errA := neturl.Parse(a)
 	ub, errB := neturl.Parse(b)
 	if errA != nil || errB != nil {
 		return false
 	}
-	return strings.EqualFold(ua.Scheme, ub.Scheme) && strings.EqualFold(ua.Host, ub.Host)
+	return client.SameOrigin(ua, ub)
 }

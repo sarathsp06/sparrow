@@ -246,6 +246,24 @@ func TestUpdateWebhookConfig_SecretHeadersFollowURL(t *testing.T) {
 		svc, _ := setup(t)
 		requireStatus(t, update(svc, "http://example.com/hook", nil, "url"), svcerrors.InvalidArgument)
 	})
+	t.Run("an explicit default port is the same origin", func(t *testing.T) {
+		svc, saved := setup(t)
+		require.NoError(t, update(svc, "https://example.com:443/hook", nil, "url"))
+		assert.NotNil(t, (*saved).SecretHeaders)
+	})
+	t.Run("header names match in any case", func(t *testing.T) {
+		svc, saved := setup(t)
+		require.NoError(t, update(svc, "https://example.org/", map[string]string{"x-api-key": "k2", "x-other": ""}, "url", "secret_headers"))
+		got, err := svc.DecryptSecretHeaders((*saved).SecretHeaders)
+		require.NoError(t, err)
+		assert.Equal(t, map[string]string{"X-Api-Key": "k2"}, got)
+	})
+	t.Run("the same header twice in different case is refused", func(t *testing.T) {
+		svc, _ := setup(t)
+		err := update(svc, "https://example.com/", map[string]string{"x-api-key": "a", "X-API-KEY": "b"}, "secret_headers")
+		requireStatus(t, err, svcerrors.InvalidArgument)
+		assert.Contains(t, err.Error(), "same header")
+	})
 }
 
 func TestUpdateWebhookConfig_Rejections(t *testing.T) {

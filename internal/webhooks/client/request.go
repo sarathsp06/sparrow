@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"net/http"
 	"strconv"
 	"strings"
@@ -252,12 +251,14 @@ func PrepareDeliveryRequest(
 	cryptoSvc *crypto.Service,
 ) (*DeliveryRequest, error) {
 
-	// Merge headers: subscription headers override webhook headers
+	// Merge headers: subscription headers override webhook headers.
+	// Names are canonicalised so an override wins however each layer spells
+	// the name (rows saved before names were canonicalised may differ in case).
 	// Use header map from pool
 	headers := GetHeaderMap()
-	maps.Copy(headers, webhook.Headers)
+	setCanonical(headers, webhook.Headers)
 	if sub != nil {
-		maps.Copy(headers, sub.Headers)
+		setCanonical(headers, sub.Headers)
 	}
 
 	// Decrypt and merge secret headers (override regular + subscription headers).
@@ -267,9 +268,7 @@ func PrepareDeliveryRequest(
 			PutHeaderMap(headers)
 			return nil, fmt.Errorf("decrypt secret headers for webhook %s: %w", webhook.ID, err)
 		}
-		for k, v := range secretHeaders {
-			headers[k] = v
-		}
+		setCanonical(headers, secretHeaders)
 	}
 
 	var subscriptionID string
@@ -336,4 +335,11 @@ func PrepareDeliveryRequest(
 		SubscriptionID:    subscriptionID,
 		Consumer:          event.Consumer,
 	}, nil
+}
+
+// setCanonical copies src into dst under canonical header names.
+func setCanonical(dst, src map[string]string) {
+	for k, v := range src {
+		dst[http.CanonicalHeaderKey(k)] = v
+	}
 }
