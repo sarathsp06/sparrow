@@ -44,7 +44,7 @@ migrations run on startup.
 
 ### Fixed
 
-- An event matching more than 5,461 subscriptions fanned out to none: the deliveries went into one statement over Postgres's 65,535 parameter limit, so the fan-out failed on every attempt after the push had returned 201. Deliveries are now inserted 1,000 at a time in the same transaction.
+- An event matching more than 5,461 subscriptions fanned out to none: the deliveries went into one statement over Postgres's 65,535 parameter limit, so the fan-out failed on every attempt after the push had returned 201. Deliveries are now inserted 1,000 at a time in the same transaction. There is no cap on how many subscriptions one event reaches; [How it works](https://sarathsp06.github.io/sparrow/getting-started/how-it-works/#key-design-decisions) now says so.
 - When every template render slot was busy, deliveries returned an error and used up a retry attempt. They now wait one to two seconds and try again without spending an attempt.
 - A `consumer` or `idempotency_key` over 255 characters on push, and a re-push or retry filter matching more than 10,000 items, return a 400 that names the limit instead of a 500.
 - The push and API docs now say request bodies are limited to 1 MiB (5 MiB for event-type import); `SPARROW_MAX_BODY_BYTES` does not raise it.
