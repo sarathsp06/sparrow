@@ -2679,7 +2679,7 @@ export interface components {
             http_config?: components["schemas"]["WebhookHTTPConfig"];
             /** @description Require (or stop requiring) a payload transform on every subscription. Turning it on fails with 409 while any subscription has no enabled transform_template. While on, events cannot be replaced in bulk (409): add or delete subscriptions individually. */
             requires_transform?: boolean;
-            /** @description Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it. An empty object removes them all. Changing url to another origin (scheme, host or port) is refused unless this sets every existing secret header again (a new value, or an empty string to remove it), so moving a webhook never carries its secrets to a new server. */
+            /** @description Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it. Names match in any case. An empty object removes them all. Changing url to another origin (scheme, host or port) is refused unless this sets every existing secret header again (a new value, or an empty string to remove it), so moving a webhook never carries its secrets to a new server. */
             secret_headers?: {
                 [key: string]: string;
             };
@@ -2809,7 +2809,7 @@ export interface components {
             rate_limit_rps?: number;
             /** @description Set when the receiver only accepts a transformed payload (Slack, SendGrid, ...). Every subscription must then have transform_enabled and a transform_template: transform_template is required here when events is non-empty, and later subscription writes without one are rejected. Recipes set this. Defaults to false. */
             requires_transform?: boolean;
-            /** @description HTTP headers sent with every delivery whose values are envelope-encrypted at rest and masked in every API response (e.g. an upstream auth token). Same name and value rules as headers. */
+            /** @description HTTP headers sent with every delivery whose values are envelope-encrypted at rest and masked in every API response (e.g. an upstream auth token). Same name and value rules as headers. Names are case-insensitive and saved in canonical form (x-api-key becomes X-Api-Key); the same name twice in different case is refused. */
             secret_headers?: {
                 [key: string]: string;
             };

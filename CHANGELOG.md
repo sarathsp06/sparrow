@@ -18,6 +18,7 @@ migrations run on startup.
 
 ### Upgrading
 
+- `secret_headers` names are saved and returned in canonical form: a header created as `x-api-key` is listed as `X-Api-Key` (webhooks saved earlier keep their spelling until their secret headers are next changed). What is sent on the wire is unchanged. A request that sends the same secret header twice in different case now gets a 400 instead of one of the values at random.
 - Moving a webhook to another host with `PATCH ... {"url": ...}` returns 400 while it has secret headers, unless the same request sends `secret_headers` with a value (or `""`) for each of them.
 - A separately hosted UI calling a server without `SPARROW_API_KEY` from a non-localhost origin must now be listed in `SPARROW_CORS_ALLOWED_ORIGINS`.
 - A delivery whose receiver answers with more than 64 KB of response headers now fails with `server response headers exceeded 65536 bytes` (Go's default allowed 10 MB).

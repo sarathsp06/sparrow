@@ -12,7 +12,7 @@ T = TypeVar("T", bound="PushEventBodyPayload")
 @_attrs_define
 class PushEventBodyPayload:
     """Event payload, a JSON object. Validated softly against the event type's JSON Schema if one is registered. The whole
-    request body is limited by SPARROW_MAX_BODY_BYTES (default 5 MiB).
+    request body is limited to 1 MiB (413 above that).
 
     """
 

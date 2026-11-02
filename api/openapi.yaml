@@ -1852,7 +1852,7 @@ components:
         secret_headers:
           additionalProperties:
             type: string
-          description: Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it. An empty object removes them all. Changing url to another origin (scheme, host or port) is refused unless this sets every existing secret header again (a new value, or an empty string to remove it), so moving a webhook never carries its secrets to a new server.
+          description: Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it. Names match in any case. An empty object removes them all. Changing url to another origin (scheme, host or port) is refused unless this sets every existing secret header again (a new value, or an empty string to remove it), so moving a webhook never carries its secrets to a new server.
           type: object
         signature_type:
           description: "Change the signing scheme: hmac or ed25519. Switching to ed25519 generates a signing keypair; HMAC signing continues either way."
@@ -2039,7 +2039,7 @@ components:
         secret_headers:
           additionalProperties:
             type: string
-          description: HTTP headers sent with every delivery whose values are envelope-encrypted at rest and masked in every API response (e.g. an upstream auth token). Same name and value rules as headers.
+          description: HTTP headers sent with every delivery whose values are envelope-encrypted at rest and masked in every API response (e.g. an upstream auth token). Same name and value rules as headers. Names are case-insensitive and saved in canonical form (x-api-key becomes X-Api-Key); the same name twice in different case is refused.
           type: object
         signature_type:
           description: Signing scheme. Every delivery carries an HMAC-SHA256 signature (v1,) in the Standard Webhooks webhook-signature header; ed25519 also generates a signing keypair and adds an Ed25519 signature (v1a,) next to it. Defaults to hmac.

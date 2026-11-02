@@ -52,7 +52,8 @@ class RegisterWebhookBody:
             this. Defaults to false.
         secret_headers (RegisterWebhookBodySecretHeaders | Unset): HTTP headers sent with every delivery whose values
             are envelope-encrypted at rest and masked in every API response (e.g. an upstream auth token). Same name and
-            value rules as headers.
+            value rules as headers. Names are case-insensitive and saved in canonical form (x-api-key becomes X-Api-Key);
+            the same name twice in different case is refused.
         signature_type (RegisterWebhookBodySignatureType | Unset): Signing scheme. Every delivery carries an HMAC-SHA256
             signature (v1,) in the Standard Webhooks webhook-signature header; ed25519 also generates a signing keypair and
             adds an Ed25519 signature (v1a,) next to it. Defaults to hmac.

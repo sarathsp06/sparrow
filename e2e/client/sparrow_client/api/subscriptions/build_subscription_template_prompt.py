@@ -86,8 +86,8 @@ def sync_detailed(
     to paste into any chat assistant (ChatGPT, Claude, a local model). Works whether or not the server
     has an AI provider configured, so installs without SPARROW_AI_* still get a one-click prompt. The
     user pastes the assistant's template back into the subscription editor and checks it with Run
-    Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched under the delivery
-    network policy to include an excerpt. No side effects.
+    Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched from a public address
+    only to include an excerpt. No side effects.
 
     Portal tokens: not allowed.
 
@@ -124,8 +124,8 @@ def sync(
     to paste into any chat assistant (ChatGPT, Claude, a local model). Works whether or not the server
     has an AI provider configured, so installs without SPARROW_AI_* still get a one-click prompt. The
     user pastes the assistant's template back into the subscription editor and checks it with Run
-    Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched under the delivery
-    network policy to include an excerpt. No side effects.
+    Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched from a public address
+    only to include an excerpt. No side effects.
 
     Portal tokens: not allowed.
 
@@ -157,8 +157,8 @@ async def asyncio_detailed(
     to paste into any chat assistant (ChatGPT, Claude, a local model). Works whether or not the server
     has an AI provider configured, so installs without SPARROW_AI_* still get a one-click prompt. The
     user pastes the assistant's template back into the subscription editor and checks it with Run
-    Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched under the delivery
-    network policy to include an excerpt. No side effects.
+    Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched from a public address
+    only to include an excerpt. No side effects.
 
     Portal tokens: not allowed.
 
@@ -193,8 +193,8 @@ async def asyncio(
     to paste into any chat assistant (ChatGPT, Claude, a local model). Works whether or not the server
     has an AI provider configured, so installs without SPARROW_AI_* still get a one-click prompt. The
     user pastes the assistant's template back into the subscription editor and checks it with Run
-    Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched under the delivery
-    network policy to include an excerpt. No side effects.
+    Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched from a public address
+    only to include an excerpt. No side effects.
 
     Portal tokens: not allowed.
 
