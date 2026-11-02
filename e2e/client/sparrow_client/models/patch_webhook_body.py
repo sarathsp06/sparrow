@@ -35,8 +35,10 @@ class PatchWebhookBody:
             Turning it on fails with 409 while any subscription has no enabled transform_template. While on, events cannot
             be replaced in bulk (409): add or delete subscriptions individually.
         secret_headers (PatchWebhookBodySecretHeaders | Unset): Merge-patch encrypted secret headers by name. Send a new
-            value to replace one header, omit a key to leave it untouched, or send an empty string to remove it. An empty
-            object removes them all.
+            value to replace one header, omit a key to leave it untouched, or send an empty string to remove it. Names match
+            in any case. An empty object removes them all. Changing url to another origin (scheme, host or port) is refused
+            unless this sets every existing secret header again (a new value, or an empty string to remove it), so moving a
+            webhook never carries its secrets to a new server.
         signature_type (str | Unset): Change the signing scheme: hmac or ed25519. Switching to ed25519 generates a
             signing keypair; HMAC signing continues either way.
         timeout (int | Unset): Deprecated: use http_config.request_timeout_seconds. Shorthand for it, in seconds (1 to

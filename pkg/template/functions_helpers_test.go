@@ -135,3 +135,27 @@ func TestEveryHelperIsDocumentedOnce(t *testing.T) {
 		seen[f.Name] = true
 	}
 }
+
+func TestTrimMatchesStringsTrim(t *testing.T) {
+	for _, c := range []struct{ cutset, s string }{
+		{" ", "  hello  "}, {".", "...a.b..."}, {"ü", "üüaüü"}, {"éü ", " éüaéb ü"},
+		{"ü", "aüa"}, {"ü", ""}, {"", "ü"}, {"\xff", "\xffa\xff"},
+	} {
+		if got, want := trim(c.cutset, c.s), strings.Trim(c.s, c.cutset); got != want {
+			t.Errorf("trim(%q, %q) = %q, want %q", c.cutset, c.s, got, want)
+		}
+	}
+}
+
+// strings.Trim with this cutset and string took about 20s of CPU.
+func TestTrimLongUnicodeCutsetIsFast(t *testing.T) {
+	cutset := strings.Repeat("ü", 1_000_000) + "é"
+	s := strings.Repeat("é", 1_000_000)
+	start := time.Now()
+	if got := trim(cutset, s); got != "" {
+		t.Fatalf("got %d bytes, want everything trimmed", len(got))
+	}
+	if d := time.Since(start); d > 2*time.Second {
+		t.Fatalf("took %v", d)
+	}
+}

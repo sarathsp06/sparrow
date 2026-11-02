@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/require"
 
@@ -109,6 +110,17 @@ func TestFanOutIdempotentAndAtomic(t *testing.T) {
 		require.Equal(t, 1, rows)
 		require.Equal(t, 1, jobs)
 
+		// More deliveries than one INSERT can bind (65535 parameters at
+		// 12 per row) go in chunks, all in the fan-out's one transaction.
+		many := make([]*store.WebhookDelivery, 6000)
+		for i := range many {
+			many[i] = delivery()
+		}
+		inserted, err = repo.CreateFanOutDeliveries(ctx, tenant.DefaultTenantID, many, func(context.Context, *sql.Tx, []*store.WebhookDelivery) error { return nil })
+		require.NoError(t, err)
+		require.Len(t, inserted, len(many))
+		require.Equal(t, len(many), countRows(`SELECT count(*) FROM webhook_deliveries WHERE id = ANY($1)`, pq.Array(idsOf(many))))
+
 		// Same ID again: nothing new, nothing enqueued.
 		again, err := repo.CreateFanOutDeliveries(ctx, tenant.DefaultTenantID, []*store.WebhookDelivery{ok}, enqueue(nil))
 		require.NoError(t, err)
@@ -116,4 +128,12 @@ func TestFanOutIdempotentAndAtomic(t *testing.T) {
 		_, jobs = exists(ok.ID)
 		require.Equal(t, 1, jobs)
 	})
+}
+
+func idsOf(ds []*store.WebhookDelivery) []string {
+	ids := make([]string, len(ds))
+	for i, d := range ds {
+		ids[i] = d.ID.String()
+	}
+	return ids
 }

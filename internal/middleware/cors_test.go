@@ -12,7 +12,7 @@ const uiOrigin = "https://ui.example.com"
 // corsChain mirrors cmd/server's ordering: CORS runs before API key auth, so a
 // preflight is answered without needing the key.
 func corsChain(t testing.TB, origins []string, production bool, apiKey string) (http.Handler, CORSMode) {
-	cors, mode := CORS(origins, production)
+	cors, mode := CORS(origins, production, apiKey != "")
 	auth, _ := newAuth(t, apiKey)
 	api := auth.HTTPMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -46,17 +46,19 @@ func TestCORSModes(t *testing.T) {
 		name       string
 		origins    []string
 		production bool
+		auth       bool
 		want       CORSMode
 	}{
-		{"allow list", []string{uiOrigin}, true, CORSAllowList},
-		{"allow list in dev", []string{uiOrigin}, false, CORSAllowList},
-		{"production default", nil, true, CORSBlockAll},
-		{"production blank entries", []string{"", " "}, true, CORSBlockAll},
-		{"dev default", nil, false, CORSAllowAll},
+		{"allow list", []string{uiOrigin}, true, true, CORSAllowList},
+		{"allow list in dev", []string{uiOrigin}, false, false, CORSAllowList},
+		{"production default", nil, true, true, CORSBlockAll},
+		{"production blank entries", []string{"", " "}, true, false, CORSBlockAll},
+		{"dev default with key", nil, false, true, CORSAllowAll},
+		{"dev default without key", nil, false, false, CORSLoopbackOnly},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, got := CORS(tc.origins, tc.production); got != tc.want {
+			if _, got := CORS(tc.origins, tc.production, tc.auth); got != tc.want {
 				t.Fatalf("mode = %v, want %v", got, tc.want)
 			}
 		})
@@ -123,6 +125,26 @@ func TestCORSDevAllowsAnyOriginWithAPIKeyHeader(t *testing.T) {
 	}
 	if got := get(h, "http://localhost:5173", "secret").Code; got != http.StatusOK {
 		t.Fatalf("GET status = %d, want 200", got)
+	}
+}
+
+func TestCORSDevWithoutKeyAllowsOnlyLoopback(t *testing.T) {
+	// No key means every caller is root: a page on another site must not be
+	// able to read responses, while `make run-web` on localhost still works.
+	h, _ := corsChain(t, nil, false, "")
+
+	for _, origin := range []string{"http://localhost:5173", "http://127.0.0.1:3000", "http://[::1]:5173"} {
+		if got := preflight(h, origin, "content-type").Header().Get("Access-Control-Allow-Origin"); got != origin {
+			t.Errorf("%s: preflight ACAO = %q, want it allowed", origin, got)
+		}
+	}
+	for _, origin := range []string{"https://evil.example.com", "http://localhost.evil.example.com", "http://10.0.0.5:5173", "null"} {
+		if got := preflight(h, origin, "content-type").Header().Get("Access-Control-Allow-Origin"); got != "" {
+			t.Errorf("%s: preflight ACAO = %q, want none", origin, got)
+		}
+		if got := get(h, origin, "").Header().Get("Access-Control-Allow-Origin"); got != "" {
+			t.Errorf("%s: GET ACAO = %q, want none", origin, got)
+		}
 	}
 }
 

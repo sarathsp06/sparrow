@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	neturl "net/url"
 	"strings"
 	"testing"
 
@@ -188,6 +190,83 @@ func TestUpdateWebhookConfig_SecretHeadersCleared(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
+// Secret header values are never returned, so moving the webhook to another
+// origin must not carry them along unless the request sets them again.
+func TestUpdateWebhookConfig_SecretHeadersFollowURL(t *testing.T) {
+	id := uuid.New()
+	ctx := context.Background()
+	setup := func(t *testing.T) (*WebhookService, **store.WebhookRegistration) {
+		repo := new(mockRepo)
+		svc := newCryptoService(t, repo)
+		wh := storedWebhook(id)
+		enc, err := svc.EncryptSecretHeaders(map[string]string{"X-Api-Key": "k", "X-Other": "o"})
+		require.NoError(t, err)
+		wh.SecretHeaders = enc
+		repo.On("GetWebhookByID", mock.Anything, mock.Anything, id, "default").Return(wh, nil)
+		var saved *store.WebhookRegistration
+		repo.On("UpdateWebhook", mock.Anything, mock.Anything, mock.Anything).Run(func(a mock.Arguments) {
+			saved = a.Get(2).(*store.WebhookRegistration)
+		}).Return(nil)
+		repo.On("DeleteRateLimitState", mock.Anything, id).Return(nil)
+		return svc, &saved
+	}
+	update := func(svc *WebhookService, url string, secret map[string]string, mask ...string) error {
+		return svc.UpdateWebhookConfig(ctx, id.String(), "default", nil, url, nil, true, "", nil, secret, "", false, mask)
+	}
+
+	t.Run("another origin without secret_headers is refused", func(t *testing.T) {
+		svc, _ := setup(t)
+		err := update(svc, "https://example.net/", nil, "url")
+		requireStatus(t, err, svcerrors.InvalidArgument)
+		assert.Contains(t, err.Error(), "X-Api-Key, X-Other")
+	})
+	t.Run("a header left out is refused", func(t *testing.T) {
+		svc, _ := setup(t)
+		err := update(svc, "https://example.org/", map[string]string{"X-Api-Key": "k2"}, "url", "secret_headers")
+		requireStatus(t, err, svcerrors.InvalidArgument)
+		assert.Contains(t, err.Error(), "X-Other")
+	})
+	t.Run("every header set or removed is allowed", func(t *testing.T) {
+		svc, saved := setup(t)
+		require.NoError(t, update(svc, "https://example.org/", map[string]string{"X-Api-Key": "k2", "X-Other": ""}, "url", "secret_headers"))
+		got, err := svc.DecryptSecretHeaders((*saved).SecretHeaders)
+		require.NoError(t, err)
+		assert.Equal(t, map[string]string{"X-Api-Key": "k2"}, got)
+	})
+	t.Run("an empty object removes them all", func(t *testing.T) {
+		svc, saved := setup(t)
+		require.NoError(t, update(svc, "https://example.org/", map[string]string{}, "url", "secret_headers"))
+		assert.Nil(t, (*saved).SecretHeaders)
+	})
+	t.Run("same origin keeps them", func(t *testing.T) {
+		svc, saved := setup(t)
+		require.NoError(t, update(svc, "https://example.com/v2/hook", nil, "url"))
+		assert.NotNil(t, (*saved).SecretHeaders)
+	})
+	t.Run("scheme change is another origin", func(t *testing.T) {
+		svc, _ := setup(t)
+		requireStatus(t, update(svc, "http://example.com/hook", nil, "url"), svcerrors.InvalidArgument)
+	})
+	t.Run("an explicit default port is the same origin", func(t *testing.T) {
+		svc, saved := setup(t)
+		require.NoError(t, update(svc, "https://example.com:443/hook", nil, "url"))
+		assert.NotNil(t, (*saved).SecretHeaders)
+	})
+	t.Run("header names match in any case", func(t *testing.T) {
+		svc, saved := setup(t)
+		require.NoError(t, update(svc, "https://example.org/", map[string]string{"x-api-key": "k2", "x-other": ""}, "url", "secret_headers"))
+		got, err := svc.DecryptSecretHeaders((*saved).SecretHeaders)
+		require.NoError(t, err)
+		assert.Equal(t, map[string]string{"X-Api-Key": "k2"}, got)
+	})
+	t.Run("the same header twice in different case is refused", func(t *testing.T) {
+		svc, _ := setup(t)
+		err := update(svc, "https://example.com/", map[string]string{"x-api-key": "a", "X-API-KEY": "b"}, "secret_headers")
+		requireStatus(t, err, svcerrors.InvalidArgument)
+		assert.Contains(t, err.Error(), "same header")
+	})
+}
+
 func TestUpdateWebhookConfig_Rejections(t *testing.T) {
 	id := uuid.New()
 	ctx := context.Background()
@@ -311,6 +390,20 @@ func TestSchemaValidationErrorText(t *testing.T) {
 	assert.ElementsMatch(t, []string{"missing properties: id", "field '/total': expected number"}, detailed.Warnings())
 }
 
+// A payload with an error per array item reported every one of them.
+func TestSchemaValidationWarningsAreCapped(t *testing.T) {
+	details := map[string]string{}
+	for i := range 1000 {
+		details[fmt.Sprintf("/items/%d", i)] = "expected string"
+	}
+	e := &SchemaValidationError{Message: "payload does not match", Details: details}
+	w := e.Warnings()
+	require.Len(t, w, maxSchemaWarnings+1)
+	assert.Equal(t, "... and 900 more schema warnings", w[maxSchemaWarnings])
+	assert.Equal(t, w, e.Warnings(), "the kept warnings change between calls")
+	assert.Contains(t, e.Error(), "... and 900 more schema warnings")
+}
+
 func TestSecretHelpersWithoutEncryption(t *testing.T) {
 	svc := NewWebhookService(nil, new(mockRepo), nil)
 
@@ -342,4 +435,92 @@ func TestSecretHelpersWithoutEncryption(t *testing.T) {
 	short, err := withKey.EncryptWebhookSecret("too-short-for-a-key")
 	require.NoError(t, err)
 	assert.Empty(t, withKey.WebhookSigningPublicKeyHex(short), "a value that is not an Ed25519 key yields no public key")
+}
+
+// Backward compatibility for webhooks saved before secret header names were
+// canonicalised: their stored names may be in any case.
+func TestUpdateWebhookConfig_SecretHeadersSavedInAnyCase(t *testing.T) {
+	id := uuid.New()
+	ctx := context.Background()
+	setup := func(t *testing.T) (*WebhookService, []byte, **store.WebhookRegistration) {
+		repo := new(mockRepo)
+		svc := newCryptoService(t, repo)
+		wh := storedWebhook(id)
+		enc, err := svc.EncryptSecretHeaders(map[string]string{"x-api-key": "k"})
+		require.NoError(t, err)
+		wh.SecretHeaders = enc
+		repo.On("GetWebhookByID", mock.Anything, mock.Anything, id, "default").Return(wh, nil)
+		var saved *store.WebhookRegistration
+		repo.On("UpdateWebhook", mock.Anything, mock.Anything, mock.Anything).Run(func(a mock.Arguments) {
+			saved = a.Get(2).(*store.WebhookRegistration)
+		}).Return(nil)
+		repo.On("DeleteRateLimitState", mock.Anything, id).Return(nil).Maybe()
+		return svc, enc, &saved
+	}
+	update := func(svc *WebhookService, url, description string, secret map[string]string, mask ...string) error {
+		return svc.UpdateWebhookConfig(ctx, id.String(), "default", nil, url, nil, true, description, nil, secret, "", false, mask)
+	}
+
+	t.Run("an update that leaves secret_headers alone does not rewrite them", func(t *testing.T) {
+		svc, enc, saved := setup(t)
+		require.NoError(t, update(svc, "", "new description", nil, "description"))
+		assert.Equal(t, enc, (*saved).SecretHeaders)
+	})
+	t.Run("a same-origin URL change keeps them without resending", func(t *testing.T) {
+		svc, enc, saved := setup(t)
+		require.NoError(t, update(svc, "https://example.com/v2", "", nil, "url"))
+		assert.Equal(t, enc, (*saved).SecretHeaders)
+	})
+	t.Run("adding a header keeps the stored one", func(t *testing.T) {
+		svc, _, saved := setup(t)
+		require.NoError(t, update(svc, "", "", map[string]string{"X-New": "n"}, "secret_headers"))
+		got, err := svc.DecryptSecretHeaders((*saved).SecretHeaders)
+		require.NoError(t, err)
+		assert.Equal(t, map[string]string{"X-Api-Key": "k", "X-New": "n"}, got)
+	})
+	t.Run("replacing it in another case replaces, not duplicates", func(t *testing.T) {
+		svc, _, saved := setup(t)
+		require.NoError(t, update(svc, "", "", map[string]string{"X-Api-Key": "k2"}, "secret_headers"))
+		got, err := svc.DecryptSecretHeaders((*saved).SecretHeaders)
+		require.NoError(t, err)
+		assert.Equal(t, map[string]string{"X-Api-Key": "k2"}, got)
+	})
+	t.Run("moving origin accepts the name in any case", func(t *testing.T) {
+		svc, _, saved := setup(t)
+		require.NoError(t, update(svc, "https://example.org/", "", map[string]string{"X-API-KEY": ""}, "url", "secret_headers"))
+		assert.Nil(t, (*saved).SecretHeaders)
+	})
+}
+
+// Backward compatibility: every URL move allowed before (scheme and Host
+// equal, ignoring case) is still allowed; only an explicit default port,
+// which is the same server, is newly allowed.
+func TestSameOriginNeverStricterThanBefore(t *testing.T) {
+	before := func(a, b string) bool {
+		ua, errA := neturl.Parse(a)
+		ub, errB := neturl.Parse(b)
+		if errA != nil || errB != nil {
+			return false
+		}
+		return strings.EqualFold(ua.Scheme, ub.Scheme) && strings.EqualFold(ua.Host, ub.Host)
+	}
+	urls := []string{
+		"https://example.com/a", "https://EXAMPLE.com/b", "https://example.com:443/", "https://example.com:8443/",
+		"http://example.com/", "http://example.com:80/", "http://example.com:8080/", "https://example.org/",
+		"https://[::1]/", "https://[::1]:443/", "https://user@example.com/", "://bad",
+	}
+	for _, a := range urls {
+		for _, b := range urls {
+			if before(a, b) && !sameOrigin(a, b) {
+				t.Errorf("%q -> %q was the same origin and no longer is", a, b)
+			}
+			if !before(a, b) && sameOrigin(a, b) {
+				ua, _ := neturl.Parse(a)
+				ub, _ := neturl.Parse(b)
+				if ua.Port() == ub.Port() {
+					t.Errorf("%q -> %q is newly the same origin for a reason other than a default port", a, b)
+				}
+			}
+		}
+	}
 }

@@ -1,7 +1,10 @@
 package webhooks
 
 import (
+	"maps"
+	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
@@ -52,6 +55,39 @@ func validateHeaders(field string, headers map[string]string) error {
 		return svcerrors.Wrap(err, svcerrors.InvalidArgument, err.Error())
 	}
 	return nil
+}
+
+// canonicalHeaders returns h keyed by canonical header names (x-api-key
+// becomes X-Api-Key), so a header is the same one however a request spells
+// it. Two names that differ only in case are the same header, and refused.
+func canonicalHeaders(field string, h map[string]string) (map[string]string, error) {
+	out := canonicalNames(h)
+	if len(out) == len(h) {
+		return out, nil
+	}
+	names := slices.Sorted(maps.Keys(h))
+	seen := make(map[string]string, len(names))
+	for _, name := range names {
+		key := http.CanonicalHeaderKey(name)
+		if prev, ok := seen[key]; ok {
+			return nil, svcerrors.Errorf(svcerrors.InvalidArgument,
+				"%s: %q and %q are the same header (header names are case-insensitive); send it once", field, prev, name)
+		}
+		seen[key] = name
+	}
+	return out, nil
+}
+
+// canonicalNames returns h keyed by canonical header names. nil stays nil.
+func canonicalNames(h map[string]string) map[string]string {
+	if h == nil {
+		return nil
+	}
+	out := make(map[string]string, len(h))
+	for name, value := range h {
+		out[http.CanonicalHeaderKey(name)] = value
+	}
+	return out
 }
 
 // stringHeaders keeps the string-valued entries of a JSON header map (the

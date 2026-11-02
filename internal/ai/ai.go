@@ -27,7 +27,8 @@ import (
 type Renderer func(ctx context.Context, eventName, tmpl string, payload map[string]any) (string, error)
 
 // DocFetcher fetches a receiver's documentation page and returns its text.
-// Implemented by NewDocFetcher, which enforces the delivery network policy.
+// Implemented by NewDocFetcher, which enforces a network policy (the server
+// passes the strict default: public addresses only).
 type DocFetcher func(ctx context.Context, rawURL string) (string, error)
 
 // HelperFunc is one template helper, as listed by GET /v1/template-functions.

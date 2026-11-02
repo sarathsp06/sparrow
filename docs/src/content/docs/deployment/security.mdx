@@ -304,8 +304,9 @@ Whether or not you add SSO:
       characters) — mandatory when `SPARROW_ENVIRONMENT=production`, and without it
       anyone who can reach the port owns the instance regardless of environment.
 - [ ] Set `SPARROW_ENVIRONMENT=production`. Any other value (`prod` included) runs
-      as development: no key required, CORS open to every origin when
-      `SPARROW_CORS_ALLOWED_ORIGINS` is unset, and the all-zeros key accepted.
+      as development: no key required, CORS open to every origin (only
+      localhost ones when no key is set) when `SPARROW_CORS_ALLOWED_ORIGINS` is
+      unset, and the all-zeros key accepted.
 - [ ] Configure `SPARROW_ENCRYPTION_KEYS` and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID`, and store the key material in a secret manager, never in
       the database or repo.
 - [ ] Use TLS to PostgreSQL (`sslmode=require` or stronger) whenever the

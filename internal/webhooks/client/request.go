@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"net/http"
 	"strconv"
 	"strings"
@@ -166,6 +165,24 @@ func BuildRequest(ctx context.Context, dr *DeliveryRequest) (*http.Request, erro
 	return req, nil
 }
 
+// keepSparrowHeaders removes every header BuildRequest did not set itself,
+// i.e. the webhook's custom and secret headers. Go drops only Authorization,
+// WWW-Authenticate and Cookie when a redirect leaves the domain, so without
+// this a receiver could redirect a delivery to another host and collect an
+// API key configured as, say, X-Api-Key. The signature headers stay: they
+// cover the body, which the new host receives anyway.
+func keepSparrowHeaders(h http.Header) {
+	for name := range h {
+		switch {
+		case name == "Content-Type", name == "User-Agent",
+			strings.HasPrefix(name, "X-Sparrow-"),
+			name == "Webhook-Id", name == "Webhook-Timestamp", name == "Webhook-Signature":
+		default:
+			delete(h, name)
+		}
+	}
+}
+
 // setOrDelete sets a Sparrow-owned header, or removes it when value is empty
 // so a configured header of the same name cannot stand in for it.
 func setOrDelete(h http.Header, name, value string) {
@@ -234,12 +251,14 @@ func PrepareDeliveryRequest(
 	cryptoSvc *crypto.Service,
 ) (*DeliveryRequest, error) {
 
-	// Merge headers: subscription headers override webhook headers
+	// Merge headers: subscription headers override webhook headers.
+	// Names are canonicalised so an override wins however each layer spells
+	// the name (rows saved before names were canonicalised may differ in case).
 	// Use header map from pool
 	headers := GetHeaderMap()
-	maps.Copy(headers, webhook.Headers)
+	setCanonical(headers, webhook.Headers)
 	if sub != nil {
-		maps.Copy(headers, sub.Headers)
+		setCanonical(headers, sub.Headers)
 	}
 
 	// Decrypt and merge secret headers (override regular + subscription headers).
@@ -249,9 +268,7 @@ func PrepareDeliveryRequest(
 			PutHeaderMap(headers)
 			return nil, fmt.Errorf("decrypt secret headers for webhook %s: %w", webhook.ID, err)
 		}
-		for k, v := range secretHeaders {
-			headers[k] = v
-		}
+		setCanonical(headers, secretHeaders)
 	}
 
 	var subscriptionID string
@@ -318,4 +335,11 @@ func PrepareDeliveryRequest(
 		SubscriptionID:    subscriptionID,
 		Consumer:          event.Consumer,
 	}, nil
+}
+
+// setCanonical copies src into dst under canonical header names.
+func setCanonical(dst, src map[string]string) {
+	for k, v := range src {
+		dst[http.CanonicalHeaderKey(k)] = v
+	}
 }

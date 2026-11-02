@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"text/template"
@@ -58,6 +59,13 @@ type budget struct {
 	steps   int
 	bytes   int
 	stopped atomic.Bool
+	// newest maps each backing array append has filled (by its first
+	// element) to the length of the newest list using it. append writes in
+	// place only for that list and copies an older one: writing past an
+	// older list overwrites an element a newer list already holds, which can
+	// make a list contain itself, and printing that recurses until the
+	// process dies of stack overflow.
+	newest map[*any]int
 }
 
 var errStopped = errors.New("template execution stopped")
@@ -285,7 +293,18 @@ func budgetFuncs(b *budget, base template.FuncMap) template.FuncMap {
 			if err := b.chargeValue(items); err != nil {
 				return nil, err
 			}
-			return append(list, items...), nil
+			if len(items) == 0 {
+				return list, nil
+			}
+			if cap(list) > len(list) && b.newest[&list[:cap(list)][0]] != len(list) {
+				list = slices.Clip(list)
+			}
+			out := append(list, items...)
+			if b.newest == nil {
+				b.newest = map[*any]int{}
+			}
+			b.newest[&out[:cap(out)][0]] = len(out)
+			return out, nil
 		},
 		"dict": func(pairs ...any) (map[string]any, error) {
 			m, err := base["dict"].(func(...any) (map[string]any, error))(pairs...)

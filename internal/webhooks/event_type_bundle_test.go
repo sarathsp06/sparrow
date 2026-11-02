@@ -1,6 +1,7 @@
 package webhooks
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -132,4 +133,100 @@ func TestBundleItemJSONShape(t *testing.T) {
 	b, err := json.Marshal(bundleItem{Name: "a.b", Active: true})
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"name":"a.b","active":true}`, string(b))
+}
+
+// The import renders template checks before its transaction and reuses them
+// inside it, unless the subscriptions changed in between.
+func TestPrecheckReuse(t *testing.T) {
+	def := EventTypeDefinition{Name: "order.paid", Schema: map[string]any{
+		"type": "object", "required": []any{"total"},
+		"properties": map[string]any{"total": map[string]any{"type": "integer"}},
+	}}
+	sub := &store.EventSubscription{ID: uuid.New(), EventName: "order.paid", TransformEnabled: true, TransformTemplate: `{{ .payload.missing }}`}
+	subs := []*store.EventSubscription{sub}
+	pre := precheck{key: subscriptionsKey(subs), check: checkTemplates(def, subs)}
+	require.Len(t, pre.check.Failures, 1)
+
+	got := pre.reuse(def, subs)
+	require.Len(t, got.Failures, 1)
+	got.Paused = append(got.Paused, "x")
+	assert.Empty(t, pre.check.Paused, "reuse must hand out a copy")
+
+	fixed := *sub
+	fixed.TransformTemplate = `{{ .payload.total }}`
+	got = pre.reuse(def, []*store.EventSubscription{&fixed})
+	assert.Empty(t, got.Failures, "a changed template is checked again")
+	assert.Equal(t, 1, got.Passed)
+}
+
+// Only types whose schema changes are checked before the transaction, so
+// re-importing unchanged types renders no templates.
+func TestImportPrechecksOnlyNewVersions(t *testing.T) {
+	repo := newFakeEventTypeRepo()
+	svc := NewWebhookService(nil, repo, nil)
+	ctx := testContext()
+	unchanged := EventTypeDefinition{Name: "order.created", Active: true, Schema: orderSchema("number")}
+	changed := EventTypeDefinition{Name: "order.paid", Active: true, Schema: orderSchema("number")}
+	for _, def := range []EventTypeDefinition{unchanged, changed} {
+		_, err := svc.saveEventType(ctx, def, saveUpsert, saveEventTypeOptions{})
+		require.NoError(t, err)
+	}
+	repo.subs = []*store.EventSubscription{
+		{ID: uuid.New(), EventName: "order.created", TransformEnabled: true, TransformTemplate: `{{ .payload.order_id }}`},
+		{ID: uuid.New(), EventName: "order.paid", TransformEnabled: true, TransformTemplate: `{{ .payload.order_id }}`},
+	}
+	repo.listed = nil
+
+	changed.Schema = orderSchema("integer")
+	res, err := svc.ImportEventTypes(ctx, []EventTypeDefinition{unchanged, changed}, nil, EventTypeImportOptions{DryRun: true})
+	require.NoError(t, err)
+	assert.NotContains(t, repo.listed, "order.created", "an unchanged type is not prechecked")
+	assert.Contains(t, repo.listed, "order.paid")
+	require.Len(t, res.Items, 2)
+	assert.Equal(t, EventTypeUnchanged, res.Items[0].Action)
+	assert.Equal(t, EventTypeNewVersion, res.Items[1].Action)
+	require.NotNil(t, res.Items[1].Templates)
+	assert.Equal(t, 1, res.Items[1].Templates.Passed)
+}
+
+// staleReadRepo answers the import's unlocked read with an older head, as
+// if another writer changed the type between that read and the transaction.
+type staleReadRepo struct {
+	*fakeEventTypeRepo
+	stale map[string]*store.EventRegistration
+}
+
+func (r staleReadRepo) GetEventByName(_ context.Context, _ uuid.UUID, name string) (*store.EventRegistration, error) {
+	return r.stale[name], nil
+}
+
+// A type the precheck guessed unchanged but that gets a new version inside
+// the transaction is still checked: the result is the same as before the
+// precheck was narrowed.
+func TestImportChecksTypesThePrecheckSkipped(t *testing.T) {
+	fake := newFakeEventTypeRepo()
+	repo := staleReadRepo{fakeEventTypeRepo: fake, stale: map[string]*store.EventRegistration{}}
+	svc := NewWebhookService(nil, repo, nil)
+	ctx := testContext()
+	def := EventTypeDefinition{Name: "order.paid", Active: true, Schema: orderSchema("number")}
+	_, err := svc.saveEventType(ctx, def, saveUpsert, saveEventTypeOptions{})
+	require.NoError(t, err)
+	fake.subs = []*store.EventSubscription{
+		{ID: uuid.New(), EventName: "order.paid", TransformEnabled: true, TransformTemplate: `{{ .payload.order_id }}`},
+		{ID: uuid.New(), EventName: "order.paid", TransformEnabled: true, TransformTemplate: `{{ .payload.missing }}`},
+	}
+
+	def.Schema = orderSchema("integer")
+	stale := *fake.heads["order.paid"]
+	stale.Schema = def.Schema // the unlocked read sees the bundle's schema already
+	repo.stale["order.paid"] = &stale
+	fake.listed = nil
+
+	res, err := svc.ImportEventTypes(ctx, []EventTypeDefinition{def}, nil, EventTypeImportOptions{DryRun: true, AllowBreaking: true})
+	require.NoError(t, err)
+	require.Len(t, res.Items, 1)
+	assert.Equal(t, EventTypeNewVersion, res.Items[0].Action)
+	require.NotNil(t, res.Items[0].Templates, "the transaction checks what the precheck skipped")
+	assert.Equal(t, 1, res.Items[0].Templates.Passed)
+	assert.Len(t, res.Items[0].Templates.Failures, 1)
 }

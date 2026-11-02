@@ -22,7 +22,8 @@ class WebhookHTTPConfig:
         expected_status_codes (list[int] | Unset): HTTP status codes treated as a successful delivery, each between 100
             and 599. Defaults to 200, 201, 202 and 204.
         follow_redirects (bool | Unset): Whether to follow HTTP redirects returned by the endpoint. Each redirect target
-            passes the same SSRF checks. Defaults to true.
+            passes the same SSRF checks, and a redirect that changes the scheme, host or port gets only Sparrow's own
+            headers: headers and secret_headers are dropped. Defaults to true.
         max_retries (int | Unset): Retries after the first attempt before a delivery is marked failed, so a delivery
             gets up to max_retries + 1 attempts. 0 means no retries. Between 0 and 10; defaults to 3.
         rate_limit_rps (float | Unset): Maximum delivery rate to this webhook, in requests per second (fractions

@@ -27,9 +27,10 @@ const (
 // NewDocFetcher returns a DocFetcher that downloads an http(s) page and
 // returns its visible text, trimmed to docMaxChars. The URL host is checked
 // against policy before connecting and the dialer re-checks every resolved
-// address and redirect, so the same rules that govern webhook deliveries
-// govern what a docs_url can reach (no loopback, private ranges, or cloud
-// metadata unless the operator allowed them).
+// address and redirect. The server always passes the default policy (no
+// loopback, private ranges or cloud metadata), even when deliveries may
+// reach private networks, because the fetched text is returned to the
+// caller of the prompt endpoint.
 func NewDocFetcher(policy client.NetworkPolicy) DocFetcher {
 	httpClient := policy.NewHTTPClient(docTimeout)
 	return func(ctx context.Context, rawURL string) (string, error) {

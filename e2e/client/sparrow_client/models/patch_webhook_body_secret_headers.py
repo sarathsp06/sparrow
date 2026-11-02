@@ -12,7 +12,9 @@ T = TypeVar("T", bound="PatchWebhookBodySecretHeaders")
 @_attrs_define
 class PatchWebhookBodySecretHeaders:
     """Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it
-    untouched, or send an empty string to remove it. An empty object removes them all.
+    untouched, or send an empty string to remove it. Names match in any case. An empty object removes them all. Changing
+    url to another origin (scheme, host or port) is refused unless this sets every existing secret header again (a new
+    value, or an empty string to remove it), so moving a webhook never carries its secrets to a new server.
 
     """
 

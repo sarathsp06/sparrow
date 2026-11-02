@@ -423,3 +423,87 @@ func TestPrepareDeliveryRequestFailsClosedOnDecryptError(t *testing.T) {
 		t.Errorf("expected nil DeliveryRequest on error, got %+v", dr)
 	}
 }
+
+// Each layer overrides the one before it however the names are cased:
+// subscription over webhook headers, secret headers over both.
+func TestPrepareDeliveryRequestOverridesIgnoreCase(t *testing.T) {
+	_, key, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cryptoSvc, err := crypto.NewService(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secret, err := cryptoSvc.EncryptJSON(map[string]string{"authorization": "Bearer secret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	webhook := &store.WebhookRegistration{
+		ID:            uuid.New(),
+		URL:           "https://example.com/webhook",
+		Headers:       map[string]string{"AUTHORIZATION": "Bearer plain", "x-team": "a"},
+		SecretHeaders: secret,
+	}
+	sub := &store.EventSubscription{ID: uuid.New(), Headers: map[string]string{"X-Team": "b"}}
+	event := &store.EventRecord{ID: uuid.New(), Event: "user.created", Consumer: "default"}
+
+	for range 20 { // map order is random; a case-sensitive merge fails some runs
+		dr, err := PrepareDeliveryRequest(webhook, sub, event, "delivery-1", []byte(`{}`), cryptoSvc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(dr.Headers) != 2 || dr.Headers["Authorization"] != "Bearer secret" || dr.Headers["X-Team"] != "b" {
+			t.Fatalf("headers = %v, want Authorization from secret headers and X-Team from the subscription", dr.Headers)
+		}
+	}
+}
+
+// Backward compatibility: without two layers spelling one name differently,
+// the request on the wire is what it was before names were canonicalised
+// (Header.Set always canonicalised them), stored lowercase names included.
+func TestDeliveryHeadersOnTheWireUnchanged(t *testing.T) {
+	_, key, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cryptoSvc, err := crypto.NewService(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	webhookHeaders := map[string]string{"x-team": "a", "X-Trace": "t", "content-type": "application/x-www-form-urlencoded"}
+	subHeaders := map[string]string{"x-sub": "s", "x-team": "b"} // an override spelled like the webhook's
+	secret := map[string]string{"x-api-key": "k", "Authorization": "Bearer secret"}
+	enc, err := cryptoSvc.EncryptJSON(secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	webhook := &store.WebhookRegistration{ID: uuid.New(), URL: "https://example.com/webhook", Headers: webhookHeaders, SecretHeaders: enc}
+	sub := &store.EventSubscription{ID: uuid.New(), Headers: subHeaders}
+	event := &store.EventRecord{ID: uuid.New(), Event: "user.created", Consumer: "default"}
+
+	dr, err := PrepareDeliveryRequest(webhook, sub, event, "delivery-1", []byte(`{}`), cryptoSvc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, err := BuildRequest(context.Background(), dr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// What the old merge sent: every layer through Header.Set, in order.
+	want := http.Header{}
+	for _, layer := range []map[string]string{webhookHeaders, subHeaders, secret} {
+		for k, v := range layer {
+			want.Set(k, v)
+		}
+	}
+	for name, values := range want {
+		if got := req.Header.Values(name); len(got) != 1 || got[0] != values[0] {
+			t.Errorf("%s = %v, want %v", name, got, values)
+		}
+	}
+	if got := req.Header.Get("X-Team"); got != "b" {
+		t.Errorf("X-Team = %q, want the subscription's value", got)
+	}
+}

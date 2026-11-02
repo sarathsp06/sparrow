@@ -24,9 +24,9 @@ class DraftTemplateBody:
             with the order id and total, flagged when refunded".
         schema (str | Unset): A URL to the JSON Schema for this object.
         current_template (str | Unset): Optional existing template to refine instead of drafting from scratch.
-        docs_url (str | Unset): Optional http(s) page documenting the receiver's payload. Sparrow fetches it (subject to
-            the same network policy as webhook deliveries, so private and cloud-metadata addresses are refused unless
-            allowed) and gives the model an excerpt of its text.
+        docs_url (str | Unset): Optional http(s) page documenting the receiver's payload. Sparrow fetches it from a
+            public address only (loopback, private and cloud-metadata addresses are always refused, even when
+            SPARROW_ALLOW_PRIVATE_NETWORKS lets deliveries reach them) and gives the model an excerpt of its text.
         recipe (str | Unset): Name of a shipped recipe (see GET /v1/recipes) whose destination format the draft should
             follow, e.g. "slack". Omit for a custom receiver.
         sample_payload (DraftTemplateBodySamplePayload | Unset): Optional payload to ground and verify the draft against
