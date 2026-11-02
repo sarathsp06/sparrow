@@ -48797,7 +48797,7 @@
       "node_kind": "heading",
       "norm_label": "example: one event, two receivers",
       "source_file": "docs/src/content/docs/getting-started/how-it-works.mdx",
-      "source_location": "L125"
+      "source_location": "L126"
     },
     {
       "id": "docs_src_content_docs_getting_started_how_it_works_key_design_decisions",
@@ -311341,7 +311341,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/src/content/docs/getting-started/how-it-works.mdx",
-      "source_location": "L125",
+      "source_location": "L126",
       "weight": 1.0
     },
     {
@@ -423716,5 +423716,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "790d2c66353c155d588e463cf325b29aa1edd1af"
+  "built_at_commit": "6700425b104fa2cc37a70113068fecf1856af6ef"
 }

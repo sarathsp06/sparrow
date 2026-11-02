@@ -1,7 +1,7 @@
 # Graph Report - sparrow-benchmark-blog-35703d  (2026-11-02)
 
 ## Corpus Check
-- 909 files · ~711,564 words
+- 909 files · ~711,666 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 42 file(s) not represented in the graph (top: .spec 21, (none) 12, .css 3)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `790d2c66`
+- Built from commit: `6700425b`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
