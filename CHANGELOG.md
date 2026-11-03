@@ -16,6 +16,8 @@ migrations run on startup.
 
 ## [Unreleased]
 
+## [v1.3.0] - 2026-11-03
+
 ### Upgrading
 
 - `secret_headers` names are saved and returned in canonical form: a header created as `x-api-key` is listed as `X-Api-Key` (webhooks saved earlier keep their spelling until their secret headers are next changed). What is sent on the wire is unchanged. A request that sends the same secret header twice in different case now gets a 400 instead of one of the values at random.
@@ -687,7 +689,8 @@ First release: webhook registration and subscriptions, signed delivery with
 retries, payload transforms, soft schema validation, bulk re-push and retry,
 and the embedded web UI.
 
-[Unreleased]: https://github.com/sarathsp06/sparrow/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/sarathsp06/sparrow/compare/v1.3.0...HEAD
+[v1.3.0]: https://github.com/sarathsp06/sparrow/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/sarathsp06/sparrow/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/sarathsp06/sparrow/compare/v1.0.1...v1.1.0
 [v1.0.1]: https://github.com/sarathsp06/sparrow/compare/v1.0.0...v1.0.1
