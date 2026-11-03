@@ -136,7 +136,10 @@ func TestTenantCreateAndPurge(t *testing.T) {
 	for table, n := range tenantRowCounts(t, sp.db, victim.String(), victimWebhooks) {
 		require.Zero(t, n, "%s still has %d rows of the purged tenant", table, n)
 	}
-	require.Zero(t, liveJobs(t, sp.db, victim.String()), "the purged tenant still has runnable jobs")
+	// A job running during the purge is only marked for cancellation; River's
+	// completer moves it to cancelled once the worker returns, asynchronously.
+	require.Eventually(t, func() bool { return liveJobs(t, sp.db, victim.String()) == 0 },
+		10*time.Second, 100*time.Millisecond, "the purged tenant still has runnable jobs")
 	require.Positive(t, liveJobs(t, sp.db, control.String()), "purging one tenant cancelled another tenant's jobs")
 	var tenants int
 	require.NoError(t, sp.db.Get(&tenants, `SELECT count(*) FROM tenants WHERE id = $1`, victim))
