@@ -309,8 +309,10 @@ Deployment](/sparrow/deployment/production/) covers the real ones.
 
 ## Letting consumers retry
 
-By default a consumer can retry its own failed deliveries from the portal
-(one at a time, or the deliveries held while a webhook was paused). To keep
+By default a consumer can retry its own deliveries from the portal: failed,
+expired and paused ones, and ones waiting out a retry backoff, which are then
+sent right away instead of at the next scheduled attempt (one at a time, or
+the deliveries held while a webhook was paused). To keep
 resending in your hands, start Sparrow with `SPARROW_PORTAL_RETRY=false`:
 
 - the portal gateway answers `403` to `POST /portal/api/deliveries/{id}:retry`,

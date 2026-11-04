@@ -203,7 +203,7 @@ func newMCPServer(client *apiClient, consumer string, allowWrite bool) (*mcp.Ser
 		})
 
 	mcp.AddTool(srv, &mcp.Tool{Name: "get_stats", Annotations: ro,
-		Description: "Aggregate delivery statistics for the consumer: webhook counts, delivery counts by outcome, success rate."},
+		Description: "Aggregate delivery statistics for the consumer: webhook counts, delivery attempt counts by outcome (all time; each retry counts, so a delivery that succeeded on its 3rd try adds 2 failed attempts), the attempt success rate, and deliveries in flight now."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 			out, err := get(ctx, "/v1/consumers/"+c+"/stats")
 			return nil, out, err

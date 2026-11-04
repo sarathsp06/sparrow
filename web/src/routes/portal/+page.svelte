@@ -529,7 +529,7 @@
                                   <td class="td"><StatusBadge status={d.status} /></td>
                                   <td class="td"><CopyableId id={d.delivery_id} truncate={12} /></td>
                                   <td class="td hidden sm:table-cell tnum" title="{d.attempt_count} of at most {d.max_attempts} attempts">
-                                    {d.attempt_count}<span class="text-faint"> of {d.max_attempts}</span>
+                                    {d.attempt_count} <span class="text-faint">of {d.max_attempts}</span>
                                   </td>
                                   <td class="td hidden md:table-cell mono text-xs">
                                     {d.response_code ?? "—"}

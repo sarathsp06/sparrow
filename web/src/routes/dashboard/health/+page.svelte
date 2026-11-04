@@ -153,21 +153,21 @@
               <p class="text-2xl font-semibold tnum mt-1" style="color:var(--color-ok)">{consumerStats.active_webhooks}</p>
             </div>
             <div class="panel px-4 py-4">
-              <p class="key">Success Rate</p>
+              <p class="key" title="Over delivery attempts: each retry counts">Attempt success rate</p>
               <p class="text-2xl font-semibold tnum mt-1" style="color:var(--color-{successRateTone(consumerStats.success_rate, rules)})">
                 {(consumerStats.success_rate * 100).toFixed(1)}%
               </p>
             </div>
             <div class="panel px-4 py-4">
-              <p class="key">Successful</p>
+              <p class="key">Successful attempts</p>
               <p class="text-2xl font-semibold tnum mt-1" style="color:var(--color-ok)">{consumerStats.successful_deliveries}</p>
             </div>
             <div class="panel px-4 py-4">
-              <p class="key">Failed</p>
+              <p class="key" title="Includes failed attempts of deliveries that later succeeded">Failed attempts</p>
               <p class="text-2xl font-semibold tnum mt-1" style="color:var(--color-bad)">{consumerStats.failed_deliveries}</p>
             </div>
             <div class="panel px-4 py-4">
-              <p class="key">Pending</p>
+              <p class="key" title="Deliveries pending, sending or retrying now">In flight</p>
               <p class="text-2xl font-semibold tnum mt-1" style="color:var(--color-warn)">{consumerStats.pending_deliveries}</p>
             </div>
           </div>

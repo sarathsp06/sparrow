@@ -691,7 +691,7 @@
               <p class="text-xl font-semibold tnum" style="color:{successRateColor}">{successRatePercent}%</p>
             </div>
             <div class="panel-2 p-3">
-              <p class="text-xs text-muted mb-0.5">Deliveries</p>
+              <p class="text-xs text-muted mb-0.5" title="Delivery attempts in the health window; each retry counts">Attempts</p>
               <p class="text-xl font-semibold tnum text-text">{healthMetrics.total_deliveries}</p>
             </div>
             <div class="panel-2 p-3">

@@ -523,7 +523,10 @@ Table columns: ID, FOR, ACCESS, INVITED BY, EXPIRES, STATUS.
 ### `sparrow stats`
 
 Prints aggregate delivery statistics for the current consumer: total webhooks
-(active), total deliveries (succeeded, failed, pending), and success rate.
+(active), delivery attempts (succeeded, failed), the attempt success rate, and
+the deliveries in flight now (pending, sending or retrying). The counts are
+attempts, not deliveries: a delivery that succeeded on its 3rd try adds one
+successful and two failed attempts.
 
 ```bash
 sparrow stats
@@ -562,7 +565,7 @@ Read-only tools (always on):
 | `get_event_type` | One event type with schema and sample payload; `versions` adds its version history |
 | `list_events` | Events pushed to the consumer, newest first, with payload, labels and delivery counts; filter by `event`, `schema_valid` and `labels`, paged with `cursor` |
 | `export_event_types` | Exports definitions as one bundle, like `sparrow events export`: exactly one of `names`, `prefix` or `all` |
-| `get_stats` | Delivery counts by outcome and success rate |
+| `get_stats` | Delivery attempt counts by outcome, attempt success rate, deliveries in flight |
 | `test_template` | Renders a transform template server-side with the delivery engine, against `payload` when given (e.g. a real one from `list_events`), else the event type's sample payload |
 | `list_recipes` | Recipes with their params: the built-in catalog plus local recipe files (`source` says which) |
 | `get_recipe` | One recipe in full (url, headers, template, guidance); local files override built-ins as in `sparrow use` |

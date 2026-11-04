@@ -38,10 +38,11 @@ func runStats(ctx context.Context, out io.Writer, client *apiClient, consumer, f
 	pal := newPalette(out)
 	_, _ = fmt.Fprintln(out, pal.bold("consumer: "+consumer))
 	_, _ = fmt.Fprintf(out, "webhooks:     %d (%d active)\n", stats.TotalWebhooks, stats.ActiveWebhooks)
-	_, _ = fmt.Fprintf(out, "deliveries:   %d\n", stats.TotalDeliveries)
+	// The counts are attempts (each retry counts), not deliveries.
+	_, _ = fmt.Fprintf(out, "attempts:     %d (retries included)\n", stats.TotalDeliveries)
 	_, _ = fmt.Fprintf(out, "  succeeded:  %d\n", stats.SuccessfulDeliveries)
 	_, _ = fmt.Fprintf(out, "  failed:     %d\n", stats.FailedDeliveries)
-	_, _ = fmt.Fprintf(out, "  pending:    %d\n", stats.PendingDeliveries)
-	_, _ = fmt.Fprintf(out, "success rate: %.1f%%\n", stats.SuccessRate*100)
+	_, _ = fmt.Fprintf(out, "success rate: %.1f%% of attempts\n", stats.SuccessRate*100)
+	_, _ = fmt.Fprintf(out, "in flight:    %d deliveries (pending, sending or retrying)\n", stats.PendingDeliveries)
 	return nil
 }

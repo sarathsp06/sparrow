@@ -159,21 +159,22 @@ func (r *Repository) GetWebhookHealthState(ctx context.Context, tenantID uuid.UU
 
 // GetWebhookHealthSummary provides aggregated performance metrics over a time window.
 // Always computes metrics in real-time from webhook_health_events for accuracy.
-// Uses COUNT(DISTINCT delivery_id) for delivery counts to avoid inflating numbers
-// when a single delivery has multiple attempts (retries).
-// Includes delivery counts, success rates, response time percentiles, and error breakdown.
+// Counts are attempts (each retry counts), the same basis the health label is
+// derived from, so success_rate here agrees with the label: a delivery that
+// failed twice and then succeeded is 2 failed attempts and 1 successful one.
+// Includes attempt counts, success rate, response time percentiles, and error breakdown.
 func (r *Repository) GetWebhookHealthSummary(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, hours int) (*WebhookHealthSummary, error) {
 	query := `
 		SELECT 
 			$1::uuid as webhook_id,
 			NOW() - INTERVAL '1 hour' * $2 as window_start,
 			NOW() as window_end,
-			COUNT(DISTINCT delivery_id) as total_deliveries,
-			COUNT(DISTINCT CASE WHEN success THEN delivery_id END) as successful_deliveries,
-			COUNT(DISTINCT delivery_id) - COUNT(DISTINCT CASE WHEN success THEN delivery_id END) as failed_deliveries,
+			COUNT(*) as total_deliveries,
+			COUNT(*) FILTER (WHERE success) as successful_deliveries,
+			COUNT(*) FILTER (WHERE NOT success) as failed_deliveries,
 			COALESCE(
-				CASE WHEN COUNT(DISTINCT delivery_id) > 0
-				     THEN COUNT(DISTINCT CASE WHEN success THEN delivery_id END)::FLOAT / COUNT(DISTINCT delivery_id)
+				CASE WHEN COUNT(*) > 0
+				     THEN (COUNT(*) FILTER (WHERE success))::FLOAT / COUNT(*)
 				     ELSE 0
 				END, 0) as success_rate,
 			COALESCE(AVG(response_time), 0)::INTEGER as avg_response_time,
