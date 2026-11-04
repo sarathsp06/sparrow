@@ -1758,9 +1758,9 @@
     "semantic_hash": ""
   },
   "internal/webhooks/webhook_service_health.go": {
-    "mtime": 1793789994.9207902,
-    "seen": 1793790469.425123,
-    "ast_hash": "1d7d125681236b1508cfd9daa23bcc45",
+    "mtime": 1793792939.2608898,
+    "seen": 1793793280.524556,
+    "ast_hash": "1f2361e1839758faf5e4a6558fe86522",
     "semantic_hash": ""
   },
   "internal/webhooks/webhook_service_registration.go": {
@@ -1776,9 +1776,9 @@
     "semantic_hash": ""
   },
   "internal/webhooks/webhook_service_test.go": {
-    "mtime": 1793791378.5936825,
-    "seen": 1793792160.8337102,
-    "ast_hash": "27ac2ea80e4d173aeeaa962555b8663d",
+    "mtime": 1793792981.0855513,
+    "seen": 1793793280.524558,
+    "ast_hash": "7d7bcdfd5bc7cd94a4040b8cf9037479",
     "semantic_hash": ""
   },
   "pkg/access/access.go": {
@@ -5082,9 +5082,9 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793791624.840934,
-    "seen": 1793792160.8338199,
-    "ast_hash": "b97e28437a82d3322ad685076993c0a5",
+    "mtime": 1793793269.7791839,
+    "seen": 1793793280.524669,
+    "ast_hash": "4e7e964d1677d9b616f6511d6ad4aa25",
     "semantic_hash": ""
   },
   "internal/integration/api_surface_test.go": {
