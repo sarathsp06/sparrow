@@ -16,6 +16,13 @@ migrations run on startup.
 
 ## [Unreleased]
 
+## [v1.3.1] - 2026-11-04
+
+### Upgrading
+
+- `GET .../webhooks/{webhook_id}/health` now returns attempt counts, as documented: `total_deliveries`, `successful_deliveries` and `failed_deliveries` count every attempt (retries included), and `success_rate` is over attempts. Dashboards or alerts built on these fields will see higher counts and, for webhooks that needed retries, a lower success rate that now matches the health label.
+- `sparrow stats` text output changed (`attempts:`, `success rate: N% of attempts`, `in flight:`). Scripts should read `sparrow stats -o json`, whose fields are unchanged.
+
 ### Changed
 
 - The consumer portal can edit an endpoint's URL and description (Edit, next to Pause).
@@ -702,7 +709,8 @@ First release: webhook registration and subscriptions, signed delivery with
 retries, payload transforms, soft schema validation, bulk re-push and retry,
 and the embedded web UI.
 
-[Unreleased]: https://github.com/sarathsp06/sparrow/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/sarathsp06/sparrow/compare/v1.3.1...HEAD
+[v1.3.1]: https://github.com/sarathsp06/sparrow/compare/v1.3.0...v1.3.1
 [v1.3.0]: https://github.com/sarathsp06/sparrow/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/sarathsp06/sparrow/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/sarathsp06/sparrow/compare/v1.0.1...v1.1.0
