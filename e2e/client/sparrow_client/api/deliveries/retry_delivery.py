@@ -86,9 +86,11 @@ def sync_detailed(
     """Retry a single delivery
 
      Queues one delivery for another round of attempts right away: it is reset to pending and gets up to
-    max_attempts new attempts, without TTL expiry. Works for failed, expired, paused, pending and
-    retrying deliveries; a successful one is refused with 409 (use the bulk route with force to resend
-    it). If the webhook or subscription is still paused the delivery is held as paused again. Not
+    max_attempts new attempts, without TTL expiry. Works for failed, expired, paused and retrying
+    deliveries: a retrying delivery's scheduled retry is cancelled and replaced, so it is sent now
+    rather than after its backoff. Refused with 409 for a successful delivery (use the bulk route with
+    force to resend it) and for one that is pending or being sent right now (retry it once that attempt
+    finishes). If the webhook or subscription is still paused the delivery is held as paused again. Not
     idempotent: each call queues another round.
 
     Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry, unless the server runs
@@ -127,9 +129,11 @@ def sync(
     """Retry a single delivery
 
      Queues one delivery for another round of attempts right away: it is reset to pending and gets up to
-    max_attempts new attempts, without TTL expiry. Works for failed, expired, paused, pending and
-    retrying deliveries; a successful one is refused with 409 (use the bulk route with force to resend
-    it). If the webhook or subscription is still paused the delivery is held as paused again. Not
+    max_attempts new attempts, without TTL expiry. Works for failed, expired, paused and retrying
+    deliveries: a retrying delivery's scheduled retry is cancelled and replaced, so it is sent now
+    rather than after its backoff. Refused with 409 for a successful delivery (use the bulk route with
+    force to resend it) and for one that is pending or being sent right now (retry it once that attempt
+    finishes). If the webhook or subscription is still paused the delivery is held as paused again. Not
     idempotent: each call queues another round.
 
     Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry, unless the server runs
@@ -163,9 +167,11 @@ async def asyncio_detailed(
     """Retry a single delivery
 
      Queues one delivery for another round of attempts right away: it is reset to pending and gets up to
-    max_attempts new attempts, without TTL expiry. Works for failed, expired, paused, pending and
-    retrying deliveries; a successful one is refused with 409 (use the bulk route with force to resend
-    it). If the webhook or subscription is still paused the delivery is held as paused again. Not
+    max_attempts new attempts, without TTL expiry. Works for failed, expired, paused and retrying
+    deliveries: a retrying delivery's scheduled retry is cancelled and replaced, so it is sent now
+    rather than after its backoff. Refused with 409 for a successful delivery (use the bulk route with
+    force to resend it) and for one that is pending or being sent right now (retry it once that attempt
+    finishes). If the webhook or subscription is still paused the delivery is held as paused again. Not
     idempotent: each call queues another round.
 
     Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry, unless the server runs
@@ -202,9 +208,11 @@ async def asyncio(
     """Retry a single delivery
 
      Queues one delivery for another round of attempts right away: it is reset to pending and gets up to
-    max_attempts new attempts, without TTL expiry. Works for failed, expired, paused, pending and
-    retrying deliveries; a successful one is refused with 409 (use the bulk route with force to resend
-    it). If the webhook or subscription is still paused the delivery is held as paused again. Not
+    max_attempts new attempts, without TTL expiry. Works for failed, expired, paused and retrying
+    deliveries: a retrying delivery's scheduled retry is cancelled and replaced, so it is sent now
+    rather than after its backoff. Refused with 409 for a successful delivery (use the bulk route with
+    force to resend it) and for one that is pending or being sent right now (retry it once that attempt
+    finishes). If the webhook or subscription is still paused the delivery is held as paused again. Not
     idempotent: each call queues another round.
 
     Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry, unless the server runs

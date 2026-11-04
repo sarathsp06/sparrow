@@ -87,10 +87,11 @@ def sync_detailed(
 ) -> Response[ErrorModel | RetryOutputBody]:
     """Retry deliveries in bulk for a webhook
 
-     Queues every failed, pending, retrying or paused delivery of one webhook for another round of
-    attempts (see retryDelivery), in one request. With force, every delivery of the webhook is resent,
-    including successful and expired ones. Returns count 0 when nothing matched. For a filtered or very
-    large set, use prepare_retry and :retryBatch instead.
+     Queues every failed or paused delivery of one webhook for another round of attempts (see
+    retryDelivery), in one request. With force, every delivery of the webhook is resent, including
+    successful, expired and retrying ones (a retrying one's scheduled retry is replaced); deliveries
+    pending or being sent right now are skipped. Returns count 0 when nothing matched. For a filtered or
+    very large set, use prepare_retry and :retryBatch instead.
 
     404 when the webhook does not exist in this consumer.
 
@@ -129,10 +130,11 @@ def sync(
 ) -> ErrorModel | RetryOutputBody | None:
     """Retry deliveries in bulk for a webhook
 
-     Queues every failed, pending, retrying or paused delivery of one webhook for another round of
-    attempts (see retryDelivery), in one request. With force, every delivery of the webhook is resent,
-    including successful and expired ones. Returns count 0 when nothing matched. For a filtered or very
-    large set, use prepare_retry and :retryBatch instead.
+     Queues every failed or paused delivery of one webhook for another round of attempts (see
+    retryDelivery), in one request. With force, every delivery of the webhook is resent, including
+    successful, expired and retrying ones (a retrying one's scheduled retry is replaced); deliveries
+    pending or being sent right now are skipped. Returns count 0 when nothing matched. For a filtered or
+    very large set, use prepare_retry and :retryBatch instead.
 
     404 when the webhook does not exist in this consumer.
 
@@ -166,10 +168,11 @@ async def asyncio_detailed(
 ) -> Response[ErrorModel | RetryOutputBody]:
     """Retry deliveries in bulk for a webhook
 
-     Queues every failed, pending, retrying or paused delivery of one webhook for another round of
-    attempts (see retryDelivery), in one request. With force, every delivery of the webhook is resent,
-    including successful and expired ones. Returns count 0 when nothing matched. For a filtered or very
-    large set, use prepare_retry and :retryBatch instead.
+     Queues every failed or paused delivery of one webhook for another round of attempts (see
+    retryDelivery), in one request. With force, every delivery of the webhook is resent, including
+    successful, expired and retrying ones (a retrying one's scheduled retry is replaced); deliveries
+    pending or being sent right now are skipped. Returns count 0 when nothing matched. For a filtered or
+    very large set, use prepare_retry and :retryBatch instead.
 
     404 when the webhook does not exist in this consumer.
 
@@ -206,10 +209,11 @@ async def asyncio(
 ) -> ErrorModel | RetryOutputBody | None:
     """Retry deliveries in bulk for a webhook
 
-     Queues every failed, pending, retrying or paused delivery of one webhook for another round of
-    attempts (see retryDelivery), in one request. With force, every delivery of the webhook is resent,
-    including successful and expired ones. Returns count 0 when nothing matched. For a filtered or very
-    large set, use prepare_retry and :retryBatch instead.
+     Queues every failed or paused delivery of one webhook for another round of attempts (see
+    retryDelivery), in one request. With force, every delivery of the webhook is resent, including
+    successful, expired and retrying ones (a retrying one's scheduled retry is replaced); deliveries
+    pending or being sent right now are skipped. Returns count 0 when nothing matched. For a filtered or
+    very large set, use prepare_retry and :retryBatch instead.
 
     404 when the webhook does not exist in this consumer.
 

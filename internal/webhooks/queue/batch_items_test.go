@@ -35,6 +35,10 @@ func (r *recordingInserter) BatchInsert(context.Context, []river.JobArgs) ([]*ri
 	return nil, nil
 }
 
+func (r *recordingInserter) CancelWaitingDeliveryJobsTx(context.Context, *sql.Tx, []uuid.UUID) ([]uuid.UUID, error) {
+	return nil, nil
+}
+
 func (r *recordingInserter) BatchInsertTx(_ context.Context, _ *sql.Tx, args []river.JobArgs) error {
 	if r.fail {
 		return errFake
@@ -181,7 +185,7 @@ func (r *scriptedDeliveryRepo) GetDeliveryByID(_ context.Context, _, id uuid.UUI
 
 // ResetDeliveriesForRetry resets the deliveries not in flight, as the store
 // does, and keeps the reset only when enqueue succeeds (the transaction).
-func (r *scriptedDeliveryRepo) ResetDeliveriesForRetry(ctx context.Context, _ uuid.UUID, ids []uuid.UUID, enqueue store.RetryEnqueuer) ([]uuid.UUID, error) {
+func (r *scriptedDeliveryRepo) ResetDeliveriesForRetry(ctx context.Context, _ uuid.UUID, ids []uuid.UUID, _ store.RetryClaimer, enqueue store.RetryEnqueuer) ([]uuid.UUID, error) {
 	if r.resetErr != nil {
 		return nil, r.resetErr
 	}

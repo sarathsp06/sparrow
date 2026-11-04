@@ -26,7 +26,7 @@ type DeliveryRepository interface {
 	ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]*WebhookDelivery, bool, error)
 	CountDeliveries(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) (int, error)
 	GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, force bool) ([]*WebhookDelivery, error)
-	ResetDeliveriesForRetry(ctx context.Context, tenantID uuid.UUID, deliveryIDs []uuid.UUID, enqueue RetryEnqueuer) ([]uuid.UUID, error)
+	ResetDeliveriesForRetry(ctx context.Context, tenantID uuid.UUID, deliveryIDs []uuid.UUID, claim RetryClaimer, enqueue RetryEnqueuer) ([]uuid.UUID, error)
 	UpdateDeliveryTemplateError(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, msg string) error
 	GetDeliveryAttempts(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID) ([]*WebhookHealthEvent, error)
 }
@@ -404,12 +404,20 @@ func (r *Repository) UpdateDeliveryTemplateError(ctx context.Context, tenantID u
 // the transaction that reset them.
 type RetryEnqueuer func(ctx context.Context, tx *sql.Tx, reset []uuid.UUID) error
 
-// ResetDeliveriesForRetry resets the finished deliveries among deliveryIDs
-// to pending and queues their jobs with enqueue, in one transaction, and
-// returns the ones it reset. Deliveries still in flight (pending, sending,
-// retrying) are skipped: they have a job already, and a second one would
-// send them twice.
-func (r *Repository) ResetDeliveriesForRetry(ctx context.Context, tenantID uuid.UUID, deliveryIDs []uuid.UUID, enqueue RetryEnqueuer) ([]uuid.UUID, error) {
+// RetryClaimer cancels, inside the retry transaction, the jobs of retrying
+// deliveries that are waiting out their backoff, and returns the deliveries
+// whose job it cancelled. A delivery whose job a worker has already picked
+// up is not returned: it is being sent.
+type RetryClaimer func(ctx context.Context, tx *sql.Tx, retrying []uuid.UUID) ([]uuid.UUID, error)
+
+// ResetDeliveriesForRetry resets deliveries among deliveryIDs to pending and
+// queues their jobs with enqueue, in one transaction, and returns the ones it
+// reset. Finished deliveries (success, failed, expired, paused) are reset.
+// A retrying delivery is reset only when claim cancelled its waiting job, so
+// the retry replaces its retry chain instead of running next to it; with a
+// nil claim, retrying deliveries are skipped. Pending and sending deliveries
+// are always skipped: their job is about to send or is sending them.
+func (r *Repository) ResetDeliveriesForRetry(ctx context.Context, tenantID uuid.UUID, deliveryIDs []uuid.UUID, claim RetryClaimer, enqueue RetryEnqueuer) ([]uuid.UUID, error) {
 	if len(deliveryIDs) == 0 {
 		return nil, nil
 	}
@@ -418,6 +426,28 @@ func (r *Repository) ResetDeliveriesForRetry(ctx context.Context, tenantID uuid.
 		return nil, fmt.Errorf("begin retry transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
+
+	// Claim the waiting jobs of retrying deliveries first. The delivery rows
+	// are locked so the worker cannot record an attempt on one in between.
+	claimed := []uuid.UUID{}
+	if claim != nil {
+		var retrying []uuid.UUID
+		if err := tx.SelectContext(ctx, &retrying, `
+			SELECT id FROM webhook_deliveries
+			WHERE id = ANY($1)
+			  AND status = 'retrying'
+			  AND EXISTS (SELECT 1 FROM webhook_registrations wr WHERE wr.id = webhook_deliveries.webhook_id AND wr.tenant_id = $2)
+			FOR UPDATE`, pq.Array(deliveryIDs), tenantID); err != nil {
+			return nil, storage.Error(err)
+		}
+		if len(retrying) > 0 {
+			got, err := claim(ctx, tx.Tx, retrying)
+			if err != nil {
+				return nil, err
+			}
+			claimed = append(claimed, got...)
+		}
+	}
 
 	query := `
 		UPDATE webhook_deliveries
@@ -430,12 +460,13 @@ func (r *Repository) ResetDeliveriesForRetry(ctx context.Context, tenantID uuid.
 		    error_category = '',
 		    template_error = NULL
 		WHERE id = ANY($1)
-		  AND status IN ('success', 'failed', 'expired', 'paused')
+		  AND (status IN ('success', 'failed', 'expired', 'paused')
+		       OR (status = 'retrying' AND id = ANY($3)))
 		  AND EXISTS (SELECT 1 FROM webhook_registrations wr WHERE wr.id = webhook_deliveries.webhook_id AND wr.tenant_id = $2)
 		RETURNING id
 	`
 	var reset []uuid.UUID
-	if err := tx.SelectContext(ctx, &reset, query, pq.Array(deliveryIDs), tenantID); err != nil {
+	if err := tx.SelectContext(ctx, &reset, query, pq.Array(deliveryIDs), tenantID, pq.Array(claimed)); err != nil {
 		return nil, storage.Error(err)
 	}
 	if len(reset) > 0 {

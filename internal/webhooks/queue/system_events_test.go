@@ -80,6 +80,10 @@ func (noopJobInserter) BatchInsertTx(ctx context.Context, tx *sql.Tx, args []riv
 	return nil
 }
 
+func (noopJobInserter) CancelWaitingDeliveryJobsTx(context.Context, *sql.Tx, []uuid.UUID) ([]uuid.UUID, error) {
+	return nil, nil
+}
+
 func TestEmitHealthChangedEvent_SkipsNoOpTransition(t *testing.T) {
 	alertRepo := &fakeAlertConfigRepo{recipients: []string{"a@example.com"}}
 	eventRepo := &fakeSystemEventRepo{}

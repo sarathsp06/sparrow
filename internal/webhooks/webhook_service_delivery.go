@@ -266,13 +266,13 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, consumer string, del
 	}
 
 	// In chunks, so a forced retry of a large webhook stays a bounded
-	// statement and insert. Each chunk resets its finished deliveries and
-	// queues their jobs in one transaction; ones still in flight are left
-	// to the job they have.
+	// statement and insert. Each chunk resets its finished deliveries, and
+	// retrying ones whose waiting job it cancels, and queues their jobs in
+	// one transaction; ones being sent right now are left to their job.
 	resubmittedIDs := make([]string, 0, len(ids))
 	for start := 0; start < len(ids); start += retryChunkSize {
 		end := min(start+retryChunkSize, len(ids))
-		reset, err := s.webhookRepo.ResetDeliveriesForRetry(ctx, tenantID, ids[start:end], func(ctx context.Context, tx *sql.Tx, reset []uuid.UUID) error {
+		reset, err := s.webhookRepo.ResetDeliveriesForRetry(ctx, tenantID, ids[start:end], s.jobInserter.CancelWaitingDeliveryJobsTx, func(ctx context.Context, tx *sql.Tx, reset []uuid.UUID) error {
 			chunk := make([]river.JobArgs, len(reset))
 			for i, id := range reset {
 				chunk[i] = jobs[id]
@@ -290,7 +290,7 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, consumer string, del
 	resubmittedCount := clampInt32(len(resubmittedIDs))
 
 	if resubmittedCount == 0 {
-		return nil, 0, svcerrors.Error(svcerrors.FailedPrecondition, "nothing to resubmit: the deliveries are still in flight")
+		return nil, 0, svcerrors.Error(svcerrors.FailedPrecondition, "nothing to resubmit: the delivery is being sent right now or is queued to send; retry it again once that attempt finishes")
 	}
 
 	s.logger.InfoContext(ctx, "Webhook deliveries resubmitted successfully",

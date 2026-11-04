@@ -345,7 +345,7 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 			MaxAttempts:         webhook.MaxDeliveryAttempts(),
 			RetryBackoffSeconds: webhook.RetryBackoffSeconds,
 		}
-		reset, err := w.deliveryRepo.ResetDeliveriesForRetry(ctx, tenantID, []uuid.UUID{deliveryID}, func(ctx context.Context, tx *sql.Tx, _ []uuid.UUID) error {
+		reset, err := w.deliveryRepo.ResetDeliveriesForRetry(ctx, tenantID, []uuid.UUID{deliveryID}, w.jobInserter.CancelWaitingDeliveryJobsTx, func(ctx context.Context, tx *sql.Tx, _ []uuid.UUID) error {
 			return w.jobInserter.BatchInsertTx(ctx, tx, []river.JobArgs{job})
 		})
 		if err != nil {

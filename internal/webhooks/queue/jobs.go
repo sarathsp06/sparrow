@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/lib/pq"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverdatabasesql"
 	"github.com/riverqueue/river/rivertype"
@@ -248,6 +249,73 @@ func (j *jobInserter) BatchInsertTx(ctx context.Context, tx *sql.Tx, args []rive
 	return nil
 }
 
+// CancelWaitingDeliveryJobsTx cancels the webhook delivery jobs of these
+// deliveries that have not been picked up by a worker (available, scheduled
+// or retryable: a retrying delivery's job waits out its backoff in one of
+// these), and returns the deliveries whose job it cancelled. The jobs are
+// locked with SKIP LOCKED, so one a worker is fetching right now is left to
+// it, and the cancel commits or rolls back with tx. A manual retry uses it to
+// replace a retrying delivery's retry chain with a new job instead of adding
+// a second one.
+func (j *jobInserter) CancelWaitingDeliveryJobsTx(ctx context.Context, tx *sql.Tx, deliveryIDs []uuid.UUID) ([]uuid.UUID, error) {
+	if len(deliveryIDs) == 0 {
+		return nil, nil
+	}
+	if j.txClient == nil {
+		return nil, fmt.Errorf("job inserter has no transactional client")
+	}
+	ids := make([]string, len(deliveryIDs))
+	for i, id := range deliveryIDs {
+		ids[i] = id.String()
+	}
+	rows, err := tx.QueryContext(ctx, `
+		SELECT id, args->>'delivery_id'
+		FROM river_job
+		WHERE queue = $1
+		  AND kind = $2
+		  AND state IN ('available', 'scheduled', 'retryable')
+		  AND args->>'delivery_id' = ANY($3)
+		FOR UPDATE SKIP LOCKED`,
+		QueueWebhookDelivery, WebhookArgs{}.Kind(), pq.Array(ids))
+	if err != nil {
+		return nil, fmt.Errorf("find waiting delivery jobs: %w", err)
+	}
+	type waitingJob struct {
+		id         int64
+		deliveryID string
+	}
+	var jobs []waitingJob
+	for rows.Next() {
+		var wj waitingJob
+		if err := rows.Scan(&wj.id, &wj.deliveryID); err != nil {
+			_ = rows.Close()
+			return nil, fmt.Errorf("scan waiting delivery job: %w", err)
+		}
+		jobs = append(jobs, wj)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("find waiting delivery jobs: %w", err)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("find waiting delivery jobs: %w", err)
+	}
+
+	seen := make(map[uuid.UUID]bool, len(jobs))
+	claimed := make([]uuid.UUID, 0, len(jobs))
+	for _, wj := range jobs {
+		if _, err := j.txClient.JobCancelTx(ctx, tx, wj.id); err != nil {
+			return nil, fmt.Errorf("cancel delivery job %d: %w", wj.id, err)
+		}
+		id, err := uuid.Parse(wj.deliveryID)
+		if err != nil || seen[id] {
+			continue
+		}
+		seen[id] = true
+		claimed = append(claimed, id)
+	}
+	return claimed, nil
+}
+
 // QueueManagerInterface defines the interface for queue management.
 //
 //go:generate go tool gowrap gen -g -i JobInserter -t ../../../templates/opentelemetry.tmpl -o JobInserter_otel.go
@@ -255,6 +323,10 @@ type JobInserter interface {
 	Insert(ctx context.Context, args river.JobArgs) (*rivertype.JobInsertResult, error)
 	BatchInsert(ctx context.Context, args []river.JobArgs) ([]*rivertype.JobInsertResult, error)
 	BatchInsertTx(ctx context.Context, tx *sql.Tx, args []river.JobArgs) error
+	// CancelWaitingDeliveryJobsTx cancels, inside tx, the delivery jobs of
+	// these deliveries that are waiting to run, and returns the deliveries
+	// whose job it cancelled (see store.RetryClaimer).
+	CancelWaitingDeliveryJobsTx(ctx context.Context, tx *sql.Tx, deliveryIDs []uuid.UUID) ([]uuid.UUID, error)
 }
 
 var _ JobInserter = (*jobInserter)(nil)

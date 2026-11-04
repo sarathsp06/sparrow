@@ -212,7 +212,7 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 		Method:      http.MethodPost,
 		Path:        "/v1/consumers/{consumer}/deliveries/{delivery_id}:retry",
 		Summary:     "Retry a single delivery",
-		Description: "Queues one delivery for another round of attempts right away: it is reset to pending and gets up to max_attempts new attempts, without TTL expiry. Works for failed, expired, paused, pending and retrying deliveries; a successful one is refused with 409 (use the bulk route with force to resend it). If the webhook or subscription is still paused the delivery is held as paused again. Not idempotent: each call queues another round.\n\n" +
+		Description: "Queues one delivery for another round of attempts right away: it is reset to pending and gets up to max_attempts new attempts, without TTL expiry. Works for failed, expired, paused and retrying deliveries: a retrying delivery's scheduled retry is cancelled and replaced, so it is sent now rather than after its backoff. Refused with 409 for a successful delivery (use the bulk route with force to resend it) and for one that is pending or being sent right now (retry it once that attempt finishes). If the webhook or subscription is still paused the delivery is held as paused again. Not idempotent: each call queues another round.\n\n" +
 			"Portal tokens: allowed, as POST /portal/api/deliveries/{delivery_id}:retry, unless the server runs with SPARROW_PORTAL_RETRY=false (then 403).",
 		Errors: []int{400, 404, 409},
 		Tags:   []string{"Deliveries"},
@@ -232,7 +232,7 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 		Method:      http.MethodPost,
 		Path:        "/v1/consumers/{consumer}/deliveries:retry",
 		Summary:     "Retry deliveries in bulk for a webhook",
-		Description: "Queues every failed, pending, retrying or paused delivery of one webhook for another round of attempts (see retryDelivery), in one request. With force, every delivery of the webhook is resent, including successful and expired ones. Returns count 0 when nothing matched. For a filtered or very large set, use prepare_retry and :retryBatch instead.\n\n" +
+		Description: "Queues every failed or paused delivery of one webhook for another round of attempts (see retryDelivery), in one request. With force, every delivery of the webhook is resent, including successful, expired and retrying ones (a retrying one's scheduled retry is replaced); deliveries pending or being sent right now are skipped. Returns count 0 when nothing matched. For a filtered or very large set, use prepare_retry and :retryBatch instead.\n\n" +
 			"404 when the webhook does not exist in this consumer.\n\nPortal tokens: allowed, as POST /portal/api/deliveries:retry, unless the server runs with SPARROW_PORTAL_RETRY=false (then 403).",
 		Errors: []int{400, 404},
 		Tags:   []string{"Deliveries"},

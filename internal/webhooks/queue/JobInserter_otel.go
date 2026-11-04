@@ -8,6 +8,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 	"go.opentelemetry.io/otel"
@@ -84,6 +85,31 @@ func (_d JobInserterWithTracing) BatchInsertTx(ctx context.Context, tx *sql.Tx, 
 		_span.End()
 	}()
 	return _d.JobInserter.BatchInsertTx(ctx, tx, args)
+}
+
+// CancelWaitingDeliveryJobsTx implements JobInserter
+func (_d JobInserterWithTracing) CancelWaitingDeliveryJobsTx(ctx context.Context, tx *sql.Tx, deliveryIDs []uuid.UUID) (ua1 []uuid.UUID, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "JobInserter.CancelWaitingDeliveryJobsTx")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":         ctx,
+				"tx":          tx,
+				"deliveryIDs": deliveryIDs}, map[string]interface{}{
+				"ua1": ua1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.JobInserter.CancelWaitingDeliveryJobsTx(ctx, tx, deliveryIDs)
 }
 
 // Insert implements JobInserter

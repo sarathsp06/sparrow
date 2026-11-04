@@ -1590,7 +1590,7 @@ func (_d RepositoryInterfaceWithTracing) ReplaceWebhookSubscriptions(ctx context
 }
 
 // ResetDeliveriesForRetry implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) ResetDeliveriesForRetry(ctx context.Context, tenantID uuid.UUID, deliveryIDs []uuid.UUID, enqueue RetryEnqueuer) (ua1 []uuid.UUID, err error) {
+func (_d RepositoryInterfaceWithTracing) ResetDeliveriesForRetry(ctx context.Context, tenantID uuid.UUID, deliveryIDs []uuid.UUID, claim RetryClaimer, enqueue RetryEnqueuer) (ua1 []uuid.UUID, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ResetDeliveriesForRetry")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -1598,6 +1598,7 @@ func (_d RepositoryInterfaceWithTracing) ResetDeliveriesForRetry(ctx context.Con
 				"ctx":         ctx,
 				"tenantID":    tenantID,
 				"deliveryIDs": deliveryIDs,
+				"claim":       claim,
 				"enqueue":     enqueue}, map[string]interface{}{
 				"ua1": ua1,
 				"err": err})
@@ -1612,7 +1613,7 @@ func (_d RepositoryInterfaceWithTracing) ResetDeliveriesForRetry(ctx context.Con
 
 		_span.End()
 	}()
-	return _d.RepositoryInterface.ResetDeliveriesForRetry(ctx, tenantID, deliveryIDs, enqueue)
+	return _d.RepositoryInterface.ResetDeliveriesForRetry(ctx, tenantID, deliveryIDs, claim, enqueue)
 }
 
 // ResolveAlertRecipients implements RepositoryInterface

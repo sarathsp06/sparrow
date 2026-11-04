@@ -49,6 +49,12 @@ func (m *mockJobInserter) BatchInsertTx(ctx context.Context, tx *sql.Tx, args []
 	return m.Called(ctx, tx, args).Error(0)
 }
 
+// CancelWaitingDeliveryJobsTx claims nothing; the store mock decides what a
+// retry resets.
+func (m *mockJobInserter) CancelWaitingDeliveryJobsTx(context.Context, *sql.Tx, []uuid.UUID) ([]uuid.UUID, error) {
+	return nil, nil
+}
+
 type mockRepo struct {
 	store.RepositoryInterface
 	mock.Mock
@@ -122,7 +128,7 @@ func (m *mockRepo) GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUI
 
 // ResetDeliveriesForRetry resets the IDs the test returns and runs enqueue
 // for them, as the store does inside its transaction.
-func (m *mockRepo) ResetDeliveriesForRetry(ctx context.Context, _ uuid.UUID, deliveryIDs []uuid.UUID, enqueue store.RetryEnqueuer) ([]uuid.UUID, error) {
+func (m *mockRepo) ResetDeliveriesForRetry(ctx context.Context, _ uuid.UUID, deliveryIDs []uuid.UUID, _ store.RetryClaimer, enqueue store.RetryEnqueuer) ([]uuid.UUID, error) {
 	args := m.Called(ctx, deliveryIDs)
 	reset, _ := args.Get(0).([]uuid.UUID)
 	if err := args.Error(1); err != nil || len(reset) == 0 {

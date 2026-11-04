@@ -149,12 +149,12 @@ func TestStoreMethodsScopeByTenant(t *testing.T) {
 	t.Run("ResetDeliveriesForRetry", func(t *testing.T) {
 		enqueued := 0
 		enqueue := func(context.Context, *sql.Tx, []uuid.UUID) error { enqueued++; return nil }
-		reset, err := repo.ResetDeliveriesForRetry(ctx, other, []uuid.UUID{f.delivery.ID}, enqueue)
+		reset, err := repo.ResetDeliveriesForRetry(ctx, other, []uuid.UUID{f.delivery.ID}, nil, enqueue)
 		require.NoError(t, err)
 		require.Empty(t, reset, "another tenant reset the delivery")
 		require.Zero(t, enqueued, "another tenant queued a retry")
 
-		reset, err = repo.ResetDeliveriesForRetry(ctx, owner, []uuid.UUID{f.delivery.ID}, enqueue)
+		reset, err = repo.ResetDeliveriesForRetry(ctx, owner, []uuid.UUID{f.delivery.ID}, nil, enqueue)
 		require.NoError(t, err)
 		require.Equal(t, []uuid.UUID{f.delivery.ID}, reset)
 		require.Equal(t, 1, enqueued)

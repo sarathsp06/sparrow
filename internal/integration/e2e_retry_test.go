@@ -1027,3 +1027,57 @@ func TestE2E_DeliveryListCursorPaging(t *testing.T) {
 	require.NotEmpty(t, snap.RetryID)
 	assert.Equal(t, 1, snap.RetryTotal, "the retry snapshot applies the event filter")
 }
+
+// TestE2E_ManualRetryReplacesPendingRetry verifies that retrying a delivery
+// that is still waiting out its backoff sends it right away and cancels the
+// old job, so only one retry chain is left for the delivery.
+func TestE2E_ManualRetryReplacesPendingRetry(t *testing.T) {
+	env := setupEnv(t)
+	c := newRESTClient(t, env)
+	ctx := context.Background()
+
+	const (
+		consumer  = "manual-retry-replace"
+		eventName = "retry.manual_replace"
+	)
+
+	targetSrv, requestCount := startAlwaysFailTarget(t, http.StatusInternalServerError)
+	registerEventType(t, c, ctx, eventName)
+	resp, err := c.post(ctx, "/v1/consumers/"+consumer+"/webhooks", map[string]any{
+		"events": []string{eventName},
+		"url":    targetSrv.URL + "/webhook",
+		"http_config": map[string]any{
+			"max_retries":             3,
+			"retry_backoff_seconds":   600, // the old job stays scheduled for the whole test
+			"request_timeout_seconds": 5,
+		},
+	}, nil)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	eventID := pushTestEvent(t, c, ctx, consumer, eventName)
+	pollCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	d := pollDeliveryStatus(t, c, pollCtx, consumer, eventID, func(d deliveryItem) bool {
+		return d.Status == "retrying"
+	})
+	require.Equal(t, int32(1), requestCount.Load())
+
+	resp, err = c.post(ctx, "/v1/consumers/"+consumer+"/deliveries/"+d.DeliveryID+":retry", nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// The retry is sent right away, not after the 600s backoff.
+	require.Eventually(t, func() bool { return requestCount.Load() == 2 }, 15*time.Second, 200*time.Millisecond,
+		"manual retry should send the delivery right away")
+
+	// Exactly one unfinished job is left: the new one, now in its own backoff.
+	var unfinished int
+	require.NoError(t, env.pgxPool.QueryRow(ctx, `
+		SELECT count(*) FROM river_job
+		WHERE kind = 'webhook_delivery'
+		  AND args->>'delivery_id' = $1
+		  AND state IN ('available', 'pending', 'retryable', 'running', 'scheduled')`,
+		d.DeliveryID).Scan(&unfinished))
+	assert.Equal(t, 1, unfinished, "the old job must be cancelled, not left running its own retries")
+}
