@@ -93,3 +93,9 @@ security_fixes_report.md
 
 # SQL benchmark output (scripts/sqlbench/run.sh)
 sqlbench-results/
+
+# Agent skills installed locally (skills CLI); not part of the repo
+.agents/
+.pi/
+.claude/skills/
+skills-lock.json
