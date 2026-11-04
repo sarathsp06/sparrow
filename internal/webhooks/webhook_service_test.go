@@ -58,6 +58,9 @@ func (m *mockJobInserter) CancelWaitingDeliveryJobsTx(context.Context, *sql.Tx, 
 type mockRepo struct {
 	store.RepositoryInterface
 	mock.Mock
+	// gotClaim records whether the last ResetDeliveriesForRetry call was
+	// given a claimer (needed to retry a retrying delivery).
+	gotClaim bool
 }
 
 func (m *mockRepo) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UUID, consumer, event string, activeOnly bool, health store.WebhookHealth, limit, offset int) ([]*store.WebhookRegistration, int, error) {
@@ -128,7 +131,8 @@ func (m *mockRepo) GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUI
 
 // ResetDeliveriesForRetry resets the IDs the test returns and runs enqueue
 // for them, as the store does inside its transaction.
-func (m *mockRepo) ResetDeliveriesForRetry(ctx context.Context, _ uuid.UUID, deliveryIDs []uuid.UUID, _ store.RetryClaimer, enqueue store.RetryEnqueuer) ([]uuid.UUID, error) {
+func (m *mockRepo) ResetDeliveriesForRetry(ctx context.Context, _ uuid.UUID, deliveryIDs []uuid.UUID, claim store.RetryClaimer, enqueue store.RetryEnqueuer) ([]uuid.UUID, error) {
+	m.gotClaim = claim != nil
 	args := m.Called(ctx, deliveryIDs)
 	reset, _ := args.Get(0).([]uuid.UUID)
 	if err := args.Error(1); err != nil || len(reset) == 0 {
@@ -270,8 +274,9 @@ func TestWebhookService_RetryDelivery(t *testing.T) {
 	inserter.AssertExpectations(t)
 }
 
-// A delivery still in flight already has a job: even a forced retry leaves
-// it to that job instead of queuing a second one.
+// A delivery the store does not reset (pending, or its job already picked up
+// by a worker) is left to that job, even by a forced retry, and the caller
+// gets FailedPrecondition instead of a second job.
 func TestWebhookService_RetryDeliveryInFlight(t *testing.T) {
 	repo := new(mockRepo)
 	inserter := new(mockJobInserter)
@@ -290,6 +295,32 @@ func TestWebhookService_RetryDeliveryInFlight(t *testing.T) {
 		t.Fatalf("err = %v, want FailedPrecondition", err)
 	}
 	inserter.AssertNotCalled(t, "BatchInsertTx", mock.Anything, mock.Anything, mock.Anything)
+	assert.Contains(t, svcErr.Msg, "being sent right now", "the error says why and what to do")
+}
+
+// A retrying delivery whose waiting job the store's claim cancels is reset
+// and queued like a failed one: the service always hands the store its
+// claimer.
+func TestWebhookService_RetryDeliveryRetryingPassesClaimer(t *testing.T) {
+	repo := new(mockRepo)
+	inserter := new(mockJobInserter)
+	service := NewWebhookService(inserter, repo, nil)
+	ctx := testContext()
+	deliveryID, webhookID := uuid.New(), uuid.New()
+
+	repo.On("GetDeliveryByID", mock.Anything, mock.Anything, deliveryID, "default").
+		Return(&store.WebhookDelivery{ID: deliveryID, WebhookID: webhookID, EventID: uuid.New(), Status: store.StatusRetrying, MaxAttempts: 4}, nil)
+	repo.On("GetWebhookByID", mock.Anything, mock.Anything, webhookID, "default").Return(&store.WebhookRegistration{ID: webhookID, Consumer: "default"}, nil)
+	repo.On("ResetDeliveriesForRetry", mock.Anything, []uuid.UUID{deliveryID}).Return([]uuid.UUID{deliveryID}, nil)
+	inserter.On("BatchInsertTx", mock.Anything, mock.Anything, mock.MatchedBy(func(jobs []river.JobArgs) bool { return len(jobs) == 1 })).Return(nil)
+
+	ids, count, err := service.RetryDelivery(ctx, "default", deliveryID.String(), "", false)
+
+	require.NoError(t, err)
+	assert.Equal(t, int32(1), count)
+	assert.Equal(t, []string{deliveryID.String()}, ids)
+	assert.True(t, repo.gotClaim, "the service must pass a claimer, or a retrying delivery is never retried")
+	inserter.AssertExpectations(t)
 }
 
 func TestWebhookService_ListDeliveries_Pagination(t *testing.T) {

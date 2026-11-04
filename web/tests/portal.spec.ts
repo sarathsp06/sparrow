@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { expect, test } from '@playwright/test';
-import { ensureAlertDelivery, ensureEventType, mintPortalToken, newConsumer, newEventName, registerWebhook } from './api';
+import { ensureAlertDelivery, ensureEventType, mintPortalToken, newConsumer, newEventName, pushEvent, registerWebhook } from './api';
 
 // The consumer portal authenticates purely from the URL fragment (#token=...),
 // so every test mints a link via the admin API and visits its path
@@ -137,4 +137,67 @@ test('a consumer can change an endpoint URL and description from the portal', as
   await expect(form).toBeHidden();
   await expect(page.getByText(newUrl)).toBeVisible();
   await expect(page.getByText('moved endpoint')).toBeVisible();
+});
+
+test('the portal labels its counters as attempts and explains health', async ({ page, request }) => {
+  const consumer = newConsumer();
+  const url = `https://example.com/pw-portal-stats-${Date.now()}`;
+  await registerWebhook(request, consumer, url);
+  const { path } = await mintPortalToken(request, consumer);
+  await page.goto(path);
+
+  for (const label of ['Successful attempts', 'Failed attempts', 'Attempt success rate']) {
+    await expect(page.getByText(label, { exact: true })).toBeVisible();
+  }
+  await expect(page.getByText('Delivered', { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId('stats-note')).toContainText('retries included');
+  // A new endpoint has no attempts yet: its badge says when health appears.
+  await expect(page.getByText('Idle', { exact: true })).toHaveAttribute('title', /after the first deliveries/);
+});
+
+test('Retry on a delivery waiting out its backoff sends it now', async ({ page, request }) => {
+  // A receiver on this machine that fails until told to succeed.
+  let succeed = false;
+  let requests = 0;
+  const receiver = createServer((req, res) => {
+    req.resume();
+    req.on('end', () => {
+      requests++;
+      res.writeHead(succeed ? 200 : 500).end();
+    });
+  });
+  await new Promise<void>((resolve) => receiver.listen(0, '127.0.0.1', resolve));
+  try {
+    const consumer = newConsumer();
+    const event = await ensureEventType(request, newEventName());
+    const url = `http://127.0.0.1:${(receiver.address() as AddressInfo).port}/webhook`;
+    const created = await request.post(`/v1/consumers/${consumer}/webhooks`, {
+      // A 10 minute backoff: the delivery can only be sent again by Retry.
+      data: { url, events: [event], http_config: { max_retries: 3, retry_backoff_seconds: 600 } },
+    });
+    expect(created.ok(), await created.text()).toBeTruthy();
+    await pushEvent(request, consumer, event);
+    await expect
+      .poll(async () => {
+        const res = await request.get(`/v1/consumers/${consumer}/deliveries`);
+        return ((await res.json()).items ?? [])[0]?.status;
+      })
+      .toBe('retrying');
+    expect(requests).toBe(1);
+
+    const { path } = await mintPortalToken(request, consumer);
+    await page.goto(path);
+    await page.getByRole('button', { name: new RegExp(url) }).click();
+    const row = page.locator('tr', { hasText: 'Retrying' });
+    await expect(row).toContainText('1 of 4');
+
+    succeed = true;
+    await row.getByRole('button', { name: 'Retry' }).click();
+    await expect.poll(() => requests, { timeout: 10_000 }).toBe(2);
+    // The list refreshes on its own and shows the outcome.
+    await expect(page.locator('tr', { hasText: 'Success' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  } finally {
+    receiver.close();
+  }
 });

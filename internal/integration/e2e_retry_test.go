@@ -1028,56 +1028,193 @@ func TestE2E_DeliveryListCursorPaging(t *testing.T) {
 	assert.Equal(t, 1, snap.RetryTotal, "the retry snapshot applies the event filter")
 }
 
-// TestE2E_ManualRetryReplacesPendingRetry verifies that retrying a delivery
-// that is still waiting out its backoff sends it right away and cancels the
-// old job, so only one retry chain is left for the delivery.
-func TestE2E_ManualRetryReplacesPendingRetry(t *testing.T) {
+// retryingDelivery is one delivery waiting out a 600s retry backoff after
+// its first attempt failed, against a receiver that fails until succeed is
+// set.
+type retryingDelivery struct {
+	env        *testEnv
+	c          *restClient
+	consumer   string
+	webhookID  string
+	eventID    string
+	deliveryID string
+	requests   *atomic.Int32
+	succeed    *atomic.Bool
+}
+
+func startRetryingDelivery(t *testing.T, consumer string) *retryingDelivery {
+	t.Helper()
 	env := setupEnv(t)
 	c := newRESTClient(t, env)
 	ctx := context.Background()
+	eventName := consumer + ".event"
 
-	const (
-		consumer  = "manual-retry-replace"
-		eventName = "retry.manual_replace"
-	)
+	r := &retryingDelivery{env: env, c: c, consumer: consumer, requests: new(atomic.Int32), succeed: new(atomic.Bool)}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		_, _ = io.ReadAll(req.Body)
+		defer req.Body.Close() //nolint:errcheck
+		r.requests.Add(1)
+		if r.succeed.Load() {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(srv.Close)
 
-	targetSrv, requestCount := startAlwaysFailTarget(t, http.StatusInternalServerError)
 	registerEventType(t, c, ctx, eventName)
+	var wh struct {
+		WebhookID string `json:"webhook_id"`
+	}
 	resp, err := c.post(ctx, "/v1/consumers/"+consumer+"/webhooks", map[string]any{
 		"events": []string{eventName},
-		"url":    targetSrv.URL + "/webhook",
+		"url":    srv.URL + "/webhook",
 		"http_config": map[string]any{
 			"max_retries":             3,
 			"retry_backoff_seconds":   600, // the old job stays scheduled for the whole test
 			"request_timeout_seconds": 5,
 		},
-	}, nil)
+	}, &wh)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	r.webhookID = wh.WebhookID
 
-	eventID := pushTestEvent(t, c, ctx, consumer, eventName)
+	r.eventID = pushTestEvent(t, c, ctx, consumer, eventName)
 	pollCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	d := pollDeliveryStatus(t, c, pollCtx, consumer, eventID, func(d deliveryItem) bool {
+	d := pollDeliveryStatus(t, c, pollCtx, consumer, r.eventID, func(d deliveryItem) bool {
 		return d.Status == "retrying"
 	})
-	require.Equal(t, int32(1), requestCount.Load())
+	require.Equal(t, int32(1), r.requests.Load())
+	r.deliveryID = d.DeliveryID
+	return r
+}
 
-	resp, err = c.post(ctx, "/v1/consumers/"+consumer+"/deliveries/"+d.DeliveryID+":retry", nil, nil)
-	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	// The retry is sent right away, not after the 600s backoff.
-	require.Eventually(t, func() bool { return requestCount.Load() == 2 }, 15*time.Second, 200*time.Millisecond,
-		"manual retry should send the delivery right away")
-
-	// Exactly one unfinished job is left: the new one, now in its own backoff.
-	var unfinished int
-	require.NoError(t, env.pgxPool.QueryRow(ctx, `
+// unfinishedJobs counts the delivery's River jobs that can still send it.
+func (r *retryingDelivery) unfinishedJobs(t *testing.T) int {
+	t.Helper()
+	var n int
+	require.NoError(t, r.env.pgxPool.QueryRow(context.Background(), `
 		SELECT count(*) FROM river_job
 		WHERE kind = 'webhook_delivery'
 		  AND args->>'delivery_id' = $1
 		  AND state IN ('available', 'pending', 'retryable', 'running', 'scheduled')`,
-		d.DeliveryID).Scan(&unfinished))
-	assert.Equal(t, 1, unfinished, "the old job must be cancelled, not left running its own retries")
+		r.deliveryID).Scan(&n))
+	return n
+}
+
+// requireSentNowAndOnce checks a retry sent the delivery right away (not
+// after the 600s backoff), that it succeeds, and that the old job was
+// cancelled rather than left running its own retries.
+func (r *retryingDelivery) requireSentNowAndOnce(t *testing.T) {
+	t.Helper()
+	require.Eventually(t, func() bool { return r.requests.Load() == 2 }, 15*time.Second, 200*time.Millisecond,
+		"the retry should send the delivery right away")
+	pollCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	pollDeliveryStatus(t, r.c, pollCtx, r.consumer, r.eventID, func(d deliveryItem) bool { return d.Status == "success" })
+	assert.Zero(t, r.unfinishedJobs(t), "the old job must be cancelled, not left to send again")
+	assert.Equal(t, int32(2), r.requests.Load(), "the delivery was sent once per attempt")
+}
+
+// TestE2E_ManualRetryReplacesPendingRetry verifies that retrying a delivery
+// that is still waiting out its backoff sends it right away and cancels the
+// old job, so only one retry chain is left for the delivery.
+func TestE2E_ManualRetryReplacesPendingRetry(t *testing.T) {
+	r := startRetryingDelivery(t, "manual-retry-replace")
+	ctx := context.Background()
+
+	// Still failing: the retry is sent now and the new job takes over the
+	// backoff, as the only live job.
+	resp, err := r.c.post(ctx, "/v1/consumers/"+r.consumer+"/deliveries/"+r.deliveryID+":retry", nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Eventually(t, func() bool { return r.requests.Load() == 2 }, 15*time.Second, 200*time.Millisecond,
+		"manual retry should send the delivery right away")
+	// Once that attempt is recorded the delivery waits out the new job's
+	// backoff, and that job is the only one left.
+	pollCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	pollDeliveryStatus(t, r.c, pollCtx, r.consumer, r.eventID, func(d deliveryItem) bool { return d.Status == "retrying" })
+	assert.Equal(t, 1, r.unfinishedJobs(t), "exactly one job is left: the new one, in its own backoff")
+
+	// Retried again once the receiver is fixed: sent now, succeeds, nothing left.
+	r.succeed.Store(true)
+	r.requests.Store(1)
+	resp, err = r.c.post(ctx, "/v1/consumers/"+r.consumer+"/deliveries/"+r.deliveryID+":retry", nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	r.requireSentNowAndOnce(t)
+
+	// The webhook's health counts attempts, as documented and as the label
+	// does: two failed attempts and the one that succeeded.
+	var health struct {
+		TotalDeliveries      int     `json:"total_deliveries"`
+		SuccessfulDeliveries int     `json:"successful_deliveries"`
+		FailedDeliveries     int     `json:"failed_deliveries"`
+		SuccessRate          float64 `json:"success_rate"`
+		ServerErrors         int     `json:"server_errors"`
+	}
+	resp, err = r.c.get(ctx, "/v1/consumers/"+r.consumer+"/webhooks/"+r.webhookID+"/health", &health)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, 3, health.TotalDeliveries)
+	assert.Equal(t, 1, health.SuccessfulDeliveries)
+	assert.Equal(t, 2, health.FailedDeliveries)
+	assert.InDelta(t, 1.0/3, health.SuccessRate, 0.001)
+	assert.Equal(t, 2, health.ServerErrors)
+}
+
+// TestE2E_BulkRetryForceReplacesPendingRetry: a forced bulk retry of a
+// webhook includes its retrying deliveries and replaces their retry.
+func TestE2E_BulkRetryForceReplacesPendingRetry(t *testing.T) {
+	r := startRetryingDelivery(t, "bulk-retry-replace")
+	ctx := context.Background()
+	r.succeed.Store(true)
+
+	// Without force, only failed and paused deliveries are retried.
+	var out struct {
+		Count       int      `json:"count"`
+		DeliveryIDs []string `json:"delivery_ids"`
+	}
+	resp, err := r.c.post(ctx, "/v1/consumers/"+r.consumer+"/deliveries:retry", map[string]any{"webhook_id": r.webhookID}, &out)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Zero(t, out.Count, "a retrying delivery is not failed or paused")
+	assert.Equal(t, 1, r.unfinishedJobs(t), "the waiting job is untouched")
+
+	resp, err = r.c.post(ctx, "/v1/consumers/"+r.consumer+"/deliveries:retry", map[string]any{"webhook_id": r.webhookID, "force": true}, &out)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, 1, out.Count)
+	assert.Equal(t, []string{r.deliveryID}, out.DeliveryIDs)
+	r.requireSentNowAndOnce(t)
+}
+
+// TestE2E_BatchRetryReplacesPendingRetry: a batch retry (prepare_retry +
+// :retryBatch) of a retrying delivery replaces its retry too.
+func TestE2E_BatchRetryReplacesPendingRetry(t *testing.T) {
+	r := startRetryingDelivery(t, "batch-retry-replace")
+	ctx := context.Background()
+	r.succeed.Store(true)
+
+	var listOut struct {
+		Items   []deliveryItem `json:"items"`
+		RetryID string         `json:"retry_id"`
+	}
+	_, err := r.c.get(ctx, "/v1/consumers/"+r.consumer+"/deliveries?status=retrying&prepare_retry=true", &listOut)
+	require.NoError(t, err)
+	require.NotEmpty(t, listOut.RetryID)
+	require.Len(t, listOut.Items, 1)
+
+	var jobOut struct {
+		ID string `json:"id"`
+	}
+	resp, err := r.c.post(ctx, "/v1/consumers/"+r.consumer+"/deliveries:retryBatch", map[string]any{"retry_id": listOut.RetryID}, &jobOut)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+	pollCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	pollBatchJob(t, r.c, pollCtx, "/v1/consumers/"+r.consumer+"/retry-jobs/"+jobOut.ID)
+	r.requireSentNowAndOnce(t)
 }

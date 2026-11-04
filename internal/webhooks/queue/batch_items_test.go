@@ -17,10 +17,14 @@ import (
 
 var errFake = errors.New("fake failure")
 
-// recordingInserter records inserted jobs and fails when told to.
+// recordingInserter records inserted jobs and fails when told to. waiting
+// lists the deliveries with a job waiting out its backoff, which
+// CancelWaitingDeliveryJobsTx cancels.
 type recordingInserter struct {
-	fail bool
-	jobs []river.JobArgs
+	fail      bool
+	jobs      []river.JobArgs
+	waiting   map[uuid.UUID]bool
+	cancelled []uuid.UUID
 }
 
 func (r *recordingInserter) Insert(_ context.Context, args river.JobArgs) (*rivertype.JobInsertResult, error) {
@@ -35,8 +39,15 @@ func (r *recordingInserter) BatchInsert(context.Context, []river.JobArgs) ([]*ri
 	return nil, nil
 }
 
-func (r *recordingInserter) CancelWaitingDeliveryJobsTx(context.Context, *sql.Tx, []uuid.UUID) ([]uuid.UUID, error) {
-	return nil, nil
+func (r *recordingInserter) CancelWaitingDeliveryJobsTx(_ context.Context, _ *sql.Tx, ids []uuid.UUID) ([]uuid.UUID, error) {
+	var claimed []uuid.UUID
+	for _, id := range ids {
+		if r.waiting[id] {
+			claimed = append(claimed, id)
+		}
+	}
+	r.cancelled = append(r.cancelled, claimed...)
+	return claimed, nil
 }
 
 func (r *recordingInserter) BatchInsertTx(_ context.Context, _ *sql.Tx, args []river.JobArgs) error {
@@ -183,16 +194,37 @@ func (r *scriptedDeliveryRepo) GetDeliveryByID(_ context.Context, _, id uuid.UUI
 	return nil, errFake
 }
 
-// ResetDeliveriesForRetry resets the deliveries not in flight, as the store
-// does, and keeps the reset only when enqueue succeeds (the transaction).
-func (r *scriptedDeliveryRepo) ResetDeliveriesForRetry(ctx context.Context, _ uuid.UUID, ids []uuid.UUID, _ store.RetryClaimer, enqueue store.RetryEnqueuer) ([]uuid.UUID, error) {
+// ResetDeliveriesForRetry resets the finished deliveries and the retrying
+// ones claim cancels a waiting job for, as the store does, and keeps the
+// reset only when enqueue succeeds (the transaction).
+func (r *scriptedDeliveryRepo) ResetDeliveriesForRetry(ctx context.Context, _ uuid.UUID, ids []uuid.UUID, claim store.RetryClaimer, enqueue store.RetryEnqueuer) ([]uuid.UUID, error) {
 	if r.resetErr != nil {
 		return nil, r.resetErr
+	}
+	var retrying []uuid.UUID
+	for _, id := range ids {
+		if r.deliveries[id].Status == store.StatusRetrying {
+			retrying = append(retrying, id)
+		}
+	}
+	claimed := map[uuid.UUID]bool{}
+	if claim != nil && len(retrying) > 0 {
+		got, err := claim(ctx, nil, retrying)
+		if err != nil {
+			return nil, err
+		}
+		for _, id := range got {
+			claimed[id] = true
+		}
 	}
 	var reset []uuid.UUID
 	for _, id := range ids {
 		switch r.deliveries[id].Status {
-		case store.StatusPending, store.StatusSending, store.StatusRetrying:
+		case store.StatusPending, store.StatusSending:
+		case store.StatusRetrying:
+			if claimed[id] {
+				reset = append(reset, id)
+			}
 		default:
 			reset = append(reset, id)
 		}
@@ -250,6 +282,41 @@ func TestProcessDeliveryRetry(t *testing.T) {
 	if !isWebhook || args.DeliveryID != ok.String() || args.SubscriptionID != subID.String() ||
 		args.MaxAttempts != 3 || args.RetryBackoffSeconds != 5 || !args.ExpiresAt.Equal(store.NoExpiryTime) {
 		t.Fatalf("queued %#v, want a never-expiring retry with the webhook's attempts and backoff", ins.jobs[0])
+	}
+}
+
+// A batch retry replaces the waiting retry of a retrying delivery (its job is
+// cancelled and a new one queued), and still skips one whose job is already
+// running or that is pending.
+func TestProcessDeliveryRetryReplacesWaitingRetry(t *testing.T) {
+	webhookID := uuid.New()
+	waiting, running, pending := uuid.New(), uuid.New(), uuid.New()
+	deliveries := &scriptedDeliveryRepo{deliveries: map[uuid.UUID]*store.WebhookDelivery{
+		waiting: {ID: waiting, WebhookID: webhookID, EventID: uuid.New(), Status: store.StatusRetrying},
+		running: {ID: running, WebhookID: webhookID, EventID: uuid.New(), Status: store.StatusRetrying},
+		pending: {ID: pending, WebhookID: webhookID, EventID: uuid.New(), Status: store.StatusPending},
+	}}
+	webhooks := &scriptedWebhookRepo{webhooks: map[uuid.UUID]*store.WebhookRegistration{
+		webhookID: {ID: webhookID, Consumer: "acme", MaxRetries: 2},
+	}}
+	// Only waiting has a job to cancel; running's job is with a worker.
+	ins := &recordingInserter{waiting: map[uuid.UUID]bool{waiting: true, pending: true}}
+	w := &BatchJobWorker{deliveryRepo: deliveries, webhookRepo: webhooks, jobInserter: ins, logger: slog.Default()}
+
+	processed, failed := w.processDeliveryRetry(context.Background(), uuid.New(), uuid.New(), "acme",
+		[]string{waiting.String(), running.String(), pending.String()})
+
+	if processed != 1 || failed != 2 {
+		t.Fatalf("processed=%d failed=%d, want the waiting one retried and the running and pending ones skipped", processed, failed)
+	}
+	if len(ins.cancelled) != 1 || ins.cancelled[0] != waiting {
+		t.Fatalf("cancelled %v, want only %v (a pending delivery is never offered)", ins.cancelled, waiting)
+	}
+	if len(deliveries.reset) != 1 || deliveries.reset[0] != waiting {
+		t.Fatalf("reset %v, want only %v", deliveries.reset, waiting)
+	}
+	if len(ins.jobs) != 1 || ins.jobs[0].(*WebhookArgs).DeliveryID != waiting.String() {
+		t.Fatalf("queued %v, want one job for %v", ins.jobs, waiting)
 	}
 }
 
