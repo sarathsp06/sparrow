@@ -19,6 +19,7 @@ import (
 
 	cryptosvc "github.com/sarathsp06/sparrow/internal/crypto"
 	svcerrors "github.com/sarathsp06/sparrow/internal/errors"
+	"github.com/sarathsp06/sparrow/internal/storage"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
@@ -740,4 +741,42 @@ func TestWebhookService_RotateWebhookSecret(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, secret, decrypted, "the returned secret must be the one stored")
 	repo.AssertExpectations(t)
+}
+
+func (m *mockRepo) GetWebhookHealthState(ctx context.Context, _ uuid.UUID, webhookID uuid.UUID) (*store.WebhookHealthMetrics, error) {
+	args := m.Called(ctx, webhookID)
+	s, _ := args.Get(0).(*store.WebhookHealthMetrics)
+	return s, args.Error(1)
+}
+
+func (m *mockRepo) GetWebhookHealthSummary(ctx context.Context, _ uuid.UUID, webhookID uuid.UUID, hours int) (*store.WebhookHealthSummary, error) {
+	args := m.Called(ctx, webhookID, hours)
+	s, _ := args.Get(0).(*store.WebhookHealthSummary)
+	return s, args.Error(1)
+}
+
+// Before the health evaluator's first pass there is no health state row, but
+// the attempts are already in the attempt log: their counts are reported
+// (the API promises zeros only before the first attempt).
+func TestWebhookService_GetWebhookHealthBeforeFirstEvaluation(t *testing.T) {
+	repo := new(mockRepo)
+	service := NewWebhookService(new(mockJobInserter), repo, nil)
+	ctx := testContext()
+	webhookID := uuid.New()
+
+	repo.On("GetWebhookByID", mock.Anything, mock.Anything, webhookID, "default").
+		Return(&store.WebhookRegistration{ID: webhookID, Consumer: "default", Health: store.HealthUnknown}, nil)
+	repo.On("GetWebhookHealthState", mock.Anything, webhookID).Return(nil, storage.ErrNotFound)
+	repo.On("GetWebhookHealthSummary", mock.Anything, webhookID, store.DefaultHealthRules.WindowHours).
+		Return(&store.WebhookHealthSummary{TotalDeliveries: 3, SuccessfulDeliveries: 1, FailedDeliveries: 2, SuccessRate: 1.0 / 3, ServerErrors: 2}, nil)
+
+	h, err := service.GetWebhookHealth(ctx, webhookID.String(), "default")
+
+	require.NoError(t, err)
+	assert.Equal(t, 3, h.TotalDeliveries)
+	assert.Equal(t, 1, h.SuccessfulDeliveries)
+	assert.Equal(t, 2, h.FailedDeliveries)
+	assert.Equal(t, 2, h.ServerErrors)
+	assert.Zero(t, h.ConsecutiveFailures, "state fields stay empty until the evaluator runs")
+	assert.Nil(t, h.LastFailureAt)
 }

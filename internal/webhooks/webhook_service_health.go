@@ -106,12 +106,11 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 			s.logger.ErrorContext(ctx, "Failed to get webhook health state", "error", err)
 			return nil, fmt.Errorf("failed to get webhook health state: %w", err)
 		}
-		// No health state exists yet (no deliveries recorded) — return basic health info
-		s.logger.InfoContext(ctx, "No health state found for webhook", "webhook_id", webhookID)
-		return &WebhookHealthData{
-			WebhookID: webhookID,
-			Health:    webhook.Health,
-		}, nil
+		// No health state yet: the health evaluator has not folded this
+		// webhook's attempts (it runs every SPARROW_HEALTH_EVAL_INTERVAL).
+		// The attempt counts below are read live from the attempt log, so
+		// they are still reported; only the state fields stay empty.
+		healthState = nil
 	}
 
 	// Metrics over the same window the health label is derived from.
@@ -123,13 +122,15 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 
 	// Convert to response format
 	healthData := &WebhookHealthData{
-		WebhookID:           webhookID,
-		Health:              webhook.Health,
-		ConsecutiveFailures: healthState.ConsecutiveFailures,
-		LastSuccessAt:       healthState.LastSuccessAt,
-		LastFailureAt:       healthState.LastFailureAt,
-		CreatedAt:           healthState.CreatedAt,
-		UpdatedAt:           healthState.UpdatedAt,
+		WebhookID: webhookID,
+		Health:    webhook.Health,
+	}
+	if healthState != nil {
+		healthData.ConsecutiveFailures = healthState.ConsecutiveFailures
+		healthData.LastSuccessAt = healthState.LastSuccessAt
+		healthData.LastFailureAt = healthState.LastFailureAt
+		healthData.CreatedAt = healthState.CreatedAt
+		healthData.UpdatedAt = healthState.UpdatedAt
 	}
 
 	// Add summary data if available

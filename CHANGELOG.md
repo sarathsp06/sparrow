@@ -26,6 +26,7 @@ migrations run on startup.
 - Retrying a delivery that is waiting out its retry backoff now sends it right away: its scheduled retry is cancelled and replaced in the same transaction. Since v1.3.0 such a retry was refused with 409 ("still in flight"), and bulk retries skipped it. A delivery being sent at that moment, or still pending, is still refused.
 - The consumer portal offers Retry on retrying and paused deliveries too, and refreshes the list shortly after a retry so the new attempt shows.
 - `GET .../webhooks/{webhook_id}/health` counts attempts, as its documentation always said and as the health label does: `total_deliveries`, `successful_deliveries`, `failed_deliveries` and `success_rate` counted distinct deliveries instead, so a webhook whose deliveries all succeeded after retries showed a 100% success rate next to a Degraded label. A delivery that succeeded on its 3rd try now counts as 1 successful and 2 failed attempts.
+- `GET .../webhooks/{webhook_id}/health` reported zero attempts until the health evaluator's first pass over a webhook (up to `SPARROW_HEALTH_EVAL_INTERVAL` after its first delivery). The counts are read live, so they now show from the first attempt.
 - `sparrow stats`, the MCP `get_stats` tool, the console's health dashboard and webhook page label these counts as attempts (they were labeled as deliveries), and `sparrow stats` shows pending as deliveries in flight.
 
 ## [v1.3.0] - 2026-11-03
