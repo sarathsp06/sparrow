@@ -28,10 +28,12 @@ func TestExecuteStopsRunawayTemplates(t *testing.T) {
 		{"nested loops over a payload array", `{{range .payload.items}}{{range $.payload.items}}{{range $.payload.items}}{{end}}{{end}}{{end}}`, "loop iterations"},
 		{"exponential template recursion", `{{define "a"}}{{if lt (len .) 12}}{{$n := print . "x"}}{{template "a" $n}}{{template "a" $n}}{{template "a" $n}}{{template "a" $n}}{{end}}{{end}}{{template "a" ""}}`, "loop iterations"},
 	}
-	// The step cases would need 1M steps; at this limit they stop in
-	// milliseconds even under -race, so the timing check below holds.
+	// The step cases would need 1M steps and the doubling cases 16 MiB of
+	// work; at these limits they stop in milliseconds even under -race, so
+	// the timing check below holds on a slow CI runner.
 	stepLimit = 20_000
-	t.Cleanup(func() { stepLimit = MaxSteps })
+	workLimit = 1 << 20
+	t.Cleanup(func() { stepLimit = MaxSteps; workLimit = MaxWorkBytes })
 	engine := New()
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

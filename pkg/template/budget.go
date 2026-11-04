@@ -32,6 +32,10 @@ var stepLimit = MaxSteps
 // past MaxOutputBytes without writing a byte.
 const MaxWorkBytes = 16 << 20 // 16 MiB
 
+// workLimit is MaxWorkBytes; tests lower it for the same reason as stepLimit:
+// escaping a 16 MiB string with js takes seconds under the race detector.
+var workLimit = MaxWorkBytes
+
 // maxPrintfWidth bounds the width and precision of a printf verb: fmt pads
 // in memory, so "%999999999d" allocates a gigabyte from a tiny template.
 const maxPrintfWidth = 1000
@@ -86,16 +90,16 @@ func (b *budget) charge(n int) error {
 	if b.stopped.Load() {
 		return errStopped
 	}
-	if n > MaxWorkBytes-b.bytes {
-		b.bytes = MaxWorkBytes
-		return fmt.Errorf("template built more than %d bytes of intermediate values", MaxWorkBytes)
+	if n > workLimit-b.bytes {
+		b.bytes = workLimit
+		return fmt.Errorf("template built more than %d bytes of intermediate values", workLimit)
 	}
 	b.bytes += n
 	return nil
 }
 
 // remaining is how many bytes may still be charged.
-func (b *budget) remaining() int { return MaxWorkBytes - b.bytes }
+func (b *budget) remaining() int { return workLimit - b.bytes }
 
 func (b *budget) str(s string, err error) (string, error) {
 	if err != nil {
