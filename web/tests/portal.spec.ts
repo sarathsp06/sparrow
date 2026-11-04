@@ -120,3 +120,21 @@ test('the Test tab sends the sample and an edited payload', async ({ page, reque
     receiver.close();
   }
 });
+
+test('a consumer can change an endpoint URL and description from the portal', async ({ page, request }) => {
+  const consumer = newConsumer();
+  const url = `https://example.com/pw-portal-edit-${Date.now()}`;
+  const newUrl = `${url}-moved`;
+  await registerWebhook(request, consumer, url);
+  const { path } = await mintPortalToken(request, consumer);
+  await page.goto(path);
+  await page.getByRole('button', { name: new RegExp(url) }).click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  const form = page.getByTestId('portal-edit-endpoint');
+  await form.getByLabel('Endpoint URL').fill(newUrl);
+  await form.getByLabel('Description (optional)').fill('moved endpoint');
+  await form.getByRole('button', { name: 'Save' }).click();
+  await expect(form).toBeHidden();
+  await expect(page.getByText(newUrl)).toBeVisible();
+  await expect(page.getByText('moved endpoint')).toBeVisible();
+});

@@ -16,6 +16,16 @@ migrations run on startup.
 
 ## [Unreleased]
 
+### Changed
+
+- The consumer portal can edit an endpoint's URL and description (Edit, next to Pause).
+- The consumer portal labels its counters as delivery attempts (successful attempts, failed attempts, attempt success rate) and explains that retries count. They used to read "Delivered" and "Failed", which looked like failed deliveries when a delivery had only needed retries. The health badge's tooltip now says what Healthy, Degraded and Unhealthy mean, and the Attempts column reads "1 of 4".
+
+### Fixed
+
+- Retrying a delivery that is waiting out its retry backoff now sends it right away: its scheduled retry is cancelled and replaced in the same transaction. Since v1.3.0 such a retry was refused with 409 ("still in flight"), and bulk retries skipped it. A delivery being sent at that moment, or still pending, is still refused.
+- The consumer portal offers Retry on retrying and paused deliveries too, and refreshes the list shortly after a retry so the new attempt shows.
+
 ## [v1.3.0] - 2026-11-03
 
 ### Upgrading

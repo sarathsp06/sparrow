@@ -155,6 +155,38 @@
     }
   }
 
+  // Edit endpoint (URL + description)
+  let editId = $state<string | null>(null);
+  let editUrl = $state("");
+  let editDescription = $state("");
+  let editBusy = $state(false);
+
+  function startEdit(w: WebhookOut) {
+    editId = w.webhook_id;
+    editUrl = w.url;
+    editDescription = w.description ?? "";
+  }
+
+  async function saveEdit(e: SubmitEvent) {
+    e.preventDefault();
+    if (!editId) return;
+    editBusy = true;
+    try {
+      unwrap(
+        await api.PATCH("/v1/consumers/{consumer}/webhooks/{webhook_id}", {
+          params: { path: { consumer, webhook_id: editId } },
+          body: { url: editUrl.trim(), description: editDescription.trim() },
+        }),
+      );
+      editId = null;
+      await refresh();
+    } catch (err) {
+      error = formatAPIError(err, "Failed to update endpoint");
+    } finally {
+      editBusy = false;
+    }
+  }
+
   async function executeDelete() {
     if (!confirmDeleteId) return;
     try {
@@ -232,7 +264,12 @@
           params: { path: { consumer, delivery_id: deliveryId } },
         }),
       );
-      if (selectedId) await fetchDeliveries(selectedId);
+      const id = selectedId;
+      if (id) {
+        await fetchDeliveries(id);
+        // The retry is sent within a second or two; show its outcome.
+        setTimeout(() => { if (selectedId === id) fetchDeliveries(id); }, 2500);
+      }
     } catch (e) {
       error = formatAPIError(e, "Failed to retry delivery");
     }
@@ -344,10 +381,13 @@
       {#if stats}
         <div class="panel readout overflow-hidden">
           <div class="cell"><div class="val">{stats.total_webhooks}</div><div class="key">Endpoints</div></div>
-          <div class="cell"><div class="val" style="color:var(--color-ok)">{stats.successful_deliveries}</div><div class="key">Delivered</div></div>
-          <div class="cell"><div class="val" style="color:var(--color-bad)">{stats.failed_deliveries}</div><div class="key">Failed</div></div>
-          <div class="cell"><div class="val tnum">{Math.round((stats.success_rate ?? 0) * 100)}%</div><div class="key">Success rate</div></div>
+          <div class="cell"><div class="val" style="color:var(--color-ok)">{stats.successful_deliveries}</div><div class="key">Successful attempts</div></div>
+          <div class="cell"><div class="val" style="color:var(--color-bad)">{stats.failed_deliveries}</div><div class="key">Failed attempts</div></div>
+          <div class="cell"><div class="val tnum">{Math.round((stats.success_rate ?? 0) * 100)}%</div><div class="key">Attempt success rate</div></div>
         </div>
+        <p class="text-xs text-faint -mt-3" data-testid="stats-note">
+          Counts every delivery attempt, retries included: a delivery that succeeded on its 4th try adds 1 successful and 3 failed attempts. Endpoint health uses the same attempts over the last 24 hours.
+        </p>
       {/if}
 
       <!-- Endpoints -->
@@ -428,6 +468,7 @@
                     <div class="flex flex-wrap items-center gap-2">
                       <CopyableId id={w.webhook_id} truncate={14} />
                       <span class="flex-1"></span>
+                      <button class="btn btn-ghost !px-3 !py-1.5" onclick={() => startEdit(w)}>Edit</button>
                       <button class="btn btn-ghost !px-3 !py-1.5" onclick={() => toggleActive(w)}>
                         {w.active ? "Pause" : "Resume"}
                       </button>
@@ -435,6 +476,23 @@
                         Remove
                       </button>
                     </div>
+
+                    {#if editId === w.webhook_id}
+                      <form class="panel p-4 space-y-4" onsubmit={saveEdit} data-testid="portal-edit-endpoint">
+                        <div>
+                          <label class="field-label" for="portal-edit-url">Endpoint URL</label>
+                          <input id="portal-edit-url" class="input" type="url" required bind:value={editUrl} />
+                        </div>
+                        <div>
+                          <label class="field-label" for="portal-edit-desc">Description (optional)</label>
+                          <input id="portal-edit-desc" class="input" type="text" placeholder="What is this endpoint for?" bind:value={editDescription} />
+                        </div>
+                        <div class="flex justify-end gap-2">
+                          <button type="button" class="btn btn-ghost" onclick={() => (editId = null)}>Cancel</button>
+                          <button type="submit" class="btn btn-beacon" disabled={editBusy}>{editBusy ? "Saving…" : "Save"}</button>
+                        </div>
+                      </form>
+                    {/if}
 
                     <div class="flex gap-4 border-b border-line">
                       {#each [["deliveries", "Deliveries"], ["subscriptions", "Subscriptions"], ["test", "Test"]] as [id, label]}
@@ -470,14 +528,16 @@
                                 <tr class="row-line">
                                   <td class="td"><StatusBadge status={d.status} /></td>
                                   <td class="td"><CopyableId id={d.delivery_id} truncate={12} /></td>
-                                  <td class="td hidden sm:table-cell tnum">{d.attempt_count}/{d.max_attempts}</td>
+                                  <td class="td hidden sm:table-cell tnum" title="{d.attempt_count} of at most {d.max_attempts} attempts">
+                                    {d.attempt_count}<span class="text-faint"> of {d.max_attempts}</span>
+                                  </td>
                                   <td class="td hidden md:table-cell mono text-xs">
                                     {d.response_code ?? "—"}
-                                    {#if d.error_category}<span class="text-faint"> · {d.error_category}</span>{/if}
+                                    {#if d.error_category && d.error_category !== "success"}<span class="text-faint"> · {d.error_category}</span>{/if}
                                   </td>
                                   <td class="td hidden md:table-cell text-xs text-muted">{new Date(d.created_at).toLocaleString()}</td>
                                   <td class="td text-right">
-                                    {#if d.status === "failed" || d.status === "expired"}
+                                    {#if d.status === "failed" || d.status === "expired" || d.status === "retrying" || d.status === "paused"}
                                       <button
                                         class="btn btn-ghost !px-2.5 !py-1 text-xs"
                                         disabled={!retryPolicy.allowed}

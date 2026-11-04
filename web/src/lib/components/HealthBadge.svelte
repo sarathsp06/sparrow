@@ -8,9 +8,9 @@
 
   const config: Record<string, { tone: string; label: string; tooltip?: string }> = {
     unknown:   { tone: "idle", label: "Idle", tooltip: "Health is calculated after the first deliveries" },
-    healthy:   { tone: "ok", label: "Healthy" },
-    degraded:  { tone: "warn", label: "Degraded" },
-    unhealthy: { tone: "bad", label: "Unhealthy" },
+    healthy:   { tone: "ok", label: "Healthy", tooltip: "At least 90% of delivery attempts in the last 24 hours succeeded" },
+    degraded:  { tone: "warn", label: "Degraded", tooltip: "Fewer than 90% of delivery attempts in the last 24 hours succeeded. Retries count, so a delivery that succeeded after failed attempts still lowers it" },
+    unhealthy: { tone: "bad", label: "Unhealthy", tooltip: "Fewer than 80% of delivery attempts in the last 24 hours succeeded, or the last 5 attempts failed in a row" },
   };
 
   const fallback = config.unknown;
