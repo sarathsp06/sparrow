@@ -8,7 +8,7 @@ require (
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/golang-migrate/migrate/v4 v4.20.1
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.11.0
+	github.com/jackc/pgx/v5 v5.12.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kaptinlin/jsonschema v0.9.10
@@ -16,10 +16,10 @@ require (
 	github.com/lib/pq v1.12.3
 	github.com/prometheus/client_golang v1.25.0
 	github.com/remychantenay/slog-otel v1.3.5
-	github.com/riverqueue/river v0.50.0
-	github.com/riverqueue/river/riverdriver/riverdatabasesql v0.50.0
-	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.50.0
-	github.com/riverqueue/river/rivertype v0.50.0
+	github.com/riverqueue/river v0.51.0
+	github.com/riverqueue/river/riverdriver/riverdatabasesql v0.51.0
+	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.51.0
+	github.com/riverqueue/river/rivertype v0.51.0
 	github.com/rs/cors v1.11.1
 	github.com/sarathsp06/schemagen v0.2.0
 	github.com/sarathsp06/sparrow/pkg/access v0.0.0-00010101000000-000000000000
@@ -61,9 +61,9 @@ require (
 	github.com/Masterminds/semver/v3 v3.1.1 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.2 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.47.4 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.33.11 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.20.11 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.47.5 // indirect
+	github.com/aws/aws-sdk-go-v2/config v1.33.13 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.20.13 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/brianvoe/gofakeit/v7 v7.14.1 // indirect
@@ -122,8 +122,8 @@ require (
 	github.com/prometheus/common v0.72.0 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
 	github.com/prometheus/procfs v0.22.0 // indirect
-	github.com/riverqueue/river/riverdriver v0.50.0 // indirect
-	github.com/riverqueue/river/rivershared v0.50.0 // indirect
+	github.com/riverqueue/river/riverdriver v0.51.0 // indirect
+	github.com/riverqueue/river/rivershared v0.51.0 // indirect
 	github.com/shirou/gopsutil/v4 v4.26.6 // indirect
 	github.com/shopspring/decimal v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
