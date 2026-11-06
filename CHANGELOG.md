@@ -16,7 +16,13 @@ migrations run on startup.
 
 ## [Unreleased]
 
+### Upgrading
+
+- New webhooks retry failed deliveries for about three days instead of about seven minutes: `max_retries` now defaults to 13 (was 3). Existing webhooks keep the `max_retries` they were saved with. To give an existing webhook the new window, set `http_config.max_retries` to 13 with `PATCH .../webhooks/{webhook_id}`. Clients that create webhooks without `max_retries` and expect failures to settle within minutes should send `max_retries: 3`.
+
 ### Changed
+
+- Failed deliveries retry for days by default, like hosted webhook senders: 13 retries with the 60 s base land after about 1, 2, 4 ... 1024 minutes and then 24 hours twice, so a receiver that is down over a weekend gets its deliveries once it is back. `max_retries` now accepts up to 20 (was 10). The UI shows how long a webhook's settings keep retrying. See [the default schedule](https://sarathsp06.github.io/sparrow/reference/error-classification/#default-schedule).
 
 - Delivery retries are jittered: each backoff delay (`retry_backoff_seconds * 2^(N-1)`, capped at 24 hours) is shortened by a random 0-20%, so when a receiver comes back after an outage the deliveries that failed together no longer all retry in the same instant. No retry waits longer than before.
 

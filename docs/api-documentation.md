@@ -43,7 +43,7 @@ Optional fields that are pointers, so that "not sent" differs from "zero"
 State it in the `doc` text, and keep it in sync with the code:
 
 ```go
-MaxRetries *int `json:"max_retries,omitempty" doc:"Maximum delivery attempts before a delivery is marked failed. 0 means no retries. Between 0 and 10; defaults to 3."`
+MaxRetries *int `json:"max_retries,omitempty" doc:"Maximum delivery attempts before a delivery is marked failed. 0 means no retries. Between 0 and 20; defaults to 13."`
 ```
 
 ## Writing descriptions

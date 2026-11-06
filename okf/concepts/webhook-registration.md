@@ -29,7 +29,7 @@ merged config after a PATCH is validated, so an update cannot bypass them):
 
 | Field | Allowed | Default |
 |---|---|---|
-| `max_retries` | 0–10 | 3 |
+| `max_retries` | 0–20 | 13 (about three days of retries with the default backoff) |
 | `retry_backoff_seconds` | 1–3600 | 60 |
 | `request_timeout_seconds` | 1–300 | 30 |
 | `expected_status_codes` | non-empty, each 100–599 | 200, 201, 202, 204 |

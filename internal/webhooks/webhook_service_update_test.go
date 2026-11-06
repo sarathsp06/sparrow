@@ -338,7 +338,7 @@ func TestWebhookHTTPConfigValidation(t *testing.T) {
 	require.NoError(t, valid.ValidateConfig())
 
 	for name, mutate := range map[string]func(*WebhookHTTPConfig){
-		"max_retries too high":    func(c *WebhookHTTPConfig) { c.MaxRetries = new(11) },
+		"max_retries too high":    func(c *WebhookHTTPConfig) { c.MaxRetries = new(MaxMaxRetries + 1) },
 		"backoff zero":            func(c *WebhookHTTPConfig) { c.RetryBackoffSeconds = 0 },
 		"backoff over an hour":    func(c *WebhookHTTPConfig) { c.RetryBackoffSeconds = 3601 },
 		"timeout zero":            func(c *WebhookHTTPConfig) { c.RequestTimeoutSeconds = 0 },

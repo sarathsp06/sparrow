@@ -13,6 +13,7 @@
   import TransformSettings from '#lib/components/TransformSettings.svelte';
   import type { TemplateSaveMeta } from '#lib/components/TemplateEditor.svelte';
   import SigningSecretReveal from '#lib/components/SigningSecretReveal.svelte';
+  import { DEFAULT_MAX_RETRIES, DEFAULT_RETRY_BACKOFF_SECONDS, MAX_MAX_RETRIES, MAX_RETRY_BACKOFF_SECONDS, describeRetryWindow } from '#lib/retry.js';
   import { ALERT_EVENT_TYPES, ALERTS_GUIDE_URL, SYSTEM_CONSUMER, VERIFY_SIGNATURES_GUIDE_URL, isEmail, isSystemConsumer, listAllEventTypes } from '#lib/system.js';
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
@@ -49,8 +50,8 @@
 
   // HTTP Configuration
   let showAdvanced = $state(false);
-  let maxRetries = $state(3);
-  let retryBackoffSeconds = $state(60);
+  let maxRetries = $state(DEFAULT_MAX_RETRIES);
+  let retryBackoffSeconds = $state(DEFAULT_RETRY_BACKOFF_SECONDS);
   let captureResponseBody = $state(false);
   let followRedirects = $state(true);
   let verifySSL = $state(true);
@@ -562,12 +563,13 @@
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label for="maxRetries" class="field-label">Max retries</label>
-                <input id="maxRetries" type="number" bind:value={maxRetries} class="input w-full" />
+                <input id="maxRetries" type="number" bind:value={maxRetries} min="0" max={MAX_MAX_RETRIES} class="input w-full" />
               </div>
               <div>
                 <label for="retryBackoff" class="field-label">Retry backoff (s)</label>
-                <input id="retryBackoff" type="number" bind:value={retryBackoffSeconds} class="input w-full" />
+                <input id="retryBackoff" type="number" bind:value={retryBackoffSeconds} min="1" max={MAX_RETRY_BACKOFF_SECONDS} class="input w-full" />
               </div>
+              <p class="col-span-2 text-xs text-muted">Retries for {describeRetryWindow(maxRetries, retryBackoffSeconds)} before a delivery is marked failed.</p>
               <div>
                 <label for="timeout" class="field-label">Request timeout (s)</label>
                 <input id="timeout" type="number" bind:value={requestTimeoutSeconds} class="input w-full" />

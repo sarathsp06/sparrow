@@ -34,6 +34,50 @@ Each delay is then shortened by a random 0-20%, so deliveries that failed togeth
 (a receiver outage) spread their retries out instead of arriving all at once.
 The formula is the longest a retry waits.
 
+### Default schedule
+
+By default (`max_retries: 13`, `retry_backoff_seconds: 60`) a failing delivery
+keeps retrying for about three days, like the retry windows of hosted webhook
+senders. A receiver that is down over a weekend or through a long deploy gets
+its deliveries once it is back, with nobody retrying them by hand.
+
+| Retry | Wait before it (at most) | Time since the first attempt (at most) |
+|---|---|---|
+| 1 | 1 min | 1 min |
+| 2 | 2 min | 3 min |
+| 3 | 4 min | 7 min |
+| 4 | 8 min | 15 min |
+| 5 | 16 min | 31 min |
+| 6 | 32 min | 1 h 3 min |
+| 7 | 64 min | 2 h 7 min |
+| 8 | 128 min | 4 h 15 min |
+| 9 | 256 min | 8 h 31 min |
+| 10 | 512 min | 17 h 3 min |
+| 11 | 1024 min | 34 h 7 min |
+| 12 | 24 h | 2 d 10 h |
+| 13 | 24 h | 3 d 10 h |
+
+Jitter makes each wait up to 20% shorter, so the last retry lands between
+about 2.7 and 3.4 days after the first attempt. The UI shows the window for a
+webhook's settings next to its retry fields.
+
+Shorter or longer windows are a per-webhook setting:
+
+- **Fail fast.** For a receiver someone watches, where a failure should show up
+  within minutes and be retried by hand, use few retries. For example,
+  `max_retries: 3` retries for about 7 minutes. That was the default up to
+  Sparrow 1.3.
+- **Longer.** Up to `max_retries: 20` and `retry_backoff_seconds: 3600`. Every
+  wait is capped at 24 hours, so with the default base each retry past the
+  eleventh adds one day.
+
+A delivery that is waiting for its next retry has status `retrying`. While a
+receiver is down, `retrying` counts grow for as long as the window, and the
+receiver's health turns `failing` long before the deliveries are marked
+`failed`. [Auto-disable](/sparrow/guides/webhook-health-alerts/#automatic-disabling)
+pauses a webhook that keeps failing for longer (5 days by default), and pausing
+holds its deliveries instead of dropping them.
+
 Retries continue until:
 - The delivery succeeds
 - `max_retries + 1` attempts in total are exhausted (terminal `failed` status)

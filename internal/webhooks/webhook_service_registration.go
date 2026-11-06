@@ -153,7 +153,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		Active:                webhookReg.Active,
 		Description:           webhookReg.Description,
 		Health:                store.WebhookHealth(webhookReg.Health),
-		MaxRetries:            DerefIntOr(webhookReg.HTTPConfig.MaxRetries, 3),
+		MaxRetries:            DerefIntOr(webhookReg.HTTPConfig.MaxRetries, DefaultMaxRetries),
 		RetryBackoffSeconds:   webhookReg.HTTPConfig.RetryBackoffSeconds,
 		CaptureResponseBody:   DerefBoolOr(webhookReg.HTTPConfig.CaptureResponseBody, false),
 		FollowRedirects:       DerefBoolOr(webhookReg.HTTPConfig.FollowRedirects, true),

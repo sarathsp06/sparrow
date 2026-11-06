@@ -116,7 +116,7 @@ events, usually one per customer; any name works.
       "health": "unknown",
       "signature_type": "hmac",
       "http_config": {
-        "max_retries": 3,
+        "max_retries": 13,
         "webhook_secret": "whsec_7P18FjmjRrTO9n2JcFKsyHAIItGvgqY4",
         ...
       }
@@ -231,7 +231,7 @@ events, usually one per customer; any name works.
 | `401 Unauthorized` on any call | The server was started with `SPARROW_API_KEY`. | Add `-H "X-API-Key: <your key>"`. |
 | `400` with `... addresses are not allowed` when registering | The URL points at `localhost` or a private network, which Sparrow blocks by default. | Use a public URL, or start the server with `SPARROW_ALLOW_PRIVATE_NETWORKS=true` (the local Compose file already does). From inside Docker, reach your machine as `host.docker.internal`, not `localhost`. |
 | `"status": "failed"` with `"error_category": "dns_error"` | The webhook's host name doesn't resolve. Sparrow doesn't retry this. | Fix the URL (`PATCH` the webhook), then retry with `POST /v1/consumers/default/deliveries/{delivery_id}:retry`. |
-| `"status": "retrying"` with `connection_refused`, `timeout` or a `5xx` `response_code` | The receiver is down or erroring. Sparrow tries again with backoff (`retry_backoff_seconds`, 60 by default) up to `max_retries` times. | Bring the receiver back; the next attempt goes through on its own. |
+| `"status": "retrying"` with `connection_refused`, `timeout` or a `5xx` `response_code` | The receiver is down or erroring. Sparrow tries again with backoff (`retry_backoff_seconds`, 60 by default) up to `max_retries` times; the defaults keep trying for about three days ([schedule](/sparrow/reference/error-classification/#default-schedule)). | Bring the receiver back; the next attempt goes through on its own. |
 | `"status": "paused"`, `Held: webhook is paused` | The webhook is paused (you set `"active": false`, or Sparrow [auto-disabled](/sparrow/guides/webhook-health-alerts/) it after repeated failures). Paused deliveries are held, not dropped. | Resume it with `POST /v1/consumers/default/webhooks/{webhook_id}:resume`, then retry the held deliveries. See [Pausing subscriptions](/sparrow/guides/subscription-pause/). |
 | No deliveries at all | No active subscription matches the event: a different consumer, a different event name, or a label filter that doesn't match. | Compare the consumer in both URLs and the webhook's `events`. |
 

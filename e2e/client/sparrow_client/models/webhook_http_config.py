@@ -25,14 +25,16 @@ class WebhookHTTPConfig:
             passes the same SSRF checks, and a redirect that changes the scheme, host or port gets only Sparrow's own
             headers: headers and secret_headers are dropped. Defaults to true.
         max_retries (int | Unset): Retries after the first attempt before a delivery is marked failed, so a delivery
-            gets up to max_retries + 1 attempts. 0 means no retries. Between 0 and 10; defaults to 3.
+            gets up to max_retries + 1 attempts. 0 means no retries. Between 0 and 20; defaults to 13, which with the
+            default retry_backoff_seconds keeps retrying for about three days.
         rate_limit_rps (float | Unset): Maximum delivery rate to this webhook, in requests per second (fractions
             allowed, e.g. 0.5). Must be positive; unset means no limit. Deliveries over the limit wait in the queue.
         request_timeout_seconds (int | Unset): How long to wait for the endpoint to respond before treating the attempt
             as a timeout, in seconds. Between 1 and 300; defaults to 30.
         retry_backoff_seconds (int | Unset): Base retry delay, in seconds. The delay after attempt N is
             retry_backoff_seconds * 2^(N-1), capped at 24 hours, minus a random 0-20% so retries spread out. Between 1 and
-            3600; defaults to 60.
+            3600; defaults to 60. The defaults give retries after about 1, 2, 4, 8, 16, 32, 64, 128, 256, 512 and 1024
+            minutes, then 24 hours twice.
         user_agent (str | Unset): Stored and returned, but deliveries do not use it yet: they always send User-Agent:
             Sparrow-Webhook/<server version>. To send another User-Agent, set it in headers. Defaults to Sparrow-
             Webhook/1.0.

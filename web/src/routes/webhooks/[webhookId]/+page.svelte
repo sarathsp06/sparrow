@@ -3,6 +3,7 @@
   import { page } from '$app/state';
   import { api, unwrap } from '#lib/services.js';
   import { ERROR_CATEGORIES, formatAPIError, formatTimestamp } from '#lib/utils.js';
+  import { DEFAULT_MAX_RETRIES, DEFAULT_RETRY_BACKOFF_SECONDS, MAX_MAX_RETRIES, MAX_RETRY_BACKOFF_SECONDS, describeRetryWindow } from '#lib/retry.js';
   import { onMount, onDestroy } from 'svelte';
   import type { components } from '#lib/api-types.js';
   type DeliveryStatus = components['schemas']['DeliveryItem']['status'];
@@ -55,8 +56,8 @@
     description: '',
     url: '',
     active: true,
-    maxRetries: 3,
-    retryBackoffSeconds: 60,
+    maxRetries: DEFAULT_MAX_RETRIES,
+    retryBackoffSeconds: DEFAULT_RETRY_BACKOFF_SECONDS,
     requestTimeoutSeconds: 30,
     captureResponseBody: false,
     followRedirects: true,
@@ -311,8 +312,8 @@
       description: webhook.description || '',
       url: webhook.url || '',
       active: webhook.active,
-      maxRetries: webhook.http_config?.max_retries ?? 3,
-      retryBackoffSeconds: webhook.http_config?.retry_backoff_seconds ?? 60,
+      maxRetries: webhook.http_config?.max_retries ?? DEFAULT_MAX_RETRIES,
+      retryBackoffSeconds: webhook.http_config?.retry_backoff_seconds ?? DEFAULT_RETRY_BACKOFF_SECONDS,
       requestTimeoutSeconds: webhook.http_config?.request_timeout_seconds ?? 30,
       captureResponseBody: webhook.http_config?.capture_response_body ?? false,
       followRedirects: webhook.http_config?.follow_redirects ?? true,
@@ -921,12 +922,13 @@
                   <h4 class="eyebrow mb-3">HTTP Configuration</h4>
                   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div>
-                      <label for="config-max-retries" class="field-label">Max Retries (0-10)</label>
-                      <input id="config-max-retries" type="number" bind:value={configForm.maxRetries} min="0" max="10" class="input" />
+                      <label for="config-max-retries" class="field-label">Max Retries (0-{MAX_MAX_RETRIES})</label>
+                      <input id="config-max-retries" type="number" bind:value={configForm.maxRetries} min="0" max={MAX_MAX_RETRIES} class="input" />
+                      <p class="mt-1 text-xs text-muted">Retries for {describeRetryWindow(configForm.maxRetries, configForm.retryBackoffSeconds)}.</p>
                     </div>
                     <div>
                       <label for="config-retry-backoff" class="field-label">Retry Backoff (seconds)</label>
-                      <input id="config-retry-backoff" type="number" bind:value={configForm.retryBackoffSeconds} min="1" max="3600" class="input" />
+                      <input id="config-retry-backoff" type="number" bind:value={configForm.retryBackoffSeconds} min="1" max={MAX_RETRY_BACKOFF_SECONDS} class="input" />
                     </div>
                     <div>
                       <label for="config-timeout" class="field-label">Request Timeout (seconds)</label>
@@ -1075,6 +1077,7 @@
                   <div>
                     <p class="text-xs text-muted mb-0.5">Max Retries</p>
                     <p class="text-sm font-medium text-text tnum">{webhook.http_config.max_retries}</p>
+                    <p class="text-xs text-muted">retries for {describeRetryWindow(webhook.http_config.max_retries, webhook.http_config.retry_backoff_seconds)}</p>
                   </div>
                   <div>
                     <p class="text-xs text-muted mb-0.5">Retry Backoff</p>

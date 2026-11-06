@@ -74,11 +74,23 @@ func DerefBoolOr(p *bool, def bool) bool {
 	return *p
 }
 
+// Retry defaults and limits. With the schedule in queue.WebhookWorker.NextRetry
+// (base * 2^(N-1), capped at 24 hours), the defaults retry for about three days
+// (1, 2, 4, ... 1024 minutes, then 24 hours twice), like the multi-day windows
+// of hosted webhook senders: a receiver outage over a weekend still recovers on
+// its own.
+const (
+	DefaultMaxRetries          = 13
+	DefaultRetryBackoffSeconds = 60
+	MaxMaxRetries              = 20
+	MaxRetryBackoffSeconds     = 3600
+)
+
 // DefaultWebhookHTTPConfig returns default HTTP configuration
 func DefaultWebhookHTTPConfig() WebhookHTTPConfig {
 	return WebhookHTTPConfig{
-		MaxRetries:            new(3),
-		RetryBackoffSeconds:   60,
+		MaxRetries:            new(DefaultMaxRetries),
+		RetryBackoffSeconds:   DefaultRetryBackoffSeconds,
 		CaptureResponseBody:   new(false), // stores up to 1 KB of response body; set true for up to 1 MB
 		FollowRedirects:       new(true),
 		VerifySSL:             new(true),
@@ -91,12 +103,12 @@ func DefaultWebhookHTTPConfig() WebhookHTTPConfig {
 
 // ValidateConfig validates the HTTP configuration
 func (config WebhookHTTPConfig) ValidateConfig() error {
-	if config.MaxRetries != nil && (*config.MaxRetries < 0 || *config.MaxRetries > 10) {
-		return svcerrors.Errorf(svcerrors.InvalidArgument, "max_retries must be between 0 and 10, got %d", *config.MaxRetries)
+	if config.MaxRetries != nil && (*config.MaxRetries < 0 || *config.MaxRetries > MaxMaxRetries) {
+		return svcerrors.Errorf(svcerrors.InvalidArgument, "max_retries must be between 0 and %d, got %d", MaxMaxRetries, *config.MaxRetries)
 	}
 
-	if config.RetryBackoffSeconds <= 0 || config.RetryBackoffSeconds > 3600 {
-		return svcerrors.Errorf(svcerrors.InvalidArgument, "retry_backoff_seconds must be between 1 and 3600, got %d", config.RetryBackoffSeconds)
+	if config.RetryBackoffSeconds <= 0 || config.RetryBackoffSeconds > MaxRetryBackoffSeconds {
+		return svcerrors.Errorf(svcerrors.InvalidArgument, "retry_backoff_seconds must be between 1 and %d, got %d", MaxRetryBackoffSeconds, config.RetryBackoffSeconds)
 	}
 
 	if config.RequestTimeoutSeconds <= 0 || config.RequestTimeoutSeconds > maxTimeoutSeconds {

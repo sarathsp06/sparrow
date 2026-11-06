@@ -3356,7 +3356,7 @@ export interface components {
             follow_redirects?: boolean;
             /**
              * Format: int64
-             * @description Retries after the first attempt before a delivery is marked failed, so a delivery gets up to max_retries + 1 attempts. 0 means no retries. Between 0 and 10; defaults to 3.
+             * @description Retries after the first attempt before a delivery is marked failed, so a delivery gets up to max_retries + 1 attempts. 0 means no retries. Between 0 and 20; defaults to 13, which with the default retry_backoff_seconds keeps retrying for about three days.
              */
             max_retries?: number;
             /**
@@ -3371,7 +3371,7 @@ export interface components {
             request_timeout_seconds?: number;
             /**
              * Format: int64
-             * @description Base retry delay, in seconds. The delay after attempt N is retry_backoff_seconds * 2^(N-1), capped at 24 hours, minus a random 0-20% so retries spread out. Between 1 and 3600; defaults to 60.
+             * @description Base retry delay, in seconds. The delay after attempt N is retry_backoff_seconds * 2^(N-1), capped at 24 hours, minus a random 0-20% so retries spread out. Between 1 and 3600; defaults to 60. The defaults give retries after about 1, 2, 4, 8, 16, 32, 64, 128, 256, 512 and 1024 minutes, then 24 hours twice.
              */
             retry_backoff_seconds?: number;
             /** @description Stored and returned, but deliveries do not use it yet: they always send User-Agent: Sparrow-Webhook/<server version>. To send another User-Agent, set it in headers. Defaults to Sparrow-Webhook/1.0. */

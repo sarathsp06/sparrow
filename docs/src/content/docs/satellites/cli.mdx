@@ -247,11 +247,11 @@ Polls the deliveries API every 2 seconds and prints each new row:
 
 ```
 TIME                  EVENT                                 STATUS     CODE  ATTEMPTS  URL
-2026-09-12 14:03:21   9f0c1a2b-...                          success     200  1/4       https://hooks.example/x
+2026-09-12 14:03:21   9f0c1a2b-...                          success     200  1/14      https://hooks.example/x
 ```
 
 `ATTEMPTS` is attempts made out of the maximum: the first try plus the
-webhook's `max_retries` (3 by default).
+webhook's `max_retries` (13 by default).
 
 ```bash
 sparrow tail deliveries                    # follow everything in the consumer
