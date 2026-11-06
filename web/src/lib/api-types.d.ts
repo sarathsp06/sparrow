@@ -3371,7 +3371,7 @@ export interface components {
             request_timeout_seconds?: number;
             /**
              * Format: int64
-             * @description Base retry delay, in seconds. The delay after attempt N is retry_backoff_seconds * 2^(N-1), capped at 24 hours. Between 1 and 3600; defaults to 60.
+             * @description Base retry delay, in seconds. The delay after attempt N is retry_backoff_seconds * 2^(N-1), capped at 24 hours, minus a random 0-20% so retries spread out. Between 1 and 3600; defaults to 60.
              */
             retry_backoff_seconds?: number;
             /** @description Stored and returned, but deliveries do not use it yet: they always send User-Agent: Sparrow-Webhook/<server version>. To send another User-Agent, set it in headers. Defaults to Sparrow-Webhook/1.0. */
@@ -3405,7 +3405,7 @@ export interface components {
             request_timeout_seconds: number;
             /**
              * Format: int64
-             * @description Base retry delay, in seconds; the delay after attempt N is retry_backoff_seconds * 2^(N-1), capped at 24 hours.
+             * @description Base retry delay, in seconds; the delay after attempt N is retry_backoff_seconds * 2^(N-1), capped at 24 hours, minus a random 0-20%.
              */
             retry_backoff_seconds: number;
             /** @description Stored value; deliveries currently always send User-Agent: Sparrow-Webhook/<server version> unless headers override it. */

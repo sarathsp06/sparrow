@@ -31,7 +31,8 @@ class WebhookHTTPConfig:
         request_timeout_seconds (int | Unset): How long to wait for the endpoint to respond before treating the attempt
             as a timeout, in seconds. Between 1 and 300; defaults to 30.
         retry_backoff_seconds (int | Unset): Base retry delay, in seconds. The delay after attempt N is
-            retry_backoff_seconds * 2^(N-1), capped at 24 hours. Between 1 and 3600; defaults to 60.
+            retry_backoff_seconds * 2^(N-1), capped at 24 hours, minus a random 0-20% so retries spread out. Between 1 and
+            3600; defaults to 60.
         user_agent (str | Unset): Stored and returned, but deliveries do not use it yet: they always send User-Agent:
             Sparrow-Webhook/<server version>. To send another User-Agent, set it in headers. Defaults to Sparrow-
             Webhook/1.0.

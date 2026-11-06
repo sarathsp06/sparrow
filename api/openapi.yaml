@@ -2864,7 +2864,7 @@ components:
           format: int64
           type: integer
         retry_backoff_seconds:
-          description: Base retry delay, in seconds. The delay after attempt N is retry_backoff_seconds * 2^(N-1), capped at 24 hours. Between 1 and 3600; defaults to 60.
+          description: Base retry delay, in seconds. The delay after attempt N is retry_backoff_seconds * 2^(N-1), capped at 24 hours, minus a random 0-20% so retries spread out. Between 1 and 3600; defaults to 60.
           format: int64
           type: integer
         user_agent:
@@ -2905,7 +2905,7 @@ components:
           format: int64
           type: integer
         retry_backoff_seconds:
-          description: Base retry delay, in seconds; the delay after attempt N is retry_backoff_seconds * 2^(N-1), capped at 24 hours.
+          description: Base retry delay, in seconds; the delay after attempt N is retry_backoff_seconds * 2^(N-1), capped at 24 hours, minus a random 0-20%.
           format: int64
           type: integer
         user_agent:

@@ -16,6 +16,10 @@ migrations run on startup.
 
 ## [Unreleased]
 
+### Changed
+
+- Delivery retries are jittered: each backoff delay (`retry_backoff_seconds * 2^(N-1)`, capped at 24 hours) is shortened by a random 0-20%, so when a receiver comes back after an outage the deliveries that failed together no longer all retry in the same instant. No retry waits longer than before.
+
 ## [v1.3.1] - 2026-11-04
 
 ### Upgrading

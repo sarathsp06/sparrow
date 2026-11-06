@@ -30,6 +30,10 @@ When a delivery attempt fails with a **retryable** error category, Sparrow re-en
 backoff = retry_backoff_seconds * 2^(attempt - 1)   # capped at 24 hours
 ```
 
+Each delay is then shortened by a random 0-20%, so deliveries that failed together
+(a receiver outage) spread their retries out instead of arriving all at once.
+The formula is the longest a retry waits.
+
 Retries continue until:
 - The delivery succeeds
 - `max_retries + 1` attempts in total are exhausted (terminal `failed` status)

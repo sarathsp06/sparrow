@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"net/http"
 	"strconv"
 	"time"
@@ -101,10 +102,16 @@ func newTemplateErrorCounter() metric.Int64Counter {
 // maxRetryDelay caps the exponential backoff regardless of configuration.
 const maxRetryDelay = 24 * time.Hour
 
+// retryJitterDivisor sets the jitter: up to delay/5 (20%) is taken off at random.
+const retryJitterDivisor = 5
+
 // NextRetry honors the webhook's configured retry_backoff_seconds: the delay
-// after attempt N is base * 2^(N-1), capped at maxRetryDelay. A zero base
-// (jobs enqueued before the field existed) returns the zero time, which tells
-// River to fall back to its default retry policy.
+// after attempt N is base * 2^(N-1), capped at maxRetryDelay, minus a random
+// 0-20% so deliveries that failed together (a receiver outage) do not all
+// retry at the same instant. Jitter only shortens the delay, so the formula
+// stays the documented maximum. A zero base (jobs enqueued before the field
+// existed) returns the zero time, which tells River to fall back to its
+// default retry policy.
 func (w *WebhookWorker) NextRetry(job *river.Job[WebhookArgs]) time.Time {
 	base := job.Args.RetryBackoffSeconds
 	if base <= 0 {
@@ -121,6 +128,7 @@ func (w *WebhookWorker) NextRetry(job *river.Job[WebhookArgs]) time.Time {
 	if delay > maxRetryDelay {
 		delay = maxRetryDelay
 	}
+	delay -= rand.N(delay/retryJitterDivisor + 1) //nolint:gosec // jitter, not security
 	return time.Now().Add(delay)
 }
 

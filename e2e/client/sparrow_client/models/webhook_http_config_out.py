@@ -21,7 +21,7 @@ class WebhookHTTPConfigOut:
             attempts).
         request_timeout_seconds (int): Per-attempt request timeout, in seconds.
         retry_backoff_seconds (int): Base retry delay, in seconds; the delay after attempt N is retry_backoff_seconds *
-            2^(N-1), capped at 24 hours.
+            2^(N-1), capped at 24 hours, minus a random 0-20%.
         verify_ssl (bool): Whether the endpoint's TLS certificate is verified.
         content_type (str | Unset): Stored value; deliveries currently send Content-Type: application/json unless
             headers override it.

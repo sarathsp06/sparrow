@@ -88,7 +88,7 @@ func getWebhookEventsMap(ctx context.Context, svc conversionService, regs []*sto
 // delivery configuration.
 type WebhookHTTPConfigOut struct {
 	MaxRetries            int      `json:"max_retries" doc:"Retries after the first attempt before a delivery is marked failed (up to max_retries + 1 attempts)."`
-	RetryBackoffSeconds   int      `json:"retry_backoff_seconds" doc:"Base retry delay, in seconds; the delay after attempt N is retry_backoff_seconds * 2^(N-1), capped at 24 hours."`
+	RetryBackoffSeconds   int      `json:"retry_backoff_seconds" doc:"Base retry delay, in seconds; the delay after attempt N is retry_backoff_seconds * 2^(N-1), capped at 24 hours, minus a random 0-20%."`
 	CaptureResponseBody   bool     `json:"capture_response_body" doc:"false: up to 1 KiB of each response body is stored; true: up to SPARROW_MAX_CAPTURED_RESPONSE_BYTES (default 1 MiB)."`
 	FollowRedirects       bool     `json:"follow_redirects" doc:"Whether HTTP redirects returned by the endpoint are followed."`
 	VerifySSL             bool     `json:"verify_ssl" doc:"Whether the endpoint's TLS certificate is verified."`

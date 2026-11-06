@@ -34,7 +34,7 @@ type registerWebhookBody struct {
 // retried; every field is optional and falls back to a server default.
 type webhookHTTPConfig struct {
 	MaxRetries            *int     `json:"max_retries,omitempty" doc:"Retries after the first attempt before a delivery is marked failed, so a delivery gets up to max_retries + 1 attempts. 0 means no retries. Between 0 and 10; defaults to 3."`
-	RetryBackoffSeconds   int      `json:"retry_backoff_seconds,omitempty" doc:"Base retry delay, in seconds. The delay after attempt N is retry_backoff_seconds * 2^(N-1), capped at 24 hours. Between 1 and 3600; defaults to 60."`
+	RetryBackoffSeconds   int      `json:"retry_backoff_seconds,omitempty" doc:"Base retry delay, in seconds. The delay after attempt N is retry_backoff_seconds * 2^(N-1), capped at 24 hours, minus a random 0-20% so retries spread out. Between 1 and 3600; defaults to 60."`
 	CaptureResponseBody   *bool    `json:"capture_response_body,omitempty" doc:"How much of the endpoint's response body is stored with each attempt: false (default) keeps up to 1 KiB, true up to SPARROW_MAX_CAPTURED_RESPONSE_BYTES (default 1 MiB)."`
 	FollowRedirects       *bool    `json:"follow_redirects,omitempty" doc:"Whether to follow HTTP redirects returned by the endpoint. Each redirect target passes the same SSRF checks, and a redirect that changes the scheme, host or port gets only Sparrow's own headers: headers and secret_headers are dropped. Defaults to true."`
 	VerifySSL             *bool    `json:"verify_ssl,omitempty" doc:"Whether to verify the endpoint's TLS certificate. Defaults to true. Set false only for trusted internal endpoints with self-signed certificates; SSRF and redirect checks still apply."`
