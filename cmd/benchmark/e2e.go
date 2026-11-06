@@ -3,10 +3,17 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"math/big"
 	"net"
 	"net/http"
 	"strings"
@@ -28,6 +35,7 @@ type E2EConfig struct {
 	Burst           int // >0: publish exactly this many events as fast as possible instead of pacing for Duration
 	ReceiverAddr    string
 	ReceiverURL     string // URL Sparrow uses to reach the receiver (defaults to the listener address)
+	ReceiverTLS     bool   // serve HTTPS with a self-signed certificate; webhooks get verify_ssl=false
 	ReceiverDelay   time.Duration
 	Duration        time.Duration
 	TargetRPS       int
@@ -42,6 +50,7 @@ type E2EConfig struct {
 // first: the delivery can reach the receiver before the publisher has read
 // the 201 response that carries the event id.
 type eventRecord struct {
+	due   time.Time // scheduled publish time (equals sent in burst mode)
 	sent  time.Time
 	recv  time.Time // when the last required subscriber received it
 	count int       // deliveries seen
@@ -67,8 +76,12 @@ type E2EResults struct {
 	DeliveryRPS       float64 `json:"delivery_rps"`
 	SteadyDeliveryRPS float64 `json:"steady_delivery_rps"`
 
-	Ingest LatencySummary `json:"ingest_latency"`
-	E2E    LatencySummary `json:"end_to_end_latency"`
+	// Latencies from the scheduled publish time, which include any queueing
+	// a stall caused (see Pacer), and from the actual send.
+	Ingest        LatencySummary `json:"ingest_latency"`
+	E2E           LatencySummary `json:"end_to_end_latency"`
+	IngestService LatencySummary `json:"ingest_service_time"`
+	E2EService    LatencySummary `json:"end_to_end_service_time"`
 
 	PeakBacklog int64            `json:"peak_backlog"`
 	Backlog     []BacklogSample  `json:"backlog_timeline"`
@@ -102,8 +115,10 @@ type E2ERunner struct {
 	statusMu    sync.Mutex
 	statusCodes map[string]int64
 
-	ingest *LatencyReservoir
-	e2e    *LatencyReservoir
+	ingest        *LatencyReservoir // from the schedule
+	e2e           *LatencyReservoir
+	ingestService *LatencyReservoir // from the send
+	e2eService    *LatencyReservoir
 
 	payload    []byte
 	eventNames []string
@@ -125,11 +140,13 @@ func NewE2ERunner(cfg E2EConfig) *E2ERunner {
 				IdleConnTimeout:     90 * time.Second,
 			},
 		},
-		records:     make(map[string]*eventRecord, cfg.TargetRPS*int(cfg.Duration.Seconds())+1024),
-		statusCodes: make(map[string]int64),
-		ingest:      NewLatencyReservoir(20000),
-		e2e:         NewLatencyReservoir(20000),
-		payload:     bytes.Repeat([]byte("x"), cfg.PayloadSizeKB*1024),
+		records:       make(map[string]*eventRecord, cfg.TargetRPS*int(cfg.Duration.Seconds())+1024),
+		statusCodes:   make(map[string]int64),
+		ingest:        NewLatencyReservoir(20000),
+		e2e:           NewLatencyReservoir(20000),
+		ingestService: NewLatencyReservoir(20000),
+		e2eService:    NewLatencyReservoir(20000),
+		payload:       bytes.Repeat([]byte("x"), cfg.PayloadSizeKB*1024),
 	}
 }
 
@@ -221,6 +238,8 @@ func (r *E2ERunner) Run(ctx context.Context) (*E2EResults, error) {
 		Foreign:           r.foreign.Load(),
 		Ingest:            r.ingest.Summary(),
 		E2E:               r.e2e.Summary(),
+		IngestService:     r.ingestService.Summary(),
+		E2EService:        r.e2eService.Summary(),
 		Backlog:           tl,
 		StatusCodes:       r.snapshotStatusCodes(),
 		PublishRPS:        float64(r.accepted.Load()) / publishEnd.Sub(start).Seconds(),
@@ -243,15 +262,24 @@ func (r *E2ERunner) startReceiver() error {
 		return fmt.Errorf("listen receiver: %w", err)
 	}
 	r.listener = ln
+	scheme := "http"
+	if r.cfg.ReceiverTLS {
+		scheme = "https"
+		cert, err := selfSignedCert(ln.Addr())
+		if err != nil {
+			return fmt.Errorf("receiver certificate: %w", err)
+		}
+		r.listener = tls.NewListener(ln, &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12})
+	}
 	if r.cfg.ReceiverURL == "" {
-		r.cfg.ReceiverURL = "http://" + ln.Addr().String()
+		r.cfg.ReceiverURL = scheme + "://" + ln.Addr().String()
 	}
 	r.receiver = &http.Server{
 		Handler:           http.HandlerFunc(r.handleDelivery),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	go func() {
-		if err := r.receiver.Serve(ln); err != nil && err != http.ErrServerClosed {
+		if err := r.receiver.Serve(r.listener); err != nil && err != http.ErrServerClosed {
 			log.Printf("receiver: %v", err)
 		}
 	}()
@@ -290,7 +318,7 @@ func (r *E2ERunner) handleDelivery(w http.ResponseWriter, req *http.Request) {
 		if complete {
 			rec.recv = now
 		}
-		sent := rec.sent
+		sent, due := rec.sent, rec.due
 		r.mu.Unlock()
 
 		switch {
@@ -298,7 +326,8 @@ func (r *E2ERunner) handleDelivery(w http.ResponseWriter, req *http.Request) {
 			r.duplicates.Add(1)
 		case complete && !sent.IsZero():
 			r.delivered.Add(1)
-			r.e2e.Add(now.Sub(sent))
+			r.e2e.Add(now.Sub(due))
+			r.e2eService.Add(now.Sub(sent))
 		default:
 			// Not all subscribers yet, or the publisher has not recorded
 			// this id (publishOne settles that case).
@@ -366,6 +395,7 @@ func (r *E2ERunner) registerPipeline(ctx context.Context) error {
 					"max_retries":             3,
 					"retry_backoff_seconds":   1,
 					"request_timeout_seconds": 10,
+					"verify_ssl":              !r.cfg.ReceiverTLS, // self-signed
 				},
 			}, &out)
 			if err != nil {
@@ -395,7 +425,7 @@ func (r *E2ERunner) deleteWebhooks() {
 func (r *E2ERunner) warmUp(ctx context.Context) error {
 	wctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	if err := r.publishOne(wctx, false); err != nil {
+	if err := r.publishOne(wctx, false, time.Time{}); err != nil {
 		return fmt.Errorf("warm-up publish: %w", err)
 	}
 	deadline := time.Now().Add(30 * time.Second)
@@ -413,6 +443,8 @@ func (r *E2ERunner) warmUp(ctx context.Context) error {
 			r.published.Store(0)
 			r.ingest = NewLatencyReservoir(r.ingest.capacity)
 			r.e2e = NewLatencyReservoir(r.e2e.capacity)
+			r.ingestService = NewLatencyReservoir(r.ingestService.capacity)
+			r.e2eService = NewLatencyReservoir(r.e2eService.capacity)
 			r.statusMu.Lock()
 			r.statusCodes = make(map[string]int64)
 			r.statusMu.Unlock()
@@ -423,8 +455,9 @@ func (r *E2ERunner) warmUp(ctx context.Context) error {
 	return fmt.Errorf("warm-up event was accepted but never delivered within 30s: check the server's worker logs and SPARROW_ALLOW_PRIVATE_NETWORKS")
 }
 
-// publishOne pushes a single event and records the publish timestamp.
-func (r *E2ERunner) publishOne(ctx context.Context, sample bool) error {
+// publishOne pushes a single event and records the publish timestamp. due is
+// the event's slot in the schedule; zero (burst, warm-up) means "now".
+func (r *E2ERunner) publishOne(ctx context.Context, sample bool, due time.Time) error {
 	body := map[string]any{
 		"payload": map[string]any{
 			"sent_at": time.Now().UnixNano(),
@@ -437,8 +470,11 @@ func (r *E2ERunner) publishOne(ctx context.Context, sample bool) error {
 	}
 	name := r.eventNames[int(r.rr.Add(1)-1)%len(r.eventNames)]
 	sent := time.Now()
+	if due.IsZero() {
+		due = sent
+	}
 	code, err := r.do(ctx, http.MethodPost, "/v1/consumers/"+r.cfg.Consumer+"/events?event="+name, body, &out)
-	lat := time.Since(sent)
+	done := time.Now()
 
 	r.statusMu.Lock()
 	if err != nil && ctx.Err() != nil {
@@ -465,7 +501,8 @@ func (r *E2ERunner) publishOne(ctx context.Context, sample bool) error {
 
 	r.accepted.Add(1)
 	if sample {
-		r.ingest.Add(lat)
+		r.ingest.Add(done.Sub(due))
+		r.ingestService.Add(done.Sub(sent))
 	}
 
 	r.mu.Lock()
@@ -474,7 +511,7 @@ func (r *E2ERunner) publishOne(ctx context.Context, sample bool) error {
 		rec = &eventRecord{}
 		r.records[out.EventID] = rec
 	}
-	rec.sent = sent
+	rec.sent, rec.due = sent, due
 	recv := rec.recv // set only once all subscribers delivered
 	r.mu.Unlock()
 	r.published.Add(1)
@@ -483,7 +520,8 @@ func (r *E2ERunner) publishOne(ctx context.Context, sample bool) error {
 	if !recv.IsZero() {
 		r.delivered.Add(1)
 		if sample {
-			r.e2e.Add(recv.Sub(sent))
+			r.e2e.Add(recv.Sub(due))
+			r.e2eService.Add(recv.Sub(sent))
 		}
 	}
 	return nil
@@ -491,10 +529,9 @@ func (r *E2ERunner) publishOne(ctx context.Context, sample bool) error {
 
 // publish runs the paced publishers until ctx expires.
 func (r *E2ERunner) publish(ctx context.Context) {
-	var limiter *RateLimiter
+	var pacer *Pacer
 	if r.cfg.Burst <= 0 {
-		limiter = NewRateLimiter(r.cfg.TargetRPS, r.cfg.Publishers)
-		defer limiter.Stop()
+		pacer = NewPacer(r.cfg.TargetRPS)
 	}
 	var remaining atomic.Int64
 	remaining.Store(int64(r.cfg.Burst))
@@ -506,14 +543,16 @@ func (r *E2ERunner) publish(ctx context.Context) {
 		go func() {
 			defer wg.Done()
 			for ctx.Err() == nil {
-				if limiter != nil {
-					if err := limiter.Wait(ctx); err != nil {
+				var due time.Time
+				if pacer != nil {
+					var ok bool
+					if due, ok = pacer.Next(ctx); !ok {
 						return
 					}
 				} else if remaining.Add(-1) < 0 {
 					return
 				}
-				if err := r.publishOne(ctx, true); err != nil && ctx.Err() == nil {
+				if err := r.publishOne(ctx, true, due); err != nil && ctx.Err() == nil {
 					firstErr.Do(func() { log.Printf("first publish failure: %v", err) })
 				}
 			}
@@ -573,7 +612,7 @@ func (r *E2ERunner) snapshotStatusCodes() map[string]int64 {
 func (res *E2EResults) Print() {
 	fmt.Printf("\n=== End-to-End Pipeline Results ===\n\n")
 	fmt.Printf("Sparrow:          %s  (event %s, consumer %s)\n", res.Config.SparrowURL, res.Config.EventName, res.Config.Consumer)
-	fmt.Printf("Receiver:         %s, %d event type(s) × %d subscriber(s) = %d webhooks (simulated delay %v)\n", res.Config.ReceiverURL, res.Config.Webhooks, res.Config.Subscribers, res.Config.Webhooks*res.Config.Subscribers, res.Config.ReceiverDelay)
+	fmt.Printf("Receiver:         %s (%s), %d event type(s) × %d subscriber(s) = %d webhooks (simulated delay %v)\n", res.Config.ReceiverURL, map[bool]string{true: "HTTPS, self-signed, verify_ssl=false", false: "plain HTTP"}[res.Config.ReceiverTLS], res.Config.Webhooks, res.Config.Subscribers, res.Config.Webhooks*res.Config.Subscribers, res.Config.ReceiverDelay)
 	if res.Config.Burst > 0 {
 		fmt.Printf("Publish window:   %v for a burst of %d events, %d publishers, %d KB payload\n", res.PublishDuration.Round(time.Millisecond), res.Config.Burst, res.Config.Publishers, res.Config.PayloadSizeKB)
 	} else {
@@ -594,8 +633,13 @@ func (res *E2EResults) Print() {
 	fmt.Printf("  Delivery:       %.1f/s while publishing, %.1f/s over the whole run\n", res.SteadyDeliveryRPS, res.DeliveryRPS)
 	fmt.Printf("  Peak backlog:   %d events\n\n", res.PeakBacklog)
 
-	printLatency("Ingest latency (POST /events → 201)", res.Ingest)
-	printLatency("End-to-end latency (POST sent → receiver got it)", res.E2E)
+	from := "scheduled publish"
+	if res.Config.Burst > 0 {
+		from = "publish (burst: no schedule)"
+	}
+	printLatency("Ingest response time ("+from+" → 201)", res.Ingest)
+	printLatency("End-to-end response time ("+from+" → receiver got it)", res.E2E)
+	printLatency("End-to-end service time (POST sent → receiver got it)", res.E2EService)
 
 	if len(res.Backlog) > 0 {
 		fmt.Printf("Backlog timeline (sec: accepted/delivered/backlog):\n  ")
@@ -614,4 +658,31 @@ func printLatency(title string, s LatencySummary) {
 	fmt.Printf("  samples=%d  avg=%v  p50=%v  p90=%v  p95=%v  p99=%v  p99.9=%v  max=%v\n\n",
 		s.Samples, s.Avg.Round(time.Microsecond), s.P50.Round(time.Microsecond), s.P90.Round(time.Microsecond),
 		s.P95.Round(time.Microsecond), s.P99.Round(time.Microsecond), s.P999.Round(time.Microsecond), s.Max.Round(time.Microsecond))
+}
+
+// selfSignedCert makes a throwaway P-256 certificate for the receiver's
+// listen address (plus localhost), valid for a day.
+func selfSignedCert(addr net.Addr) (tls.Certificate, error) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(time.Now().UnixNano()),
+		Subject:      pkix.Name{CommonName: "sparrow-benchmark-receiver"},
+		NotBefore:    time.Now().Add(-time.Minute),
+		NotAfter:     time.Now().Add(24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		DNSNames:     []string{"localhost"},
+		IPAddresses:  []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
+	}
+	if tcp, ok := addr.(*net.TCPAddr); ok && !tcp.IP.IsUnspecified() {
+		tmpl.IPAddresses = append(tmpl.IPAddresses, tcp.IP)
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}, nil
 }

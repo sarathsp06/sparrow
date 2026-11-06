@@ -128,6 +128,7 @@ export default defineConfig({
             { slug: 'reference/template-functions' },
             { slug: 'reference/api-errors' },
             { slug: 'reference/error-classification' },
+            { slug: 'reference/benchmarking' },
             { slug: 'reference/architecture' },
             { slug: 'reference/security' },
             { slug: 'reference/compatibility' },

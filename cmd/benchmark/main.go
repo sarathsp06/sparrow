@@ -7,6 +7,13 @@
 //	              and receives the deliveries on a local receiver, measuring the
 //	              full pipeline: API ingest → Postgres → River → worker → HTTP.
 //
+// Load is open loop (Pacer): requests are due on a fixed schedule, and
+// latency is reported both from the scheduled time ("response time", which
+// includes any queueing a stall caused) and from the actual send ("service
+// time"). -runs repeats the whole measurement and reports each headline metric
+// as a mean with a 95% confidence interval. -tls (client) and -receiver-tls
+// (e2e) put TLS on the receiving side.
+//
 // Both modes print a report and can write it as JSON with -json.
 package main
 
@@ -36,7 +43,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Shared: latency reservoir and rate limiter
+// Shared: latency reservoir
 // ---------------------------------------------------------------------------
 
 // LatencySummary is the percentile report of one latency series.
@@ -120,66 +127,6 @@ func (r *LatencyReservoir) Summary() LatencySummary {
 	}
 }
 
-// RateLimiter is a token bucket that paces callers at a fixed rate.
-type RateLimiter struct {
-	tokens chan struct{}
-	ctx    context.Context
-	cancel context.CancelFunc
-	wg     sync.WaitGroup
-}
-
-// NewRateLimiter creates a token bucket refilled rps times per second with
-// the given burst capacity.
-func NewRateLimiter(rps int, burst int) *RateLimiter {
-	if rps < 1 {
-		rps = 1
-	}
-	if burst < 1 {
-		burst = 1
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	rl := &RateLimiter{tokens: make(chan struct{}, burst), ctx: ctx, cancel: cancel}
-	for i := 0; i < burst; i++ {
-		rl.tokens <- struct{}{}
-	}
-	rl.wg.Add(1)
-	go rl.refill(time.Second / time.Duration(rps))
-	return rl
-}
-
-func (rl *RateLimiter) refill(interval time.Duration) {
-	defer rl.wg.Done()
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			select {
-			case rl.tokens <- struct{}{}:
-			default:
-			}
-		case <-rl.ctx.Done():
-			return
-		}
-	}
-}
-
-// Wait blocks until a token is available or ctx is done.
-func (rl *RateLimiter) Wait(ctx context.Context) error {
-	select {
-	case <-rl.tokens:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-// Stop halts the refill goroutine.
-func (rl *RateLimiter) Stop() {
-	rl.cancel()
-	rl.wg.Wait()
-}
-
 // ---------------------------------------------------------------------------
 // Client mode
 // ---------------------------------------------------------------------------
@@ -191,6 +138,7 @@ type ClientConfig struct {
 	PayloadSizeKB int           `json:"payload_kb"`
 	Concurrency   int           `json:"concurrency"`
 	TargetURL     string        `json:"target_url"`
+	TLS           bool          `json:"tls"`
 }
 
 // ClientResults is the client-mode report.
@@ -203,7 +151,8 @@ type ClientResults struct {
 	ActualRPS       float64        `json:"actual_rps"`
 	BytesSent       int64          `json:"bytes_sent"`
 	BytesReceived   int64          `json:"bytes_received"`
-	Latency         LatencySummary `json:"latency"`
+	Latency         LatencySummary `json:"latency"`      // from the scheduled send time
+	ServiceTime     LatencySummary `json:"service_time"` // from the actual send
 	PeakHeapMB      float64        `json:"peak_heap_mb"`
 	PeakGoroutines  int            `json:"peak_goroutines"`
 	FirstError      string         `json:"first_error,omitempty"`
@@ -222,7 +171,8 @@ type clientTester struct {
 	serverConns         atomic.Int64
 	firstErr            sync.Once
 	firstErrMsg         string
-	latency             *LatencyReservoir
+	latency             *LatencyReservoir // from the scheduled send time
+	service             *LatencyReservoir // from the actual send
 	peakHeapMB          float64
 	peakGoroutines      int
 }
@@ -231,6 +181,7 @@ func newClientTester(cfg ClientConfig) *clientTester {
 	t := &clientTester{
 		cfg:     cfg,
 		latency: NewLatencyReservoir(20000),
+		service: NewLatencyReservoir(20000),
 		client: client.NewWebhookClient(&client.Config{
 			Timeout:         30 * time.Second,
 			MaxIdleConns:    cfg.Concurrency * 2,
@@ -263,13 +214,17 @@ func newClientTester(cfg ClientConfig) *clientTester {
 				t.serverConns.Add(1)
 			}
 		}
-		t.server.Start()
+		if cfg.TLS {
+			t.server.StartTLS()
+		} else {
+			t.server.Start()
+		}
 		t.target = t.server.URL
 	}
 	return t
 }
 
-func (t *clientTester) oneRequest(ctx context.Context) {
+func (t *clientTester) oneRequest(ctx context.Context, due time.Time) {
 	req := &client.DeliveryRequest{
 		WebhookID:  uuid.New(),
 		DeliveryID: uuid.NewString(),
@@ -279,18 +234,24 @@ func (t *clientTester) oneRequest(ctx context.Context) {
 		Headers:    map[string]string{"Content-Type": "application/json"},
 		Payload:    t.payload,
 		Timeout:    30 * time.Second, // production always sets a per-request timeout; keep that path hot
+		// The in-process TLS server has a self-signed certificate. Handshake
+		// and encryption are measured; chain verification is not, and with
+		// keep-alive it happens once per connection.
+		SkipTLSVerify: t.cfg.TLS,
 	}
 	start := time.Now()
 	resp, _, err := t.client.Send(ctx, req)
-	lat := time.Since(start)
+	end := time.Now()
+	lat := end.Sub(start)
+	if err != nil && ctx.Err() != nil {
+		return // the run window closed mid-request: neither a success nor a failure
+	}
 
 	t.total.Add(1)
 	t.bytesSent.Add(int64(len(t.payload)))
 	if err != nil {
 		t.failed.Add(1)
-		if ctx.Err() == nil {
-			t.firstErr.Do(func() { t.firstErrMsg = err.Error(); log.Printf("first request failure: %v", err) })
-		}
+		t.firstErr.Do(func() { t.firstErrMsg = err.Error(); log.Printf("first request failure: %v", err) })
 		return
 	}
 	n, _ := io.Copy(io.Discard, resp.Body)
@@ -298,7 +259,8 @@ func (t *clientTester) oneRequest(ctx context.Context) {
 	t.bytesRcv.Add(n)
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		t.ok.Add(1)
-		t.latency.Add(lat)
+		t.service.Add(lat)
+		t.latency.Add(end.Sub(due))
 	} else {
 		t.failed.Add(1)
 	}
@@ -308,8 +270,7 @@ func (t *clientTester) run(ctx context.Context) *ClientResults {
 	ctx, cancel := context.WithTimeout(ctx, t.cfg.Duration)
 	defer cancel()
 
-	limiter := NewRateLimiter(t.cfg.TargetRPS, t.cfg.Concurrency)
-	defer limiter.Stop()
+	pacer := NewPacer(t.cfg.TargetRPS)
 
 	monCtx, stopMon := context.WithCancel(context.Background())
 	monDone := make(chan struct{})
@@ -340,8 +301,12 @@ func (t *clientTester) run(ctx context.Context) *ClientResults {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for limiter.Wait(ctx) == nil {
-				t.oneRequest(ctx)
+			for {
+				due, ok := pacer.Next(ctx)
+				if !ok {
+					return
+				}
+				t.oneRequest(ctx, due)
 			}
 		}()
 	}
@@ -360,6 +325,7 @@ func (t *clientTester) run(ctx context.Context) *ClientResults {
 		BytesSent:       t.bytesSent.Load(),
 		BytesReceived:   t.bytesRcv.Load(),
 		Latency:         t.latency.Summary(),
+		ServiceTime:     t.service.Summary(),
 		PeakHeapMB:      t.peakHeapMB,
 		PeakGoroutines:  t.peakGoroutines,
 		FirstError:      t.firstErrMsg,
@@ -377,7 +343,7 @@ func (t *clientTester) close() {
 // Print writes the client-mode report.
 func (r *ClientResults) Print() {
 	fmt.Printf("\n=== Client Load Test Results ===\n\n")
-	fmt.Printf("Duration: %v   target %d rps, %d workers, %d KB payload\n\n", r.Duration.Round(time.Millisecond), r.Config.TargetRPS, r.Config.Concurrency, r.Config.PayloadSizeKB)
+	fmt.Printf("Duration: %v   target %d rps, %d workers, %d KB payload, %s\n\n", r.Duration.Round(time.Millisecond), r.Config.TargetRPS, r.Config.Concurrency, r.Config.PayloadSizeKB, map[bool]string{true: "HTTPS", false: "plain HTTP"}[r.Config.TLS])
 	fmt.Printf("Requests:\n")
 	fmt.Printf("  Total:           %d\n", r.TotalRequests)
 	if r.TotalRequests > 0 {
@@ -392,7 +358,8 @@ func (r *ClientResults) Print() {
 		fmt.Printf("  TCP connections: %d opened at the test server (%.2f requests per connection)\n", r.ServerConnsSeen, float64(r.TotalRequests)/float64(r.ServerConnsSeen))
 	}
 	fmt.Println()
-	printLatency("Latency (Send → response headers)", r.Latency)
+	printLatency("Response time (scheduled send → response headers)", r.Latency)
+	printLatency("Service time (actual send → response headers)", r.ServiceTime)
 	secs := r.Duration.Seconds()
 	fmt.Printf("Bandwidth:\n")
 	fmt.Printf("  Sent:            %.2f MB (%.2f MB/s)\n", float64(r.BytesSent)/1024/1024, float64(r.BytesSent)/1024/1024/secs)
@@ -406,16 +373,28 @@ func (r *ClientResults) Print() {
 // main
 // ---------------------------------------------------------------------------
 
+// Report is what -json writes: where it ran, every run, and the across-run
+// summary of the headline metrics.
+type Report struct {
+	Mode        string          `json:"mode"`
+	Environment Environment     `json:"environment"`
+	Runs        []any           `json:"runs"`
+	Summary     []MetricSummary `json:"summary"`
+}
+
 func main() {
 	mode := flag.String("mode", "client", "client (delivery client vs in-process server) or e2e (REST API → running Sparrow → local receiver)")
 	duration := flag.Duration("duration", time.Minute, "Publish/request window")
-	rps := flag.Int("rps", 100, "Target requests (or events) per second")
+	rps := flag.Int("rps", 100, "Target requests (or events) per second, on a fixed open-loop schedule")
 	payloadKB := flag.Int("payload", 10, "Payload size in KB")
 	concurrency := flag.Int("concurrency", 10, "Concurrent workers (client mode) or publishers (e2e mode)")
-	jsonOut := flag.String("json", "", "Write the report as JSON to this file")
+	jsonOut := flag.String("json", "", "Write the report (environment, every run, summary) as JSON to this file")
+	runs := flag.Int("runs", 1, "Repeat the measurement this many times and report each headline metric as mean ± 95% CI (use 5 or more to compare builds)")
+	pause := flag.Duration("pause", 10*time.Second, "Idle time between runs, so one run's backlog and GC do not leak into the next")
 
 	// client mode
 	targetURL := flag.String("url", "", "client mode: target URL (empty = in-process test server)")
+	useTLS := flag.Bool("tls", false, "client mode: serve the in-process test server over HTTPS (self-signed)")
 
 	// e2e mode
 	sparrowURL := flag.String("sparrow-url", "http://localhost:8080", "e2e mode: base URL of the running Sparrow")
@@ -425,8 +404,9 @@ func main() {
 	webhooks := flag.Int("webhooks", 1, "e2e mode: number of event types to spread the events over (each with its own receiver URL)")
 	subscribers := flag.Int("subscribers", 1, "e2e mode: webhooks subscribed to each event type (fan-out); typical is 1 or 2")
 	burst := flag.Int("burst", 0, "e2e mode: publish exactly this many events as fast as possible, then wait for the drain (ignores -duration and -rps)")
-	receiverAddr := flag.String("receiver-addr", "127.0.0.1:0", "e2e mode: local receiver listen address")
-	receiverURL := flag.String("receiver-url", "", "e2e mode: URL Sparrow should call (default: the receiver listen address; set when Sparrow runs in a container)")
+	receiverAddr := flag.String("receiver-addr", "127.0.0.1:0", "e2e mode: local receiver listen address (use 0.0.0.0:PORT when Sparrow runs on another host)")
+	receiverURL := flag.String("receiver-url", "", "e2e mode: URL Sparrow should call (default: the receiver listen address; set when Sparrow runs on another host or in a container)")
+	receiverTLS := flag.Bool("receiver-tls", false, "e2e mode: receiver serves HTTPS with a self-signed certificate (webhooks are registered with verify_ssl=false)")
 	receiverDelay := flag.Duration("receiver-delay", 0, "e2e mode: simulated processing time inside the receiver")
 	drainTimeout := flag.Duration("drain-timeout", 2*time.Minute, "e2e mode: how long to wait for the backlog to drain after publishing stops")
 	keepWebhook := flag.Bool("keep-webhook", false, "e2e mode: leave the benchmark webhook registered")
@@ -442,32 +422,80 @@ func main() {
 		cancel()
 	}()
 
-	var report any
-	switch *mode {
-	case "client":
-		cfg := ClientConfig{Duration: *duration, TargetRPS: *rps, PayloadSizeKB: *payloadKB, Concurrency: *concurrency, TargetURL: *targetURL}
-		fmt.Printf("Client mode: %v at %d rps, %d workers, %d KB payload, target=%q\n", cfg.Duration, cfg.TargetRPS, cfg.Concurrency, cfg.PayloadSizeKB, cfg.TargetURL)
-		t := newClientTester(cfg)
-		res := t.run(ctx)
-		t.close()
-		res.Print()
-		report = res
-	case "e2e":
-		cfg := E2EConfig{
-			SparrowURL: *sparrowURL, APIKey: *apiKey, Consumer: *consumer, EventName: *eventName, Webhooks: *webhooks, Subscribers: *subscribers, Burst: *burst,
-			ReceiverAddr: *receiverAddr, ReceiverURL: *receiverURL, ReceiverDelay: *receiverDelay,
-			Duration: *duration, TargetRPS: *rps, Publishers: *concurrency, PayloadSizeKB: *payloadKB,
-			DrainTimeout: *drainTimeout, KeepWebhook: *keepWebhook,
-		}
-		res, err := NewE2ERunner(cfg).Run(ctx)
-		if err != nil {
-			log.Fatalf("e2e benchmark: %v", err)
-		}
-		res.Print()
-		report = res
-	default:
-		log.Fatalf("unknown -mode %q (client|e2e)", *mode)
+	if *runs < 1 {
+		*runs = 1
 	}
+	report := Report{Mode: *mode, Environment: captureEnvironment()}
+	report.Environment.Print()
+
+	var metrics []Metric
+	add := func(i int, name, unit string, v float64) {
+		if i == 0 {
+			metrics = append(metrics, Metric{Name: name, Unit: unit})
+		}
+		for j := range metrics {
+			if metrics[j].Name == name {
+				metrics[j].Values = append(metrics[j].Values, v)
+			}
+		}
+	}
+
+	for i := 0; i < *runs && ctx.Err() == nil; i++ {
+		if i > 0 {
+			log.Printf("pausing %v before run %d/%d", *pause, i+1, *runs)
+			select {
+			case <-time.After(*pause):
+			case <-ctx.Done():
+			}
+		}
+		if *runs > 1 {
+			fmt.Printf("\n##### Run %d/%d #####\n", i+1, *runs)
+		}
+		switch *mode {
+		case "client":
+			cfg := ClientConfig{Duration: *duration, TargetRPS: *rps, PayloadSizeKB: *payloadKB, Concurrency: *concurrency, TargetURL: *targetURL, TLS: *useTLS}
+			fmt.Printf("Client mode: %v at %d rps, %d workers, %d KB payload, target=%q\n", cfg.Duration, cfg.TargetRPS, cfg.Concurrency, cfg.PayloadSizeKB, cfg.TargetURL)
+			t := newClientTester(cfg)
+			res := t.run(ctx)
+			t.close()
+			res.Print()
+			report.Runs = append(report.Runs, res)
+			add(i, "throughput", "req/s", res.ActualRPS)
+			add(i, "success rate", "%", 100*float64(res.SuccessfulReqs)/max(1, float64(res.TotalRequests)))
+			add(i, "response time p50", "ms", ms(res.Latency.P50))
+			add(i, "response time p99", "ms", ms(res.Latency.P99))
+			add(i, "response time p99.9", "ms", ms(res.Latency.P999))
+		case "e2e":
+			cfg := E2EConfig{
+				SparrowURL: *sparrowURL, APIKey: *apiKey, Consumer: *consumer, EventName: *eventName, Webhooks: *webhooks, Subscribers: *subscribers, Burst: *burst,
+				ReceiverAddr: *receiverAddr, ReceiverURL: *receiverURL, ReceiverTLS: *receiverTLS, ReceiverDelay: *receiverDelay,
+				Duration: *duration, TargetRPS: *rps, Publishers: *concurrency, PayloadSizeKB: *payloadKB,
+				DrainTimeout: *drainTimeout, KeepWebhook: *keepWebhook,
+			}
+			res, err := NewE2ERunner(cfg).Run(ctx)
+			if err != nil {
+				log.Fatalf("e2e benchmark: %v", err)
+			}
+			res.Print()
+			report.Runs = append(report.Runs, res)
+			add(i, "delivery while publishing", "events/s", res.SteadyDeliveryRPS)
+			add(i, "delivery over whole run", "events/s", res.DeliveryRPS)
+			add(i, "ingest response time p50", "ms", ms(res.Ingest.P50))
+			add(i, "end-to-end response time p50", "ms", ms(res.E2E.P50))
+			add(i, "end-to-end response time p99", "ms", ms(res.E2E.P99))
+			add(i, "peak backlog", "events", float64(res.PeakBacklog))
+			if !res.Drained {
+				log.Printf("run %d did not drain within %v: its throughput is a lower bound", i+1, *drainTimeout)
+			}
+		default:
+			log.Fatalf("unknown -mode %q (client|e2e)", *mode)
+		}
+	}
+
+	for _, m := range metrics {
+		report.Summary = append(report.Summary, Summarize(m))
+	}
+	PrintSummaries(report.Summary)
 
 	if *jsonOut != "" {
 		b, err := json.MarshalIndent(report, "", "  ")

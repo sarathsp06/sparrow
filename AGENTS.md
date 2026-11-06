@@ -21,6 +21,7 @@
 | Integration tests | `make test-integration` | Needs Docker (testcontainers) |
 | Core coverage | `make cover` | Unit + integration tests, merged by `scripts/coverage.sh`; CI fails below 80% of `internal/...` + `pkg/...` (generated `*_otel.go` excluded). Needs `DATABASE_URL` and Docker |
 | E2E tests | `make test-e2e` | Gauge + Python, needs Docker |
+| Load benchmark | `go build -o bin/benchmark ./cmd/benchmark && bin/benchmark -mode e2e -receiver-tls -runs 5` | Open-loop load; reports response time (from the schedule) and service time, mean ± 95% CI across `-runs`, and flags metrics with CV > 10%. `-mode client` needs no server. Method and two-host setup: `docs/src/content/docs/reference/benchmarking.md` |
 | SQL benchmark | `make bench-sql SCALE=0.1` | `scripts/sqlbench/run.sh`: fresh DB + `seed.sql` (scale 1 = 6M deliveries, ~9 GB, ~20 min), then `sqlbench_test.go` times the heavy repository methods; `--e2e` adds the pipeline benchmark, `--skip-seed` reuses the DB |
 | Lint | `make lint` | golangci-lint, 15m timeout |
 | Format | `make fmt` | `goimports -local github.com/sarathsp06/sparrow/ -w .` |
