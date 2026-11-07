@@ -19,6 +19,7 @@ migrations run on startup.
 ### Upgrading
 
 - New webhooks retry failed deliveries for about three days instead of about seven minutes: `max_retries` now defaults to 13 (was 3). Existing webhooks keep the `max_retries` they were saved with. To give an existing webhook the new window, set `http_config.max_retries` to 13 with `PATCH .../webhooks/{webhook_id}`. Clients that create webhooks without `max_retries` and expect failures to settle within minutes should send `max_retries: 3`.
+- Satellites (the `sparrow` CLI, recipes, `sparrow-sources`, `sparrow-sinks`) are no longer covered by the [compatibility policy](https://sarathsp06.github.io/sparrow/reference/compatibility/) or the security scope: they are helper tools outside the core, and their commands, flags, config and Go packages can change in any release. Pin the version you use.
 - `sparrow-sources` library: `sources.Pusher.PushEvent` takes an `idempotencyKey string` after `labels`. Implementations add the parameter; callers of `Client.PushEvent` pass `""` for none.
 
 ### Fixed

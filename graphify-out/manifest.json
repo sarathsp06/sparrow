@@ -2982,9 +2982,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/index.mdx": {
-    "mtime": 1793402450.6082275,
-    "seen": 1794083651.786908,
-    "ast_hash": "9d4eebbb0fb090f79314f34b24e6b04d",
+    "mtime": 1794084309.4826636,
+    "seen": 1794084335.4837508,
+    "ast_hash": "a78f72867ef470543716f13b884da034",
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/recipes.mdx": {
@@ -3282,9 +3282,9 @@
     "semantic_hash": ""
   },
   "SECURITY.md": {
-    "mtime": 1793402450.6204667,
-    "seen": 1794083651.786877,
-    "ast_hash": "b1c607fa75c3a8e6377eaa6ad822cda3",
+    "mtime": 1794084309.482393,
+    "seen": 1794084335.483721,
+    "ast_hash": "1eac793d84c00ba5f439b609447323af",
     "semantic_hash": ""
   },
   "internal/rest/webhook_test.go": {
@@ -3378,9 +3378,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/compatibility.md": {
-    "mtime": 1793402450.6043317,
-    "seen": 1794083651.786905,
-    "ast_hash": "9230b6ae48026c6b95f7e6511b95083e",
+    "mtime": 1794084309.4815936,
+    "seen": 1794084335.483747,
+    "ast_hash": "d458257f0c218c86a6232481440ec62a",
     "semantic_hash": ""
   },
   "internal/health/checker_test.go": {
@@ -5082,9 +5082,9 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1794083629.823668,
-    "seen": 1794083651.786874,
-    "ast_hash": "def3d6c586401efef04a703ef8fbca47",
+    "mtime": 1794084309.4831593,
+    "seen": 1794084335.4837172,
+    "ast_hash": "35ef724c1ad838521200350ad7f006b6",
     "semantic_hash": ""
   },
   "internal/integration/api_surface_test.go": {
@@ -5394,9 +5394,9 @@
     "semantic_hash": ""
   },
   "THREAT_MODEL.md": {
-    "mtime": 1793402450.6211452,
-    "seen": 1794083651.7868779,
-    "ast_hash": "5bca909c51d6dfb9504b03f188399d59",
+    "mtime": 1794084309.4820108,
+    "seen": 1794084335.483722,
+    "ast_hash": "210487fdf5198c7553f9436f098d39c1",
     "semantic_hash": ""
   },
   "docs/src/components/SocialCard.astro": {

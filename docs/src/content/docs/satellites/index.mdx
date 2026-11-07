@@ -10,6 +10,12 @@ signed-webhook contract you do, so the delivery pipeline (matching, retries,
 signing, audit trail) stays one small, boring server. Delete every satellite
 and Sparrow still works; add your own and it is a first-class citizen.
 
+Satellites are helper tools, not part of Sparrow itself. The
+[compatibility policy](/sparrow/reference/compatibility/) and the
+[threat model](https://github.com/sarathsp06/sparrow/blob/main/THREAT_MODEL.md)
+cover the core only: a satellite's commands, flags, config and Go packages can
+change in any release, so pin the version you use.
+
 ```mermaid
 graph LR
     accTitle: Satellite topology

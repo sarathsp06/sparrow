@@ -40,8 +40,10 @@ reporting, if you can.
 
 ## Scope
 
-The server (`cmd/server`), the CLI and satellites under `satellites/`, and the
-libraries under `pkg/` are in scope. [`THREAT_MODEL.md`](THREAT_MODEL.md)
+The server (`cmd/server`) and the libraries under `pkg/` are in scope.
+Satellites under `satellites/` (the CLI, recipes, sources and sinks) are helper
+tools outside the core and are not: report problems in them as ordinary
+issues. [`THREAT_MODEL.md`](THREAT_MODEL.md)
 describes the trust boundaries and how findings are rated. Behaviour documented
 as a known gap in [AGENTS.md](AGENTS.md) (for example, no inbound rate limiting
 on `/v1`) is not a vulnerability by itself. See
