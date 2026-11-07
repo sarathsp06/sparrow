@@ -16,6 +16,8 @@ migrations run on startup.
 
 ## [Unreleased]
 
+## [v1.4.0] - 2026-11-07
+
 ### Upgrading
 
 - New webhooks retry failed deliveries for about three days instead of about seven minutes: `max_retries` now defaults to 13 (was 3). Existing webhooks keep the `max_retries` they were saved with. To give an existing webhook the new window, set `http_config.max_retries` to 13 with `PATCH .../webhooks/{webhook_id}`. Clients that create webhooks without `max_retries` and expect failures to settle within minutes should send `max_retries: 3`.
@@ -725,7 +727,8 @@ First release: webhook registration and subscriptions, signed delivery with
 retries, payload transforms, soft schema validation, bulk re-push and retry,
 and the embedded web UI.
 
-[Unreleased]: https://github.com/sarathsp06/sparrow/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/sarathsp06/sparrow/compare/v1.4.0...HEAD
+[v1.4.0]: https://github.com/sarathsp06/sparrow/compare/v1.3.1...v1.4.0
 [v1.3.1]: https://github.com/sarathsp06/sparrow/compare/v1.3.0...v1.3.1
 [v1.3.0]: https://github.com/sarathsp06/sparrow/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/sarathsp06/sparrow/compare/v1.1.0...v1.2.0
