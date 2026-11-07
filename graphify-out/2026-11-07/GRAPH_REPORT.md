@@ -1,7 +1,7 @@
 # Graph Report - astro-plugins-blog-appeal-17d879  (2026-11-07)
 
 ## Corpus Check
-- 918 files · ~724,130 words
+- 918 files · ~724,285 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 42 file(s) not represented in the graph (top: .spec 21, (none) 12, .css 3)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `cb0dfba1`
+- Built from commit: `aad70635`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -1434,7 +1434,7 @@ Nodes (3): typescript, overrides, openapi-typescript
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `Client` connect `Client` to `import_event_types.py`, `net/http.Client`, `sparrow_client/__init__.py`, `repush_event.py`, `.CheckIP`, `[v0.3.0] - 2026-09-14`, `UnexpectedStatus`, `RetryOutputBody`, `http`, `list_event_type_versions.py`, `list_crls.py`, `EventTypeItem`, `error_model.py`, `send_test_event.py`, `httpx`, `delete_alert_config.py`, `push_event.py`, `create_invite.py`, `Response`, `test_subscription_template.py`, `urllib_parse`, `create_token.py`, `.from_dict`, `services.ts`, `validate_event_payload.py`, `list_webhooks.py`, `ErrorModel`, `RevocationChecker`, `AuthenticatedClient`, `ref_astro_content`, `resume_webhook.py`, `DeliveryItem`, `client.py`, `Self`, `list_invites.py`, `list_tokens.py`, `create_alert_config.py`, `sparrow-e2e-client`, `.with_timeout`, `list_subscription_template_versions.py`, `list_event_types.py`?**
-  _High betweenness centrality (0.122) - this node is a cross-community bridge._
+  _High betweenness centrality (0.118) - this node is a cross-community bridge._
 - **Are the 429 inferred relationships involving `Client` (e.g. with `Use it as a Go library` and `Advanced customizations`) actually correct?**
   _`Client` has 429 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `InvalidTimestamp`, `TimestampOutsideTolerance`, `EmptySecret` to the rest of the system?**
@@ -1442,7 +1442,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `client_test.go` be split into smaller, more focused modules?**
   _Cohesion score 0.07198228128460686 - nodes in this community are weakly interconnected._
 - **Why does `Use it as a Go library` connect `services.ts` to `Client`, `cancelOnClose`?**
-  _High betweenness centrality (0.107) - this node is a cross-community bridge._
+  _High betweenness centrality (0.104) - this node is a cross-community bridge._
 - **Are the 428 inferred relationships involving `AuthenticatedClient` (e.g. with `Usage` and `asyncio()`) actually correct?**
   _`AuthenticatedClient` has 428 INFERRED edges - model-reasoned connections that need verification._
 - **Should `context.Context` be split into smaller, more focused modules?**

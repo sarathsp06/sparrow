@@ -109,13 +109,9 @@ mux.Handle("POST /webhooks/linear", sources.Handle("linear", client, logger,
 on its own: it creates the event type on first use, and a non-empty
 `idempotencyKey` makes the push idempotent (pass `""` for none).
 
-`Handle` sends `<name>:sha256:<hex of the body>` as the idempotency key, so a
-byte-identical body is recorded as one event per consumer: replaying a captured,
-correctly signed request answers `200` and pushes nothing new, even with a
-different event header. Sparrow keeps the key as long as the event
-(`SPARROW_EVENT_RETENTION_DAYS`), so this holds within that window. If your
-provider can send the same body for two distinct events, make the bodies
-differ, or they are recorded once.
+`Handle` sends `<name>:sha256:<body hex>` as the key, so a replayed request is
+one event while Sparrow keeps the original (`SPARROW_EVENT_RETENTION_DAYS`).
+Two identical bodies are always one event.
 
 ## Before you start
 

@@ -1992,9 +1992,9 @@
     "semantic_hash": ""
   },
   "satellites/sparrow-sources/sources/pusher_test.go": {
-    "mtime": 1794083612.95712,
-    "seen": 1794083651.78679,
-    "ast_hash": "1de888cbc6f3d3b0e6a1f14a7b7a0413",
+    "mtime": 1794085386.1897383,
+    "seen": 1794085395.4603982,
+    "ast_hash": "5f190b78d1b9515afe541895ca6ded2b",
     "semantic_hash": ""
   },
   "satellites/sparrow/access.go": {
@@ -3000,9 +3000,9 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/sources.mdx": {
-    "mtime": 1794083629.8232088,
-    "seen": 1794083651.78691,
-    "ast_hash": "06aabfa9271588c762d16c53d72e501c",
+    "mtime": 1794085375.748518,
+    "seen": 1794085395.46052,
+    "ast_hash": "026bb07d1b1db965bd4c537948831266",
     "semantic_hash": ""
   },
   "e2e/NOT-TESTING.md": {
@@ -3246,9 +3246,9 @@
     "semantic_hash": ""
   },
   "satellites/sparrow-sources/sources/sources.go": {
-    "mtime": 1794083578.1765015,
-    "seen": 1794083651.78679,
-    "ast_hash": "dbd411e49b3aac9610343a8111ba7ede",
+    "mtime": 1794085386.189738,
+    "seen": 1794085395.4603992,
+    "ast_hash": "abbc23c02f2e18450592808d9b0e69ed",
     "semantic_hash": ""
   },
   "satellites/sparrow-sources/sources/sources_test.go": {
