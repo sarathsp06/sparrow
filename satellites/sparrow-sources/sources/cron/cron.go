@@ -180,7 +180,7 @@ func (c *Emitter) tick(ctx context.Context, tick time.Time, p sources.Pusher, lo
 		if !job.spec.Match(tick) {
 			continue
 		}
-		if err := p.PushEvent(ctx, job.Event, job.payload, job.Labels); err != nil {
+		if err := p.PushEvent(ctx, job.Event, job.payload, job.Labels, ""); err != nil {
 			log.Error("cron push failed", "event", job.Event, "error", err)
 			continue
 		}

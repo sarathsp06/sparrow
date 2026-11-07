@@ -105,8 +105,13 @@ mux.Handle("POST /webhooks/linear", sources.Handle("linear", client, logger,
 	}))
 ```
 
-`client.PushEvent(ctx, event, payload, labels)` is also usable on its own: it
-creates the event type on first use.
+`client.PushEvent(ctx, event, payload, labels, idempotencyKey)` is also usable
+on its own: it creates the event type on first use, and a non-empty
+`idempotencyKey` makes the push idempotent (pass `""` for none).
+
+`Handle` sends `<name>:sha256:<body hex>` as the key, so a replayed request is
+one event while Sparrow keeps the original (`SPARROW_EVENT_RETENTION_DAYS`).
+Two identical bodies are always one event.
 
 ## Before you start
 
@@ -291,8 +296,13 @@ filter.
   to it to check the wiring.
 - GitHub doesn't retry failed deliveries on its own. Redeliver from the
   webhook's **Recent Deliveries** tab.
-- The delivery GUID is in GitHub's `X-GitHub-Delivery` header, which isn't
-  forwarded; deduplicate on fields in the payload instead.
+- A replayed delivery is recorded once. GitHub's signature covers only the
+  body, with no timestamp, so each push uses the body's SHA-256 as its
+  idempotency key: a byte-identical body, whatever its `X-GitHub-Event` or
+  `X-GitHub-Delivery` header, answers `200` and pushes nothing new while the
+  first event is retained. `X-GitHub-Delivery` isn't signed and isn't used.
+- Redelivering a delivery Sparrow already recorded therefore does nothing. To
+  send it to a receiver again, retry the delivery in Sparrow.
 
 ## Worked example: Stripe payments to your billing service
 

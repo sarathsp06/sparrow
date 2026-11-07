@@ -8,6 +8,8 @@ package sources
 
 import (
 	"cmp"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -36,8 +38,12 @@ type MapFunc func(r *http.Request, body []byte) (event string, labels map[string
 // Handle turns provider webhooks into Sparrow events: it reads the body,
 // verifies and maps it with mapFn, pushes the event, and only then answers
 // 2xx. A failed push answers 502 so the provider retries (at-least-once).
-// Every built-in provider is built on it, and so is a custom one. name only
-// labels log lines; a nil log means slog.Default().
+// Every built-in provider is built on it, and so is a custom one. A nil log
+// means slog.Default().
+//
+// The idempotency key is <name>:sha256:<body hex>: the body is what providers
+// sign, so a replayed request (whatever its headers) is one Sparrow event
+// while the original is retained. Identical bodies are always one event.
 func Handle(name string, p Pusher, log *slog.Logger, mapFn MapFunc) http.Handler {
 	log = cmp.Or(log, slog.Default())
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +61,9 @@ func Handle(name string, p Pusher, log *slog.Logger, mapFn MapFunc) http.Handler
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err := p.PushEvent(r.Context(), event, json.RawMessage(body), labels); err != nil {
+		sum := sha256.Sum256(body)
+		key := name + ":sha256:" + hex.EncodeToString(sum[:])
+		if err := p.PushEvent(r.Context(), event, json.RawMessage(body), labels, key); err != nil {
 			log.Error("webhook push failed", "provider", name, "event", event, "error", err)
 			http.Error(w, "push failed", http.StatusBadGateway)
 			return

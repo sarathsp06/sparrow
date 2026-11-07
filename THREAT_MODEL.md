@@ -57,9 +57,6 @@ networks and the consumer boundary is a real security boundary.
   `internal/webhooks/store/`.
 - AI template drafting (`internal/ai/`, off unless configured): payload samples
   are sent to the configured provider; returned drafts are verified before use.
-- Satellites (`satellites/sparrow-sources`, `satellites/sparrow-sinks`): inbound
-  Stripe/GitHub webhook signature verification, and sinks that forward Sparrow
-  deliveries to email/OTLP/S3. Signature bypass or replay is in scope.
 - The embedded UI and portal (`web/`): stored XSS via consumer names, event
   payloads, templates, delivery bodies or receiver responses rendered in the UI.
 
@@ -122,6 +119,11 @@ Docker or browsers.
 - Endpoints being open when `SPARROW_API_KEY` is unset.
 - Deliveries to private addresses when the operator explicitly allowed them.
 - `verify_ssl: false` disabling TLS verification for that webhook (documented).
+- Satellites under `satellites/` (the CLI, recipes, `sparrow-sources`,
+  `sparrow-sinks`). They are helper tools outside the core: they reach Sparrow
+  only through the public API, with the credential the operator gives them, so
+  nothing they do bypasses a boundary above. Report bugs in them, including
+  signature or replay handling in sources and sinks, as ordinary issues.
 - `cmd/benchmark`, `scripts/`, `e2e/`, `docs/`, `book/`, generated clients in
   `client/`, and `*_otel.go` generated wrappers (report the generator instead).
 

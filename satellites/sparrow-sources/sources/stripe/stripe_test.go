@@ -91,7 +91,7 @@ type fakePusher struct {
 	fail   bool
 }
 
-func (f *fakePusher) PushEvent(_ context.Context, event string, _ json.RawMessage, _ map[string]string) error {
+func (f *fakePusher) PushEvent(_ context.Context, event string, _ json.RawMessage, _ map[string]string, _ string) error {
 	if f.fail {
 		return fmt.Errorf("boom")
 	}
