@@ -80,7 +80,7 @@ type fakePusher struct {
 	fail   bool
 }
 
-func (f *fakePusher) PushEvent(_ context.Context, event string, _ json.RawMessage, _ map[string]string) error {
+func (f *fakePusher) PushEvent(_ context.Context, event string, _ json.RawMessage, _ map[string]string, _ string) error {
 	if f.fail {
 		return fmt.Errorf("boom")
 	}
@@ -121,5 +121,66 @@ func TestHandler(t *testing.T) {
 	}
 	if got := fmt.Sprint(push.events); got != "[github.pull_request.opened]" {
 		t.Errorf("pushed events = %s", got)
+	}
+}
+
+// keyPusher dedups on the idempotency key the way Sparrow does: one event
+// per key, a repeat is accepted and records nothing.
+type keyPusher struct {
+	events []string
+	keys   map[string]bool
+}
+
+func (k *keyPusher) PushEvent(_ context.Context, event string, _ json.RawMessage, _ map[string]string, key string) error {
+	if key == "" {
+		panic("push without idempotency key")
+	}
+	if k.keys[key] {
+		return nil
+	}
+	k.keys[key] = true
+	k.events = append(k.events, event)
+	return nil
+}
+
+// TestReplayIsOneEvent replays one captured, correctly signed delivery ten
+// times, with a fresh X-GitHub-Delivery each time and once relabelled under a
+// different X-GitHub-Event. Neither header is signed, so neither may matter:
+// the key comes from the signed body, and only the first push records an event.
+func TestReplayIsOneEvent(t *testing.T) {
+	push := &keyPusher{keys: map[string]bool{}}
+	h, err := Handler(Config{Secret: "gh_test"}, push, discardLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := `{"action":"opened","number":7,"repository":{"full_name":"acme/site"}}`
+	send := func(ghEvent, delivery string) int {
+		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+		req.Header.Set("X-Hub-Signature-256", githubSig("gh_test", []byte(body)))
+		req.Header.Set("X-GitHub-Event", ghEvent)
+		req.Header.Set("X-GitHub-Delivery", delivery)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, req)
+		return w.Code
+	}
+	for i := range 10 {
+		if code := send("pull_request", fmt.Sprintf("guid-%d", i)); code != http.StatusOK {
+			t.Fatalf("replay %d: status %d", i, code)
+		}
+	}
+	if code := send("issues", "guid-relabel"); code != http.StatusOK {
+		t.Fatalf("relabelled replay: status %d", code)
+	}
+	if got := fmt.Sprint(push.events); got != "[github.pull_request.opened]" {
+		t.Errorf("pushed events = %s, want one github.pull_request.opened", got)
+	}
+
+	other := `{"action":"opened","number":8,"repository":{"full_name":"acme/site"}}`
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(other))
+	req.Header.Set("X-Hub-Signature-256", githubSig("gh_test", []byte(other)))
+	req.Header.Set("X-GitHub-Event", "pull_request")
+	h.ServeHTTP(httptest.NewRecorder(), req)
+	if len(push.events) != 2 {
+		t.Errorf("a different body was deduplicated: events = %v", push.events)
 	}
 }

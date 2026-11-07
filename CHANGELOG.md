@@ -19,6 +19,11 @@ migrations run on startup.
 ### Upgrading
 
 - New webhooks retry failed deliveries for about three days instead of about seven minutes: `max_retries` now defaults to 13 (was 3). Existing webhooks keep the `max_retries` they were saved with. To give an existing webhook the new window, set `http_config.max_retries` to 13 with `PATCH .../webhooks/{webhook_id}`. Clients that create webhooks without `max_retries` and expect failures to settle within minutes should send `max_retries: 3`.
+- `sparrow-sources` library: `sources.Pusher.PushEvent` takes an `idempotencyKey string` after `labels`. Implementations add the parameter; callers of `Client.PushEvent` pass `""` for none.
+
+### Fixed
+
+- `sparrow-sources` records a replayed webhook once. A captured, correctly signed GitHub delivery could be replayed to push the same event again, or under another `X-GitHub-Event`, since GitHub signs only the body. Stripe and GitHub pushes, and any custom source built on `sources.Handle`, now send the body's SHA-256 as the event's idempotency key, so a byte-identical body is one Sparrow event while it is retained.
 
 ### Changed
 

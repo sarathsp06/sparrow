@@ -3,6 +3,7 @@ package sources
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -37,7 +38,7 @@ func TestClientAutoCreatesEventType(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(SparrowConfig{URL: srv.URL, Consumer: "default"})
-	err := c.PushEvent(context.Background(), "report.tick", json.RawMessage(`{}`), map[string]string{"source": "cron"})
+	err := c.PushEvent(context.Background(), "report.tick", json.RawMessage(`{}`), map[string]string{"source": "cron"}, "")
 	if err != nil {
 		t.Fatalf("PushEvent: %v", err)
 	}
@@ -46,10 +47,53 @@ func TestClientAutoCreatesEventType(t *testing.T) {
 	}
 
 	// second push of a now-known type: no extra create
-	if err := c.PushEvent(context.Background(), "report.tick", json.RawMessage(`{}`), nil); err != nil {
+	if err := c.PushEvent(context.Background(), "report.tick", json.RawMessage(`{}`), nil, ""); err != nil {
 		t.Fatalf("second PushEvent: %v", err)
 	}
 	if creates != 1 {
 		t.Errorf("creates=%d after second push, want 1", creates)
+	}
+}
+
+// TestClientSendsIdempotencyKey checks the key reaches Sparrow on the push
+// and on the retry after auto-creating the event type, and that an empty key
+// is left out of the body.
+func TestClientSendsIdempotencyKey(t *testing.T) {
+	var keys []any
+	created := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/event-types" {
+			created = true
+			w.WriteHeader(http.StatusCreated)
+			return
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		keys = append(keys, body["idempotency_key"])
+		if !created {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+
+	c := NewClient(SparrowConfig{URL: srv.URL})
+	if err := c.PushEvent(context.Background(), "github.push", json.RawMessage(`{}`), nil, "github:sha256:ab"); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.PushEvent(context.Background(), "github.push", json.RawMessage(`{}`), nil, ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprint(keys); got != "[github:sha256:ab github:sha256:ab <nil>]" {
+		t.Errorf("idempotency keys sent = %s", got)
+	}
+}
+
+func TestBodyKey(t *testing.T) {
+	// sha256("{}")
+	want := "github:sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+	if got := BodyKey("github", []byte("{}")); got != want {
+		t.Errorf("BodyKey = %s, want %s", got, want)
 	}
 }

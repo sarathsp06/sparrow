@@ -12,8 +12,10 @@ import (
 )
 
 // Pusher pushes one event into Sparrow. Satisfied by *Client and by test fakes.
+// A non-empty idempotencyKey makes the push idempotent: Sparrow records one
+// event per key and consumer, and answers a repeat with the original event.
 type Pusher interface {
-	PushEvent(ctx context.Context, event string, payload json.RawMessage, labels map[string]string) error
+	PushEvent(ctx context.Context, event string, payload json.RawMessage, labels map[string]string, idempotencyKey string) error
 }
 
 // Client is a minimal Sparrow REST client for pushing events. It auto-creates
@@ -32,10 +34,15 @@ func NewClient(cfg SparrowConfig) *Client {
 	return &Client{cfg: cfg, http: &http.Client{Timeout: 15 * time.Second}}
 }
 
-// PushEvent records one event occurrence in Sparrow.
-func (c *Client) PushEvent(ctx context.Context, event string, payload json.RawMessage, labels map[string]string) error {
-	status, err := c.post(ctx, "/v1/consumers/"+url.PathEscape(c.cfg.Consumer)+"/events?event="+url.QueryEscape(event),
-		map[string]any{"payload": payload, "labels": labels})
+// PushEvent records one event occurrence in Sparrow. With a non-empty
+// idempotencyKey, a push that repeats an earlier key succeeds without
+// creating a new event (Sparrow answers 201 with duplicate: true).
+func (c *Client) PushEvent(ctx context.Context, event string, payload json.RawMessage, labels map[string]string, idempotencyKey string) error {
+	body := map[string]any{"payload": payload, "labels": labels}
+	if idempotencyKey != "" {
+		body["idempotency_key"] = idempotencyKey
+	}
+	status, err := c.post(ctx, "/v1/consumers/"+url.PathEscape(c.cfg.Consumer)+"/events?event="+url.QueryEscape(event), body)
 	if err != nil {
 		return err
 	}
@@ -43,8 +50,7 @@ func (c *Client) PushEvent(ctx context.Context, event string, payload json.RawMe
 		if err := c.createEventType(ctx, event); err != nil {
 			return err
 		}
-		status, err = c.post(ctx, "/v1/consumers/"+url.PathEscape(c.cfg.Consumer)+"/events?event="+url.QueryEscape(event),
-			map[string]any{"payload": payload, "labels": labels})
+		status, err = c.post(ctx, "/v1/consumers/"+url.PathEscape(c.cfg.Consumer)+"/events?event="+url.QueryEscape(event), body)
 		if err != nil {
 			return err
 		}
