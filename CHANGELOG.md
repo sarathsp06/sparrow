@@ -16,6 +16,14 @@ migrations run on startup.
 
 ## [Unreleased]
 
+### Upgrading
+
+- Programs that embed Sparrow and serve several tenants with `server.WithTenant`: access tokens and invites created before this release were all stored in the default tenant, whatever tenant created them, so they now work only on requests for the default tenant. Create them again on their tenant. Self-hosted servers have one tenant and need to do nothing.
+
+### Fixed
+
+- Tenant isolation for access tokens. `POST /v1/tokens` and `POST /v1/invites` now store the tenant the request runs as, and `/v1` and `/portal/api/` refuse a token on a request for another tenant (401, as for an unknown token). Before, a consumer token minted on one tenant opened another tenant's portal API, and the same `external_id` on two tenants returned one token. `external_id` is now per tenant, and token and invite lists, revocation and cancelling see only the request's tenant. `SPARROW_API_KEY` still works for every tenant.
+
 ## [v1.4.0] - 2026-11-07
 
 ### Upgrading

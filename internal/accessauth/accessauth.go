@@ -1,5 +1,5 @@
 // Package accessauth is Sparrow's adapter for pkg/access: it fixes the
-// secret prefixes, maps the realm to the default tenant and the scope to a
+// secret prefixes, maps the realm to the request's tenant and the scope to a
 // consumer, and holds Sparrow's lifetime rules for tokens and invites.
 //
 // Everything generic (issuing, hashing, redeeming, caching) lives in
@@ -7,6 +7,7 @@
 package accessauth
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -29,8 +30,14 @@ const (
 // MasterKeyName is how SPARROW_API_KEY appears as a principal and in created_by.
 const MasterKeyName = "master key"
 
-// Realm is the tenant every credential belongs to (only the default tenant today).
-func Realm() string { return tenant.DefaultTenantID.String() }
+// Realm is the realm of the tenant ctx runs as (tenant.FromContext): tokens
+// and invites are created in it, listed and revoked from it, and accepted only
+// on requests for it. A self-hosted server has one tenant, the default one.
+func Realm(ctx context.Context) string { return tenant.FromContext(ctx).String() }
+
+// RootRealm is the realm of SPARROW_API_KEY. The master key is the server's,
+// not a tenant's, so it is accepted for every tenant (see middleware.Auth).
+func RootRealm() string { return tenant.DefaultTenantID.String() }
 
 // Lifetime rules.
 //   - Tenant-wide tokens act exactly like SPARROW_API_KEY. They expire after
@@ -125,7 +132,7 @@ func New(db *sql.DB, apiKey string, sealer access.SecretSealer) (*access.Service
 func NewWithStore(store access.Store, apiKey string, sealer access.SecretSealer) (*access.Service, error) {
 	var roots []access.RootKey
 	if apiKey != "" {
-		roots = []access.RootKey{{Secret: apiKey, Realm: Realm(), Name: MasterKeyName}}
+		roots = []access.RootKey{{Secret: apiKey, Realm: RootRealm(), Name: MasterKeyName}}
 	}
 	return access.New(access.Config{Store: store, RootKeys: roots, Sealer: sealer, TokenPrefix: TokenPrefix, InvitePrefix: InvitePrefix})
 }

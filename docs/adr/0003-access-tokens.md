@@ -35,7 +35,7 @@ credentials without sharing the master key.
 A separate Go module (`pkg/access`, own `go.mod`, stdlib-only — a test enforces
 it imports nothing from Sparrow) that any application can use. Concepts:
 
-- **Realm** — an isolation boundary (Sparrow maps it to the default tenant).
+- **Realm** — an isolation boundary (Sparrow maps it to the request's tenant; see the 2026-11 amendment).
 - **Scope** — `nil` = full access in the realm; non-nil = application-defined
   restriction (Sparrow maps it to a consumer name).
 - **Root keys** — static secrets from configuration (the master key). They
@@ -58,7 +58,8 @@ The `Service` caches successful token lookups for 30 seconds and throttles
 
 Fixes the Sparrow-specific constants:
 
-- Realm = default tenant ID.
+- Realm = the tenant the request runs as (`tenant.FromContext`); the root key
+  is in the default tenant's realm.
 - Scope = consumer name.
 - Secret prefixes: `sparrow_tk_` (tokens), `sparrow_inv_` (invites).
 - `SPARROW_API_KEY` registers as the root key named "master key".
@@ -232,3 +233,23 @@ The scale concern that rejected stored tokens above is handled by:
 
 Lookups hit the database at most once per token per 30 seconds (the existing
 cache), which the portal's traffic easily absorbs.
+
+## Amendment (2026-11): tokens belong to the request's tenant
+
+Until v1.4.0 the adapter put every token and invite in the default tenant's
+realm, whatever tenant the request ran as (`server.WithTenant`). The realm
+check on `/v1` and the portal gateway compared the token with that same
+constant, so it never failed: a consumer token minted on tenant A was
+accepted by `/portal/api/` on a request for tenant B, and `external_id`
+returned tenant A's token to tenant B.
+
+The realm is now the request's tenant (`accessauth.Realm(ctx)`). Tokens and
+invites are created, listed, revoked and cancelled in it. `/v1` and the portal
+gateway refuse a token whose realm is not the request's tenant with the same
+401 as an unknown token, so a caller learns nothing about other tenants.
+`external_id` is unique per realm and scope in the store already, so it is
+now per tenant without a schema change.
+
+`SPARROW_API_KEY` stays the server's credential, not a tenant's: it is accepted
+for every tenant, as before. A self-hosted server has one tenant and sees no
+change.

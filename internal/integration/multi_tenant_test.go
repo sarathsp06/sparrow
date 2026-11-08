@@ -257,3 +257,48 @@ func TestMultiTenantIsolation(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, stillThere.Items, 1, "B's webhook survived A's delete attempt")
 }
+
+// TestPortalTokensStayInTheirTenant mints consumer tokens through
+// POST /v1/tokens in two tenants and checks that each works only on requests
+// for the tenant that minted it, and that external_id is per tenant.
+func TestPortalTokensStayInTheirTenant(t *testing.T) {
+	ctx := context.Background()
+	sp := startEmbeddedSparrow(t)
+	tenantB := sp.addTenant(t, "tenant-b")
+	a, b := sp.client(t, uuid.Nil), sp.client(t, tenantB)
+
+	type minted struct {
+		Secret string `json:"secret"`
+		Reused bool   `json:"reused"`
+		Token  struct {
+			ID string `json:"id"`
+		} `json:"token"`
+	}
+	mint := func(c *restClient) minted {
+		var out minted
+		resp, err := c.post(ctx, "/v1/tokens", map[string]any{"name": "portal", "consumer": "acme", "external_id": "user-1"}, &out)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		return out
+	}
+	tokA, tokB := mint(a), mint(b)
+	require.False(t, tokB.Reused, "tenant B was handed tenant A's token for the same external_id")
+	require.NotEqual(t, tokA.Token.ID, tokB.Token.ID)
+
+	portal := func(tenantID uuid.UUID, secret string) int {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, sp.baseURL+"/portal/api/webhooks", nil)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "Bearer "+secret)
+		if tenantID != uuid.Nil {
+			req.Header.Set(tenantHeader, tenantID.String())
+		}
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		_ = resp.Body.Close() // the status is all this test reads
+		return resp.StatusCode
+	}
+	require.Equal(t, http.StatusOK, portal(uuid.Nil, tokA.Secret), "tenant A's token on tenant A")
+	require.Equal(t, http.StatusOK, portal(tenantB, tokB.Secret), "tenant B's token on tenant B")
+	require.Equal(t, http.StatusUnauthorized, portal(tenantB, tokA.Secret), "tenant A's token on tenant B")
+	require.Equal(t, http.StatusUnauthorized, portal(uuid.Nil, tokB.Secret), "tenant B's token on tenant A")
+}
