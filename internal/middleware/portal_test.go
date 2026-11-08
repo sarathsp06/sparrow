@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/sarathsp06/sparrow/internal/accessauth"
 	"github.com/sarathsp06/sparrow/pkg/access"
 	"github.com/sarathsp06/sparrow/pkg/access/memstore"
 )
@@ -48,7 +49,7 @@ func newPortalGateway(t *testing.T) (*access.Service, http.Handler, *string) {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
-	return svc, PortalGateway(NewPortalVerifier(svc, testRealm), PortalOptions{Retry: true}, next), seen
+	return svc, PortalGateway(NewPortalVerifier(svc, accessauth.Realm), PortalOptions{Retry: true}, next), seen
 }
 
 func doBearer(handler http.Handler, method, path, token string) int {
@@ -129,7 +130,7 @@ func TestPortalGatewayRetryOff(t *testing.T) {
 	svc := newPortalService(t)
 	token := mintConsumerToken(t, svc, "acme")
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
-	gw := PortalGateway(NewPortalVerifier(svc, testRealm), PortalOptions{Retry: false}, next)
+	gw := PortalGateway(NewPortalVerifier(svc, accessauth.Realm), PortalOptions{Retry: false}, next)
 
 	cases := []struct {
 		method, path string
@@ -176,7 +177,7 @@ func TestPortalGatewayReDispatchesThroughRouter(t *testing.T) {
 			_, _ = w.Write([]byte(chi.URLParam(req, "consumer")))
 		})
 	})
-	r.Handle("/portal/api/*", PortalGateway(NewPortalVerifier(svc, testRealm), PortalOptions{Retry: true}, r))
+	r.Handle("/portal/api/*", PortalGateway(NewPortalVerifier(svc, accessauth.Realm), PortalOptions{Retry: true}, r))
 
 	token := mintConsumerToken(t, svc, "acme")
 
@@ -208,7 +209,7 @@ func (downStore) TokenByHash(context.Context, []byte) (access.Token, error) {
 func TestPortalGatewayAcceptsConsumerAccessTokens(t *testing.T) {
 	svc := newPortalService(t)
 	seen := new(string)
-	gw := PortalGateway(NewPortalVerifier(svc, testRealm), PortalOptions{Retry: true}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	gw := PortalGateway(NewPortalVerifier(svc, accessauth.Realm), PortalOptions{Retry: true}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		*seen = r.URL.Path
 		if r.URL.RawQuery != "" {
 			*seen += "?" + r.URL.RawQuery
@@ -249,7 +250,7 @@ func TestPortalGatewayAcceptsConsumerAccessTokens(t *testing.T) {
 
 func TestPortalGatewayStoreOutageIs503(t *testing.T) {
 	svc, _ := access.New(access.Config{Store: downStore{memstore.New()}, TokenPrefix: "sparrow_tk_"})
-	gw := PortalGateway(NewPortalVerifier(svc, testRealm), PortalOptions{Retry: true}, http.NotFoundHandler())
+	gw := PortalGateway(NewPortalVerifier(svc, accessauth.Realm), PortalOptions{Retry: true}, http.NotFoundHandler())
 	if code := doBearer(gw, http.MethodGet, "/portal/api/webhooks", "sparrow_tk_anything"); code != http.StatusServiceUnavailable {
 		t.Fatalf("outage: %d, want 503", code)
 	}

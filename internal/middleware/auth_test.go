@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sarathsp06/sparrow/internal/accessauth"
 	"github.com/sarathsp06/sparrow/pkg/access"
 	"github.com/sarathsp06/sparrow/pkg/access/httpauth"
 	"github.com/sarathsp06/sparrow/pkg/access/memstore"
@@ -27,7 +28,7 @@ func newAuth(t testing.TB, apiKey string) (*Auth, *access.Service) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewAuth(apiKey, svc, testRealm), svc
+	return NewAuth(apiKey, svc, accessauth.Realm), svc
 }
 
 // guarded runs one request through auth and reports the status and the

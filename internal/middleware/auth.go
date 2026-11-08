@@ -20,21 +20,29 @@ const APIKeyHeader = httpauth.APIKeyHeader
 // refused here: they may only use the portal gateway, which pins them to their
 // consumer. When SPARROW_API_KEY is unset, everything is open.
 //
+// Tokens belong to one tenant: a token is refused on a request for another
+// tenant as if it did not exist. The master key belongs to the server and is
+// accepted for every tenant.
+//
 // The authenticated principal is stored in the request context
 // (httpauth.FromContext) so handlers can record who did what.
 type Auth struct {
 	// Enabled is true when SPARROW_API_KEY is set.
 	Enabled bool
-	// Realm is the tenant every credential must belong to.
-	Realm string
+	// Realm returns the realm of the tenant a request runs as; every token
+	// must belong to it.
+	Realm Realm
 	Authn *httpauth.Authenticator
 	// ExcludedPathPrefixes are never checked (health, docs, spec).
 	ExcludedPathPrefixes []string
 }
 
+// Realm returns the realm of the tenant a request runs as.
+type Realm func(ctx context.Context) string
+
 // NewAuth builds the /v1 guard. apiKey is SPARROW_API_KEY ("" disables auth);
 // svc must already know it as a root key.
-func NewAuth(apiKey string, svc *access.Service, realm string, excluded ...string) *Auth {
+func NewAuth(apiKey string, svc *access.Service, realm Realm, excluded ...string) *Auth {
 	return &Auth{
 		Enabled:              apiKey != "",
 		Realm:                realm,
@@ -61,13 +69,13 @@ func (a *Auth) HTTPMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		if !a.Enabled {
-			anon := access.Principal{Realm: a.Realm, Name: AnonymousName, Root: true}
+			anon := access.Principal{Realm: a.Realm(r.Context()), Name: AnonymousName, Root: true}
 			next.ServeHTTP(w, r.WithContext(httpauth.WithPrincipal(r.Context(), anon)))
 			return
 		}
 
 		p, err := a.Authn.Authenticate(r)
-		if err == nil && p.Realm != a.Realm {
+		if err == nil && !p.Root && p.Realm != a.Realm(r.Context()) {
 			err = &access.AuthError{Reason: access.ReasonInvalid}
 		}
 		if err != nil {
@@ -87,7 +95,7 @@ var (
 	// ErrPortalFullAccessToken rejects full-access tokens at the portal
 	// gateway: the portal needs a consumer to scope to.
 	ErrPortalFullAccessToken = errors.New("full-access tokens cannot use the portal API; use /v1 instead")
-	// ErrPortalTokenInvalid rejects a token from another realm.
+	// ErrPortalTokenInvalid rejects a token of another tenant.
 	ErrPortalTokenInvalid = errors.New("invalid or expired portal token")
 )
 
@@ -95,14 +103,15 @@ var (
 type PortalVerifier func(ctx context.Context, token string) (consumer string, err error)
 
 // NewPortalVerifier accepts consumer-scoped access tokens (minted by
-// POST /v1/tokens with a consumer, or by consumer invites).
-func NewPortalVerifier(svc *access.Service, realm string) PortalVerifier {
+// POST /v1/tokens with a consumer, or by consumer invites) of the tenant the
+// request runs as.
+func NewPortalVerifier(svc *access.Service, realm Realm) PortalVerifier {
 	return func(ctx context.Context, token string) (string, error) {
 		p, err := svc.Authenticate(ctx, token)
 		if err != nil {
 			return "", err
 		}
-		if p.Realm != realm {
+		if p.Realm != realm(ctx) {
 			return "", ErrPortalTokenInvalid
 		}
 		if p.FullAccess() {

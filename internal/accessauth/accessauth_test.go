@@ -78,7 +78,7 @@ func TestMasterKeyIsRootInDefaultTenant(t *testing.T) {
 		t.Fatal(err)
 	}
 	p, err := svc.Authenticate(context.Background(), "master")
-	if err != nil || !p.Root || p.Realm != Realm() || p.Name != MasterKeyName {
+	if err != nil || !p.Root || p.Realm != RootRealm() || p.Name != MasterKeyName {
 		t.Fatalf("master key principal = %+v, %v", p, err)
 	}
 
@@ -86,7 +86,7 @@ func TestMasterKeyIsRootInDefaultTenant(t *testing.T) {
 	if _, err := open.Authenticate(context.Background(), ""); err == nil {
 		t.Fatal("empty credential authenticated without a master key")
 	}
-	_, secret, err := svc.CreateToken(context.Background(), access.CreateTokenRequest{Realm: Realm(), Name: "x", CreatedBy: MasterKeyName})
+	_, secret, err := svc.CreateToken(context.Background(), access.CreateTokenRequest{Realm: RootRealm(), Name: "x", CreatedBy: MasterKeyName})
 	if err != nil || !strings.HasPrefix(secret, TokenPrefix) {
 		t.Fatalf("token secret %q, %v", secret, err)
 	}

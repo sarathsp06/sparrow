@@ -10,10 +10,12 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/sarathsp06/sparrow/internal/accessauth"
 	"github.com/sarathsp06/sparrow/internal/crypto"
 	"github.com/sarathsp06/sparrow/internal/rest"
+	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/pkg/access"
 	"github.com/sarathsp06/sparrow/pkg/access/memstore"
 )
@@ -112,5 +114,46 @@ func TestExternalIDRules(t *testing.T) {
 	}
 	if rec := post(accessRouter(t, memstore.New()), "/v1/tokens", `{"name":"p","consumer":"acme","external_id":"k"}`); rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("without sealer = %d %s, want 503", rec.Code, rec.Body)
+	}
+}
+
+// asTenant serves h for tenant id, as an embedder's server.WithTenant does.
+func asTenant(h http.Handler, id uuid.UUID) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h.ServeHTTP(w, r.WithContext(tenant.WithTenant(r.Context(), id)))
+	})
+}
+
+func TestTokensBelongToTheTenantThatCreatedThem(t *testing.T) {
+	h, svc := sealedRouter(t)
+	idA, idB := uuid.New(), uuid.New()
+	tenantA, tenantB := asTenant(h, idA), asTenant(h, idB)
+	body := `{"name":"portal","consumer":"acme","external_id":"user-1"}`
+
+	a := mintToken(t, tenantA, body)
+	if p, err := svc.Authenticate(context.Background(), a.Secret); err != nil || p.Realm != idA.String() {
+		t.Fatalf("token minted on tenant A has principal %+v, %v; want realm %s", p, err, idA)
+	}
+	// external_id is per tenant: the same id on tenant B is another token.
+	b := mintToken(t, tenantB, body)
+	if b.Reused || b.Token.ID == a.Token.ID || b.Secret == a.Secret {
+		t.Fatalf("tenant B got tenant A's token for the same external_id: a %+v, b %+v", a, b)
+	}
+	if again := mintToken(t, tenantA, body); !again.Reused || again.Token.ID != a.Token.ID {
+		t.Fatalf("tenant A lost its token for user-1: %+v", again)
+	}
+
+	list := httptest.NewRecorder()
+	tenantB.ServeHTTP(list, httptest.NewRequest(http.MethodGet, "/v1/tokens", nil))
+	if list.Code != http.StatusOK || strings.Contains(list.Body.String(), a.Token.ID) || !strings.Contains(list.Body.String(), b.Token.ID) {
+		t.Fatalf("tenant B lists %d %s; want only its own token", list.Code, list.Body)
+	}
+	del := httptest.NewRecorder()
+	tenantB.ServeHTTP(del, httptest.NewRequest(http.MethodDelete, "/v1/tokens/"+a.Token.ID, nil))
+	if del.Code != http.StatusNotFound {
+		t.Fatalf("tenant B revoking tenant A's token = %d %s, want 404", del.Code, del.Body)
+	}
+	if _, err := svc.Authenticate(context.Background(), a.Secret); err != nil {
+		t.Fatalf("tenant A's token stopped working: %v", err)
 	}
 }

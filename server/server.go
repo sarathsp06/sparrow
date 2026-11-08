@@ -241,7 +241,7 @@ func New(ctx context.Context, opts ...Option) (*Server, error) {
 	// Authorization: Bearer). Health/ready and the OpenAPI docs/spec are
 	// excluded. Portal traffic arrives pre-authorized through the /portal/api
 	// gateway (see below). When unset, all requests are open.
-	auth := middleware.NewAuth(cfg.APIKey, accessSvc, accessauth.Realm(), "/health", "/ready", "/docs", "/openapi")
+	auth := middleware.NewAuth(cfg.APIKey, accessSvc, accessauth.Realm, "/health", "/ready", "/docs", "/openapi")
 	s.authEnabled = auth.Enabled
 	if auth.Enabled {
 		fmt.Println("🔑 Authentication enabled (SPARROW_API_KEY or an access token required)")
@@ -399,7 +399,7 @@ func New(ctx context.Context, opts ...Option) (*Server, error) {
 	// consumer is carried by the token, never the URL, so an operator exposing
 	// the portal allowlists just /portal, /_app, and /portal/api.
 	// SPARROW_PORTAL_RETRY=false refuses delivery retries there.
-	r.Handle("/portal/api/*", middleware.PortalGateway(middleware.NewPortalVerifier(accessSvc, accessauth.Realm()), middleware.PortalOptions{Retry: cfg.PortalRetry}, r))
+	r.Handle("/portal/api/*", middleware.PortalGateway(middleware.NewPortalVerifier(accessSvc, accessauth.Realm), middleware.PortalOptions{Retry: cfg.PortalRetry}, r))
 
 	// Health and readiness endpoints bypass API key auth.
 	s.health = health.NewChecker(dbPool, startTime)

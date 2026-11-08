@@ -210,7 +210,6 @@ func consumerScope(c string) (*string, error) {
 func registerAccessRoutes(api huma.API, deps AccessDeps) {
 	svc := deps.Service
 	unavailable := func() error { return huma.Error503ServiceUnavailable("access tokens are not configured") }
-	realm := accessauth.Realm()
 
 	huma.Register(api, huma.Operation{
 		OperationID: "getWhoAmI",
@@ -262,7 +261,7 @@ func registerAccessRoutes(api huma.API, deps AccessDeps) {
 		if externalID != "" && consumer == nil {
 			return nil, huma.Error400BadRequest("external_id needs a consumer")
 		}
-		req := access.CreateTokenRequest{Realm: realm, Scope: consumer, Name: in.Body.Name, TTL: ttl, CreatedBy: principalName(ctx)}
+		req := access.CreateTokenRequest{Realm: accessauth.Realm(ctx), Scope: consumer, Name: in.Body.Name, TTL: ttl, CreatedBy: principalName(ctx)}
 		var t access.Token
 		var secret string
 		created := true
@@ -297,7 +296,7 @@ func registerAccessRoutes(api huma.API, deps AccessDeps) {
 		if svc == nil {
 			return nil, unavailable()
 		}
-		tokens, err := svc.ListTokens(ctx, realm)
+		tokens, err := svc.ListTokens(ctx, accessauth.Realm(ctx))
 		if err != nil {
 			return nil, mapAccessError(ctx, err)
 		}
@@ -329,7 +328,7 @@ func registerAccessRoutes(api huma.API, deps AccessDeps) {
 		if svc == nil {
 			return nil, unavailable()
 		}
-		if err := svc.RevokeToken(ctx, realm, in.TokenID); err != nil {
+		if err := svc.RevokeToken(ctx, accessauth.Realm(ctx), in.TokenID); err != nil {
 			return nil, mapAccessError(ctx, err)
 		}
 		return nil, nil
@@ -364,7 +363,7 @@ func registerAccessRoutes(api huma.API, deps AccessDeps) {
 			return nil, huma.Error400BadRequest(err.Error())
 		}
 		inv, secret, err := svc.CreateInvite(ctx, access.CreateInviteRequest{
-			Realm: realm, Scope: consumer, Name: in.Body.Name, TTL: inviteTTL, TokenTTL: tokenTTL, CreatedBy: principalName(ctx),
+			Realm: accessauth.Realm(ctx), Scope: consumer, Name: in.Body.Name, TTL: inviteTTL, TokenTTL: tokenTTL, CreatedBy: principalName(ctx),
 		})
 		if err != nil {
 			return nil, mapAccessError(ctx, err)
@@ -390,7 +389,7 @@ func registerAccessRoutes(api huma.API, deps AccessDeps) {
 		if svc == nil {
 			return nil, unavailable()
 		}
-		invites, err := svc.ListInvites(ctx, realm)
+		invites, err := svc.ListInvites(ctx, accessauth.Realm(ctx))
 		if err != nil {
 			return nil, mapAccessError(ctx, err)
 		}
@@ -419,7 +418,7 @@ func registerAccessRoutes(api huma.API, deps AccessDeps) {
 		if svc == nil {
 			return nil, unavailable()
 		}
-		if err := svc.CancelInvite(ctx, realm, in.InviteID); err != nil {
+		if err := svc.CancelInvite(ctx, accessauth.Realm(ctx), in.InviteID); err != nil {
 			return nil, mapAccessError(ctx, err)
 		}
 		return nil, nil
