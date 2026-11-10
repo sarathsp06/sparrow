@@ -6,11 +6,13 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/sarathsp06/sparrow"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 )
 
 type capabilitiesOutput struct {
 	Body struct {
+		Version    string `json:"version" doc:"Sparrow server version, as the build embedded it (bare semver such as 1.4.0; builds without ldflags report -NOVERSION-). Also in GET /health."`
 		AIDrafting struct {
 			Enabled    bool   `json:"enabled" doc:"True when the server is started with SPARROW_AI_ENABLED=true, whether or not the provider settings are valid. Drafting (POST /v1/subscriptions:draftTemplate) is usable only when enabled is true and problem is absent."`
 			Problem    string `json:"problem,omitempty" doc:"Why drafting is enabled but not usable: a missing or invalid provider setting. POST /v1/subscriptions:draftTemplate answers 503 with this text."`
@@ -36,11 +38,12 @@ func registerCapabilitiesRoute(api huma.API, svc webhooks.WebhookServiceInterfac
 		Method:      http.MethodGet,
 		Path:        "/v1/capabilities",
 		Summary:     "List optional server features",
-		Description: "Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, whether alert email delivery is set up, and whether portal tokens may retry deliveries. Read-only.\n\n" +
+		Description: "Reports the server version and which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, whether alert email delivery is set up, and whether portal tokens may retry deliveries. Read-only.\n\n" +
 			"ai_drafting.enabled reflects SPARROW_AI_ENABLED=true; drafting is usable only when enabled is true and problem is absent; prompt_only is the opposite of enabled.\n\nPortal tokens: allowed, as GET /portal/api/capabilities.",
 		Tags: []string{"Server"},
 	}, func(ctx context.Context, _ *struct{}) (*capabilitiesOutput, error) {
 		out := &capabilitiesOutput{}
+		out.Body.Version = sparrow.Version
 		out.Body.AIDrafting.Enabled = aiDeps.enabled()
 		out.Body.AIDrafting.PromptOnly = !aiDeps.enabled()
 		if aiDeps.ConfigErr != nil {
