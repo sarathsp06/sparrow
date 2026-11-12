@@ -10,13 +10,13 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/markdown-satteri": "0.4.6",
+    "@astrojs/markdown-satteri": "0.4.7",
     "@astrojs/sitemap": "^3.7.4",
-    "@astrojs/starlight": "^0.42.8",
+    "@astrojs/starlight": "^0.42.10",
     "@astrojs/svelte": "^9.1.2",
     "@expressive-code/plugin-collapsible-sections": "0.44.3",
-    "@scalar/astro": "^0.4.34",
-    "astro": "^7.4.5",
+    "@scalar/astro": "^0.4.35",
+    "astro": "^7.4.7",
     "astro-mermaid": "^2.2.0",
     "astro-og-canvas": "^0.13.3",
     "marked": "^18.1.3",
