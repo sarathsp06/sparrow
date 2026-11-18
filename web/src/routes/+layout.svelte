@@ -6,7 +6,9 @@
   import ApiConsole from "#lib/components/ApiConsole.svelte";
   import AccountBadge from "#lib/access/AccountBadge.svelte";
   import SignInPrompt from "#lib/access/SignInPrompt.svelte";
+  import { PUBLIC_APP_VERSION } from "$app/env/public";
   import { api, serverHref, unwrap } from "#lib/services.js";
+  import { loadCapabilities } from "#lib/capabilities.svelte.js";
   import { pulseStore } from "#lib/pulse.svelte.js";
   import { apiConsole } from "#lib/apiConsole.svelte.js";
   import "../app.css";
@@ -20,6 +22,26 @@
   let sidebarOpen = $state(false);
   let consoleOpen = $state(false);
   let fleet = $state<{ tone: string; label: string } | null>(null);
+  // Versions in the rail footer. The server's comes from GET /v1/capabilities
+  // (bare semver as the build embeds it; "-NOVERSION-" without ldflags). The
+  // UI's is PUBLIC_APP_VERSION, baked in at build time (empty in dev), shown
+  // only when it differs from the server's: a separately hosted UI can be a
+  // release apart from the server it talks to.
+  let serverVersion = $state<string | null>(null);
+  const vlabel = (v: string) => (/^\d/.test(v) ? `v${v}` : v);
+  const versionLabel = $derived.by(() => {
+    if (!serverVersion) return null;
+    if (!PUBLIC_APP_VERSION || PUBLIC_APP_VERSION === serverVersion) return vlabel(serverVersion);
+    return `server ${vlabel(serverVersion)} · ui ${vlabel(PUBLIC_APP_VERSION)}`;
+  });
+
+  async function loadVersion() {
+    try {
+      serverVersion = (await loadCapabilities()).version || null;
+    } catch {
+      serverVersion = null;
+    }
+  }
 
   const nav = [
     { href: "/webhooks", label: "Webhooks", d: "M9 7a4 4 0 1 1 4 4l-2 3.5M15 17a4 4 0 1 1-4-4M7.5 13.5 5 17a4 4 0 1 0 4 2" },
@@ -62,6 +84,7 @@
   let telemetryTimer: ReturnType<typeof setInterval>;
   onMount(() => {
     if (isPortal) return;
+    loadVersion();
     refreshTelemetry();
     telemetryTimer = setInterval(() => { if (!document.hidden) refreshTelemetry(); }, 10000);
   });
@@ -136,6 +159,9 @@
         </a>
       </div>
       <AccountBadge />
+      {#if versionLabel}
+        <div class="mono text-[10px] text-muted text-center tnum" title="Sparrow version">{versionLabel}</div>
+      {/if}
     </div>
   </div>
 {/snippet}

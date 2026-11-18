@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/sarathsp06/sparrow"
 	"github.com/sarathsp06/sparrow/internal/ai"
 	"github.com/sarathsp06/sparrow/internal/rest"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
@@ -70,6 +71,7 @@ func do(h http.Handler, method, path, body string) *httptest.ResponseRecorder {
 
 func TestCapabilities_ReflectsDrafter(t *testing.T) {
 	var caps struct {
+		Version    string `json:"version"`
 		AIDrafting struct {
 			Enabled bool   `json:"enabled"`
 			Model   string `json:"model"`
@@ -83,6 +85,9 @@ func TestCapabilities_ReflectsDrafter(t *testing.T) {
 	_ = json.Unmarshal(rec.Body.Bytes(), &caps)
 	if caps.AIDrafting.Enabled || caps.AIDrafting.Model != "" {
 		t.Fatalf("disabled server reports %+v", caps)
+	}
+	if caps.Version != sparrow.Version {
+		t.Fatalf("version = %q, want %q", caps.Version, sparrow.Version)
 	}
 
 	rec = do(aiRouter(t, &stubDrafter{}), http.MethodGet, "/v1/capabilities", "")

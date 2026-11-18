@@ -258,7 +258,11 @@ components:
         portal:
           $ref: "#/components/schemas/PortalStruct"
           description: What the consumer portal is allowed to do on this server.
+        version:
+          description: Sparrow server version, as the build embedded it (bare semver such as 1.4.0; builds without ldflags report -NOVERSION-). Also in GET /health.
+          type: string
       required:
+        - version
         - ai_drafting
         - alert_delivery
         - portal
@@ -3182,7 +3186,7 @@ paths:
   /v1/capabilities:
     get:
       description: |-
-        Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, whether alert email delivery is set up, and whether portal tokens may retry deliveries. Read-only.
+        Reports the server version and which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, whether alert email delivery is set up, and whether portal tokens may retry deliveries. Read-only.
 
         ai_drafting.enabled reflects SPARROW_AI_ENABLED=true; drafting is usable only when enabled is true and problem is absent; prompt_only is the opposite of enabled.
 

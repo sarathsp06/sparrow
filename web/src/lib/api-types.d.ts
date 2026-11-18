@@ -13,7 +13,7 @@ export interface paths {
         };
         /**
          * List optional server features
-         * @description Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, whether alert email delivery is set up, and whether portal tokens may retry deliveries. Read-only.
+         * @description Reports the server version and which optional, deployment-configured features this server offers so clients can show or hide the matching UI: AI-assisted transform template drafting, with the provider and model in use, whether alert email delivery is set up, and whether portal tokens may retry deliveries. Read-only.
          *
          *     ai_drafting.enabled reflects SPARROW_AI_ENABLED=true; drafting is usable only when enabled is true and problem is absent; prompt_only is the opposite of enabled.
          *
@@ -1583,6 +1583,8 @@ export interface components {
             alert_delivery: components["schemas"]["AlertDeliveryStruct"];
             /** @description What the consumer portal is allowed to do on this server. */
             portal: components["schemas"]["PortalStruct"];
+            /** @description Sparrow server version, as the build embedded it (bare semver such as 1.4.0; builds without ldflags report -NOVERSION-). Also in GET /health. */
+            version: string;
         };
         ConsumerHint: {
             /** @description Consumer to register the recipe under, e.g. _sparrow. */

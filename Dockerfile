@@ -18,7 +18,7 @@ COPY web/ .
 
 # Build static frontend
 # adapter-static outputs to ../internal/ui/dist (i.e. /build/internal/ui/dist)
-RUN VITE_APP_VERSION=${SEMVER} PUBLIC_API_URL=/ npm run build
+RUN PUBLIC_APP_VERSION=${SEMVER} PUBLIC_API_URL=/ npm run build
 
 # Go build stage. Also pinned to the build host; the go build below
 # cross-compiles with GOOS/GOARCH from TARGETOS/TARGETARCH.
