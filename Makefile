@@ -34,7 +34,7 @@ build-sinks: ## Build the sparrow-sinks binary for current OS/arch
 build-all: build build-cli build-sources build-sinks ## Build server, CLI, sources, and sinks binaries
 
 build-ui: ## Build the frontend for embedding in the Go binary
-	cd web && VITE_APP_VERSION=$(SEMVER) npm ci && VITE_APP_VERSION=$(SEMVER) PUBLIC_API_URL=/ npm run build
+	cd web && PUBLIC_APP_VERSION=$(SEMVER) npm ci && PUBLIC_APP_VERSION=$(SEMVER) PUBLIC_API_URL=/ npm run build
 
 build-with-ui: build-ui build ## Build frontend + server binary with embedded UI
 

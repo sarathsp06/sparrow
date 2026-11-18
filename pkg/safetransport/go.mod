@@ -1,3 +1,3 @@
 module github.com/sarathsp06/sparrow/pkg/safetransport
 
-go 1.27.3
+go 1.27.4

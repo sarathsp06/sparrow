@@ -1,6 +1,6 @@
 module github.com/sarathsp06/sparrow/satellites/sparrow
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/modelcontextprotocol/go-sdk v1.8.0
