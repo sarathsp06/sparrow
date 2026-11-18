@@ -22,7 +22,7 @@ RUN PUBLIC_APP_VERSION=${SEMVER} PUBLIC_API_URL=/ npm run build
 
 # Go build stage. Also pinned to the build host; the go build below
 # cross-compiles with GOOS/GOARCH from TARGETOS/TARGETARCH.
-FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 AS builder
 
 RUN apk add --no-cache git
 
