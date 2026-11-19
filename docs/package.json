@@ -15,7 +15,7 @@
     "@astrojs/starlight": "^0.43.1",
     "@astrojs/svelte": "^9.1.6",
     "@expressive-code/plugin-collapsible-sections": "0.44.3",
-    "@scalar/astro": "^0.4.37",
+    "@scalar/astro": "^0.4.38",
     "astro": "^7.4.12",
     "astro-mermaid": "^2.2.0",
     "astro-og-canvas": "^0.13.3",
